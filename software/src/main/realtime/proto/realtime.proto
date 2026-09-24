@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package realtime.realtime;
+
+message SubscribeRequest {
+  string channel = 1;
+  string topic = 2;
+  string user_id = 3;
+}
+
+message RealtimeEventResponse {
+  string event_id = 1;
+  string topic = 2;
+  int32 partition = 3;
+  int64 offset = 4;
+  string payload = 5;
+  int64 timestamp = 6;
+}
+
+message PublishRequest {
+  string topic = 1;
+  string key = 2;
+  string payload = 3;
+  string user_id = 4;
+}
+
+message PublishResponse {
+  bool success = 1;
+  string message = 2;
+  int64 timestamp = 3;
+}
+
+service RealtimeService {
+  rpc SubscribeEvents (SubscribeRequest) returns (stream RealtimeEventResponse);
+  rpc PublishEvent (PublishRequest) returns (PublishResponse);
+}

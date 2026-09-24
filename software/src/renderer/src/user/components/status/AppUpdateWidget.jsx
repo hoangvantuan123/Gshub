@@ -1,0 +1,397 @@
+import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  RefreshCw,
+  Download,
+  CheckCircle2,
+  AlertCircle,
+  Zap,
+  Rocket,
+  Laptop,
+  Sparkles,
+  Copy,
+  Check
+} from 'lucide-react'
+
+const AppUpdateWidget = () => {
+  const [versionInfo, setVersionInfo] = useState({
+    nativeVersion: '1.0.0',
+    uiVersion: '1.0.0',
+    isCustomBundle: false
+  })
+
+  const [state, setState] = useState({
+    status: 'idle', // 'idle' | 'checking' | 'ui-available' | 'native-available' | 'downloading' | 'ui-ready' | 'native-ready' | 'error' | 'up-to-date'
+    message: '',
+    progress: 0,
+    newUiVersion: null,
+    newNativeVersion: null,
+    releaseNotes: '',
+    nativeDownloadUrl: ''
+  })
+
+  const [isOpenPopover, setIsOpenPopover] = useState(false)
+  const [isCheckingNative, setIsCheckingNative] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const popoverRef = useRef(null)
+
+  // Đóng popover khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
+        setIsOpenPopover(false)
+      }
+    }
+    if (isOpenPopover) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpenPopover])
+
+  // Lấy thông tin phiên bản ban đầu và lắng nghe sự kiện từ Electron
+  useEffect(() => {
+    if (window.electron?.updater) {
+      window.electron.updater.getVersions().then((info) => {
+        if (info) {
+          setVersionInfo({
+            nativeVersion: info.nativeVersion || '1.0.0',
+            uiVersion: info.uiVersion || '1.0.0',
+            isCustomBundle: !!info.isCustomBundle
+          })
+          if (info.currentState) {
+            setState(info.currentState)
+          }
+        }
+      })
+
+      const unsubscribe = window.electron.updater.onStatusChanged((newState) => {
+        setState((prev) => ({ ...prev, ...newState }))
+        if (newState.uiVersion) {
+          setVersionInfo((prev) => ({ ...prev, uiVersion: newState.uiVersion }))
+        }
+      })
+
+      // Tự động kiểm tra cập nhật giao diện và phần mềm ngầm khi mở ứng dụng / đăng nhập
+      const autoCheckTimer = setTimeout(() => {
+        window.electron.updater.checkAll().catch(() => {})
+      }, 1500)
+
+      return () => {
+        clearTimeout(autoCheckTimer)
+        if (typeof unsubscribe === 'function') unsubscribe()
+      }
+    }
+  }, [])
+
+  // Nút kiểm tra phiên bản phần mềm
+  const handleCheckNative = useCallback(async () => {
+    if (!window.electron) return
+    setIsCheckingNative(true)
+    setState((prev) => ({
+      ...prev,
+      status: 'checking',
+      message: 'Đang kiểm tra bản phần mềm mới nhất...'
+    }))
+    try {
+      if (typeof window.electron.updater?.checkNative === 'function') {
+        await window.electron.updater.checkNative()
+      } else if (typeof window.electron.updater?.checkAll === 'function') {
+        await window.electron.updater.checkAll()
+      } else if (window.electron.ipcRenderer) {
+        await window.electron.ipcRenderer.invoke('updater:check-native')
+      }
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        status: 'error',
+        message: err?.message || 'Lỗi kiểm tra phần mềm'
+      }))
+    } finally {
+      setIsCheckingNative(false)
+    }
+  }, [])
+
+  // Sao chép thông báo lỗi vào clipboard
+  const handleCopyError = (textToCopy) => {
+    if (!textToCopy) return
+    navigator.clipboard
+      .writeText(textToCopy)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      })
+      .catch(() => {})
+  }
+
+  // Tải bản Full Native Update
+  const handleDownloadNative = async () => {
+    if (!window.electron) return
+    try {
+      if (typeof window.electron.updater?.downloadNative === 'function') {
+        await window.electron.updater.downloadNative()
+      } else if (window.electron.ipcRenderer) {
+        await window.electron.ipcRenderer.invoke('updater:download-native')
+      }
+    } catch (e) {
+      console.error('Download native update error:', e)
+    }
+  }
+
+  // Khởi động lại để cài đặt Native Update
+  const handleInstallNative = async () => {
+    if (!window.electron) return
+    setIsOpenPopover(false)
+    try {
+      if (typeof window.electron.updater?.installNative === 'function') {
+        await window.electron.updater.installNative()
+      } else if (window.electron.ipcRenderer) {
+        await window.electron.ipcRenderer.invoke('updater:install-native')
+      }
+    } catch (e) {
+      console.error('Install native update error:', e)
+    }
+  }
+
+  // Áp dụng Hot Update UI nếu cần
+  const handleApplyUi = async () => {
+    if (!window.electron) return
+    setIsOpenPopover(false)
+    try {
+      if (typeof window.electron.updater?.applyUiReload === 'function') {
+        await window.electron.updater.applyUiReload()
+      } else if (window.electron.ipcRenderer) {
+        await window.electron.ipcRenderer.invoke('updater:apply-ui-reload')
+      }
+    } catch (e) {
+      console.error('Apply UI reload error:', e)
+    }
+  }
+
+  // Render icon & text trạng thái ở thanh Status Bar (Chỉ text phẳng, không giật layout khi % thay đổi)
+  const renderStatusButton = () => {
+    const isDownloading = state.status === 'downloading'
+    const isNativeAvailable = state.status === 'native-available'
+    const isNativeReady = state.status === 'native-ready'
+    const isUiReady = state.status === 'ui-ready'
+
+    if (isNativeReady) {
+      return (
+        <div
+          onClick={(e) => {
+            e.stopPropagation()
+            handleInstallNative()
+          }}
+          className="flex items-center gap-1.5 px-2.5 h-full border-l border-gray-200 hover:bg-slate-50 transition-colors cursor-pointer text-slate-700 select-none normal-case font-semibold"
+          title="Bản cài đặt phần mềm đã tải xong! Bấm để cài đặt."
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+          <span className="whitespace-nowrap">Khởi động lại (v{state.newNativeVersion})</span>
+        </div>
+      )
+    }
+
+    if (isNativeAvailable) {
+      return (
+        <div
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsOpenPopover((prev) => !prev)
+          }}
+          className="flex items-center gap-1.5 px-2.5 h-full border-l border-gray-200 hover:bg-slate-50 transition-colors cursor-pointer text-slate-700 select-none normal-case font-semibold"
+          title={`Phần mềm có bản mới v${state.newNativeVersion}`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+          <span className="whitespace-nowrap">Có bản v{state.newNativeVersion}</span>
+        </div>
+      )
+    }
+
+    if (isUiReady) {
+      return (
+        <div
+          onClick={(e) => {
+            e.stopPropagation()
+            handleApplyUi()
+          }}
+          className="flex items-center gap-1.5 px-2.5 h-full border-l border-gray-200 hover:bg-slate-50 transition-colors cursor-pointer text-slate-700 select-none normal-case font-semibold"
+          title="Giao diện mới đã tải xong! Bấm để áp dụng ngay."
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+          <span className="whitespace-nowrap">Áp dụng UI</span>
+        </div>
+      )
+    }
+
+    if (isDownloading) {
+      return (
+        <div
+          onClick={() => setIsOpenPopover((prev) => !prev)}
+          className="flex items-center gap-1.5 px-2.5 h-full border-l border-gray-200 hover:bg-slate-50 transition-colors cursor-pointer text-slate-700 select-none normal-case font-semibold"
+          title="Đang tải bản cập nhật..."
+        >
+          <RefreshCw className="w-3 h-3 animate-spin text-blue-500 shrink-0" />
+          <div className="flex items-center gap-0.5 whitespace-nowrap text-xs">
+            <span>Đang tải:</span>
+            <span className="tabular-nums font-mono font-bold w-[34px] text-right inline-block text-blue-600">
+              {state.progress}%
+            </span>
+          </div>
+        </div>
+      )
+    }
+
+    // Trạng thái bình thường: Hiển thị phiên bản phần mềm
+    return (
+      <div
+        onClick={() => setIsOpenPopover((prev) => !prev)}
+        className="flex items-center gap-1.5 px-2.5 h-full border-l border-gray-200 hover:bg-slate-50 transition-colors cursor-pointer text-slate-700 select-none normal-case"
+        title="Bấm để kiểm tra bản cập nhật phần mềm"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+        <span className="font-semibold text-slate-700 normal-case whitespace-nowrap">
+          v{versionInfo.nativeVersion}
+        </span>
+      </div>
+    )
+  }
+
+  const isChecking = isCheckingNative || state.status === 'checking'
+  const isError = state.status === 'error'
+
+  return (
+    <div className="relative h-full flex items-center normal-case" ref={popoverRef}>
+      {renderStatusButton()}
+
+      {isOpenPopover && (
+        <div className="absolute bottom-7 right-0 z-50 w-[300px] bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden font-sans text-xs animate-in fade-in slide-in-from-bottom-2 duration-150 p-3 space-y-2.5 normal-case">
+          {/* Header & Nút kiểm tra phần mềm */}
+          <div className="flex items-center justify-between select-none">
+            <div className="flex items-center gap-1.5">
+              <Laptop className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <div>
+                <span className="text-gray-400 text-[9.5px] block font-medium leading-none">
+                  Phiên bản phần mềm
+                </span>
+                <span className="font-bold text-gray-800 text-[12px] leading-tight">
+                  v{versionInfo.nativeVersion}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleCheckNative}
+              disabled={isChecking || state.status === 'downloading'}
+              className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 rounded font-semibold text-[10.5px] transition-colors disabled:opacity-50"
+              title="Kiểm tra bản cập nhật phần mềm mới nhất"
+            >
+              <RefreshCw
+                className={`w-3 h-3 ${isChecking ? 'animate-spin text-blue-600' : 'text-gray-500'}`}
+              />
+              <span>Kiểm tra</span>
+            </button>
+          </div>
+
+          <div className="border-t border-gray-100" />
+
+          {/* Dòng trạng thái thông báo phần mềm (Thuần text, không khung viền tím) */}
+          <div className="text-[10.5px] text-gray-600 leading-normal">
+            <div className="flex items-start gap-1.5 font-medium">
+              <div className="pt-0.5 shrink-0">
+                {state.status === 'downloading' || isChecking ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+                ) : state.status === 'native-available' ? (
+                  <Rocket className="w-3.5 h-3.5 text-blue-600" />
+                ) : state.status === 'native-ready' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                ) : isError ? (
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0 select-text break-words">
+                <span className={isError ? 'text-rose-600' : 'text-slate-700'}>
+                  {state.newNativeVersion
+                    ? `Có bản phần mềm mới v${state.newNativeVersion}`
+                    : state.message || 'Phần mềm đang ở phiên bản mới nhất.'}
+                </span>
+
+                {/* Nút sao chép khi gặp lỗi */}
+                {isError && (
+                  <div className="pt-1 flex items-center gap-1">
+                    <button
+                      onClick={() => handleCopyError(state.message)}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-[9.5px] font-semibold transition-colors select-none"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-2.5 h-2.5 text-emerald-600" />
+                          <span>Đã sao chép!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-2.5 h-2.5 text-gray-500" />
+                          <span>Sao chép lỗi</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Progress bar khi tải phần mềm */}
+            {state.status === 'downloading' && (
+              <div className="mt-2 space-y-1">
+                <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${state.progress}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[9px] text-gray-400">
+                  <span>Đang tải...</span>
+                  <span>{state.progress}%</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Nút hành động cho Phần mềm (Native) */}
+          {state.status === 'native-available' && (
+            <button
+              onClick={handleDownloadNative}
+              className="w-full py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded font-medium text-[11px] shadow-sm transition-colors flex items-center justify-center gap-1.5 select-none"
+            >
+              <Download className="w-3 h-3" />
+              <span>Tải bản cài App v{state.newNativeVersion}</span>
+            </button>
+          )}
+
+          {state.status === 'native-ready' && (
+            <button
+              onClick={handleInstallNative}
+              className="w-full py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded font-medium text-[11px] shadow-sm transition-all flex items-center justify-center gap-1.5 select-none"
+            >
+              <Rocket className="w-3 h-3 fill-white" />
+              <span>Khởi động lại & Cài đặt</span>
+            </button>
+          )}
+
+          {/* Ghi chú thông báo tự động cập nhật UI */}
+          <div className="border-t border-gray-100 pt-2 flex items-center justify-between text-[9.5px] text-gray-400 select-none">
+            <span className="flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-500" />
+              <span>Giao diện: Tự động cập nhật khi đăng nhập</span>
+            </span>
+            <span className="font-medium text-gray-500">v{versionInfo.uiVersion}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default AppUpdateWidget

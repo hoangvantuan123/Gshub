@@ -1,0 +1,153 @@
+::-webkit-scrollbar {
+  width: 12px;
+  /* Chiều rộng của thanh cuộn dọc */
+  height: 12px;
+  /* Chiều cao của thanh cuộn ngang */
+  cursor: pointer;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  /* Màu nền của track */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #a3a3a3;
+  /* Màu thanh cuộn */
+  border: 3px solid #f1f1f1;
+  /* Viền của thanh cuộn */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #888;
+  /* Màu thanh cuộn khi hover */
+}
+
+/* Tùy chỉnh thanh cuộn ngang */
+::-webkit-scrollbar:horizontal {
+  height: 12px;
+  /* Chiều cao của thanh cuộn ngang */
+}
+
+::-webkit-scrollbar-track:horizontal {
+  background: #f1f1f1;
+  /* Màu nền của track */
+}
+
+::-webkit-scrollbar-thumb:horizontal {
+  background-color: #a3a3a3;
+  /* Màu thanh cuộn */
+  border: 3px solid #f1f1f1;
+  /* Viền thanh cuộn ngang */
+}
+
+::-webkit-scrollbar-thumb:horizontal:hover {
+  background-color: #888;
+  /* Màu thanh cuộn ngang khi hover */
+}
+
+/* Hỗ trợ Firefox */
+html {
+  scrollbar-width: thin;
+  /* Đặt độ dày thanh cuộn cho Firefox */
+  scrollbar-color: #a3a3a3 #f1f1f1;
+  /* Màu sắc thanh cuộn và track trong Firefox */
+}
+
+/* Tùy chỉnh cho tất cả các phần tử */
+* {
+  scrollbar-width: thin;
+  /* Firefox */
+  scrollbar-color: #a3a3a3 #f1f1f1;
+  /* Firefox */
+}
+
+
+.ant-menu-item,
+.ant-menu-submenu-title {
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+  height: 30px !important;
+
+  font-size: 11px !important;
+  /* giảm min-height */
+}
+
+/* Giảm kích thước icon nếu muốn */
+.ant-menu-item-icon,
+.ant-menu-submenu-arrow {
+  font-size: 16px !important;
+}
+
+/* Giảm khoảng cách giữa icon và chữ */
+.ant-menu-item>a,
+.ant-menu-submenu-title {
+  display: flex;
+  align-items: center;
+}
+
+.ant-menu-item>a>span,
+.ant-menu-submenu-title>span {
+  margin-left: 2px !important;
+}
+
+/* index.css */
+.custom-notification .ant-notification-notice {
+  padding: 6px 10px !important;
+}
+
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+
+/* styles.css hoặc trong global stylesheet */
+.ant-descriptions-bordered,
+.ant-descriptions-bordered .ant-descriptions-view {
+  border-right: none !important;
+  border-bottom: none !important;
+  border-left: none !important;
+  border-top: none !important;
+  border-radius: 0 !important;
+
+}
+
+.ant-descriptions-bordered,
+.ant-descriptions-bordered .ant-descriptions-view {
+  border-right: none !important;
+  border-bottom: none !important;
+  border-left: none !important;
+  border-top: none !important;
+  border-radius: 0 !important;
+
+}
+.ant-descriptions-bordered .ant-descriptions-item-label {
+  background-color: #f1f1f1a7!important; 
+  font-weight: bold;
+  color: #333;
+}
+
+.ant-descriptions-bordered .ant-descriptions-item-label,
+.ant-descriptions-bordered .ant-descriptions-item-content {
+  border-right: none !important;
+  border-bottom: none !important;
+  border-left: none !important;
+  border-top: none !important;
+  border-radius: 0 !important;
+
+}
+
+

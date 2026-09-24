@@ -1,0 +1,66 @@
+appId: com.gshub.app
+productName: GsHub ERP
+copyright: 'Copyright © 2026 GsHub Tuan Hoang'
+directories:
+  buildResources: build
+files:
+  - "out/main/**"
+  - "out/preload/**"
+  - "out/renderer/**"
+  - "resources/**"
+  - "templates/**"
+  - "docx/**"
+  - "!node_modules/**"
+
+asar: true
+
+asarUnpack:
+  - resources/**
+  - templates/**
+  - docx/**
+win:
+  executableName: GsHub ERP
+  requestedExecutionLevel: asInvoker
+  icon: build/icon.ico
+  # certificateFile: "certs/windows-cert.pfx"
+  # certificatePassword: ${env.WIN_CSC_KEY_PASSWORD}
+  
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+  oneClick: true
+  perMachine: false
+  allowElevation: true
+  deleteAppDataOnUninstall: false
+mac:
+  category: public.app-category.utilities
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  extendInfo:
+    - NSCameraUsageDescription: Application requests access to the device's camera.
+    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  notarize: false # Đổi thành true khi bạn cấu hình APPLE_ID và APPLE_APP_SPECIFIC_PASSWORD
+  # identity: 'Developer ID Application: Your Company (TEAM_ID)'
+dmg:
+  artifactName: ${name}-${version}.${ext}
+linux:
+  target:
+    - AppImage
+    - snap
+    - deb
+  maintainer: electronjs.org
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false
+publish:
+  provider: github
+  owner: hoangvantuan123
+  repo: gshub-releases
+  releaseType: release

@@ -16,7 +16,8 @@ export const pageLoaders = {
   DictSys: () => import('../../page/dict/dictSys'),
   LangSys: () => import('../../page/dict/langSys'),
   SettingPrivate: () => import('../../page/private/setting'),
-  OrderSettlement: () => import('../../page/production/orderSettlement')
+  OrderSettlement: () => import('../../page/production/orderSettlement'),
+  WorkProcess: () => import('../../page/production/workProcess')
 }
 
 const UserManagement = lazy(pageLoaders.UserManagement)
@@ -34,6 +35,7 @@ const DictSys = lazy(pageLoaders.DictSys)
 const LangSys = lazy(pageLoaders.LangSys)
 const SettingPrivate = lazy(pageLoaders.SettingPrivate)
 const OrderSettlement = lazy(pageLoaders.OrderSettlement)
+const WorkProcess = lazy(pageLoaders.WorkProcess)
 
 const PermResourcePage = (props) => <PermResource {...props} defaultTab="perm_resource" />
 
@@ -75,7 +77,8 @@ export const routeToLoaderMap = {
   '/erp/u/system-settings/dictionaries/entries': pageLoaders.DictSys,
   '/erp/u/system/dictionary': pageLoaders.DictSys,
   '/erp/u/setting': pageLoaders.SettingPrivate,
-  '/erp/u/production/order-settlement': pageLoaders.OrderSettlement
+  '/erp/u/production/order-settlement': pageLoaders.OrderSettlement,
+  '/erp/u/production/work-process': pageLoaders.WorkProcess
 }
 
 export const preloadRoute = (path) => {
@@ -449,8 +452,22 @@ export const systemsRoutes = [
   },
 
   // =========================================================================
-  // 8. QUẢN LÝ SẢN XUẤT (production_mgmt, order_settlement)
+  // 8. QUẢN LÝ SẢN XUẤT (production_mgmt, order_settlement, work_process)
   // =========================================================================
+  {
+    path: '/erp/u/production/work-process',
+    element: WorkProcess,
+    permission: 'production_work_process',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/work-process/*',
+    element: WorkProcess,
+    permission: 'production_work_process',
+    public: true,
+    fallback: DefaultPage
+  },
   {
     path: '/erp/u/production/order-settlement',
     element: OrderSettlement,

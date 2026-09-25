@@ -11,6 +11,7 @@ import (
 func SetupRouter(
 	loginHandler *handlers.LoginHandler,
 	configHandler *handlers.ConfigHandler,
+	workProcessHandler *handlers.WorkProcessHandler,
 	healthHandler *handlers.HealthHandler,
 	logger *zap.Logger,
 ) *gin.Engine {
@@ -48,6 +49,26 @@ func SetupRouter(
 		{
 			dataHub.POST("/proxy", loginHandler.ProxyForward)
 			dataHub.GET("/logs", loginHandler.GetLogs)
+		}
+
+		// 4. Lệnh Công Đoạn (WorkProcess - 3-step Aggregated API)
+		workProcess := api.Group("/work-process")
+		{
+			workProcess.GET("", workProcessHandler.GetWorkProcessByQuery)
+			workProcess.POST("", workProcessHandler.GetWorkProcess)
+			workProcess.GET("/steps", workProcessHandler.GetWorkProcessStepsByQuery)
+			workProcess.POST("/steps", workProcessHandler.GetWorkProcessSteps)
+			workProcess.GET("/:doc_no", workProcessHandler.GetWorkProcessByDocNo)
+		}
+
+		// Vietnamese alias route
+		lenhCongDoan := api.Group("/lenh-cong-doan")
+		{
+			lenhCongDoan.GET("", workProcessHandler.GetWorkProcessByQuery)
+			lenhCongDoan.POST("", workProcessHandler.GetWorkProcess)
+			lenhCongDoan.GET("/steps", workProcessHandler.GetWorkProcessStepsByQuery)
+			lenhCongDoan.POST("/steps", workProcessHandler.GetWorkProcessSteps)
+			lenhCongDoan.GET("/:doc_no", workProcessHandler.GetWorkProcessByDocNo)
 		}
 	}
 

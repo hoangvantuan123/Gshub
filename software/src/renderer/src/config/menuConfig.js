@@ -116,6 +116,19 @@ export const DEFAULT_SETTING_ITEMS = [
     OrderSeq: 2
   },
   {
+    Id: 'menu_production_work_process',
+    MenuKey: 'production_work_process',
+    MenuSubRootId: 'sub_production_mgmt',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Lệnh công đoạn',
+    MenuLink: '/erp/u/production/work-process',
+    MenuType: 'menu',
+    Icon: 'Workflow',
+    MenuIcon: 'Workflow',
+    View: true,
+    OrderSeq: 1
+  },
+  {
     Id: 'menu_production_settlement',
     MenuKey: 'production_order_settlement',
     MenuSubRootId: 'sub_production_mgmt',
@@ -126,11 +139,24 @@ export const DEFAULT_SETTING_ITEMS = [
     Icon: 'ReconciliationOutlined',
     MenuIcon: 'ReconciliationOutlined',
     View: true,
-    OrderSeq: 1
+    OrderSeq: 2
   }
 ]
 
 export const DEFAULT_MENU_ITEMS = [
+  {
+    Id: 'item_production_work_process_all',
+    MenuKey: 'work_process_overview',
+    MenuId: 'menu_production_work_process',
+    MenuSubRootId: 'menu_production_work_process',
+    MenuLabel: 'Tra cứu lệnh công đoạn',
+    MenuLink: '/erp/u/production/work-process',
+    MenuType: 'menuitem',
+    Icon: 'ApartmentOutlined',
+    MenuIcon: 'ApartmentOutlined',
+    View: true,
+    OrderSeq: 1
+  },
   {
     Id: 'item_production_settlement_all',
     MenuKey: 'settlement_overview',
@@ -142,7 +168,7 @@ export const DEFAULT_MENU_ITEMS = [
     Icon: 'TableOutlined',
     MenuIcon: 'TableOutlined',
     View: true,
-    OrderSeq: 1
+    OrderSeq: 2
   }
 ]
 

@@ -90,6 +90,9 @@ export const iconComponents = {
   FolderOutlined: Folder,
   BookOutlined: BookOpen,
   UserSwitchOutlined: UserCheck,
+  ApartmentOutlined: Workflow,
+  BranchesOutlined: Network,
+  WorkflowOutlined: Workflow,
 
   // Direct Lucide names
   Package,

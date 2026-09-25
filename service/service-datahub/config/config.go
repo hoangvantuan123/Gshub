@@ -16,8 +16,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port string
-	Env  string
+	Port     string
+	GRPCPort string
+	Env      string
 }
 
 type DBConfig struct {
@@ -70,8 +71,9 @@ func LoadConfig() (*Config, error) {
 
 	cfg := &Config{
 		Server: ServerConfig{
-			Port: getEnv("PORT", "8080"),
-			Env:  getEnv("APP_ENV", "development"),
+			Port:     getEnv("PORT", "8080"),
+			GRPCPort: getEnv("GRPC_PORT", "50057"),
+			Env:      getEnv("APP_ENV", "development"),
 		},
 		DB: DBConfig{
 			Host:               getEnv("DB_HOST", "127.0.0.1"),

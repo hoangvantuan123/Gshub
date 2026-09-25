@@ -1,0 +1,202 @@
+syntax = "proto3";
+
+package datahub;
+
+option go_package = "service-datahub/pb/datahub";
+
+// ==========================================
+// 1. Auth & Session Messages
+// ==========================================
+
+message LoginProtoRequest {
+  string username = 1;
+  string password = 2;
+  string config_key = 3;
+}
+
+message TokenSessionProto {
+  uint32 id = 1;
+  string config_key = 2;
+  string username = 3;
+  string access_token = 4;
+  string token_type = 5;
+  string refresh_token = 6;
+  int64 expires_in = 7;
+  string expires_at = 8;
+  string scope = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message LoginProtoResponse {
+  bool success = 1;
+  string config_key = 2;
+  string username = 3;
+  string access_token = 4;
+  string token_type = 5;
+  int64 expires_in = 6;
+  string expires_at = 7;
+  string scope = 8;
+  TokenSessionProto session = 9;
+  string error_message = 10;
+}
+
+message SessionProtoRequest {
+  string config_key = 1;
+  string username = 2;
+}
+
+message SessionProtoResponse {
+  bool success = 1;
+  TokenSessionProto session = 2;
+  string error_message = 3;
+}
+
+// ==========================================
+// 2. Dynamic ERP Configurations Messages
+// ==========================================
+
+message ErpConfigProto {
+  string config_key = 1;
+  string config_name = 2;
+  string provider = 3;
+  string auth_url = 4;
+  string base_api_url = 5;
+  string referer = 6;
+  string client_id = 7;
+  string client_secret = 8;
+  string device_code = 9;
+  string connection_name = 10;
+  string grant_type = 11;
+  string scope = 12;
+  bool insecure_skip_verify = 13;
+  string extra_params = 14;
+  bool is_active = 15;
+  string created_at = 16;
+  string updated_at = 17;
+}
+
+message GetConfigsProtoRequest {}
+
+message GetConfigsProtoResponse {
+  bool success = 1;
+  repeated ErpConfigProto configs = 2;
+  string error_message = 3;
+}
+
+message SaveConfigProtoRequest {
+  ErpConfigProto config = 1;
+}
+
+message SaveConfigProtoResponse {
+  bool success = 1;
+  string message = 2;
+  ErpConfigProto config = 3;
+  string error_message = 4;
+}
+
+message DeleteConfigProtoRequest {
+  string config_key = 1;
+}
+
+message DeleteConfigProtoResponse {
+  bool success = 1;
+  string message = 2;
+  string error_message = 3;
+}
+
+// ==========================================
+// 3. Ultra Fast Proxy & Streaming Messages
+// ==========================================
+
+message ProxyProtoRequest {
+  string config_key = 1;
+  string username = 2;
+  string method = 3;
+  string path = 4;
+  map<string, string> headers = 5;
+  map<string, string> params = 6;
+  string body_json = 7;
+  bytes body_raw = 8;
+}
+
+message ProxyProtoResponse {
+  bool success = 1;
+  int32 status_code = 2;
+  int64 latency_ms = 3;
+  string trace_id = 4;
+  string data_json = 5;
+  bytes data_raw = 6;
+  string error_message = 7;
+}
+
+// ==========================================
+// 4. Audit Trail Messages
+// ==========================================
+
+message AuditLogsProtoRequest {
+  string config_key = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message AuditLogProto {
+  uint32 id = 1;
+  string trace_id = 2;
+  string config_key = 3;
+  string username = 4;
+  string method = 5;
+  string endpoint = 6;
+  string target_url = 7;
+  int32 status_code = 8;
+  int64 latency_ms = 9;
+  string client_ip = 10;
+  string user_agent = 11;
+  string request_payload = 12;
+  string response_brief = 13;
+  string error_message = 14;
+  string created_at = 15;
+}
+
+message AuditLogsProtoResponse {
+  bool success = 1;
+  repeated AuditLogProto logs = 2;
+  int64 total = 3;
+  string error_message = 4;
+}
+
+// ==========================================
+// 5. Health Check Messages
+// ==========================================
+
+message HealthProtoRequest {}
+
+message HealthProtoResponse {
+  string status = 1;
+  string version = 2;
+  int64 uptime_seconds = 3;
+  bool db_connected = 4;
+}
+
+// ==========================================
+// DataHub gRPC Service Definition
+// ==========================================
+
+service DataHubService {
+  // Authentication & Session
+  rpc Login (LoginProtoRequest) returns (LoginProtoResponse);
+  rpc GetSession (SessionProtoRequest) returns (SessionProtoResponse);
+
+  // Dynamic ERP Configurations
+  rpc GetAllConfigs (GetConfigsProtoRequest) returns (GetConfigsProtoResponse);
+  rpc SaveConfig (SaveConfigProtoRequest) returns (SaveConfigProtoResponse);
+  rpc DeleteConfig (DeleteConfigProtoRequest) returns (DeleteConfigProtoResponse);
+
+  // High-Throughput Proxy
+  rpc ProxyForward (ProxyProtoRequest) returns (ProxyProtoResponse);
+  rpc StreamProxy (stream ProxyProtoRequest) returns (stream ProxyProtoResponse);
+
+  // Audit Logs & Health
+  rpc GetAuditLogs (AuditLogsProtoRequest) returns (AuditLogsProtoResponse);
+  rpc HealthCheck (HealthProtoRequest) returns (HealthProtoResponse);
+}

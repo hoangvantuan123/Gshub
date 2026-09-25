@@ -1,6 +1,17 @@
-# SysCore DataHub Service
+# SysCore DataHub Service (Dual Engine: REST + Protobuf / gRPC)
 
-Dịch vụ Backend trung gian kết nối và xác thực động giữa Frontend (FE) và hệ thống ERP bên ngoài (Bravo ERP, etc.), tích hợp cơ sở dữ liệu **PostgreSQL (`DATAHUB`)** để lưu trữ cấu hình địa chỉ/tham số, phiên token và nhật ký truy vết (`AuditLog`).
+Dịch vụ Backend trung gian hiệu năng cao kết nối và xác thực động giữa Frontend (FE) / Desktop App và hệ thống ERP bên ngoài (Bravo ERP, etc.), tích hợp cơ sở dữ liệu **PostgreSQL (`DATAHUB`)** để lưu trữ cấu hình địa chỉ/tham số, phiên token và nhật ký truy vết (`AuditLog`).
+
+---
+
+## ⚡ Kiến Trúc Đa Giao Thức (Dual Engine)
+
+1. **Protobuf / gRPC Engine (Port: `50057`)**:
+   - Sử dụng **Protocol Buffers v3 binary wire format** giúp tối ưu hóa serialize/deserialize, giảm dung lượng truyền tải mạng 60% – 80%.
+   - Chạy trên **HTTP/2 Multiplexing**: Hàng nghìn request song song trên 1 TCP socket duy nhất, loại bỏ hoàn toàn độ trễ mở kết nối liên tục.
+   - Hỗ trợ **Bi-directional Streaming (`StreamProxy`)** cho các tác vụ chuyển tiếp dữ liệu lớn đồng thời.
+2. **REST JSON Engine (Port: `8080`)**:
+   - Tương thích ngược với các web browser và HTTP clients truyền thống.
 
 ---
 
@@ -12,87 +23,45 @@ Dịch vụ Backend trung gian kết nối và xác thực động giữa Fronte
 
 ---
 
-## 2. Danh Sách API Endpoints Cho Frontend (FE)
+## 2. Protobuf / gRPC API (`proto/datahub.proto`)
 
-### 2.1. Đăng nhập (Auth & Login)
+- **Package**: `datahub`
+- **Service**: `DataHubService`
+
+| RPC Method | Input Type | Output Type | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `Login` | `LoginProtoRequest` | `LoginProtoResponse` | Đăng nhập ERP, lưu token session |
+| `GetSession` | `SessionProtoRequest` | `SessionProtoResponse` | Lấy phiên token đang hoạt động |
+| `GetAllConfigs` | `GetConfigsProtoRequest` | `GetConfigsProtoResponse` | Lấy danh sách cấu hình ERP |
+| `SaveConfig` | `SaveConfigProtoRequest` | `SaveConfigProtoResponse` | Tạo mới/cập nhật cấu hình |
+| `DeleteConfig` | `DeleteConfigProtoRequest` | `DeleteConfigProtoResponse` | Xóa cấu hình theo key |
+| `ProxyForward` | `ProxyProtoRequest` | `ProxyProtoResponse` | Forward request sang ERP cực nhanh |
+| `StreamProxy` | `stream ProxyProtoRequest` | `stream ProxyProtoResponse` | Stream proxy song song 2 chiều |
+| `GetAuditLogs` | `AuditLogsProtoRequest` | `AuditLogsProtoResponse` | Tra cứu lịch sử truy vết |
+| `HealthCheck` | `HealthProtoRequest` | `HealthProtoResponse` | Kiểm tra tình trạng server & DB |
+
+---
+
+## 3. Danh Sách REST Endpoints (Port `8080`)
+
+### 3.1. Đăng nhập (Auth & Login)
 - **`POST /api/v1/auth/login`**
-  - **Mục đích**: FE gửi thông tin đăng nhập, server đọc cấu hình từ `ErpConfig` trong DB `DATAHUB` và chuyển tiếp xác thực sang ERP.
-  - **Body Payload**:
-    ```json
-    {
-      "username": "IT_TUANHV",
-      "password": "Tuan3112@",
-      "config_key": "BravoDefault"
-    }
-    ```
-  - **Response (200 OK)**:
-    ```json
-    {
-      "success": true,
-      "message": "Authentication successful",
-      "data": {
-        "success": true,
-        "config_key": "BravoDefault",
-        "username": "IT_TUANHV",
-        "access_token": "eyJhbGciOi...",
-        "token_type": "Bearer",
-        "expires_in": 3600,
-        "expires_at": "2026-09-24T19:54:00Z"
-      }
-    }
-    ```
-
 - **`GET /api/v1/auth/session?config_key=BravoDefault&username=IT_TUANHV`**
-  - **Mục đích**: Kiểm tra xem phiên token của user này có còn hiệu lực trong database hay không.
+
+### 3.2. Quản lý Cấu hình Kết nối ERP (`ErpConfig`)
+- **`GET /api/v1/configs`**
+- **`GET /api/v1/configs/:key`**
+- **`POST /api/v1/configs`**
+- **`DELETE /api/v1/configs/:key`**
+
+### 3.3. Proxy Chuyển Tiếp & Audit Logs
+- **`POST /api/v1/datahub/proxy`**
+- **`GET /api/v1/datahub/logs?limit=50&offset=0`**
+- **`GET /health`**
 
 ---
 
-### 2.2. Quản lý Cấu hình Kết nối ERP (`ErpConfig`)
-- **`GET /api/v1/configs`**: Lấy danh sách tất cả các cấu hình hệ thống đang có.
-- **`GET /api/v1/configs/:key`**: Xem chi tiết 1 cấu hình theo key (vd: `/api/v1/configs/BravoDefault`).
-- **`POST /api/v1/configs`**: Tạo mới hoặc cập nhật thông số cấu hình ERP từ FE.
-  ```json
-  {
-    "config_key": "BravoDefault",
-    "config_name": "Bravo ERP Goldsun Packaging",
-    "provider": "Bravo",
-    "auth_url": "https://bravo.goldsunpackaging.vn:5051/fa837234b0b27bc02365a940995bdc24",
-    "base_api_url": "https://bravo.goldsunpackaging.vn:5051",
-    "referer": "https://bravo.goldsunpackaging.vn:5052/",
-    "client_id": "c52bd596-07ff-4329-a640-67f41a51a90e",
-    "client_secret": "DC86276E4BF54018BE9EC05650681914",
-    "device_code": "45fd8c9a3974fe45589811c5dfbc2fef",
-    "connection_name": "Default",
-    "grant_type": "password",
-    "scope": "ApiGateway offline_access",
-    "insecure_skip_verify": true,
-    "is_active": true
-  }
-  ```
-- **`DELETE /api/v1/configs/:key`**: Xóa một cấu hình.
-
----
-
-### 2.3. Proxy Chuyển Tiếp & Audit Logs
-- **`POST /api/v1/datahub/proxy`**: Chuyển tiếp request bất kỳ sang ERP đích bằng token đã login.
-  ```json
-  {
-    "config_key": "BravoDefault",
-    "username": "IT_TUANHV",
-    "method": "GET",
-    "path": "/api/v1/orders",
-    "params": {
-      "page": "1",
-      "limit": "20"
-    }
-  }
-  ```
-- **`GET /api/v1/datahub/logs?limit=50&offset=0`**: Tra cứu danh sách nhật ký Audit Log.
-- **`GET /health`**: Kiểm tra trạng thái máy chủ và kết nối PostgreSQL.
-
----
-
-## 3. Cách Khởi Động Server
+## 4. Cách Khởi Động Server
 
 ```powershell
 # Chạy trực tiếp từ mã nguồn

@@ -767,14 +767,8 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                                 className="flex w-full items-center justify-between rounded-[3px] px-2 py-1.5 text-left text-[12.5px] font-medium text-slate-700 hover:bg-slate-200/60 hover:text-slate-900 transition-colors duration-150 cursor-pointer group"
                               >
                                 <span className="flex items-center gap-2 min-w-0">
-                                  <span className="text-slate-400 group-hover:text-slate-800 shrink-0 transition-colors flex items-center">
-                                    {getMenuIcon(
-                                      item?.MenuIcon ||
-                                        item?.Icon ||
-                                        (isOpen ? 'FolderOpenOutlined' : 'FolderOutlined'),
-                                      '',
-                                      15
-                                    )}
+                                  <span className="text-amber-500/90 group-hover:text-amber-600 shrink-0 transition-colors flex items-center">
+                                    {isOpen ? <FolderOpen size={15} /> : <Folder size={15} />}
                                   </span>
                                   <span className="text-[12.5px] font-medium tracking-normal truncate leading-normal">
                                     {t(item?.MenuLabel)}
@@ -811,15 +805,11 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                                               className="flex w-full items-center justify-between rounded-[3px] px-2 py-1.5 text-left text-xs font-medium text-slate-600 hover:bg-slate-200/60 hover:text-slate-900 transition-colors duration-150 cursor-pointer group"
                                             >
                                               <span className="flex items-center gap-2 min-w-0">
-                                                <span className="text-slate-400 group-hover:text-slate-800 shrink-0 transition-colors flex items-center">
-                                                  {getMenuIcon(
-                                                    subItem?.MenuIcon ||
-                                                      subItem?.Icon ||
-                                                      (isSubOpen
-                                                        ? 'FolderOpenOutlined'
-                                                        : 'FolderOutlined'),
-                                                    '',
-                                                    14
+                                                <span className="text-amber-500/90 group-hover:text-amber-600 shrink-0 transition-colors flex items-center">
+                                                  {isSubOpen ? (
+                                                    <FolderOpen size={14} />
+                                                  ) : (
+                                                    <Folder size={14} />
                                                   )}
                                                 </span>
                                                 <span className="text-xs truncate leading-normal tracking-normal">
@@ -846,10 +836,6 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                                                       (mItem.MenuLink &&
                                                         location.pathname === mItem.MenuLink)
 
-                                                    const hasCustomIcon = Boolean(
-                                                      mItem?.MenuIcon || mItem?.Icon
-                                                    )
-
                                                     return (
                                                       <a
                                                         key={mItem.MenuKey || mItem.Id}
@@ -864,31 +850,12 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                                                             mItem.MenuKey || mItem.Id
                                                           )
                                                         }}
-                                                        className={`flex w-full items-center gap-2 rounded-[3px] px-2 py-1.5 text-xs leading-normal transition-colors duration-150 cursor-pointer font-medium ${
+                                                        className={`flex w-full items-center rounded-[3px] px-2 py-1.5 text-xs leading-normal transition-colors duration-150 cursor-pointer font-medium ${
                                                           isItemActive
                                                             ? 'bg-slate-200/90 text-slate-900 font-semibold'
                                                             : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                                                         }`}
                                                       >
-                                                        {hasCustomIcon ? (
-                                                          <span className="shrink-0 flex items-center">
-                                                            {getMenuIcon(
-                                                              mItem.MenuIcon || mItem.Icon,
-                                                              isItemActive
-                                                                ? 'text-slate-900'
-                                                                : 'text-slate-400',
-                                                              13
-                                                            )}
-                                                          </span>
-                                                        ) : (
-                                                          <span
-                                                            className={`size-1.5 rounded-[1px] shrink-0 ${
-                                                              isItemActive
-                                                                ? 'bg-slate-800'
-                                                                : 'bg-slate-300'
-                                                            }`}
-                                                          />
-                                                        )}
                                                         <span className="text-xs truncate leading-normal tracking-normal min-w-0">
                                                           {t(mItem.MenuLabel)}
                                                         </span>
@@ -906,10 +873,6 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                                         currentAction === (subItem.MenuKey || subItem.Id) ||
                                         (subItem.MenuLink && location.pathname === subItem.MenuLink)
 
-                                      const hasCustomSubIcon = Boolean(
-                                        subItem?.MenuIcon || subItem?.Icon
-                                      )
-
                                       return (
                                         <a
                                           key={subItem.MenuKey || subItem.Id}
@@ -922,27 +885,12 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                                               subItem.MenuKey || subItem.Id
                                             )
                                           }}
-                                          className={`flex w-full items-center gap-2 rounded-[3px] px-2 py-1.5 text-xs leading-normal transition-colors duration-150 cursor-pointer font-medium ${
+                                          className={`flex w-full items-center rounded-[3px] px-2 py-1.5 text-xs leading-normal transition-colors duration-150 cursor-pointer font-medium ${
                                             isSubActive
                                               ? 'bg-slate-200/90 text-slate-900 font-semibold'
                                               : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                                           }`}
                                         >
-                                          {hasCustomSubIcon ? (
-                                            <span className="shrink-0 flex items-center">
-                                              {getMenuIcon(
-                                                subItem.MenuIcon || subItem.Icon,
-                                                isSubActive ? 'text-slate-900' : 'text-slate-400',
-                                                14
-                                              )}
-                                            </span>
-                                          ) : (
-                                            <span
-                                              className={`size-1.5 rounded-[1px] shrink-0 ${
-                                                isSubActive ? 'bg-slate-800' : 'bg-slate-300'
-                                              }`}
-                                            />
-                                          )}
                                           <span className="text-xs truncate leading-normal tracking-normal min-w-0">
                                             {t(subItem.MenuLabel)}
                                           </span>
@@ -961,8 +909,6 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                             currentAction === item.Id ||
                             (item.MenuLink && location.pathname === item.MenuLink)
 
-                          const hasCustomMenuIcon = Boolean(item?.MenuIcon || item?.Icon)
-
                           return (
                             <a
                               key={item.Id}
@@ -971,23 +917,12 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                               onClick={(e) => {
                                 handleSafeClick(e, item.MenuLink, item.Id)
                               }}
-                              className={`flex w-full items-center gap-2.5 rounded-[3px] px-2.5 py-2 text-xs leading-normal transition-colors duration-150 cursor-pointer font-medium ${
+                              className={`flex w-full items-center rounded-[3px] px-2.5 py-2 text-xs leading-normal transition-colors duration-150 cursor-pointer font-medium ${
                                 isMenuActive
                                   ? 'bg-slate-200/90 text-slate-900 font-semibold'
                                   : 'text-slate-700 hover:bg-slate-200/60 hover:text-slate-900'
                               }`}
                             >
-                              {hasCustomMenuIcon ? (
-                                <span className="shrink-0 flex items-center">
-                                  {getMenuIcon(
-                                    item.MenuIcon || item.Icon,
-                                    isMenuActive ? 'text-slate-900' : 'text-slate-400',
-                                    15
-                                  )}
-                                </span>
-                              ) : (
-                                <Folder size={15} className="text-slate-400 shrink-0" />
-                              )}
                               <span className="font-medium tracking-normal text-xs truncate leading-normal min-w-0">
                                 {t(item.MenuLabel)}
                               </span>

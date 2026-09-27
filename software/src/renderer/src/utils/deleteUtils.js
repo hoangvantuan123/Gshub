@@ -22,9 +22,7 @@ export const deleteDataSheet = async (
       return row[idKey]
     })
 
-  const rowsWithStatusA = selectedRows.filter(
-    (row) => (row.WorkingTag || row.Status) === 'A'
-  )
+  const rowsWithStatusA = selectedRows.filter((row) => (row.WorkingTag || row.Status) === 'A')
   let deleteResult = { success: true, message: '' }
 
   if (idsWithStatusD.length === 0 && rowsWithStatusA.length === 0) {
@@ -108,9 +106,7 @@ export const removeSelectedRows = async (
       return { Id: row.Id, IdxNo: row.IdxNo, IdRow: row.IdRow, IdSeq: row.IdSeq }
     })
 
-  const rowsWithStatusA = selectedRows.filter(
-    (row) => (row.WorkingTag || row.Status) === 'A'
-  )
+  const rowsWithStatusA = selectedRows.filter((row) => (row.WorkingTag || row.Status) === 'A')
   let deleteResult = { success: true, message: '' }
 
   if (idsWithStatusD.length === 0 && rowsWithStatusA.length === 0) {
@@ -169,9 +165,7 @@ export const removeSelectedRows = async (
 export const removeStatusA = async (getSelectedRowsFn, data, setData, setNumRows, resetTable) => {
   const selectedRows = getSelectedRowsFn()
 
-  const rowsWithStatusA = selectedRows.filter(
-    (row) => (row.WorkingTag || row.Status) === 'A'
-  )
+  const rowsWithStatusA = selectedRows.filter((row) => (row.WorkingTag || row.Status) === 'A')
 
   if (rowsWithStatusA.length === 0) {
     return null

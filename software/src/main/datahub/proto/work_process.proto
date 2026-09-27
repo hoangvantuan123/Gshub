@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package datahub;
+
+option go_package = "service-datahub/pb/datahub";
+
+// ==========================================
+// 3. Work Process (Lệnh Công Đoạn) Messages
+// ==========================================
+
+message WorkProcessProtoRequest {
+  string doc_no = 1;
+  string stage_order_no = 2;
+  string work_process_code = 3;
+  string product_type_name = 4;
+  string item_code = 5;
+  repeated string item_codes = 6;
+  string item_name = 7;
+  repeated string item_names = 8;
+  string unit = 9;
+  string customer_name = 10;
+  string factory_name = 11;
+  string description = 12;
+  string branch_code = 13;
+  string fiscal_year = 14;
+  int32 page = 15;
+  int32 page_size = 16;
+  bool fetch_steps = 17;
+  bool include_raw = 18;
+  string config_key = 19;
+  string menu_key = 20;
+  string api_key = 21;
+  string username = 22;
+  string column_filters_json = 23;
+  string raw_sse_json = 24;
+}
+
+message WorkProcessProtoResponse {
+  bool success = 1;
+  string message = 2;
+  string data_json = 3;
+  int64 total_records = 4;
+  int64 latency_ms = 5;
+  string error_message = 6;
+}
+
+// ==========================================
+// Factory (Danh mục Nhà máy) Messages
+// ==========================================
+
+message FactoryProtoRequest {
+  string config_key = 1;
+  string menu_key = 2;
+  string api_key = 3;
+  string username = 4;
+  string branch_code = 5;
+  string fiscal_year = 6;
+  string endpoint = 7;
+}
+
+message FactoryItemProto {
+  int64 id = 1;
+  int64 parent_id = 2;
+  string factory_name = 3;
+  string factory_code = 4;
+  string branch_code = 5;
+}
+
+message FactoryProtoResponse {
+  bool success = 1;
+  string message = 2;
+  repeated FactoryItemProto factories = 3;
+  string data_json = 4;
+  string error_message = 5;
+}

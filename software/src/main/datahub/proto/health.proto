@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package datahub;
+
+option go_package = "service-datahub/pb/datahub";
+
+// ==========================================
+// 6. Health Check Messages
+// ==========================================
+
+message HealthProtoRequest {}
+
+message HealthProtoResponse {
+  string status = 1;
+  string version = 2;
+  int64 uptime_seconds = 3;
+  bool db_connected = 4;
+}

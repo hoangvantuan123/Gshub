@@ -64,12 +64,9 @@ export const filterConfigurableColumns = (defaultCols) => {
 export const ensureWorkingTagFirstColumn = (cols = [], defaultCols = []) => {
   const cleanCols = (cols || []).filter(
     (col) =>
-      !SYSTEM_INTERNAL_HIDDEN_COLUMNS.has(col.id) &&
-      col.id !== 'WorkingTag' &&
-      col.id !== 'Status'
+      !SYSTEM_INTERNAL_HIDDEN_COLUMNS.has(col.id) && col.id !== 'WorkingTag' && col.id !== 'Status'
   )
-  const workingTagCol =
-    (cols || []).find((c) => c.id === 'WorkingTag') ||
+  const workingTagCol = (cols || []).find((c) => c.id === 'WorkingTag') ||
     (defaultCols || []).find((c) => c.id === 'WorkingTag') ||
     (cols || []).find((c) => c.id === 'Status') ||
     (defaultCols || []).find((c) => c.id === 'Status') || {

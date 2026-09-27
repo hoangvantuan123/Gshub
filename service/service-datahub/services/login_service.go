@@ -247,6 +247,7 @@ func (s *LoginService) Login(ctx context.Context, clientIP, userAgent string, re
 		ConfigKey:    configKey,
 		Username:     req.Username,
 		AccessToken:  tokenResp.AccessToken,
+		RefreshToken: tokenResp.RefreshToken,
 		TokenType:    tokenResp.TokenType,
 		ExpiresIn:    expiresIn,
 		ExpiresAt:    expiresAt.Format(time.RFC3339),

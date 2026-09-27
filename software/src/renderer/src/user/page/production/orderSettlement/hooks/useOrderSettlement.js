@@ -12,6 +12,7 @@ import {
   flattenDynamicTree,
   getAllGroupKeys
 } from '../mock/mockSettlementData'
+import { queryOrderSettlement } from '../../../../../api/production/orderSettlementApi'
 
 export function useOrderSettlement({
   canCreate = true,
@@ -30,17 +31,21 @@ export function useOrderSettlement({
   const [operationCode, setOperationCode] = useState('')
   const [status, setStatus] = useState('')
   const [dynamicQueryFields, setDynamicQueryFields] = useState([])
+  const [loading, setLoading] = useState(false)
 
   // 2. Dynamic Grouping State (Group by any column key, e.g. 'StageOrderNo', 'ItemCode', or null for flat view)
   const [groupByColumn, setGroupByColumn] = useState('StageOrderNo')
   const [rawFlatData, setRawFlatData] = useState(MOCK_SETTLEMENT_FLAT_DATA)
-  
+
   // Tree & Expanded groups (mặc định mở full toàn bộ)
   const treeData = useMemo(() => {
     return buildDynamicGroupedTree(rawFlatData, 'StageOrderNo')
   }, [rawFlatData])
 
-  const [expandedIds, setExpandedIds] = useState(() => new Set(getAllGroupKeys(buildDynamicGroupedTree(MOCK_SETTLEMENT_FLAT_DATA, 'StageOrderNo'))))
+  const [expandedIds, setExpandedIds] = useState(
+    () =>
+      new Set(getAllGroupKeys(buildDynamicGroupedTree(MOCK_SETTLEMENT_FLAT_DATA, 'StageOrderNo')))
+  )
 
   // 3. Grid Columns & Display Data
   const defaultCols = useOrderSettlementColumns()
@@ -109,21 +114,24 @@ export function useOrderSettlement({
   }, [selectedRowIndex, gridData])
 
   // Query Field Handlers
-  const handleAddQueryField = useCallback((fieldKey, fieldTitle, activeCol, source, sourceTitle) => {
-    setDynamicQueryFields((prev) => {
-      if (prev.some((f) => f.key === fieldKey)) return prev
-      return [
-        ...prev,
-        {
-          key: fieldKey,
-          label: fieldTitle || fieldKey,
-          value: '',
-          source: source || 'settlement',
-          sourceTitle: sourceTitle || 'Quyết toán'
-        }
-      ]
-    })
-  }, [])
+  const handleAddQueryField = useCallback(
+    (fieldKey, fieldTitle, activeCol, source, sourceTitle) => {
+      setDynamicQueryFields((prev) => {
+        if (prev.some((f) => f.key === fieldKey)) return prev
+        return [
+          ...prev,
+          {
+            key: fieldKey,
+            label: fieldTitle || fieldKey,
+            value: '',
+            source: source || 'settlement',
+            sourceTitle: sourceTitle || 'Quyết toán'
+          }
+        ]
+      })
+    },
+    []
+  )
 
   const handleRemoveQueryField = useCallback((fieldKey) => {
     setDynamicQueryFields((prev) => prev.filter((f) => f.key !== fieldKey))
@@ -138,16 +146,49 @@ export function useOrderSettlement({
     setDynamicQueryFields([])
   }, [])
 
+  // Fetch Data from DataHub API
+  const fetchData = useCallback(
+    async (overrideParams = {}) => {
+      setLoading(true)
+      loadingBarRef?.current?.continuousStart()
+      try {
+        const queryParams = {
+          stage_order_no: overrideParams.stageOrderNo ?? stageOrderNo,
+          item_code: overrideParams.itemCode ?? itemCode,
+          item_name: overrideParams.itemName ?? itemName,
+          operation_code: overrideParams.operationCode ?? operationCode,
+          status: overrideParams.status ?? status,
+          ...overrideParams
+        }
+
+        const res = await queryOrderSettlement(queryParams)
+        if (res.success && Array.isArray(res.data?.items)) {
+          const items = res.data.items
+          setRawFlatData(items)
+          setExpandedIds(new Set(getAllGroupKeys(buildDynamicGroupedTree(items, 'StageOrderNo'))))
+          message.success(`Đã tải ${items.length} dòng dữ liệu quyết toán (${res.latency}ms)`)
+        } else {
+          message.warning(res.message || 'Không có dữ liệu quyết toán phù hợp')
+        }
+      } catch (err) {
+        message.error(`Lỗi tải dữ liệu quyết toán: ${err.message || err}`)
+      } finally {
+        setLoading(false)
+        loadingBarRef?.current?.complete()
+      }
+    },
+    [stageOrderNo, itemCode, itemName, operationCode, status, loadingBarRef]
+  )
+
   // Actions
   const handleSearch = useCallback(() => {
     setShowSearch(true)
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   const handleReload = useCallback(() => {
-    setRawFlatData(MOCK_SETTLEMENT_FLAT_DATA)
-    setExpandedIds(new Set(getAllGroupKeys(buildDynamicGroupedTree(MOCK_SETTLEMENT_FLAT_DATA, 'StageOrderNo'))))
-    message.success('Đã tải lại dữ liệu quyết toán lệnh sản xuất!')
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   // Save (F10) - Process WorkingTag === 'A' | 'U' | 'D'
   const handleSave = useCallback(async () => {
@@ -230,7 +271,9 @@ export function useOrderSettlement({
       })
     )
 
-    message.success(`Đã cập nhật quyết toán cho ${targetRows.length} chi tiết lệnh! Bấm Lưu (F10) để hoàn tất.`)
+    message.success(
+      `Đã cập nhật quyết toán cho ${targetRows.length} chi tiết lệnh! Bấm Lưu (F10) để hoàn tất.`
+    )
   }, [selection, gridData, rawFlatData])
 
   const handleCloseOrder = useCallback(() => {
@@ -264,11 +307,11 @@ export function useOrderSettlement({
     })
     const targetIds = new Set(targetRows.map((r) => r.id))
 
-    setRawFlatData((prev) =>
-      prev.map((r) => (targetIds.has(r.id) ? { ...r, WorkingTag: 'D' } : r))
-    )
+    setRawFlatData((prev) => prev.map((r) => (targetIds.has(r.id) ? { ...r, WorkingTag: 'D' } : r)))
 
-    message.info(`Đã đánh dấu xóa ${targetRows.length} dòng (WorkingTag = D). Bấm Lưu (F10) để xác nhận.`)
+    message.info(
+      `Đã đánh dấu xóa ${targetRows.length} dòng (WorkingTag = D). Bấm Lưu (F10) để xác nhận.`
+    )
   }, [selection, gridData])
 
   // Export Excel
@@ -300,7 +343,9 @@ export function useOrderSettlement({
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'QuyetToanLenhSX')
     const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    })
     saveAs(blob, `QuyetToanLenhSX_${getNow_yyyymmdd_hhmmss()}.xlsx`)
     message.success('Đã xuất file Excel thành công!')
   }, [rawFlatData])
@@ -356,6 +401,8 @@ export function useOrderSettlement({
     handleExportExcel,
     handlePrint,
     handleDelete,
-    handleReload
+    handleReload,
+    fetchData,
+    loading
   }
 }

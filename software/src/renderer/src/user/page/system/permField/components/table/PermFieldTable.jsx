@@ -78,7 +78,10 @@ export default function PermFieldTable({
           { id: 'Link', title: t('system.link', 'Đường Dẫn'), width: 160 }
         ],
         onSelect: (item) => ({
-          ResourceSeq: item?.Id !== undefined && item?.Id !== null ? String(item.Id) : item?.ResourceSeq || item?.IdSeq || '',
+          ResourceSeq:
+            item?.Id !== undefined && item?.Id !== null
+              ? String(item.Id)
+              : item?.ResourceSeq || item?.IdSeq || '',
           ResourceCode: item?.Key || item?.SubMenuCode || item?.ResourceCode || '',
           ResourceName: item?.Label || item?.SubMenuName || item?.ResourceName || ''
         })
@@ -143,7 +146,9 @@ export default function PermFieldTable({
       const isBoolean = column.kind === 'Boolean' || BOOLEAN_KEYS.has(columnKey)
       const isDate =
         DATE_KEYS.has(columnKey) || columnKey.endsWith('Date') || columnKey.endsWith('At')
-      const isCodeHelp = isCodeHelpColumn ? isCodeHelpColumn(columnKey) : CODE_HELP_COLUMNS_FIELD.includes(columnKey)
+      const isCodeHelp = isCodeHelpColumn
+        ? isCodeHelpColumn(columnKey)
+        : CODE_HELP_COLUMNS_FIELD.includes(columnKey)
       const cellTheme = getCellTheme(columnKey, column)
       const isReadOnly = isReadOnlyColumn(columnKey, column) || column.readonly || false
 
@@ -275,8 +280,7 @@ export default function PermFieldTable({
         const updatedData = [...prevData]
         if (!updatedData[row]) updatedData[row] = {}
 
-        const currentStatus =
-          updatedData[row]['WorkingTag'] || updatedData[row]['Status'] || ''
+        const currentStatus = updatedData[row]['WorkingTag'] || updatedData[row]['Status'] || ''
         const nextStatus = currentStatus === 'A' ? 'A' : 'U'
 
         updatedData[row][key] = valToSet
@@ -356,7 +360,10 @@ export default function PermFieldTable({
             const resData = await fetchBatchCodeHelp(PostSubMenuH, resourceTexts, 200)
             ;(resData || []).forEach((item) => {
               const resolved = {
-                ResourceSeq: item?.Id !== undefined && item?.Id !== null ? String(item.Id) : item?.ResourceSeq || item?.IdSeq || '',
+                ResourceSeq:
+                  item?.Id !== undefined && item?.Id !== null
+                    ? String(item.Id)
+                    : item?.ResourceSeq || item?.IdSeq || '',
                 ResourceCode: item?.Key || item?.SubMenuCode || item?.ResourceCode || '',
                 ResourceName: item?.Label || item?.SubMenuName || item?.ResourceName || ''
               }
@@ -366,7 +373,8 @@ export default function PermFieldTable({
               if (item?.Label) batchResourceMap.set(normalize(item.Label), resolved)
               if (item?.SubMenuName) batchResourceMap.set(normalize(item.SubMenuName), resolved)
               if (item?.ResourceName) batchResourceMap.set(normalize(item.ResourceName), resolved)
-              if (item?.Id !== undefined && item?.Id !== null) batchResourceMap.set(normalize(item.Id), resolved)
+              if (item?.Id !== undefined && item?.Id !== null)
+                batchResourceMap.set(normalize(item.Id), resolved)
             })
           } catch (err) {
             console.error('Lỗi khi fetchBatchCodeHelp ResourceCode:', err)
@@ -410,7 +418,8 @@ export default function PermFieldTable({
                 columnKey === 'Id' ||
                 columnKey === 'IdSeq' ||
                 columnKey === 'IdxNo' ||
-                (isReadOnlyColumn(columnKey, column) && !CODE_HELP_COLUMNS_FIELD.includes(columnKey))
+                (isReadOnlyColumn(columnKey, column) &&
+                  !CODE_HELP_COLUMNS_FIELD.includes(columnKey))
               ) {
                 continue
               }
@@ -596,7 +605,9 @@ export default function PermFieldTable({
             </div>
           )}
         <Drawer
-          title={<span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>}
+          title={
+            <span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>
+          }
           styles={{ body: { padding: 15 } }}
           onClose={onClose}
           open={open}

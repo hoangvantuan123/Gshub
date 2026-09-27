@@ -114,12 +114,19 @@ export default function PermScopeTable({
           DefaultScopeLevel:
             item?.AttrValueCode || item?.DefaultScopeLevel || item?.Key || item?.ItemCode || '',
           DefaultScopeLevelLabel:
-            item?.AttrValueName || item?.DefaultScopeLevelLabel || item?.Label || item?.ItemName || '',
+            item?.AttrValueName ||
+            item?.DefaultScopeLevelLabel ||
+            item?.Label ||
+            item?.ItemName ||
+            '',
           ScopeLevelSeq: item?.IdSeq || item?.ScopeLevelSeq || item?.Id || ''
         })
       },
       RuleCondition: {
-        title: t('system.lookupCondition', 'Tra cứu Điều Kiện Trạng Thái Phiếu (RULE_CONDITION - 1002)'),
+        title: t(
+          'system.lookupCondition',
+          'Tra cứu Điều Kiện Trạng Thái Phiếu (RULE_CONDITION - 1002)'
+        ),
         fetchHelpData: createCodeHelpFetcher(PostCodeHelpQ, () => ({
           CodeHelpSeq: '1002',
           GroupCode: 'RULE_CONDITION'
@@ -327,10 +334,9 @@ export default function PermScopeTable({
         const updatedData = [...prevData]
         if (!updatedData[row]) updatedData[row] = {}
 
-        const currentStatus =
-          updatedData[row]['WorkingTag'] || updatedData[row]['Status'] || ''
+        const currentStatus = updatedData[row]['WorkingTag'] || updatedData[row]['Status'] || ''
         const nextStatus = currentStatus === 'A' ? 'A' : 'U'
-        
+
         updatedData[row][key] = newValue.data
         updatedData[row]['WorkingTag'] = nextStatus
         updatedData[row]['Status'] = nextStatus
@@ -476,30 +482,45 @@ export default function PermScopeTable({
           } else if (res.type === 'scope') {
             ;(res.data || []).forEach((item) => {
               const resolved = {
-                DefaultScopeLevel: item.AttrValueCode || item.DefaultScopeLevel || item.Key || item.ItemCode || '',
-                DefaultScopeLevelLabel: item.AttrValueName || item.DefaultScopeLevelLabel || item.Label || item.ItemName || '',
+                DefaultScopeLevel:
+                  item.AttrValueCode || item.DefaultScopeLevel || item.Key || item.ItemCode || '',
+                DefaultScopeLevelLabel:
+                  item.AttrValueName ||
+                  item.DefaultScopeLevelLabel ||
+                  item.Label ||
+                  item.ItemName ||
+                  '',
                 ScopeLevelSeq: item.IdSeq || item.ScopeLevelSeq || item.Id || ''
               }
               if (item.AttrValueCode) batchScopeMap.set(normalize(item.AttrValueCode), resolved)
-              if (item.DefaultScopeLevel) batchScopeMap.set(normalize(item.DefaultScopeLevel), resolved)
+              if (item.DefaultScopeLevel)
+                batchScopeMap.set(normalize(item.DefaultScopeLevel), resolved)
               if (item.Key) batchScopeMap.set(normalize(item.Key), resolved)
               if (item.AttrValueName) batchScopeMap.set(normalize(item.AttrValueName), resolved)
-              if (item.DefaultScopeLevelLabel) batchScopeMap.set(normalize(item.DefaultScopeLevelLabel), resolved)
+              if (item.DefaultScopeLevelLabel)
+                batchScopeMap.set(normalize(item.DefaultScopeLevelLabel), resolved)
               if (item.Label) batchScopeMap.set(normalize(item.Label), resolved)
               if (item.IdSeq) batchScopeMap.set(normalize(item.IdSeq), resolved)
             })
           } else if (res.type === 'rule') {
             ;(res.data || []).forEach((item) => {
               const resolved = {
-                RuleCondition: item.AttrValueCode || item.RuleCondition || item.Key || item.ItemCode || '',
-                RuleConditionLabel: item.AttrValueName || item.RuleConditionLabel || item.Label || item.ItemName || '',
+                RuleCondition:
+                  item.AttrValueCode || item.RuleCondition || item.Key || item.ItemCode || '',
+                RuleConditionLabel:
+                  item.AttrValueName ||
+                  item.RuleConditionLabel ||
+                  item.Label ||
+                  item.ItemName ||
+                  '',
                 RuleConditionSeq: item.IdSeq || item.RuleConditionSeq || item.Id || ''
               }
               if (item.AttrValueCode) batchRuleMap.set(normalize(item.AttrValueCode), resolved)
               if (item.RuleCondition) batchRuleMap.set(normalize(item.RuleCondition), resolved)
               if (item.Key) batchRuleMap.set(normalize(item.Key), resolved)
               if (item.AttrValueName) batchRuleMap.set(normalize(item.AttrValueName), resolved)
-              if (item.RuleConditionLabel) batchRuleMap.set(normalize(item.RuleConditionLabel), resolved)
+              if (item.RuleConditionLabel)
+                batchRuleMap.set(normalize(item.RuleConditionLabel), resolved)
               if (item.Label) batchRuleMap.set(normalize(item.Label), resolved)
               if (item.IdSeq) batchRuleMap.set(normalize(item.IdSeq), resolved)
             })
@@ -543,7 +564,8 @@ export default function PermScopeTable({
                 columnKey === 'Id' ||
                 columnKey === 'IdSeq' ||
                 columnKey === 'IdxNo' ||
-                (isReadOnlyColumn(columnKey, column) && !CODE_HELP_COLUMNS_SCOPE.includes(columnKey))
+                (isReadOnlyColumn(columnKey, column) &&
+                  !CODE_HELP_COLUMNS_SCOPE.includes(columnKey))
               ) {
                 continue
               }
@@ -584,10 +606,7 @@ export default function PermScopeTable({
                   existingRow.DefaultScopeLevelLabel = ''
                   existingRow.ScopeLevelSeq = ''
                 }
-              } else if (
-                columnKey === 'RuleConditionLabel' ||
-                columnKey === 'RuleCondition'
-              ) {
+              } else if (columnKey === 'RuleConditionLabel' || columnKey === 'RuleCondition') {
                 const norm = normalize(cellVal)
                 const resolved = norm ? batchRuleMap.get(norm) : null
                 if (resolved) {
@@ -651,15 +670,7 @@ export default function PermScopeTable({
 
       return false
     },
-    [
-      cols,
-      canEdit,
-      isReadOnlyColumn,
-      setGridData,
-      setNumRows,
-      setStatusMessage,
-      t
-    ]
+    [cols, canEdit, isReadOnlyColumn, setGridData, setNumRows, setStatusMessage, t]
   )
 
   const effectiveRows = numRows ?? gridData?.length ?? 0
@@ -764,7 +775,9 @@ export default function PermScopeTable({
             </div>
           )}
         <Drawer
-          title={<span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>}
+          title={
+            <span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>
+          }
           styles={{ body: { padding: 15 } }}
           onClose={onClose}
           open={open}

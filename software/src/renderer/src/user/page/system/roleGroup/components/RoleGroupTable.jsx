@@ -222,8 +222,7 @@ export default function RoleGroupTable({
         const updatedData = [...prevData]
         if (!updatedData[row]) updatedData[row] = {}
 
-        const currentStatus =
-          updatedData[row]['WorkingTag'] || updatedData[row]['Status'] || ''
+        const currentStatus = updatedData[row]['WorkingTag'] || updatedData[row]['Status'] || ''
         const nextStatus = currentStatus === 'A' ? 'A' : 'U'
         updatedData[row][key] = newValue.data
         updatedData[row]['WorkingTag'] = nextStatus
@@ -479,7 +478,9 @@ export default function RoleGroupTable({
             </div>
           )}
         <Drawer
-          title={<span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>}
+          title={
+            <span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>
+          }
           styles={{ body: { padding: 15 } }}
           onClose={onClose}
           open={open}

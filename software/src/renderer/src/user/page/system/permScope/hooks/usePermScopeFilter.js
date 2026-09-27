@@ -180,12 +180,7 @@ export function usePermScopeFilter(setStatusMessage) {
     }
 
     Object.entries(searchValues || {}).forEach(([k, v]) => {
-      if (
-        k === 'ScopeCode' ||
-        k === 'scopeCode' ||
-        k === 'ScopeName' ||
-        k === 'scopeName'
-      ) {
+      if (k === 'ScopeCode' || k === 'scopeCode' || k === 'ScopeName' || k === 'scopeName') {
         return
       }
 

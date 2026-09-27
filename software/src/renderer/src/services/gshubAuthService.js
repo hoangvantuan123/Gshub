@@ -4,6 +4,8 @@
  * Compliant with LOGIN_VA_QUAN_LY_TOKEN.md
  */
 
+import Cookies from 'js-cookie'
+
 const DEFAULT_BASE_URL = 'http://localhost:8080'
 const STORAGE_KEY_AUTH_SESSION = 'datahub_auth_session'
 const STORAGE_KEY_GSHUB_AUTH_SESSION = 'gshub_auth_session'
@@ -39,7 +41,7 @@ export const gshubAuthService = {
   },
 
   /**
-   * Save active session to localStorage
+   * Save active session to localStorage & Cookies
    */
   saveSession(sessionData) {
     try {
@@ -50,13 +52,34 @@ export const gshubAuthService = {
         localStorage.setItem(STORAGE_KEY_LAST_CONFIG, sessionData.config_key)
         localStorage.setItem('gshub_last_config_key', sessionData.config_key)
       }
-      if (sessionData?.access_token) {
-        localStorage.setItem('access_token', sessionData.access_token)
-        localStorage.setItem('token', sessionData.access_token)
-        localStorage.setItem('a_a', sessionData.access_token)
+      const payload = sessionData?.data || sessionData || {}
+      const accToken =
+        payload?.access_token ||
+        payload?.token ||
+        payload?.session?.access_token ||
+        sessionData?.access_token ||
+        sessionData?.session?.access_token ||
+        null
+      if (accToken) {
+        Cookies.set('a_a', accToken, { expires: 7, path: '/' })
+        Cookies.remove('access_token', { path: '/' })
+        localStorage.setItem('access_token', accToken)
+        localStorage.setItem('token', accToken)
+      }
+      const refToken =
+        payload?.refresh_token ||
+        payload?.refreshToken ||
+        payload?.session?.refresh_token ||
+        sessionData?.refresh_token ||
+        sessionData?.session?.refresh_token ||
+        null
+      if (refToken) {
+        Cookies.set('r_t', refToken, { expires: 30, path: '/' })
+        Cookies.remove('refresh_token', { path: '/' })
+        localStorage.setItem('refresh_token', refToken)
       }
     } catch (e) {
-      console.warn('Failed to save auth session to localStorage', e)
+      console.warn('Failed to save auth session to storage', e)
     }
   },
 
@@ -91,18 +114,29 @@ export const gshubAuthService = {
   },
 
   /**
-   * Clear session and all active access tokens from storage
+   * Clear session and all active access & refresh tokens from storage & Cookies
    */
   clearSession() {
     try {
+      Cookies.remove('a_a', { path: '/' })
+      Cookies.remove('a_a')
+      Cookies.remove('access_token', { path: '/' })
+      Cookies.remove('access_token')
+      Cookies.remove('r_t', { path: '/' })
+      Cookies.remove('r_t')
+      Cookies.remove('refresh_token', { path: '/' })
+      Cookies.remove('refresh_token')
       localStorage.removeItem(STORAGE_KEY_AUTH_SESSION)
       localStorage.removeItem(STORAGE_KEY_GSHUB_AUTH_SESSION)
       localStorage.removeItem('access_token')
       localStorage.removeItem('token')
       localStorage.removeItem('a_a')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('r_t')
       sessionStorage.removeItem(STORAGE_KEY_AUTH_SESSION)
       sessionStorage.removeItem(STORAGE_KEY_GSHUB_AUTH_SESSION)
       sessionStorage.removeItem('access_token')
+      sessionStorage.removeItem('refresh_token')
     } catch (e) {
       console.warn('Failed to clear auth session', e)
     }

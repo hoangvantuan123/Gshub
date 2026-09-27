@@ -3,6 +3,7 @@ import CryptoJS from 'crypto-js'
 import { accessToken } from './tokenService'
 import { HOST_API_SERVER_1 } from '.'
 import { saveApiLog, getCurrentRoute } from '../IndexedDB/loadApiLogData'
+import { isSessionExpiredError, triggerSessionExpired } from '../utils/sessionExpiredHelper'
 
 // Khóa bí mật đồng bộ với API Gateway
 const APP_SECRET_KEY = 'ERP_ELECTRON_SECURE_KEY_2026_@ANTIGRAVITY#X'
@@ -152,6 +153,11 @@ apiService.interceptors.response.use(
       (typeof response?.data === 'string' ? response.data : null) ||
       error.message ||
       'Yêu cầu API thất bại'
+
+    // Tự động phát hiện phiên hết hạn / lỗi token ERP để hiển thị Modal cảnh báo
+    if (isSessionExpiredError(errorMsg, response?.status) || isSessionExpiredError(response?.data, response?.status)) {
+      triggerSessionExpired(errorMsg)
+    }
 
     saveApiLog({
       url: config.url || '',

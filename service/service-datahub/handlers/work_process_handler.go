@@ -43,24 +43,6 @@ func (h *WorkProcessHandler) GetWorkProcess(c *gin.Context) {
 		return
 	}
 
-	// Kiểm tra xem có ít nhất 1 điều kiện tìm kiếm hay không
-	if strings.TrimSpace(req.DocNo) == "" &&
-		strings.TrimSpace(req.ItemCode) == "" &&
-		len(req.ItemCodes) == 0 &&
-		strings.TrimSpace(req.ItemName) == "" &&
-		len(req.ItemNames) == 0 &&
-		strings.TrimSpace(req.Unit) == "" &&
-		strings.TrimSpace(req.CustomerName) == "" &&
-		strings.TrimSpace(req.Description) == "" &&
-		len(req.ColumnFilters) == 0 &&
-		len(req.RawSSE) == 0 {
-		c.JSON(http.StatusBadRequest, models.ApiResponse{
-			Success: false,
-			Message: "Vui lòng cung cấp ít nhất một điều kiện tìm kiếm (doc_no, item_code, item_name, unit, customer_name, column_filters, hoặc raw_sse)",
-		})
-		return
-	}
-
 	h.handleQuery(c, &req)
 }
 
@@ -102,14 +84,8 @@ func (h *WorkProcessHandler) GetWorkProcessByQuery(c *gin.Context) {
 	configKey := c.DefaultQuery("config_key", "BravoDefault")
 	username := c.Query("username")
 	includeRaw, _ := strconv.ParseBool(c.DefaultQuery("include_raw", "false"))
-
-	var fetchSteps *bool
-	if val := c.Query("fetch_steps"); val != "" {
-		b, err := strconv.ParseBool(val)
-		if err == nil {
-			fetchSteps = &b
-		}
-	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", c.DefaultQuery("pnb", "0")))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "30"))
 
 	req := &models.WorkProcessRequest{
 		DocNo:        docNo,
@@ -122,8 +98,9 @@ func (h *WorkProcessHandler) GetWorkProcessByQuery(c *gin.Context) {
 		FiscalYear:   fiscalYear,
 		ConfigKey:    configKey,
 		Username:     username,
-		FetchSteps:   fetchSteps,
 		IncludeRaw:   includeRaw,
+		Page:         page,
+		PageSize:     pageSize,
 	}
 
 	h.handleQuery(c, req)
@@ -145,19 +122,11 @@ func (h *WorkProcessHandler) GetWorkProcessByDocNo(c *gin.Context) {
 		return
 	}
 
-	branchCode := c.DefaultQuery("branch_code", "A01")
+	branchCode := c.DefaultQuery("branch_code", "")
 	fiscalYear := c.Query("fiscal_year")
 	configKey := c.DefaultQuery("config_key", "BravoDefault")
 	username := c.Query("username")
 	includeRaw, _ := strconv.ParseBool(c.DefaultQuery("include_raw", "false"))
-
-	var fetchSteps *bool
-	if val := c.Query("fetch_steps"); val != "" {
-		b, err := strconv.ParseBool(val)
-		if err == nil {
-			fetchSteps = &b
-		}
-	}
 
 	req := &models.WorkProcessRequest{
 		DocNo:      docNo,
@@ -165,7 +134,6 @@ func (h *WorkProcessHandler) GetWorkProcessByDocNo(c *gin.Context) {
 		FiscalYear: fiscalYear,
 		ConfigKey:  configKey,
 		Username:   username,
-		FetchSteps: fetchSteps,
 		IncludeRaw: includeRaw,
 	}
 
@@ -173,6 +141,19 @@ func (h *WorkProcessHandler) GetWorkProcessByDocNo(c *gin.Context) {
 }
 
 func (h *WorkProcessHandler) handleQuery(c *gin.Context, req *models.WorkProcessRequest) {
+	if req.Token == "" {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				req.Token = strings.TrimPrefix(authHeader, "Bearer ")
+			} else {
+				req.Token = authHeader
+			}
+		} else {
+			req.Token = c.GetHeader("X-Access-Token")
+		}
+	}
+
 	result, err := h.workProcessService.GetWorkProcess(
 		c.Request.Context(),
 		c.ClientIP(),
@@ -197,79 +178,3 @@ func (h *WorkProcessHandler) handleQuery(c *gin.Context, req *models.WorkProcess
 	})
 }
 
-// GetWorkProcessSteps handles on-demand query of TT steps for a single stage order row (POST)
-// @Summary Query TT steps on demand for a detail stage order row
-// @Tags Lệnh Công Đoạn (WorkProcess)
-// @Accept json
-// @Produce json
-// @Param request body models.WorkProcessStepsRequest true "Step query criteria"
-// @Router /api/v1/work-process/steps [post]
-func (h *WorkProcessHandler) GetWorkProcessSteps(c *gin.Context) {
-	var req models.WorkProcessStepsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ApiResponse{
-			Success: false,
-			Message: "Invalid request payload. 'row_id' is required.",
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	h.handleStepsQuery(c, &req)
-}
-
-// GetWorkProcessStepsByQuery handles on-demand query of TT steps via GET query params
-// @Summary Query TT steps via GET
-// @Tags Lệnh Công Đoạn (WorkProcess)
-// @Produce json
-// @Param row_id query string true "RowId of detail stage order"
-// @Router /api/v1/work-process/steps [get]
-func (h *WorkProcessHandler) GetWorkProcessStepsByQuery(c *gin.Context) {
-	rowID := strings.TrimSpace(c.Query("row_id"))
-	if rowID == "" {
-		c.JSON(http.StatusBadRequest, models.ApiResponse{
-			Success: false,
-			Message: "Query parameter 'row_id' is required",
-		})
-		return
-	}
-
-	branchCode := c.DefaultQuery("branch_code", "A01")
-	fiscalYear := c.Query("fiscal_year")
-	configKey := c.DefaultQuery("config_key", "BravoDefault")
-	username := c.Query("username")
-
-	req := &models.WorkProcessStepsRequest{
-		RowID:      rowID,
-		BranchCode: branchCode,
-		FiscalYear: fiscalYear,
-		ConfigKey:  configKey,
-		Username:   username,
-	}
-
-	h.handleStepsQuery(c, req)
-}
-
-func (h *WorkProcessHandler) handleStepsQuery(c *gin.Context, req *models.WorkProcessStepsRequest) {
-	steps, err := h.workProcessService.GetWorkProcessSteps(
-		c.Request.Context(),
-		c.ClientIP(),
-		c.Request.UserAgent(),
-		req,
-	)
-	if err != nil {
-		h.logger.Error("Failed to fetch work process steps", zap.Error(err), zap.String("row_id", req.RowID))
-		c.JSON(http.StatusInternalServerError, models.ApiResponse{
-			Success: false,
-			Message: "Failed to query TT steps from Bravo ERP",
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, models.ApiResponse{
-		Success: true,
-		Message: "Query TT Steps completed successfully",
-		Data:    steps,
-	})
-}

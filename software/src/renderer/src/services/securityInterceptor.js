@@ -1,6 +1,7 @@
 import axios from 'axios'
 import CryptoJS from 'crypto-js'
 import { saveApiLog, getCurrentRoute } from '../IndexedDB/loadApiLogData'
+import { isSessionExpiredError, triggerSessionExpired } from '../utils/sessionExpiredHelper'
 
 const APP_SECRET_KEY = 'ERP_ELECTRON_SECURE_KEY_2026_@ANTIGRAVITY#X'
 
@@ -110,6 +111,11 @@ axios.interceptors.response.use(
       (typeof response?.data === 'string' ? response.data : null) ||
       error.message ||
       'Yêu cầu API thất bại'
+
+    // Tự động phát hiện phiên hết hạn / lỗi token ERP để hiển thị Modal cảnh báo
+    if (isSessionExpiredError(errorMsg, response?.status) || isSessionExpiredError(response?.data, response?.status)) {
+      triggerSessionExpired(errorMsg)
+    }
 
     saveApiLog({
       url: config.url || '',

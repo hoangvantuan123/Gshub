@@ -15,7 +15,12 @@ import {
   ensureStatusFirstColumn
 } from '../../../../utils/systemColumns'
 
-export { DEFAULT_GRID_THEME, isSystemHiddenColumn, filterConfigurableColumns, ensureStatusFirstColumn }
+export {
+  DEFAULT_GRID_THEME,
+  isSystemHiddenColumn,
+  filterConfigurableColumns,
+  ensureStatusFirstColumn
+}
 
 export default function useTableManager(arg1, arg2, arg3, arg4, arg5, arg6) {
   let options = {}

@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { memo, useMemo, useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Check } from 'lucide-react'
@@ -130,37 +131,38 @@ const QuerySelectInput = memo(function QuerySelectInput({
         } ${valueTextColor}`}
       >
         <span
-          className={`truncate text-left ${
+          className={`whitespace-nowrap text-left ${
             hasSelectedValue ? 'text-blue-700 font-semibold' : 'text-slate-700 font-normal'
           }`}
+          title={currentOption?.label || t('Tất cả')}
         >
           {currentOption?.label || t('Tất cả')}
         </span>
 
         <ChevronDown
           size={12}
-          className={`text-slate-400 shrink-0 transition-transform duration-150 stroke-[2] ${
+          className={`text-slate-400 shrink-0 ml-1.5 transition-transform duration-150 stroke-[2] ${
             isOpen ? 'rotate-180 text-blue-600' : ''
           }`}
         />
       </button>
 
-      {/* Menu đổ xuống vuông vức đơn giản, khớp 100% độ rộng khung */}
+      {/* Menu đổ xuống vuông vức tự động mở rộng theo độ dài nội dung option */}
       {isOpen && (
-        <div className="absolute -left-2 -right-2 top-full mt-[1px] min-w-full bg-white border border-slate-300 shadow-2xl z-[99999] rounded-none py-0.5 max-h-60 overflow-y-auto select-none font-sans">
+        <div className="absolute left-0 top-full mt-[1px] min-w-full w-max max-w-[480px] bg-white border border-slate-300 shadow-2xl z-[99999] rounded-none py-0.5 max-h-60 overflow-y-auto select-none font-sans">
           {formattedOptions.map((opt) => {
             const isSelected = String(opt.value) === String(currentValue)
             return (
               <div
                 key={String(opt.value)}
                 onClick={() => handleSelectOption(opt.value)}
-                className={`px-3 py-1.5 text-[11px] cursor-pointer flex items-center justify-between transition-colors ${
+                className={`px-3 py-1.5 text-[11px] cursor-pointer flex items-center justify-between gap-4 transition-colors whitespace-nowrap ${
                   isSelected
                     ? 'bg-blue-600 text-white font-semibold'
                     : 'text-slate-700 hover:bg-slate-100 font-normal'
                 }`}
               >
-                <span className="truncate">{opt.label}</span>
+                <span className="whitespace-nowrap">{opt.label}</span>
                 {isSelected && <Check size={12} className="text-white shrink-0 ml-2" />}
               </div>
             )

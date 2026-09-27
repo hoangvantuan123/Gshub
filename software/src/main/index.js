@@ -9,6 +9,7 @@ import { promisify } from 'util'
 import icon from '../../resources/icon.png?asset'
 import { setupRealtimeIpc } from './realtime/index.js'
 import { setupSecurityIpc } from './security/cryptoService.js'
+import { setupDataHubIpc } from './datahub/datahubClient.js'
 import {
   setupUpdaterIpc,
   initNativeAutoUpdater,
@@ -1094,6 +1095,9 @@ app.whenReady().then(() => {
 
   // Realtime gRPC Stream IPC setup
   setupRealtimeIpc(mainWindow)
+
+  // DataHub gRPC IPC setup (WorkProcess, Factories...)
+  setupDataHubIpc(ipcMain)
 
   createWindow()
 

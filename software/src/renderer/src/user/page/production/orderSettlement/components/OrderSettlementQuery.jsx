@@ -144,10 +144,12 @@ export default function OrderSettlementQuery({
 
   const handleChange = (keyOrObj, maybeVal) => {
     if (typeof keyOrObj === 'object' && keyOrObj !== null) {
-      if (keyOrObj.StageOrderNo !== undefined && setStageOrderNo) setStageOrderNo(keyOrObj.StageOrderNo)
+      if (keyOrObj.StageOrderNo !== undefined && setStageOrderNo)
+        setStageOrderNo(keyOrObj.StageOrderNo)
       if (keyOrObj.ItemCode !== undefined && setItemCode) setItemCode(keyOrObj.ItemCode)
       if (keyOrObj.ItemName !== undefined && setItemName) setItemName(keyOrObj.ItemName)
-      if (keyOrObj.OperationCode !== undefined && setOperationCode) setOperationCode(keyOrObj.OperationCode)
+      if (keyOrObj.OperationCode !== undefined && setOperationCode)
+        setOperationCode(keyOrObj.OperationCode)
       if (keyOrObj.Status !== undefined && setStatus) setStatus(keyOrObj.Status)
       setDynamicValues((prev) => ({ ...prev, ...keyOrObj }))
     } else {
@@ -174,7 +176,11 @@ export default function OrderSettlementQuery({
 
     if (checked && onAddQueryField) {
       const isDefault =
-        key === 'StageOrderNo' || key === 'ItemCode' || key === 'ItemName' || key === 'OperationCode' || key === 'Status'
+        key === 'StageOrderNo' ||
+        key === 'ItemCode' ||
+        key === 'ItemName' ||
+        key === 'OperationCode' ||
+        key === 'Status'
       if (!isDefault && !dynamicQueryFields.some((f) => f.key === key)) {
         onAddQueryField(key, fieldMeta?.label || key, fieldMeta)
       }
@@ -200,7 +206,7 @@ export default function OrderSettlementQuery({
       onChange={handleChange}
       onSearch={handleSearch}
       disabled={disabled}
-      columns={5}
+      columns={4}
       showSettings={true}
       onToggleField={handleToggleField}
       onResetFields={handleReset}

@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { memo, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Form, Input, Modal, Select } from 'antd'
@@ -9,47 +10,27 @@ import { ChangePassword } from '../../api/auth/changePassword'
 import { HandleSuccess } from '../page/default/handleSuccess'
 import ErpSoftBg from '../../assets/erpsoft.png'
 import Logo from '../../assets/logo3.png'
-import { saveLanguageData } from '../../IndexedDB/saveLanguageData'
 import { getLanguageData } from '../../IndexedDB/loadLanguageData'
 import { clearMenuData } from '../../IndexedDB/loadMenuData'
 
 import { configApp } from '../../utils/config'
 import { languages } from '../../i18n/langs'
-import { Minus, X, Eye, EyeOff, KeyRound, Settings } from 'lucide-react'
+import { Minus, X, Eye, EyeOff, Settings } from 'lucide-react'
 
 const ErrorAlert = memo(({ message: errMsg, t }) => {
   const displayMsg = typeof t === 'function' ? t(errMsg) : t?.[errMsg] || errMsg
 
   return (
-    <div
-      className={`overflow-hidden transition-all duration-200 ease-out transform ${
-        displayMsg
-          ? 'max-h-24 opacity-100 mb-2 scale-100'
-          : 'max-h-0 opacity-0 mb-0 scale-95 pointer-events-none'
-      }`}
-    >
-      <div className="w-full py-1 text-xs text-rose-600 font-medium flex items-center gap-1.5 text-left leading-snug">
-        <span className="flex-1 leading-tight">{displayMsg}</span>
-      </div>
+    <div className="min-h-[22px] flex items-center mb-1">
+      {displayMsg ? (
+        <div className="w-full text-xs text-rose-600 font-medium flex items-center gap-1.5 text-left leading-snug">
+          <span className="flex-1 leading-tight">{displayMsg}</span>
+        </div>
+      ) : null}
     </div>
   )
 })
 ErrorAlert.displayName = 'ErrorAlert'
-
-const removeSpaces = (val) => (typeof val === 'string' ? val.replace(/\s+/g, '') : val)
-
-const handlePreventSpace = (e) => {
-  if (e.key === ' ' || e.code === 'Space' || e.keyCode === 32) {
-    e.preventDefault()
-  }
-}
-
-const handlePasteNoSpace = (formInstance, fieldName) => (e) => {
-  e.preventDefault()
-  const pasteData = (e.clipboardData || window.clipboardData)?.getData('text') || ''
-  const cleanVal = pasteData.replace(/\s+/g, '')
-  formInstance?.setFieldsValue({ [fieldName]: cleanVal })
-}
 
 export default function Login({ processRolesMenu, setKeyLanguage }) {
   const navigate = useNavigate()
@@ -363,15 +344,27 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
             payload = response
           }
 
-          const userObj =
-            payload.user ||
+          const userObj = payload.user ||
             response.user || {
               UserName: loginVal,
               UserId: loginVal,
               EmpID: loginVal,
               ConfigKey: activeConfigKey
             }
-          const tokenVal = payload.access_token || payload.token || response.token || null
+          const tokenVal =
+            payload.access_token ||
+            payload.token ||
+            payload.session?.access_token ||
+            response.token ||
+            response.accessToken ||
+            null
+          const refreshTokenVal =
+            payload.refresh_token ||
+            payload.refreshToken ||
+            payload.session?.refresh_token ||
+            response.refresh_token ||
+            response.refreshToken ||
+            null
           const rolesMenuVal =
             payload.tokenRolesUserMenu ||
             response.tokenRolesUserMenu ||
@@ -408,9 +401,14 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
           }
           if (tokenVal) {
             Cookies.set('a_a', tokenVal, { expires: 7, path: '/' })
-            localStorage.setItem('token', tokenVal)
+            Cookies.remove('access_token', { path: '/' })
             localStorage.setItem('access_token', tokenVal)
-            localStorage.setItem('a_a', tokenVal)
+            localStorage.setItem('token', tokenVal)
+          }
+          if (refreshTokenVal) {
+            Cookies.set('r_t', refreshTokenVal, { expires: 30, path: '/' })
+            Cookies.remove('refresh_token', { path: '/' })
+            localStorage.setItem('refresh_token', refreshTokenVal)
           }
 
           const currentUser = {
@@ -632,7 +630,7 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
   }, [showWebSettingsModal, readSavedUserLogs])
 
   const handleClearError = useCallback(() => {
-    setError(null)
+    setError((prev) => (prev ? null : prev))
   }, [])
 
   const loginCardContent = (
@@ -762,7 +760,6 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
               >
                 <Form.Item
                   name="login"
-                  normalize={removeSpaces}
                   label={
                     <span className="text-xs font-semibold text-slate-700">
                       {t.employeeIdOrAccount || 'Mã nhân viên / Tài khoản'}
@@ -778,20 +775,17 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                     placeholder={t.enterEmployeeId || 'Nhập mã nhân viên...'}
                     onChange={handleClearError}
                     onKeyDown={(e) => {
-                      handlePreventSpace(e)
                       if (e.key === 'Enter') {
                         e.preventDefault()
-                        passwordInputRef.current?.focus({ cursor: 'all' })
+                        passwordInputRef.current?.focus()
                       }
                     }}
-                    onPaste={handlePasteNoSpace(form, 'login')}
                     autoComplete="username"
                   />
                 </Form.Item>
 
                 <Form.Item
                   name="password"
-                  normalize={removeSpaces}
                   label={
                     <span className="text-xs font-semibold text-slate-700">
                       {t.password || 'Mật khẩu'}
@@ -823,13 +817,11 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                     placeholder={t.enterPassword || 'Nhập mật khẩu...'}
                     onChange={handleClearError}
                     onKeyDown={(e) => {
-                      handlePreventSpace(e)
                       if (e.key === 'Enter') {
                         e.preventDefault()
                         form.submit()
                       }
                     }}
-                    onPaste={handlePasteNoSpace(form, 'password')}
                     autoComplete="current-password"
                   />
                 </Form.Item>
@@ -873,7 +865,6 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
               >
                 <Form.Item
                   name="oldPassword"
-                  normalize={removeSpaces}
                   label={
                     <span className="text-xs font-semibold text-slate-700">
                       {t.oldPassword || 'Mật khẩu cũ'}
@@ -903,15 +894,12 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                     }
                     placeholder={t.enterOldPassword || 'Nhập mật khẩu cũ...'}
                     onChange={handleClearError}
-                    onKeyDown={handlePreventSpace}
-                    onPaste={handlePasteNoSpace(form, 'oldPassword')}
                     autoComplete="current-password"
                   />
                 </Form.Item>
 
                 <Form.Item
                   name="newPassword"
-                  normalize={removeSpaces}
                   label={
                     <span className="text-xs font-semibold text-slate-700">
                       {t.newPassword || 'Mật khẩu mới'}
@@ -941,15 +929,12 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                     }
                     placeholder={t.enterNewPassword || 'Nhập mật khẩu mới...'}
                     onChange={handleClearError}
-                    onKeyDown={handlePreventSpace}
-                    onPaste={handlePasteNoSpace(form, 'newPassword')}
                     autoComplete="new-password"
                   />
                 </Form.Item>
 
                 <Form.Item
                   name="confirmNewPassword"
-                  normalize={removeSpaces}
                   label={
                     <span className="text-xs font-semibold text-slate-700">
                       {t.confirmNewPassword || 'Xác nhận mật khẩu mới'}
@@ -979,8 +964,6 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                     }
                     placeholder={t.enterConfirmNewPassword || 'Nhập lại mật khẩu mới...'}
                     onChange={handleClearError}
-                    onKeyDown={handlePreventSpace}
-                    onPaste={handlePasteNoSpace(form, 'confirmNewPassword')}
                     autoComplete="new-password"
                   />
                 </Form.Item>

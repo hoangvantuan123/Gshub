@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package datahub;
+
+option go_package = "service-datahub/pb/datahub";
+
+// ==========================================
+// 2. Dynamic ERP Configurations Messages
+// ==========================================
+
+message ErpConfigProto {
+  string config_key = 1;
+  string config_name = 2;
+  string provider = 3;
+  string auth_url = 4;
+  string base_api_url = 5;
+  string referer = 6;
+  string client_id = 7;
+  string client_secret = 8;
+  string device_code = 9;
+  string connection_name = 10;
+  string grant_type = 11;
+  string scope = 12;
+  bool insecure_skip_verify = 13;
+  string extra_params = 14;
+  bool is_active = 15;
+  string created_at = 16;
+  string updated_at = 17;
+}
+
+message GetConfigsProtoRequest {}
+
+message GetConfigsProtoResponse {
+  bool success = 1;
+  repeated ErpConfigProto configs = 2;
+  string error_message = 3;
+}
+
+message SaveConfigProtoRequest {
+  ErpConfigProto config = 1;
+}
+
+message SaveConfigProtoResponse {
+  bool success = 1;
+  string message = 2;
+  ErpConfigProto config = 3;
+  string error_message = 4;
+}
+
+message DeleteConfigProtoRequest {
+  string config_key = 1;
+}
+
+message DeleteConfigProtoResponse {
+  bool success = 1;
+  string message = 2;
+  string error_message = 3;
+}
+
+// ==========================================
+// Dynamic ERP Endpoints Messages
+// ==========================================
+
+message ErpEndpointProto {
+  uint32 id = 1;
+  string menu_key = 2;
+  string api_key = 3;
+  string endpoint_uuid = 4;
+  string description = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message GetEndpointsProtoRequest {
+  string menu_key = 1;
+}
+
+message GetEndpointsProtoResponse {
+  bool success = 1;
+  repeated ErpEndpointProto endpoints = 2;
+  string error_message = 3;
+}
+
+message SaveEndpointProtoRequest {
+  ErpEndpointProto endpoint = 1;
+}
+
+message SaveEndpointProtoResponse {
+  bool success = 1;
+  string message = 2;
+  ErpEndpointProto endpoint = 3;
+  string error_message = 4;
+}

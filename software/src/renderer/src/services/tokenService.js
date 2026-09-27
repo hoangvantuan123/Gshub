@@ -1,32 +1,90 @@
 import Cookies from 'js-cookie'
 
 export const accessToken = () => {
-  return (
+  const directToken =
     Cookies.get('a_a') ||
+    Cookies.get('access_token') ||
     localStorage.getItem('access_token') ||
     localStorage.getItem('token') ||
     localStorage.getItem('a_a') ||
     null
-  )
+
+  if (directToken) return directToken
+
+  try {
+    const session = JSON.parse(
+      localStorage.getItem('datahub_auth_session') ||
+        localStorage.getItem('gshub_auth_session') ||
+        '{}'
+    )
+    return (
+      session.access_token ||
+      session.token ||
+      session.session?.access_token ||
+      session.data?.access_token ||
+      null
+    )
+  } catch {
+    return null
+  }
+}
+
+export const refreshToken = () => {
+  const directRefresh =
+    Cookies.get('r_t') ||
+    Cookies.get('refresh_token') ||
+    localStorage.getItem('refresh_token') ||
+    localStorage.getItem('refreshToken') ||
+    localStorage.getItem('r_t') ||
+    null
+
+  if (directRefresh) return directRefresh
+
+  try {
+    const session = JSON.parse(
+      localStorage.getItem('datahub_auth_session') ||
+        localStorage.getItem('gshub_auth_session') ||
+        '{}'
+    )
+    return (
+      session.refresh_token ||
+      session.refreshToken ||
+      session.session?.refresh_token ||
+      session.data?.refresh_token ||
+      null
+    )
+  } catch {
+    return null
+  }
 }
 
 export const getEmployeeCode = () => {
-  const userInfo = localStorage.getItem('userInfo')
+  const lastUser =
+    localStorage.getItem('last_login_username') ||
+    localStorage.getItem('datahub_remember_username') ||
+    ''
+  if (lastUser) return lastUser
 
-  if (userInfo) {
-    const parsedUserInfo = JSON.parse(userInfo)
-    return parsedUserInfo.employee_code || null
+  try {
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    return (
+      userInfo.employee_code ||
+      userInfo.UserName ||
+      userInfo.UserId ||
+      userInfo.EmpID ||
+      userInfo.UserSeq ||
+      null
+    )
+  } catch {
+    return null
   }
-
-  return null
 }
+
 export const getId = () => {
-  const userInfo = localStorage.getItem('userInfo')
-
-  if (userInfo) {
-    const parsedUserInfo = JSON.parse(userInfo)
-    return parsedUserInfo.id || null
+  try {
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    return userInfo.id || userInfo.UserSeq || userInfo.UserId || null
+  } catch {
+    return null
   }
-
-  return null
 }

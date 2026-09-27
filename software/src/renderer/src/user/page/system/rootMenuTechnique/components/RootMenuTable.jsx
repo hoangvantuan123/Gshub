@@ -191,12 +191,7 @@ export default function RootMenuTable({
       const [col, row] = cell
       const key = indexes[col]
 
-      if (
-        isReadOnlyColumn(key) ||
-        key === 'WorkingTag' ||
-        key === 'Status' ||
-        key === 'Id'
-      ) {
+      if (isReadOnlyColumn(key) || key === 'WorkingTag' || key === 'Status' || key === 'Id') {
         return
       }
 
@@ -204,8 +199,7 @@ export default function RootMenuTable({
         const updatedData = [...prevData]
         if (!updatedData[row]) updatedData[row] = {}
 
-        const currentStatus =
-          updatedData[row]['WorkingTag'] || updatedData[row]['Status'] || ''
+        const currentStatus = updatedData[row]['WorkingTag'] || updatedData[row]['Status'] || ''
         const nextStatus = currentStatus === 'A' ? 'A' : 'U'
         updatedData[row][key] = newValue.data
         updatedData[row]['WorkingTag'] = nextStatus
@@ -467,7 +461,9 @@ export default function RootMenuTable({
             </div>
           )}
         <Drawer
-          title={<span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>}
+          title={
+            <span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>
+          }
           styles={{ body: { padding: 15 } }}
           onClose={onClose}
           open={open}

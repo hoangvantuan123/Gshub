@@ -1,11 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export const CODE_HELP_COLUMNS_SCOPE = [
-  'OperationCode',
-  'DefaultScopeLevel',
-  'RuleCondition'
-]
+export const CODE_HELP_COLUMNS_SCOPE = ['OperationCode', 'DefaultScopeLevel', 'RuleCondition']
 
 export const usePermScopeColumns = ({ isFieldVisible, isFieldReadOnly } = {}) => {
   const { t } = useTranslation()

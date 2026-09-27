@@ -51,9 +51,7 @@ const BreadcrumbRouter = ({ menuTransForm, rootMenu }) => {
   }, [currentPath, rootMenu, menuTransForm])
 
   const hideBreadcrumb =
-    currentPath === '/' ||
-    currentPath === '/erp/u/home' ||
-    currentPath.startsWith('/erp/u/setting')
+    currentPath === '/' || currentPath === '/erp/u/home' || currentPath.startsWith('/erp/u/setting')
 
   if (hideBreadcrumb || !currentMenuName) {
     return null

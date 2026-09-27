@@ -1,10 +1,6 @@
 /* eslint-disable react/prop-types */
 import { Button } from 'antd'
-import {
-  Search,
-  RotateCcw,
-  FileSpreadsheet
-} from 'lucide-react'
+import { Search, RotateCcw, FileSpreadsheet } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export default function WorkProcessActions({
@@ -45,7 +41,7 @@ export default function WorkProcessActions({
           style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
           color="default"
           variant="link"
-          title="Xuất 2 bảng (Lệnh CĐ & Thao tác) ra Excel"
+          title="Xuất dữ liệu Lệnh công đoạn ra Excel"
         >
           {t('XUẤT EXCEL')}
         </Button>

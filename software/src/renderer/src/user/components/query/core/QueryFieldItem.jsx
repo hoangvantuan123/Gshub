@@ -35,15 +35,15 @@ const QueryFieldItem = memo(function QueryFieldItem({
   if (!field || !field.key) return null
 
   const fieldDisabled = disabled || field.disabled
-  const colSpan = field.colSpan || 1
+  const colSpan = Math.min(Math.max(1, field.colSpan || 1), 4)
   const colSpanClass =
     colSpan === 2
-      ? 'sm:col-span-2'
+      ? 'col-span-1 sm:col-span-2'
       : colSpan === 3
-        ? 'sm:col-span-2 md:col-span-3'
+        ? 'col-span-1 sm:col-span-2 md:col-span-3'
         : colSpan === 4
-          ? 'sm:col-span-2 md:col-span-4'
-          : ''
+          ? 'col-span-1 sm:col-span-2 md:col-span-4'
+          : 'col-span-1'
 
   const isCodeHelp = field.type === 'codehelp'
   const labelWidth = field.labelWidth || 'w-auto min-w-[85px] px-2.5 whitespace-nowrap'
@@ -76,7 +76,7 @@ const QueryFieldItem = memo(function QueryFieldItem({
 
   return (
     <div
-      className={`flex items-center h-[28px] border-b border-r border-slate-200 bg-white min-w-0 w-full ${colSpanClass}`}
+      className={`flex items-center h-[28px] border-b border-r border-slate-200 bg-white min-w-0 ${colSpanClass}`}
     >
       {/* Cột nhãn Label bên trái - Tự động co giãn theo nội dung, không bị cắt chữ ... */}
       <div

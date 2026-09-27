@@ -5,10 +5,7 @@ import { onRowAppended } from '../components/sheet/js/onRowAppended'
 import { generateEmptyData } from '../components/sheet/js/generateEmptyData'
 import { updateIndexNo } from '../components/sheet/js/updateIndexNo'
 import { usePageData } from '../../context/PageDataContext'
-import {
-  ensureStatusFirstColumn,
-  SYSTEM_INTERNAL_HIDDEN_COLUMNS
-} from '../../utils/systemColumns'
+import { ensureStatusFirstColumn, SYSTEM_INTERNAL_HIDDEN_COLUMNS } from '../../utils/systemColumns'
 
 /**
  * Hàm tính toán chỉ số thống kê (Sum, Count, Average, Min, Max, Cột, Dòng) theo chuẩn Excel khi bôi đen / chọn vùng

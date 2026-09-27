@@ -1,9 +1,8 @@
 /**
  * Default Menu & Submenu Configuration
  * Configured in code for GsHub:
- * 1. Submenu: Thông tin hệ thống (Root: ROOT_SYSTEM)
- * 2. Submenu: Quản lý sản xuất (Root: ROOT_PRODUCTION)
- *    - Menu: Quyết toán lệnh sản xuất (/erp/u/production/order-settlement)
+ * 1. RootMenu: Hệ thống (ROOT_SYSTEM)
+ * 2. RootMenu: Quản lý sản xuất (ROOT_PRODUCTION)
  */
 
 import { transformDataMenu } from '../utils/transformDataMenu'
@@ -38,15 +37,17 @@ export const DEFAULT_ROOT_MENUS = [
 ]
 
 export const DEFAULT_SETTING_ITEMS = [
-  // ── SUBMENU 1: Thông tin hệ thống ──────────────────────────
+  // =========================================================================
+  // ── ROOT_SYSTEM: Hệ thống ────────────────────────────────────────────────
+  // =========================================================================
   {
     Id: 'sub_sys_info',
     MenuKey: 'sys_info',
     MenuRootId: 'ROOT_SYSTEM',
     MenuLabel: 'Thông tin hệ thống',
     MenuType: 'submenu',
-    Icon: 'InfoCircleOutlined',
-    MenuIcon: 'InfoCircleOutlined',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
     View: true,
     OrderSeq: 1
   },
@@ -58,8 +59,6 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuLabel: 'Quản lý người dùng',
     MenuLink: '/erp/u/system/users',
     MenuType: 'menu',
-    Icon: 'UserOutlined',
-    MenuIcon: 'UserOutlined',
     View: true,
     OrderSeq: 1
   },
@@ -71,8 +70,6 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuLabel: 'Phân quyền & Nhóm vai trò',
     MenuLink: '/erp/u/system-settings/roles/role-management',
     MenuType: 'menu',
-    Icon: 'SafetyCertificateOutlined',
-    MenuIcon: 'SafetyCertificateOutlined',
     View: true,
     OrderSeq: 2
   },
@@ -84,8 +81,6 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuLabel: 'Cấu trúc hệ thống & Danh mục',
     MenuLink: '/erp/u/system-settings/structure/modules',
     MenuType: 'menu',
-    Icon: 'AppstoreAddOutlined',
-    MenuIcon: 'AppstoreAddOutlined',
     View: true,
     OrderSeq: 3
   },
@@ -97,80 +92,201 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuLabel: 'Cài đặt hệ thống',
     MenuLink: '/erp/u/setting',
     MenuType: 'menu',
-    Icon: 'SettingOutlined',
-    MenuIcon: 'SettingOutlined',
     View: true,
     OrderSeq: 4
   },
 
-  // ── SUBMENU 2: Quản lý sản xuất ───────────────────────────
+  // =========================================================================
+  // ── ROOT_PRODUCTION: Quản lý sản xuất ────────────────────────────────────
+  // =========================================================================
+
+  // ── Nhóm 1: Quản lý Lệnh sản xuất ────────────────────────────────────────
   {
-    Id: 'sub_production_mgmt',
-    MenuKey: 'production_management',
+    Id: 'sub_prod_orders',
+    MenuKey: 'production_orders_group',
     MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Quản lý sản xuất',
+    MenuLabel: 'Lệnh sản xuất & Công đoạn',
     MenuType: 'submenu',
-    Icon: 'FactoryOutlined',
-    MenuIcon: 'FactoryOutlined',
-    View: true,
-    OrderSeq: 2
-  },
-  {
-    Id: 'menu_production_work_process',
-    MenuKey: 'production_work_process',
-    MenuSubRootId: 'sub_production_mgmt',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Lệnh công đoạn',
-    MenuLink: '/erp/u/production/work-process',
-    MenuType: 'menu',
-    Icon: 'Workflow',
-    MenuIcon: 'Workflow',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
     View: true,
     OrderSeq: 1
   },
   {
+    Id: 'menu_production_work_process',
+    MenuKey: 'production_work_process',
+    MenuSubRootId: 'sub_prod_orders',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Lệnh công đoạn',
+    MenuLink: '/erp/u/production/work-process',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_production_operation_detail',
+    MenuKey: 'production_operation_detail',
+    MenuSubRootId: 'sub_prod_orders',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Chi tiết thao tác sản xuất',
+    MenuLink: '/erp/u/production/operation-detail',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 2
+  },
+  {
     Id: 'menu_production_settlement',
     MenuKey: 'production_order_settlement',
-    MenuSubRootId: 'sub_production_mgmt',
+    MenuSubRootId: 'sub_prod_orders',
     MenuRootId: 'ROOT_PRODUCTION',
     MenuLabel: 'Quyết toán lệnh sản xuất',
     MenuLink: '/erp/u/production/order-settlement',
     MenuType: 'menu',
-    Icon: 'ReconciliationOutlined',
-    MenuIcon: 'ReconciliationOutlined',
+    View: true,
+    OrderSeq: 3
+  },
+
+  // ── Nhóm 2: Thực thi & Giám sát xưởng ─────────────────────────────────────
+  {
+    Id: 'sub_prod_execution',
+    MenuKey: 'production_execution_group',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Thực thi & Giám sát xưởng',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 2
+  },
+  {
+    Id: 'menu_production_monitoring',
+    MenuKey: 'production_monitoring',
+    MenuSubRootId: 'sub_prod_execution',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Bảng giám sát sản xuất Realtime',
+    MenuLink: '/erp/u/production/monitoring',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_production_shift_log',
+    MenuKey: 'production_shift_log',
+    MenuSubRootId: 'sub_prod_execution',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Nhật ký sản xuất ca kíp',
+    MenuLink: '/erp/u/production/shift-log',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 2
+  },
+  {
+    Id: 'menu_production_material_issue',
+    MenuKey: 'production_material_issue',
+    MenuSubRootId: 'sub_prod_execution',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Cấp phát vật tư sản xuất',
+    MenuLink: '/erp/u/production/material-issue',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 3
+  },
+  {
+    Id: 'menu_production_receipt',
+    MenuKey: 'production_receipt',
+    MenuSubRootId: 'sub_prod_execution',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Nhập kho BTP & Thành phẩm',
+    MenuLink: '/erp/u/production/receipt',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 4
+  },
+  {
+    Id: 'menu_production_progress',
+    MenuKey: 'production_progress',
+    MenuSubRootId: 'sub_prod_execution',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Theo dõi tiến độ đơn hàng',
+    MenuLink: '/erp/u/production/progress',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 5
+  },
+
+  // ── Nhóm 3: Quản lý chất lượng (QC) ───────────────────────────────────────
+  {
+    Id: 'sub_prod_qc',
+    MenuKey: 'production_qc_group',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Kiểm soát chất lượng (QC)',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 3
+  },
+  {
+    Id: 'menu_production_sample_check',
+    MenuKey: 'production_sample_check',
+    MenuSubRootId: 'sub_prod_qc',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Kiểm tra mẫu & Nghiệm thu',
+    MenuLink: '/erp/u/production/sample-check',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_production_defect_report',
+    MenuKey: 'production_defect_report',
+    MenuSubRootId: 'sub_prod_qc',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Báo cáo sự cố & Phế phẩm',
+    MenuLink: '/erp/u/production/defect-report',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 2
+  },
+
+  // ── Nhóm 4: Định mức & Quy trình công nghệ (BOM) ──────────────────────────
+  {
+    Id: 'sub_prod_bom',
+    MenuKey: 'production_bom_group',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Định mức & Quy trình (BOM)',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 4
+  },
+  {
+    Id: 'menu_production_bom',
+    MenuKey: 'production_bom',
+    MenuSubRootId: 'sub_prod_bom',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Định mức kỹ thuật sản phẩm (BOM)',
+    MenuLink: '/erp/u/production/bom',
+    MenuType: 'menu',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_production_routing',
+    MenuKey: 'production_routing',
+    MenuSubRootId: 'sub_prod_bom',
+    MenuRootId: 'ROOT_PRODUCTION',
+    MenuLabel: 'Quy trình công nghệ & Thiết bị máy',
+    MenuLink: '/erp/u/production/routing',
+    MenuType: 'menu',
     View: true,
     OrderSeq: 2
   }
 ]
 
-export const DEFAULT_MENU_ITEMS = [
-  {
-    Id: 'item_production_work_process_all',
-    MenuKey: 'work_process_overview',
-    MenuId: 'menu_production_work_process',
-    MenuSubRootId: 'menu_production_work_process',
-    MenuLabel: 'Tra cứu lệnh công đoạn',
-    MenuLink: '/erp/u/production/work-process',
-    MenuType: 'menuitem',
-    Icon: 'ApartmentOutlined',
-    MenuIcon: 'ApartmentOutlined',
-    View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'item_production_settlement_all',
-    MenuKey: 'settlement_overview',
-    MenuId: 'menu_production_settlement',
-    MenuSubRootId: 'menu_production_settlement',
-    MenuLabel: 'Bảng quyết toán lệnh sản xuất',
-    MenuLink: '/erp/u/production/order-settlement',
-    MenuType: 'menuitem',
-    Icon: 'TableOutlined',
-    MenuIcon: 'TableOutlined',
-    View: true,
-    OrderSeq: 2
-  }
-]
+// Chỉ khai báo menuitem cấp 4 khi thực sự có phân nhánh con (để trống khi menu cấp 3 là trực tiếp)
+export const DEFAULT_MENU_ITEMS = []
 
 /**
  * Merge server roles menu with default code config
@@ -191,13 +307,14 @@ export function mergeWithDefaultMenuConfig(
   const mergedRoots = Array.from(rootMenuMap.values())
 
   const itemMap = new Map()
-  ;[...DEFAULT_SETTING_ITEMS, ...(Array.isArray(serverSettingItems) ? serverSettingItems : [])].forEach(
-    (item) => {
-      if (!item) return
-      const key = item.MenuKey || item.Id
-      if (key) itemMap.set(key, { ...item, View: item.View !== false })
-    }
-  )
+  ;[
+    ...DEFAULT_SETTING_ITEMS,
+    ...(Array.isArray(serverSettingItems) ? serverSettingItems : [])
+  ].forEach((item) => {
+    if (!item) return
+    const key = item.MenuKey || item.Id
+    if (key) itemMap.set(key, { ...item, View: item.View !== false })
+  })
   const mergedItems = Array.from(itemMap.values())
 
   const subItemMap = new Map()

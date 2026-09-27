@@ -72,6 +72,29 @@ func (AuditLog) TableName() string {
 	return "AuditLog"
 }
 
+// ErpEndpoint stores dynamic ERP route endpoints and query templates in PostgreSQL DATAHUB database
+type ErpEndpoint struct {
+	EndpointKey string    `gorm:"primaryKey;column:EndpointKey;type:varchar(100)" json:"endpoint_key"`
+	ConfigKey   string    `gorm:"column:ConfigKey;type:varchar(100);default:'BravoDefault'" json:"config_key"`
+	Endpoint    string    `gorm:"column:Endpoint;type:varchar(500);not null" json:"endpoint"`
+	Stn         string    `gorm:"column:Stn;type:varchar(100)" json:"stn"`
+	San         string    `gorm:"column:San;type:varchar(100)" json:"san"`
+	Alc         string    `gorm:"column:Alc;type:text" json:"alc"`
+	Ndcn        string    `gorm:"column:Ndcn;type:varchar(100)" json:"ndcn"`
+	Nocn        string    `gorm:"column:Nocn;type:varchar(100)" json:"nocn"`
+	Necn        string    `gorm:"column:Necn;type:varchar(100)" json:"necn"`
+	Nrcn        string    `gorm:"column:Nrcn;type:varchar(100)" json:"nrcn"`
+	Fields      string    `gorm:"column:Fields;type:text" json:"fields,omitempty"`
+	Description string    `gorm:"column:Description;type:varchar(500)" json:"description,omitempty"`
+	IsActive    bool      `gorm:"column:IsActive;default:true" json:"is_active"`
+	CreatedAt   time.Time `gorm:"column:CreatedAt" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"column:UpdatedAt" json:"updated_at"`
+}
+
+func (ErpEndpoint) TableName() string {
+	return "ErpEndpoint"
+}
+
 // LoginRequest received from Frontend
 type LoginRequest struct {
 	Username  string `json:"username" binding:"required"`
@@ -85,6 +108,7 @@ type LoginResponse struct {
 	ConfigKey    string        `json:"config_key"`
 	Username     string        `json:"username"`
 	AccessToken  string        `json:"access_token"`
+	RefreshToken string        `json:"refresh_token,omitempty"`
 	TokenType    string        `json:"token_type"`
 	ExpiresIn    int64         `json:"expires_in"`
 	ExpiresAt    string        `json:"expires_at"`

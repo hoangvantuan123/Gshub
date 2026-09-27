@@ -51,6 +51,9 @@ import { openDB } from 'idb'
 import { RealtimeProvider } from '../../api/realtime/context/RealtimeContext'
 import TitleBar from '../components/header/titleBar'
 import GlobalSearchModal from '../components/globalSearch/GlobalSearchModal'
+import ModalLogout from '../components/modal/logout/modalLogout'
+import { performLogout } from '../../utils/logout'
+import { useTranslation } from 'react-i18next'
 
 const { Content } = Layout
 
@@ -140,7 +143,22 @@ const LanguageProvider = ({ children, keyLanguage }) => {
 }
 
 const getAuthToken = () => {
-  return Cookies.get('a_a') || localStorage.getItem('token') || localStorage.getItem('a_a')
+  return (
+    Cookies.get('a_a') ||
+    Cookies.get('access_token') ||
+    localStorage.getItem('access_token') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('a_a')
+  )
+}
+
+const getRefreshToken = () => {
+  return (
+    Cookies.get('r_t') ||
+    Cookies.get('refresh_token') ||
+    localStorage.getItem('refresh_token') ||
+    localStorage.getItem('r_t')
+  )
 }
 
 const getInitialRolesMenu = () => {
@@ -289,7 +307,8 @@ const UserRouter = () => {
   const [roleTable, setRoleTable] = useState(() => initialMenuData.permissionsTree)
   const [errorMenu, setErrorMenu] = useState(false)
   const [userPermissions, setUserPermissions] = useState(() => initialMenuData.settingItems)
-
+  const { t } = useTranslation()
+  const [sessionExpiredModalOpen, setSessionExpiredModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [keyLanguage, setKeyLanguage] = useState(null)
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false)
@@ -405,9 +424,10 @@ const UserRouter = () => {
   }, [])
 
   const checkLoginStatus = useCallback(() => {
-    let token = getAuthToken()
-    let userInfo = localStorage.getItem('userInfo')
-    if (token && userInfo) {
+    const token = getAuthToken()
+    const refToken = getRefreshToken()
+    const userInfo = localStorage.getItem('userInfo')
+    if (token && refToken && userInfo) {
       setIsLoggedIn(true)
       processRolesMenu()
     } else {
@@ -415,8 +435,17 @@ const UserRouter = () => {
       lastProcessedRolesMenuRef.current = null
       Cookies.remove('a_a', { path: '/' })
       Cookies.remove('a_a')
+      Cookies.remove('access_token', { path: '/' })
+      Cookies.remove('access_token')
+      Cookies.remove('r_t', { path: '/' })
+      Cookies.remove('r_t')
+      Cookies.remove('refresh_token', { path: '/' })
+      Cookies.remove('refresh_token')
       localStorage.removeItem('token')
+      localStorage.removeItem('access_token')
       localStorage.removeItem('a_a')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('r_t')
       localStorage.removeItem('userInfo')
       localStorage.removeItem('roles_menu')
       localStorage.removeItem('device_token')
@@ -463,8 +492,9 @@ const UserRouter = () => {
       !location.pathname.startsWith('/app/erp/p/asst-aems/maintain/mr-04/')
     ) {
       const token = getAuthToken()
+      const refToken = getRefreshToken()
       const userInfo = localStorage.getItem('userInfo')
-      if (!token || !userInfo) {
+      if (!token || !refToken || !userInfo) {
         checkLoginStatus()
       }
     }
@@ -472,9 +502,10 @@ const UserRouter = () => {
 
   useEffect(() => {
     const handleAuthChange = () => {
-      let token = getAuthToken()
-      let userInfo = localStorage.getItem('userInfo')
-      if (token && userInfo) {
+      const token = getAuthToken()
+      const refToken = getRefreshToken()
+      const userInfo = localStorage.getItem('userInfo')
+      if (token && refToken && userInfo) {
         setIsLoggedIn(true)
         lastProcessedRolesMenuRef.current = null
         processRolesMenu(true)
@@ -492,7 +523,12 @@ const UserRouter = () => {
       checkLoginStatus()
     }
 
+    const handleSessionExpired = () => {
+      setSessionExpiredModalOpen(true)
+    }
+
     window.addEventListener('auth-state-changed', handleAuthChange)
+    window.addEventListener('auth:session-expired', handleSessionExpired)
 
     let cleanupLogout = null
     if (typeof window?.electron?.onLogoutEvent === 'function') {
@@ -503,6 +539,7 @@ const UserRouter = () => {
 
     return () => {
       window.removeEventListener('auth-state-changed', handleAuthChange)
+      window.removeEventListener('auth:session-expired', handleSessionExpired)
       if (typeof cleanupLogout === 'function') {
         cleanupLogout()
       } else if (typeof window?.electron?.ipcRenderer?.removeListener === 'function') {
@@ -725,6 +762,16 @@ const UserRouter = () => {
         permissions={userPermissions}
         rootMenu={rootMenuItems}
         menuTransForm={menuTransForm}
+      />
+
+      {/* Modal đăng xuất có sẵn của hệ thống */}
+      <ModalLogout
+        modalOpen={sessionExpiredModalOpen}
+        setModalOpen={setSessionExpiredModalOpen}
+        confirmLogout={async () => {
+          setSessionExpiredModalOpen(false)
+          await performLogout(navigate)
+        }}
       />
     </>
   )

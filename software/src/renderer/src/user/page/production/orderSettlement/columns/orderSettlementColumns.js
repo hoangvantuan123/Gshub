@@ -329,25 +329,213 @@ export const useOrderSettlementColumns = ({ isFieldVisible, isFieldReadOnly } = 
 }
 
 export const defaultOrderSettlementColumns = [
-  { title: '', id: 'WorkingTag', kind: 'Text', readonly: true, width: 45, hasMenu: true, visible: true },
-  { title: 'Lệnh công đoạn', id: 'StageOrderNo', group: 'Thông tin Lệnh & Hàng hóa', kind: 'Text', readonly: true, width: 195, hasMenu: true, visible: true },
-  { title: 'Mặt hàng', id: 'ItemCode', group: 'Thông tin Lệnh & Hàng hóa', kind: 'Text', readonly: true, width: 145, hasMenu: true, visible: true },
-  { title: 'Tên vật tư, hàng hóa', id: 'ItemName', group: 'Thông tin Lệnh & Hàng hóa', kind: 'Text', readonly: true, width: 180, hasMenu: true, visible: true },
-  { title: 'SL cần đạt theo DO', id: 'DoRequiredQty', group: 'Kế hoạch & Định mức sản xuất', kind: 'Number', readonly: true, width: 145, hasMenu: true, visible: true },
-  { title: 'SL điều chỉnh ban đầu', id: 'InitialAdjustQty', group: 'Kế hoạch & Định mức sản xuất', kind: 'Number', readonly: false, width: 155, hasMenu: true, visible: true },
-  { title: 'SL cần đạt sau ĐC', id: 'AdjustedRequiredQty', group: 'Kế hoạch & Định mức sản xuất', kind: 'Number', readonly: true, width: 155, hasMenu: true, visible: true },
-  { title: 'SL bù hao', id: 'WasteCompensationQty', group: 'Kế hoạch & Định mức sản xuất', kind: 'Number', readonly: true, width: 110, hasMenu: true, visible: true },
-  { title: 'SL cần sản xuất', id: 'ProductionRequiredQty', group: 'Kế hoạch & Định mức sản xuất', kind: 'Number', readonly: true, width: 135, hasMenu: true, visible: true },
-  { title: 'Quyết toán', id: 'IsSettled', group: 'Quyết toán Lệnh', kind: 'Boolean', readonly: false, width: 105, hasMenu: true, visible: true },
-  { title: 'SL quyết toán', id: 'SettlementQty', group: 'Quyết toán Lệnh', kind: 'Number', readonly: true, width: 125, hasMenu: true, visible: true },
-  { title: 'Số chi tiết', id: 'DetailNo', group: 'Thực hiện Lệnh Thao tác', kind: 'Text', readonly: true, width: 150, hasMenu: true, visible: true },
-  { title: 'Mã TT', id: 'OperationCode', group: 'Thực hiện Lệnh Thao tác', kind: 'Text', readonly: true, width: 115, hasMenu: true, visible: true },
-  { title: 'SL đạt lên TT', id: 'PlannedAchievedQty', group: 'Thực hiện Lệnh Thao tác', kind: 'Number', readonly: true, width: 145, hasMenu: true, visible: true },
-  { title: 'SL SX lên TT', id: 'PlannedProductionQty', group: 'Thực hiện Lệnh Thao tác', kind: 'Number', readonly: true, width: 145, hasMenu: true, visible: true },
-  { title: 'SL đạt thống kê', id: 'StatAchievedQty', group: 'Thực hiện Lệnh Thao tác', kind: 'Number', readonly: true, width: 145, hasMenu: true, visible: true },
-  { title: 'SL SX thống kê', id: 'StatProductionQty', group: 'Thực hiện Lệnh Thao tác', kind: 'Number', readonly: true, width: 145, hasMenu: true, visible: true },
-  { title: 'SL Nhập kho', id: 'WarehouseReceiptQty', group: 'Thực hiện Lệnh Thao tác', kind: 'Number', readonly: true, width: 130, hasMenu: true, visible: true },
-  { title: 'Trạng thái', id: 'Status', group: 'Trạng thái & Ghi chú', kind: 'Text', readonly: true, width: 135, hasMenu: true, visible: true },
-  { title: 'Ngày quyết toán', id: 'SettledDate', group: 'Trạng thái & Ghi chú', kind: 'Text', readonly: true, width: 140, hasMenu: true, visible: true },
-  { title: 'Ghi chú quyết toán', id: 'Notes', group: 'Trạng thái & Ghi chú', kind: 'Text', readonly: false, width: 200, hasMenu: true, visible: true }
+  {
+    title: '',
+    id: 'WorkingTag',
+    kind: 'Text',
+    readonly: true,
+    width: 45,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Lệnh công đoạn',
+    id: 'StageOrderNo',
+    group: 'Thông tin Lệnh & Hàng hóa',
+    kind: 'Text',
+    readonly: true,
+    width: 195,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Mặt hàng',
+    id: 'ItemCode',
+    group: 'Thông tin Lệnh & Hàng hóa',
+    kind: 'Text',
+    readonly: true,
+    width: 145,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Tên vật tư, hàng hóa',
+    id: 'ItemName',
+    group: 'Thông tin Lệnh & Hàng hóa',
+    kind: 'Text',
+    readonly: true,
+    width: 180,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL cần đạt theo DO',
+    id: 'DoRequiredQty',
+    group: 'Kế hoạch & Định mức sản xuất',
+    kind: 'Number',
+    readonly: true,
+    width: 145,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL điều chỉnh ban đầu',
+    id: 'InitialAdjustQty',
+    group: 'Kế hoạch & Định mức sản xuất',
+    kind: 'Number',
+    readonly: false,
+    width: 155,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL cần đạt sau ĐC',
+    id: 'AdjustedRequiredQty',
+    group: 'Kế hoạch & Định mức sản xuất',
+    kind: 'Number',
+    readonly: true,
+    width: 155,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL bù hao',
+    id: 'WasteCompensationQty',
+    group: 'Kế hoạch & Định mức sản xuất',
+    kind: 'Number',
+    readonly: true,
+    width: 110,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL cần sản xuất',
+    id: 'ProductionRequiredQty',
+    group: 'Kế hoạch & Định mức sản xuất',
+    kind: 'Number',
+    readonly: true,
+    width: 135,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Quyết toán',
+    id: 'IsSettled',
+    group: 'Quyết toán Lệnh',
+    kind: 'Boolean',
+    readonly: false,
+    width: 105,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL quyết toán',
+    id: 'SettlementQty',
+    group: 'Quyết toán Lệnh',
+    kind: 'Number',
+    readonly: true,
+    width: 125,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Số chi tiết',
+    id: 'DetailNo',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Text',
+    readonly: true,
+    width: 150,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Mã TT',
+    id: 'OperationCode',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Text',
+    readonly: true,
+    width: 115,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL đạt lên TT',
+    id: 'PlannedAchievedQty',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Number',
+    readonly: true,
+    width: 145,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL SX lên TT',
+    id: 'PlannedProductionQty',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Number',
+    readonly: true,
+    width: 145,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL đạt thống kê',
+    id: 'StatAchievedQty',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Number',
+    readonly: true,
+    width: 145,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL SX thống kê',
+    id: 'StatProductionQty',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Number',
+    readonly: true,
+    width: 145,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'SL Nhập kho',
+    id: 'WarehouseReceiptQty',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Number',
+    readonly: true,
+    width: 130,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Trạng thái',
+    id: 'Status',
+    group: 'Trạng thái & Ghi chú',
+    kind: 'Text',
+    readonly: true,
+    width: 135,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Ngày quyết toán',
+    id: 'SettledDate',
+    group: 'Trạng thái & Ghi chú',
+    kind: 'Text',
+    readonly: true,
+    width: 140,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Ghi chú quyết toán',
+    id: 'Notes',
+    group: 'Trạng thái & Ghi chú',
+    kind: 'Text',
+    readonly: false,
+    width: 200,
+    hasMenu: true,
+    visible: true
+  }
 ]

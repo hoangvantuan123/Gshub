@@ -128,6 +128,12 @@ const api = {
       ipcRenderer.on('updater:status-changed', listener)
       return () => ipcRenderer.removeListener('updater:status-changed', listener)
     }
+  },
+
+  // DataHub Direct gRPC API (:50057)
+  datahub: {
+    queryWorkProcess: (payload) => ipcRenderer.invoke('datahub:query-work-process', payload),
+    getFactories: (payload) => ipcRenderer.invoke('datahub:get-factories', payload)
   }
 }
 

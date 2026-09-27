@@ -7,4 +7,3 @@ export * from './permScope'
 export * from './role'
 export * from './rootMenu'
 export * from './sysAttr'
-

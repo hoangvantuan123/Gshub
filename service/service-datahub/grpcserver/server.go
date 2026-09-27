@@ -23,25 +23,31 @@ import (
 
 type Server struct {
 	pb.UnimplementedDataHubServiceServer
-	db            *gorm.DB
-	loginService  *services.LoginService
-	configService *services.ConfigService
-	logger        *zap.Logger
-	startTime     time.Time
+	db                 *gorm.DB
+	loginService       *services.LoginService
+	configService      *services.ConfigService
+	workProcessService *services.WorkProcessService
+	factoryService     *services.FactoryService
+	logger             *zap.Logger
+	startTime          time.Time
 }
 
 func NewServer(
 	db *gorm.DB,
 	loginService *services.LoginService,
 	configService *services.ConfigService,
+	workProcessService *services.WorkProcessService,
+	factoryService *services.FactoryService,
 	logger *zap.Logger,
 ) *Server {
 	return &Server{
-		db:            db,
-		loginService:  loginService,
-		configService: configService,
-		logger:        logger,
-		startTime:     time.Now(),
+		db:                 db,
+		loginService:       loginService,
+		configService:      configService,
+		workProcessService: workProcessService,
+		factoryService:     factoryService,
+		logger:             logger,
+		startTime:          time.Now(),
 	}
 }
 
@@ -390,12 +396,203 @@ func (s *Server) HealthCheck(ctx context.Context, req *pb.HealthProtoRequest) (*
 	}, nil
 }
 
+// 10. QueryWorkProcess (gRPC Protobuf RPC)
+func (s *Server) QueryWorkProcess(ctx context.Context, req *pb.WorkProcessProtoRequest) (*pb.WorkProcessProtoResponse, error) {
+	clientIP := "grpc-client"
+	if p, ok := peer.FromContext(ctx); ok {
+		clientIP = p.Addr.String()
+	}
+
+	var colFilters map[string]interface{}
+	if req.ColumnFiltersJson != "" {
+		_ = json.Unmarshal([]byte(req.ColumnFiltersJson), &colFilters)
+	}
+
+	var rawSSE map[string]interface{}
+	if req.RawSseJson != "" {
+		_ = json.Unmarshal([]byte(req.RawSseJson), &rawSSE)
+	}
+
+	wpReq := &models.WorkProcessRequest{
+		DocNo:           req.DocNo,
+		StageOrderNo:    req.StageOrderNo,
+		WorkProcessCode: req.WorkProcessCode,
+		ProductTypeName: req.ProductTypeName,
+		ItemCode:        req.ItemCode,
+		ItemCodes:       req.ItemCodes,
+		ItemName:        req.ItemName,
+		ItemNames:       req.ItemNames,
+		Unit:            req.Unit,
+		CustomerName:    req.CustomerName,
+		FactoryName:     req.FactoryName,
+		Description:     req.Description,
+		BranchCode:      req.BranchCode,
+		FiscalYear:      req.FiscalYear,
+		Page:            int(req.Page),
+		PageSize:        int(req.PageSize),
+		IncludeRaw:      req.IncludeRaw,
+		ConfigKey:       req.ConfigKey,
+		MenuKey:         req.MenuKey,
+		ApiKey:          req.ApiKey,
+		Username:        req.Username,
+		ColumnFilters:   colFilters,
+		RawSSE:          rawSSE,
+	}
+
+	startTime := time.Now()
+	res, err := s.workProcessService.GetWorkProcess(ctx, clientIP, "DataHub-gRPC-Client", wpReq)
+	latency := time.Since(startTime).Milliseconds()
+
+	if err != nil {
+		return &pb.WorkProcessProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+			LatencyMs:    latency,
+		}, nil
+	}
+
+	dataBytes, _ := json.Marshal(res)
+	var totalRecords int64
+	if res != nil {
+		totalRecords = int64(res.TotalCount)
+	}
+
+	return &pb.WorkProcessProtoResponse{
+		Success:      true,
+		Message:      "Query WorkProcess completed successfully",
+		DataJson:     string(dataBytes),
+		TotalRecords: totalRecords,
+		LatencyMs:    latency,
+	}, nil
+}
+
+// 11. GetFactories (gRPC Protobuf RPC)
+func (s *Server) GetFactories(ctx context.Context, req *pb.FactoryProtoRequest) (*pb.FactoryProtoResponse, error) {
+	clientIP := "grpc-client"
+	if p, ok := peer.FromContext(ctx); ok {
+		clientIP = p.Addr.String()
+	}
+
+	factReq := &models.FactoryRequest{
+		ConfigKey:  req.ConfigKey,
+		MenuKey:    req.MenuKey,
+		ApiKey:     req.ApiKey,
+		Username:   req.Username,
+		BranchCode: req.BranchCode,
+		FiscalYear: req.FiscalYear,
+		Endpoint:   req.Endpoint,
+	}
+
+	factories, err := s.factoryService.GetFactories(ctx, clientIP, "DataHub-gRPC-Client", factReq)
+	if err != nil {
+		return &pb.FactoryProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var protoList []*pb.FactoryItemProto
+	for _, f := range factories {
+		var idVal int64
+		var pIdVal int64
+		var fnVal string
+
+		if id, ok := f["Id"].(float64); ok {
+			idVal = int64(id)
+		} else if id, ok := f["Id"].(int64); ok {
+			idVal = id
+		}
+		if pid, ok := f["ParentId"].(float64); ok {
+			pIdVal = int64(pid)
+		} else if pid, ok := f["ParentId"].(int64); ok {
+			pIdVal = pid
+		}
+		if fn, ok := f["FactoryName"].(string); ok {
+			fnVal = fn
+		}
+
+		protoList = append(protoList, &pb.FactoryItemProto{
+			Id:          idVal,
+			ParentId:    pIdVal,
+			FactoryName: fnVal,
+		})
+	}
+
+	dataBytes, _ := json.Marshal(factories)
+
+	return &pb.FactoryProtoResponse{
+		Success:   true,
+		Message:   "Query factories completed successfully",
+		Factories: protoList,
+		DataJson:  string(dataBytes),
+	}, nil
+}
+
+// 12. GetAllEndpoints (gRPC Protobuf RPC)
+func (s *Server) GetAllEndpoints(ctx context.Context, req *pb.GetEndpointsProtoRequest) (*pb.GetEndpointsProtoResponse, error) {
+	endpoints, err := s.configService.GetAllEndpoints(ctx, req.MenuKey)
+	if err != nil {
+		return &pb.GetEndpointsProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var protoList []*pb.ErpEndpointProto
+	for _, ep := range endpoints {
+		protoList = append(protoList, &pb.ErpEndpointProto{
+			ApiKey:       ep.EndpointKey,
+			EndpointUuid: ep.Endpoint,
+			Description:  ep.Description,
+			CreatedAt:    ep.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:    ep.UpdatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return &pb.GetEndpointsProtoResponse{
+		Success:   true,
+		Endpoints: protoList,
+	}, nil
+}
+
+// 13. SaveEndpoint (gRPC Protobuf RPC)
+func (s *Server) SaveEndpoint(ctx context.Context, req *pb.SaveEndpointProtoRequest) (*pb.SaveEndpointProtoResponse, error) {
+	if req.Endpoint == nil || req.Endpoint.ApiKey == "" || req.Endpoint.EndpointUuid == "" {
+		return &pb.SaveEndpointProtoResponse{
+			Success:      false,
+			ErrorMessage: "Invalid payload: api_key and endpoint_uuid are required",
+		}, nil
+	}
+
+	ep := &models.ErpEndpoint{
+		EndpointKey: req.Endpoint.ApiKey,
+		Endpoint:    req.Endpoint.EndpointUuid,
+		Description: req.Endpoint.Description,
+		IsActive:    true,
+	}
+
+	if err := s.configService.SaveEndpoint(ctx, ep); err != nil {
+		return &pb.SaveEndpointProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &pb.SaveEndpointProtoResponse{
+		Success:  true,
+		Message:  "Endpoint saved successfully",
+		Endpoint: req.Endpoint,
+	}, nil
+}
+
 // RunGRPCServer launches the gRPC server listening on the specified port
 func RunGRPCServer(
 	port string,
 	db *gorm.DB,
 	loginService *services.LoginService,
 	configService *services.ConfigService,
+	workProcessService *services.WorkProcessService,
+	factoryService *services.FactoryService,
 	logger *zap.Logger,
 ) (*grpc.Server, net.Listener, error) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
@@ -420,8 +617,9 @@ func RunGRPCServer(
 	}
 
 	grpcServer := grpc.NewServer(opts...)
-	datahubServer := NewServer(db, loginService, configService, logger)
+	datahubServer := NewServer(db, loginService, configService, workProcessService, factoryService, logger)
 	pb.RegisterDataHubServiceServer(grpcServer, datahubServer)
 
 	return grpcServer, lis, nil
 }
+

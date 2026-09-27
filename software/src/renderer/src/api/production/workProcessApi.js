@@ -1,5 +1,7 @@
 import axios from 'axios'
 import { BACKEND_DATAHUB_URL } from '../../config/serverConfig'
+import { isSessionExpiredError, triggerSessionExpired } from '../../utils/sessionExpiredHelper'
+import { accessToken, getEmployeeCode } from '../../services/tokenService'
 
 const DATAHUB_API_URL = BACKEND_DATAHUB_URL || 'http://localhost:8080'
 
@@ -17,50 +19,125 @@ const DATAHUB_API_URL = BACKEND_DATAHUB_URL || 'http://localhost:8080'
  */
 export async function queryWorkProcess({
   doc_no,
+  stage_order_no,
   item_code,
   item_codes,
   item_name,
   item_names,
   unit,
   customer_name,
+  factory_name,
   description,
+  work_process_code,
+  product_type_name,
   column_filters,
   raw_sse,
   branch_code = 'A01',
   fiscal_year = '2026',
+  page = 0,
+  page_size = 100,
   fetch_steps = true,
   include_raw = true,
   config_key = 'BravoDefault',
+  menu_key = 'production_work_process',
+  api_key = 'WorkDocCD',
   username = '',
+  token = '',
   signal = null
 }) {
+  const activeToken = token || accessToken() || ''
+  const activeUsername = username || getEmployeeCode() || ''
+
   const payload = {
+    stage_order_no: stage_order_no?.trim() || undefined,
     doc_no: doc_no?.trim() || undefined,
+    work_process_code: work_process_code?.trim() || undefined,
+    product_type_name: product_type_name?.trim() || undefined,
     item_code: item_code?.trim() || undefined,
     item_codes: Array.isArray(item_codes) && item_codes.length > 0 ? item_codes : undefined,
     item_name: item_name?.trim() || undefined,
     item_names: Array.isArray(item_names) && item_names.length > 0 ? item_names : undefined,
     unit: unit?.trim() || undefined,
     customer_name: customer_name?.trim() || undefined,
+    factory_name: factory_name?.trim() || undefined,
     description: description?.trim() || undefined,
-    column_filters: column_filters && Object.keys(column_filters).length > 0 ? column_filters : undefined,
+    column_filters:
+      column_filters && Object.keys(column_filters).length > 0 ? column_filters : undefined,
     raw_sse: raw_sse && Object.keys(raw_sse).length > 0 ? raw_sse : undefined,
     branch_code: branch_code || 'A01',
     fiscal_year: fiscal_year || String(new Date().getFullYear()),
+    page: Number(page) || 0,
+    page_size: Number(page_size) || 100,
     fetch_steps: fetch_steps !== false,
     include_raw: Boolean(include_raw),
     config_key: config_key || 'BravoDefault',
-    username: username || undefined
+    menu_key: menu_key || 'production_work_process',
+    api_key: api_key || 'WorkDocCD',
+    username: activeUsername || undefined,
+    token: activeToken || undefined
   }
 
   const startTime = Date.now()
 
+  // Ưu tiên 1: Sử dụng kết nối gRPC siêu tốc qua Electron IPC (:50057)
+  if (typeof window !== 'undefined' && window.electron?.datahub?.queryWorkProcess) {
+    try {
+      const grpcRes = await window.electron.datahub.queryWorkProcess(payload)
+      const latency = grpcRes?.latency_ms || Date.now() - startTime
+
+      if (grpcRes?.success) {
+        let parsedData = null
+        if (grpcRes.data_json) {
+          try {
+            parsedData = JSON.parse(grpcRes.data_json)
+          } catch (e) {
+            console.error('Lỗi parse data_json từ gRPC:', e)
+          }
+        }
+
+        return {
+          success: true,
+          data: parsedData || {},
+          message: grpcRes.message || 'Thành công (gRPC)',
+          latency,
+          raw: parsedData?.raw
+        }
+      }
+
+      const errText = grpcRes?.error_message || grpcRes?.message || 'Lỗi truy vấn gRPC DataHub'
+      if (isSessionExpiredError(errText)) {
+        triggerSessionExpired(errText)
+      }
+      return {
+        success: false,
+        message: errText,
+        error: grpcRes?.error_message,
+        latency
+      }
+    } catch (grpcErr) {
+      console.warn('gRPC DataHub call failed, fallback sang HTTP REST:', grpcErr)
+      if (isSessionExpiredError(grpcErr)) {
+        triggerSessionExpired(grpcErr.message)
+      }
+    }
+  }
+
+  // Ưu tiên 2: Fallback qua HTTP REST Gateway (:8080)
   try {
+    const headers = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    }
+    if (activeToken) {
+      headers['Authorization'] = `Bearer ${activeToken}`
+      headers['X-Access-Token'] = activeToken
+    }
+    if (activeUsername) {
+      headers['X-Username'] = activeUsername
+    }
+
     const response = await axios.post(`${DATAHUB_API_URL}/api/v1/work-process`, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      },
+      headers,
       timeout: 45000,
       signal
     })
@@ -71,15 +148,20 @@ export async function queryWorkProcess({
       return {
         success: true,
         data: response.data.data,
-        message: response.data.message || 'Thành công',
+        message: response.data.message || 'Thành công (HTTP)',
         latency,
         raw: response.data.data?.raw
       }
     }
 
+    const respErr = response.data?.message || response.data?.error || 'Không có dữ liệu trả về'
+    if (isSessionExpiredError(respErr)) {
+      triggerSessionExpired(respErr)
+    }
+
     return {
       success: false,
-      message: response.data?.message || 'Không có dữ liệu trả về',
+      message: respErr,
       error: response.data?.error,
       latency
     }
@@ -91,6 +173,10 @@ export async function queryWorkProcess({
       err.message ||
       'Không thể kết nối đến server DataHub (:8080)'
 
+    if (isSessionExpiredError(errorMsg, err.response?.status)) {
+      triggerSessionExpired(errorMsg)
+    }
+
     return {
       success: false,
       message: errorMsg,
@@ -101,76 +187,106 @@ export async function queryWorkProcess({
 }
 
 /**
- * Gọi API DataHub lấy danh sách Thao tác TT khi click vào 1 dòng Lệnh công đoạn chi tiết
- * @param {Object} params
- * @param {string} params.row_id - RowId của dòng Lệnh CĐ chi tiết e.g. "12262611CD"
- * @param {string} [params.branch_code="A01"]
- * @param {string} [params.fiscal_year="2026"]
- * @param {string} [params.config_key="BravoDefault"]
- * @param {string} [params.username]
- * @returns {Promise<Object>}
+ * Lấy danh sách nhà máy động từ Bravo ERP endpoint (hỗ trợ gRPC & HTTP fallback)
+ * @returns {Promise<Array<{FactoryName: string, Id: number, ParentId: number}>>}
  */
-export async function queryWorkProcessSteps({
-  row_id,
-  branch_code = 'A01',
-  fiscal_year = '2026',
+export async function fetchWorkProcessFactories({
   config_key = 'BravoDefault',
+  menu_key = 'production_work_process',
+  api_key = 'WorkDocCD_Factory',
   username = '',
-  signal = null
-}) {
-  if (!row_id) {
-    return { success: true, data: [] }
-  }
+  token = '',
+  branch_code = '',
+  fiscal_year = ''
+} = {}) {
+  const activeToken = token || accessToken() || ''
+  const activeUsername = username || getEmployeeCode() || ''
 
-  const payload = {
-    row_id: String(row_id).trim(),
-    branch_code: branch_code || 'A01',
-    fiscal_year: fiscal_year || String(new Date().getFullYear()),
-    config_key: config_key || 'BravoDefault',
-    username: username || undefined
-  }
+  // Ưu tiên gRPC
+  if (typeof window !== 'undefined' && window.electron?.datahub?.getFactories) {
+    try {
+      const grpcRes = await window.electron.datahub.getFactories({
+        config_key,
+        menu_key,
+        api_key,
+        username: activeUsername,
+        token: activeToken,
+        branch_code,
+        fiscal_year
+      })
 
-  const startTime = Date.now()
-
-  try {
-    const response = await axios.post(`${DATAHUB_API_URL}/api/v1/work-process/steps`, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      },
-      timeout: 30000,
-      signal
-    })
-
-    const latency = Date.now() - startTime
-
-    if (response.data && response.data.success) {
-      return {
-        success: true,
-        data: response.data.data || [],
-        message: response.data.message || 'Thành công',
-        latency
+      if (grpcRes?.success) {
+        if (grpcRes.data_json) {
+          try {
+            const list = JSON.parse(grpcRes.data_json)
+            if (Array.isArray(list) && list.length > 0) return list
+          } catch (_) {}
+        }
+        if (Array.isArray(grpcRes.factories) && grpcRes.factories.length > 0) {
+          return grpcRes.factories.map((f) => ({
+            Id: f.id,
+            ParentId: f.parent_id,
+            FactoryName: f.factory_name
+          }))
+        }
+      } else if (grpcRes?.error_message) {
+        if (isSessionExpiredError(grpcRes.error_message)) {
+          triggerSessionExpired(grpcRes.error_message)
+        }
+      }
+    } catch (err) {
+      console.warn('gRPC getFactories failed, fallback sang HTTP:', err)
+      if (isSessionExpiredError(err)) {
+        triggerSessionExpired(err.message)
       }
     }
+  }
 
-    return {
-      success: false,
-      message: response.data?.message || 'Không thể lấy thao tác TT',
-      error: response.data?.error,
-      latency
+  // Fallback HTTP REST
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
     }
+    if (activeToken) {
+      headers['Authorization'] = `Bearer ${activeToken}`
+      headers['X-Access-Token'] = activeToken
+    }
+    if (activeUsername) {
+      headers['X-Username'] = activeUsername
+    }
+
+    const response = await axios.post(
+      `${DATAHUB_API_URL}/api/v1/work-process/factories`,
+      {
+        config_key,
+        menu_key,
+        api_key,
+        username: activeUsername,
+        token: activeToken,
+        branch_code,
+        fiscal_year
+      },
+      {
+        headers,
+        timeout: 15000
+      }
+    )
+    if (response.data && response.data.success && Array.isArray(response.data.data)) {
+      return response.data.data
+    }
+    return []
   } catch (err) {
-    const latency = Date.now() - startTime
-    return {
-      success: false,
-      message: err.response?.data?.message || err.message || 'Lỗi kết nối API Thao tác',
-      error: err,
-      latency
+    console.warn('Failed to load factories dynamically via POST:', err)
+    const errText = err.response?.data?.message || err.response?.data?.error || err.message || ''
+    if (isSessionExpiredError(errText, err.response?.status)) {
+      triggerSessionExpired(errText)
     }
+    return []
   }
 }
 
 export default {
   queryWorkProcess,
-  queryWorkProcessSteps
+  fetchWorkProcessFactories
 }

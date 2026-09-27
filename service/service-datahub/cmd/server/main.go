@@ -52,15 +52,19 @@ func main() {
 	configService := services.NewConfigService(cfg, db, logger)
 	loginService := services.NewLoginService(db, configService, logger)
 	workProcessService := services.NewWorkProcessService(cfg, db, configService, loginService, logger)
+	orderSettlementService := services.NewOrderSettlementService(cfg, configService, loginService, workProcessService, logger)
+	factoryService := services.NewFactoryService(cfg, db, configService, loginService, logger)
 
 	// 5. Initialize Handlers for REST
 	loginHandler := handlers.NewLoginHandler(loginService, logger)
 	configHandler := handlers.NewConfigHandler(configService, logger)
 	workProcessHandler := handlers.NewWorkProcessHandler(workProcessService, logger)
+	orderSettlementHandler := handlers.NewOrderSettlementHandler(orderSettlementService, logger)
+	factoryHandler := handlers.NewFactoryHandler(factoryService, logger)
 	healthHandler := handlers.NewHealthHandler(db)
 
 	// 6. Setup HTTP REST Router
-	router := routes.SetupRouter(loginHandler, configHandler, workProcessHandler, healthHandler, logger)
+	router := routes.SetupRouter(loginHandler, configHandler, workProcessHandler, orderSettlementHandler, factoryHandler, healthHandler, logger)
 
 	// 7. Setup HTTP REST Server
 	httpAddr := fmt.Sprintf(":%s", cfg.Server.Port)
@@ -86,6 +90,8 @@ func main() {
 		db,
 		loginService,
 		configService,
+		workProcessService,
+		factoryService,
 		logger,
 	)
 	if err != nil {

@@ -5,7 +5,10 @@ class RealtimeServiceBridge {
   constructor() {
     this.statusListeners = new Set()
     this.dataListeners = new Set()
-    this.currentStatus = { status: 'DISCONNECTED', message: 'Realtime WebSocket & gRPC đã được tắt' }
+    this.currentStatus = {
+      status: 'DISCONNECTED',
+      message: 'Realtime WebSocket & gRPC đã được tắt'
+    }
   }
 
   connect() {

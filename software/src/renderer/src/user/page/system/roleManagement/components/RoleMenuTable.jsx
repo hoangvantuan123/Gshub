@@ -476,12 +476,7 @@ export default function RoleMenuTable({
               const targetCol = startCol + c
               if (targetCol >= cols.length) break
               const colKey = indexes[targetCol]
-              if (
-                !colKey ||
-                colKey === 'WorkingTag' ||
-                colKey === 'Status' ||
-                colKey === 'Id'
-              )
+              if (!colKey || colKey === 'WorkingTag' || colKey === 'Status' || colKey === 'Id')
                 continue
 
               let rawVal = rowVals[c] ?? ''

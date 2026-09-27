@@ -84,7 +84,10 @@ export default function GenericCodeHelpModal({
   const effectiveStorageKey = useMemo(() => {
     if (storageKey) return `codehelp_col_widths_${storageKey}`
     if (columns && columns.length > 0) {
-      const colSignature = columns.map((c) => c.id || c.title).filter(Boolean).join('_')
+      const colSignature = columns
+        .map((c) => c.id || c.title)
+        .filter(Boolean)
+        .join('_')
       return `codehelp_col_widths_${colSignature}`
     }
     return `codehelp_col_widths_${String(title || 'default').replace(/\s+/g, '_')}`

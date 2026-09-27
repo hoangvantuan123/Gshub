@@ -112,7 +112,8 @@ export default function OrderSettlementTable({
       const isStatus = columnKey === 'WorkingTag'
       const isBoolean = column.kind === 'Boolean' || BOOLEAN_KEYS.has(columnKey)
       const isNumber = column.kind === 'Number' || NUMBER_KEYS.has(columnKey)
-      const isDate = DATE_KEYS.has(columnKey) || columnKey.endsWith('Date') || columnKey.endsWith('At')
+      const isDate =
+        DATE_KEYS.has(columnKey) || columnKey.endsWith('Date') || columnKey.endsWith('At')
       const isStatusText = columnKey === 'Status'
       const rawTheme = getCellTheme(columnKey, column)
       // Loại bỏ hoàn toàn màu xám cho các dòng chi tiết: ép nền trắng #ffffff
@@ -180,10 +181,10 @@ export default function OrderSettlementTable({
           strVal === 'A'
             ? { textDark: '#16a34a', baseFontStyle: 'bold 12px Inter, sans-serif' }
             : strVal === 'U'
-            ? { textDark: '#2563eb', baseFontStyle: 'bold 12px Inter, sans-serif' }
-            : strVal === 'D'
-            ? { textDark: '#dc2626', baseFontStyle: 'bold 12px Inter, sans-serif' }
-            : meta.cellTheme
+              ? { textDark: '#2563eb', baseFontStyle: 'bold 12px Inter, sans-serif' }
+              : strVal === 'D'
+                ? { textDark: '#dc2626', baseFontStyle: 'bold 12px Inter, sans-serif' }
+                : meta.cellTheme
 
         return {
           kind: GridCellKind.Text,
@@ -199,7 +200,8 @@ export default function OrderSettlementTable({
 
       // Cột Boolean (IsSettled) - Áp dụng cho CẢ Lệnh Công Đoạn (Master) và Lệnh Thao Tác (Detail)
       if (meta.isBoolean) {
-        const boolVal = typeof value === 'boolean' ? value : value === 1 || value === '1' || value === 'true'
+        const boolVal =
+          typeof value === 'boolean' ? value : value === 1 || value === '1' || value === 'true'
         return {
           kind: GridCellKind.Boolean,
           data: boolVal,
@@ -235,10 +237,10 @@ export default function OrderSettlementTable({
           strStatus === 'Đã quyết toán'
             ? { textDark: '#15803d', baseFontStyle: '600 12px Inter, sans-serif' }
             : strStatus === 'Chờ quyết toán'
-            ? { textDark: '#b45309', baseFontStyle: '600 12px Inter, sans-serif' }
-            : strStatus === 'Đang sản xuất'
-            ? { textDark: '#1d4ed8', baseFontStyle: '600 12px Inter, sans-serif' }
-            : meta.cellTheme
+              ? { textDark: '#b45309', baseFontStyle: '600 12px Inter, sans-serif' }
+              : strStatus === 'Đang sản xuất'
+                ? { textDark: '#1d4ed8', baseFontStyle: '600 12px Inter, sans-serif' }
+                : meta.cellTheme
 
         return {
           kind: GridCellKind.Text,
@@ -256,7 +258,9 @@ export default function OrderSettlementTable({
       if (meta.isNumber) {
         const numVal = typeof value === 'number' ? value : Number(value) || 0
         const displayVal =
-          value !== null && value !== undefined && value !== '' ? numVal.toLocaleString('vi-VN') : ''
+          value !== null && value !== undefined && value !== ''
+            ? numVal.toLocaleString('vi-VN')
+            : ''
         return {
           kind: GridCellKind.Number,
           data: numVal,
@@ -298,7 +302,12 @@ export default function OrderSettlementTable({
       const key = indexes[col]
       const column = cols[col]
 
-      if (isReadOnlyColumn(key, column) || column?.readonly || key === 'WorkingTag' || key === 'Id') {
+      if (
+        isReadOnlyColumn(key, column) ||
+        column?.readonly ||
+        key === 'WorkingTag' ||
+        key === 'Id'
+      ) {
         return
       }
 
@@ -405,7 +414,10 @@ export default function OrderSettlementTable({
         {/* Khung tiêu đề chuẩn hệ thống (RoleGroup / RoleManagement) */}
         <h2 className="text-[10px] italic text-indigo-600 border-b border-slate-200 font-bold flex items-center gap-1.5 px-2 py-1 uppercase bg-white">
           <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />
-          <span>{tableTitle || t('production.orderSettlementTitle', 'Danh sách Quyết toán Lệnh sản xuất')}</span>
+          <span>
+            {tableTitle ||
+              t('production.orderSettlementTitle', 'Danh sách Quyết toán Lệnh sản xuất')}
+          </span>
         </h2>
 
         {/* DataEditor với Group Header 2 tầng, Cột số căn phải, rowMarkers="number" */}
@@ -503,7 +515,9 @@ export default function OrderSettlementTable({
 
         {/* Drawer Cài đặt Sheet */}
         <Drawer
-          title={<span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>}
+          title={
+            <span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT SHEET</span>
+          }
           styles={{ body: { padding: 15 } }}
           onClose={onClose}
           open={open}

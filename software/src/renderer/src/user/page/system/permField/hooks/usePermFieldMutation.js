@@ -100,7 +100,9 @@ export function usePermFieldMutation({
       const hasResource = Boolean(r.ResourceCode && String(r.ResourceCode).trim() !== '')
       const hasField = Boolean(r.FieldCode && String(r.FieldCode).trim() !== '')
       const hasName = Boolean(r.FieldName && String(r.FieldName).trim() !== '')
-      const hasDict = Boolean(r.DictSeq !== undefined && r.DictSeq !== null && String(r.DictSeq).trim() !== '')
+      const hasDict = Boolean(
+        r.DictSeq !== undefined && r.DictSeq !== null && String(r.DictSeq).trim() !== ''
+      )
       const hasLang = Boolean(r.LangKey && String(r.LangKey).trim() !== '')
       const hasComment = Boolean(r.Comment && String(r.Comment).trim() !== '')
       return hasResource || hasField || hasName || hasDict || hasLang || hasComment
@@ -171,15 +173,25 @@ export function usePermFieldMutation({
       prepareAddRows: (rows) =>
         rows.map((item) => ({
           IdxNo: Number(item.IdxNo || 0),
-          ResourceSeq: item.ResourceSeq !== undefined && item.ResourceSeq !== null ? String(item.ResourceSeq) : '',
+          ResourceSeq:
+            item.ResourceSeq !== undefined && item.ResourceSeq !== null
+              ? String(item.ResourceSeq)
+              : '',
           ResourceCode: item.ResourceCode || '',
           FieldCode: item.FieldCode || '',
           FieldName: item.FieldName || '',
-          DictSeq: item.DictSeq !== undefined && item.DictSeq !== null && item.DictSeq !== '' ? Number(item.DictSeq) : null,
+          DictSeq:
+            item.DictSeq !== undefined && item.DictSeq !== null && item.DictSeq !== ''
+              ? Number(item.DictSeq)
+              : null,
           LangKey: item.LangKey || '',
           IsMaskable: item.IsMaskable === true || item.IsMaskable === 1 || item.IsMaskable === '1',
-          IsSensitive: item.IsSensitive === true || item.IsSensitive === 1 || item.IsSensitive === '1',
-          OrderNo: item.OrderNo !== undefined && item.OrderNo !== null && item.OrderNo !== '' ? Number(item.OrderNo) : 0,
+          IsSensitive:
+            item.IsSensitive === true || item.IsSensitive === 1 || item.IsSensitive === '1',
+          OrderNo:
+            item.OrderNo !== undefined && item.OrderNo !== null && item.OrderNo !== ''
+              ? Number(item.OrderNo)
+              : 0,
           Comment: item.Comment || '',
           CreatedBy: userFrom?.UserSeq || userFrom?.UserId || '',
           UpdatedBy: userFrom?.UserSeq || userFrom?.UserId || ''
@@ -188,15 +200,25 @@ export function usePermFieldMutation({
         rows.map((item) => ({
           IdSeq: item.IdSeq || item.Id || '',
           IdxNo: Number(item.IdxNo || 0),
-          ResourceSeq: item.ResourceSeq !== undefined && item.ResourceSeq !== null ? String(item.ResourceSeq) : '',
+          ResourceSeq:
+            item.ResourceSeq !== undefined && item.ResourceSeq !== null
+              ? String(item.ResourceSeq)
+              : '',
           ResourceCode: item.ResourceCode || '',
           FieldCode: item.FieldCode || '',
           FieldName: item.FieldName || '',
-          DictSeq: item.DictSeq !== undefined && item.DictSeq !== null && item.DictSeq !== '' ? Number(item.DictSeq) : null,
+          DictSeq:
+            item.DictSeq !== undefined && item.DictSeq !== null && item.DictSeq !== ''
+              ? Number(item.DictSeq)
+              : null,
           LangKey: item.LangKey || '',
           IsMaskable: item.IsMaskable === true || item.IsMaskable === 1 || item.IsMaskable === '1',
-          IsSensitive: item.IsSensitive === true || item.IsSensitive === 1 || item.IsSensitive === '1',
-          OrderNo: item.OrderNo !== undefined && item.OrderNo !== null && item.OrderNo !== '' ? Number(item.OrderNo) : 0,
+          IsSensitive:
+            item.IsSensitive === true || item.IsSensitive === 1 || item.IsSensitive === '1',
+          OrderNo:
+            item.OrderNo !== undefined && item.OrderNo !== null && item.OrderNo !== ''
+              ? Number(item.OrderNo)
+              : 0,
           Comment: item.Comment || '',
           RowVersion:
             item.RowVersion !== undefined && item.RowVersion !== null ? Number(item.RowVersion) : 0,
@@ -216,7 +238,8 @@ export function usePermFieldMutation({
         DictSeq: found.DictSeq !== undefined && found.DictSeq !== null ? Number(found.DictSeq) : '',
         LangKey: found.LangKey || '',
         IsMaskable: found.IsMaskable === true || found.IsMaskable === 1 || found.IsMaskable === '1',
-        IsSensitive: found.IsSensitive === true || found.IsSensitive === 1 || found.IsSensitive === '1',
+        IsSensitive:
+          found.IsSensitive === true || found.IsSensitive === 1 || found.IsSensitive === '1',
         OrderNo: found.OrderNo !== undefined && found.OrderNo !== null ? Number(found.OrderNo) : 0,
         Comment: found.Comment || '',
         RowVersion:

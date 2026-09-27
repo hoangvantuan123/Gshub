@@ -199,10 +199,7 @@ export default function TitleBar({ title }) {
             </button>
           </div>
         ) : null}
-        <span className="font-semibold text-slate-800 text-[11px] tracking-tight">
-          GoldSun Hub
-        </span>
-      
+        <span className="font-semibold text-slate-800 text-[11px] tracking-tight">GoldSun Hub</span>
       </div>
 
       {/* Center Draggable Spacer */}

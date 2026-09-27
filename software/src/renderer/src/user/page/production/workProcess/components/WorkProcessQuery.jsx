@@ -1,7 +1,12 @@
 /* eslint-disable react/prop-types */
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import DynamicQueryBar from '../../../../components/query/core/DynamicQueryBar'
+import { fetchWorkProcessFactories } from '../../../../../api/production/workProcessApi'
+
+const DEFAULT_FACTORY_OPTIONS = [
+  { value: '', label: '-- Tất cả nhà máy --' }
+]
 
 export default function WorkProcessQuery({
   searchValues = {},
@@ -16,6 +21,32 @@ export default function WorkProcessQuery({
 }) {
   const { t } = useTranslation()
   const [hiddenKeys, setHiddenKeys] = useState(new Set())
+  const [factoryOptions, setFactoryOptions] = useState(DEFAULT_FACTORY_OPTIONS)
+
+  // Tải danh sách nhà máy tự động từ Bravo ERP endpoint (7100966925033d94da5b1876d4f4582e)
+  useEffect(() => {
+    let isMounted = true
+    fetchWorkProcessFactories()
+      .then((rows) => {
+        if (!isMounted || !Array.isArray(rows) || rows.length === 0) return
+        const opts = [{ value: '', label: '-- Tất cả nhà máy --' }]
+        const seen = new Set()
+        rows.forEach((r) => {
+          const name = r.FactoryName || r.factory_name || r.Name || r.name
+          if (name && !seen.has(name)) {
+            seen.add(name)
+            opts.push({ value: name, label: name })
+          }
+        })
+        setFactoryOptions(opts)
+      })
+      .catch((err) => {
+        console.warn('Could not load factories dynamically:', err)
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   // Tất cả các cột có thể tìm kiếm / lọc trong hệ thống
   const allAvailableFields = useMemo(
@@ -27,20 +58,10 @@ export default function WorkProcessQuery({
         placeholder: 'CD05-0926-0009...'
       },
       {
-        key: 'BranchCode',
-        label: t('Chi nhánh'),
+        key: 'FactoryName',
+        label: t('Nhà máy'),
         type: 'select',
-        options: [
-          { value: 'A01', label: 'A01 - Goldsun Hà Nội' },
-          { value: 'A02', label: 'A02 - Goldsun Bắc Ninh' },
-          { value: 'B01', label: 'B01 - Goldsun TP.HCM' }
-        ]
-      },
-      {
-        key: 'FiscalYear',
-        label: t('Năm tài chính'),
-        type: 'text',
-        placeholder: '2026'
+        options: factoryOptions
       },
       {
         key: 'ItemCode',
@@ -80,21 +101,135 @@ export default function WorkProcessQuery({
       },
       {
         key: 'QuantityPass',
-        label: t('SL đạt'),
+        label: t('SL đạt theo DO'),
         type: 'number',
-        placeholder: 'Số lượng đạt...'
+        placeholder: 'Số lượng đạt theo DO...'
+      },
+      {
+        key: 'WorkProcessCode',
+        label: t('Mã quy trình CĐ'),
+        type: 'text',
+        placeholder: 'Mã quy trình...'
+      },
+      {
+        key: 'ProductTypeName',
+        label: t('Loại sản phẩm'),
+        type: 'text',
+        placeholder: 'Loại sản phẩm...'
+      },
+      {
+        key: 'RatePass',
+        label: t('Tỷ lệ đạt (%)'),
+        type: 'number',
+        placeholder: 'Tỷ lệ đạt %...'
+      },
+      {
+        key: 'QuantityAdj',
+        label: t('SL điều chỉnh'),
+        type: 'number',
+        placeholder: 'SL điều chỉnh...'
+      },
+      {
+        key: 'QuantityAfterAdj_Pass',
+        label: t('SL đạt sau ĐC (DO)'),
+        type: 'number',
+        placeholder: 'SL đạt sau ĐC (DO)...'
+      },
+      {
+        key: 'QuantityOff',
+        label: t('SL bù hao'),
+        type: 'number',
+        placeholder: 'SL bù hao...'
+      },
+      {
+        key: 'QuantityAfterAdj',
+        label: t('SL sau ĐC (Sản xuất)'),
+        type: 'number',
+        placeholder: 'SL sau ĐC sản xuất...'
+      },
+      {
+        key: 'QuantityReceipt',
+        label: t('SL nhập kho'),
+        type: 'number',
+        placeholder: 'SL nhập kho...'
+      },
+      {
+        key: 'RateReceipt',
+        label: t('Tỷ lệ nhập kho (%)'),
+        type: 'number',
+        placeholder: 'Tỷ lệ nhập kho %...'
+      },
+      {
+        key: 'DeliveryDateDO',
+        label: t('Hạn giao DO'),
+        type: 'date',
+        placeholder: 'YYYY-MM-DD...'
+      },
+      {
+        key: 'ClosedDate',
+        label: t('Ngày đóng lệnh'),
+        type: 'date',
+        placeholder: 'YYYY-MM-DD...'
+      },
+      {
+        key: 'ApprovalStatus',
+        label: t('Trạng thái duyệt'),
+        type: 'select',
+        options: [
+          { value: '0', label: '0 - Lập phiếu' },
+          { value: '1', label: '1 - Chờ duyệt' },
+          { value: '2', label: '2 - Đã duyệt chờ hoàn thiện' },
+          { value: '3', label: '3 - Đã duyệt chờ hoàn thiện' },
+          { value: '4', label: '4 - Hoàn thiện' }
+        ]
+      },
+      {
+        key: 'IsComplete',
+        label: t('Hoàn thành'),
+        type: 'select',
+        options: [
+          { value: '1', label: '1 - Đã hoàn thành' },
+          { value: '0', label: '0 - Chưa hoàn thành' }
+        ]
+      },
+      {
+        key: 'Closed',
+        label: t('Đã đóng'),
+        type: 'select',
+        options: [
+          { value: '1', label: '1 - Đã đóng' },
+          { value: '0', label: '0 - Chưa đóng' }
+        ]
+      },
+      {
+        key: 'IsStop',
+        label: t('Tạm dừng'),
+        type: 'select',
+        options: [
+          { value: '1', label: '1 - Đang tạm dừng' },
+          { value: '0', label: '0 - Bình thường' }
+        ]
+      },
+      {
+        key: 'AllowAdj',
+        label: t('Cho phép điều chỉnh'),
+        type: 'select',
+        options: [
+          { value: '1', label: '1 - Cho phép' },
+          { value: '0', label: '0 - Không cho phép' }
+        ]
+      },
+      {
+        key: 'CreatedAt',
+        label: t('Ngày tạo'),
+        type: 'date',
+        placeholder: 'YYYY-MM-DD...'
       },
       {
         key: 'CustomerName',
         label: t('Tên khách hàng'),
         type: 'text',
         placeholder: 'Tên khách hàng...'
-      },
-      {
-        key: 'FactoryName',
-        label: t('Xưởng sản xuất'),
-        type: 'text',
-        placeholder: 'Xưởng...'
       },
       {
         key: 'CreatedBy_Name',
@@ -111,7 +246,7 @@ export default function WorkProcessQuery({
       {
         key: 'ModifiedDate',
         label: t('Ngày cập nhật'),
-        type: 'text',
+        type: 'date',
         placeholder: 'YYYY-MM-DD...'
       },
       {
@@ -123,7 +258,7 @@ export default function WorkProcessQuery({
       {
         key: 'DocDate',
         label: t('Ngày lập lệnh'),
-        type: 'text',
+        type: 'date',
         placeholder: 'YYYY-MM-DD...'
       },
       {
@@ -145,7 +280,7 @@ export default function WorkProcessQuery({
         placeholder: f.placeholder
       }))
     ],
-    [dynamicQueryFields, t]
+    [dynamicQueryFields, factoryOptions, t]
   )
 
   const defaultFields = useMemo(() => {
@@ -159,23 +294,11 @@ export default function WorkProcessQuery({
         visible: !hiddenKeys.has('StageOrderNo')
       },
       {
-        key: 'BranchCode',
-        label: t('Chi nhánh'),
+        key: 'FactoryName',
+        label: t('Nhà máy'),
         type: 'select',
-        options: [
-          { value: 'A01', label: 'A01 - Hà Nội' },
-          { value: 'A02', label: 'A02 - Bắc Ninh' },
-          { value: 'B01', label: 'B01 - TP.HCM' }
-        ],
-        visible: !hiddenKeys.has('BranchCode')
-      },
-      {
-        key: 'FiscalYear',
-        label: t('Năm tài chính'),
-        type: 'text',
-        placeholder: '2026',
-        maxLength: 10,
-        visible: !hiddenKeys.has('FiscalYear')
+        options: factoryOptions,
+        visible: !hiddenKeys.has('FactoryName')
       },
       {
         key: 'ItemCode',
@@ -192,17 +315,9 @@ export default function WorkProcessQuery({
         placeholder: 'Tên VT/Hàng hóa...',
         maxLength: 200,
         visible: !hiddenKeys.has('ItemName')
-      },
-      {
-        key: 'OperationCode',
-        label: t('Mã TT'),
-        type: 'text',
-        placeholder: 'BE, BOCLE, KIEM...',
-        maxLength: 80,
-        visible: !hiddenKeys.has('OperationCode')
       }
     ]
-  }, [hiddenKeys, t])
+  }, [hiddenKeys, factoryOptions, t])
 
   const combinedFields = useMemo(() => {
     if (customFields) return customFields
@@ -240,11 +355,9 @@ export default function WorkProcessQuery({
     if (checked && onAddQueryField) {
       const isDefault =
         key === 'StageOrderNo' ||
-        key === 'BranchCode' ||
-        key === 'FiscalYear' ||
+        key === 'FactoryName' ||
         key === 'ItemCode' ||
-        key === 'ItemName' ||
-        key === 'OperationCode'
+        key === 'ItemName'
       if (!isDefault && !dynamicQueryFields.some((f) => f.key === key)) {
         onAddQueryField(key, fieldMeta?.label || key, fieldMeta)
       }
@@ -264,7 +377,7 @@ export default function WorkProcessQuery({
       onChange={handleChange}
       onSearch={handleSearch}
       disabled={disabled}
-      columns={6}
+      columns={4}
       showSettings={true}
       onToggleField={handleToggleField}
       onResetFields={handleReset}

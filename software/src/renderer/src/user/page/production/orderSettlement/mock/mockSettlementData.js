@@ -524,7 +524,8 @@ export function buildDynamicGroupedTree(flatData = [], groupByKey = 'StageOrderN
 
   flatData.forEach((row) => {
     const rawVal = row[groupByKey]
-    const groupVal = rawVal !== undefined && rawVal !== null && rawVal !== '' ? String(rawVal) : '(Trống)'
+    const groupVal =
+      rawVal !== undefined && rawVal !== null && rawVal !== '' ? String(rawVal) : '(Trống)'
     const groupKey = `GRP_${groupByKey}_${groupVal}`
 
     if (!groupMap.has(groupKey)) {
@@ -573,7 +574,11 @@ export function buildDynamicGroupedTree(flatData = [], groupByKey = 'StageOrderN
 /**
  * Trải phẳng Tree thành danh sách hiển thị Virtual Grid chuẩn phân cấp ERP
  */
-export function flattenDynamicTree(treeData = [], expandedKeys = new Set(), groupByKey = 'StageOrderNo') {
+export function flattenDynamicTree(
+  treeData = [],
+  expandedKeys = new Set(),
+  groupByKey = 'StageOrderNo'
+) {
   const result = []
 
   treeData.forEach((grp) => {

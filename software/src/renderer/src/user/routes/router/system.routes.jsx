@@ -17,7 +17,8 @@ export const pageLoaders = {
   LangSys: () => import('../../page/dict/langSys'),
   SettingPrivate: () => import('../../page/private/setting'),
   OrderSettlement: () => import('../../page/production/orderSettlement'),
-  WorkProcess: () => import('../../page/production/workProcess')
+  WorkProcess: () => import('../../page/production/workProcess'),
+  OperationDetail: () => import('../../page/production/operationDetail')
 }
 
 const UserManagement = lazy(pageLoaders.UserManagement)
@@ -36,6 +37,7 @@ const LangSys = lazy(pageLoaders.LangSys)
 const SettingPrivate = lazy(pageLoaders.SettingPrivate)
 const OrderSettlement = lazy(pageLoaders.OrderSettlement)
 const WorkProcess = lazy(pageLoaders.WorkProcess)
+const OperationDetail = lazy(pageLoaders.OperationDetail)
 
 const PermResourcePage = (props) => <PermResource {...props} defaultTab="perm_resource" />
 
@@ -78,7 +80,8 @@ export const routeToLoaderMap = {
   '/erp/u/system/dictionary': pageLoaders.DictSys,
   '/erp/u/setting': pageLoaders.SettingPrivate,
   '/erp/u/production/order-settlement': pageLoaders.OrderSettlement,
-  '/erp/u/production/work-process': pageLoaders.WorkProcess
+  '/erp/u/production/work-process': pageLoaders.WorkProcess,
+  '/erp/u/production/operation-detail': pageLoaders.OperationDetail
 }
 
 export const preloadRoute = (path) => {
@@ -452,7 +455,7 @@ export const systemsRoutes = [
   },
 
   // =========================================================================
-  // 8. QUẢN LÝ SẢN XUẤT (production_mgmt, order_settlement, work_process)
+  // 8. QUẢN LÝ SẢN XUẤT (production_mgmt, order_settlement, work_process, operation_detail)
   // =========================================================================
   {
     path: '/erp/u/production/work-process',
@@ -469,6 +472,118 @@ export const systemsRoutes = [
     fallback: DefaultPage
   },
   {
+    path: '/erp/u/production/operation-detail',
+    element: OperationDetail,
+    permission: 'production_operation_detail',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/operation-detail/*',
+    element: OperationDetail,
+    permission: 'production_operation_detail',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/monitoring',
+    element: DefaultPage,
+    permission: 'production_monitoring',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/monitoring/*',
+    element: DefaultPage,
+    permission: 'production_monitoring',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/shift-log',
+    element: DefaultPage,
+    permission: 'production_shift_log',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/shift-log/*',
+    element: DefaultPage,
+    permission: 'production_shift_log',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/material-issue',
+    element: DefaultPage,
+    permission: 'production_material_issue',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/material-issue/*',
+    element: DefaultPage,
+    permission: 'production_material_issue',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/receipt',
+    element: DefaultPage,
+    permission: 'production_receipt',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/receipt/*',
+    element: DefaultPage,
+    permission: 'production_receipt',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/progress',
+    element: DefaultPage,
+    permission: 'production_progress',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/progress/*',
+    element: DefaultPage,
+    permission: 'production_progress',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/sample-check',
+    element: DefaultPage,
+    permission: 'production_sample_check',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/sample-check/*',
+    element: DefaultPage,
+    permission: 'production_sample_check',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/defect-report',
+    element: DefaultPage,
+    permission: 'production_defect_report',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/defect-report/*',
+    element: DefaultPage,
+    permission: 'production_defect_report',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
     path: '/erp/u/production/order-settlement',
     element: OrderSettlement,
     permission: 'production_order_settlement',
@@ -479,6 +594,34 @@ export const systemsRoutes = [
     path: '/erp/u/production/order-settlement/*',
     element: OrderSettlement,
     permission: 'production_order_settlement',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/bom',
+    element: DefaultPage,
+    permission: 'production_bom',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/bom/*',
+    element: DefaultPage,
+    permission: 'production_bom',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/routing',
+    element: DefaultPage,
+    permission: 'production_routing',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/production/routing/*',
+    element: DefaultPage,
+    permission: 'production_routing',
     public: true,
     fallback: DefaultPage
   }

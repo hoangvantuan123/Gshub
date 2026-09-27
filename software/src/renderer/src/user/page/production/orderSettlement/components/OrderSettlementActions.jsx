@@ -1,14 +1,6 @@
 /* eslint-disable react/prop-types */
 import { Button } from 'antd'
-import {
-  Search,
-  Save,
-  CheckCheck,
-  FileSpreadsheet,
-  Printer,
-  RotateCcw,
-  Trash2
-} from 'lucide-react'
+import { Search, Save, CheckCheck, FileSpreadsheet, Printer, RotateCcw, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export default function OrderSettlementActions({

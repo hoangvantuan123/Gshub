@@ -6,19 +6,18 @@ import QueryFieldItem, { checkHasValue } from './QueryFieldItem'
 import QuerySettingsDrawer from './QuerySettingsDrawer'
 import { useDateFormat } from '../../../hooks/useDateFormat'
 
-// Mapping class số cột tĩnh để Tailwind CSS compile chính xác 100%
+// Mapping class số cột tĩnh để Tailwind CSS compile chính xác 100% (Khống chế tối đa 4 cột / 1 hàng)
 const GRID_COL_MAP = {
   1: 'grid-cols-1',
   2: 'grid-cols-1 sm:grid-cols-2',
   3: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3',
-  4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4',
-  5: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-5',
-  6: 'grid-cols-1 sm:grid-cols-3 md:grid-cols-6'
+  4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'
 }
 
 /**
  * DynamicQueryBar - Thanh tìm kiếm động ERP chuẩn giao diện hệ thống
  * Đã được module hóa sạch đẹp, hỗ trợ đa ngôn ngữ và định dạng thời gian tự động.
+ * Khống chế tối đa 4 cột điều kiện / so sánh trên 1 hàng.
  */
 export default function DynamicQueryBar({
   fields = [],
@@ -39,6 +38,9 @@ export default function DynamicQueryBar({
   const [activeModalField, setActiveModalField] = useState(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const lastSearchTimeRef = useRef(0)
+
+  // Khống chế số cột tối đa trên 1 hàng là 4
+  const effectiveColumns = Math.min(Math.max(1, Number(columns) || 4), 4)
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && onSearch) {
@@ -72,7 +74,6 @@ export default function DynamicQueryBar({
 
   // Xóa toàn bộ giá trị đang lọc trên tất cả các ô
   const handleClearAllValues = () => {
-    lastSearchedValuesRef.current = null
     visibleFields.forEach((field) => {
       if (checkHasValue(values[field.key], field.type)) {
         if (field.type === 'date-range' || field.type === 'month-range') {
@@ -89,15 +90,16 @@ export default function DynamicQueryBar({
 
   // Tính toán tổng số span để bù ô trống cân đối viền table
   const totalSpans = useMemo(() => {
-    return visibleFields.reduce((acc, f) => acc + (f?.colSpan || 1), 0)
-  }, [visibleFields])
+    return visibleFields.reduce((acc, f) => acc + Math.min(f?.colSpan || 1, effectiveColumns), 0)
+  }, [visibleFields, effectiveColumns])
 
   const emptySlots = useMemo(() => {
-    const remainder = totalSpans % columns
-    return remainder === 0 ? 0 : columns - remainder
-  }, [totalSpans, columns])
+    const remainder = totalSpans % effectiveColumns
+    return remainder === 0 ? 0 : effectiveColumns - remainder
+  }, [totalSpans, effectiveColumns])
 
-  const gridColsClass = GRID_COL_MAP[columns] || 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'
+  const gridColsClass =
+    GRID_COL_MAP[effectiveColumns] || 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'
 
   // Danh sách trường cho Drawer cài đặt (loại bỏ cột hệ thống Status, IndexNo, IdSeq, StatusAcc, userStatus)
   const settingsFieldsList = useMemo(() => {
@@ -141,8 +143,8 @@ export default function DynamicQueryBar({
         }
       `}</style>
 
-      {/* Grid điều kiện tìm kiếm */}
-      <div className={`grid ${gridColsClass} w-full`}>
+      {/* Grid điều kiện tìm kiếm ERP - Chuẩn tối đa 4 cột / 1 hàng, hết 4 cột tự động xuống dòng */}
+      <div className={`grid ${gridColsClass} w-full border-t border-l border-slate-200 bg-slate-50/20`}>
         {visibleFields.map((field) => (
           <QueryFieldItem
             key={field.key}
@@ -157,15 +159,12 @@ export default function DynamicQueryBar({
             disabled={disabled}
           />
         ))}
-
-        {/* Ô trống cân bằng layout để luôn đủ số cột viền đẹp */}
-        {emptySlots > 0 &&
-          Array.from({ length: emptySlots }).map((_, idx) => (
-            <div
-              key={`empty-balancer-${idx}`}
-              className="hidden md:block h-[28px] border-b border-r border-slate-200 bg-slate-50/10"
-            />
-          ))}
+        {Array.from({ length: emptySlots }).map((_, idx) => (
+          <div
+            key={`empty-slot-${idx}`}
+            className="hidden md:block col-span-1 h-[28px] border-b border-r border-slate-200 bg-slate-50/30"
+          />
+        ))}
       </div>
 
       {/* Cụm điều khiển Bộ lọc & Trạng thái lọc */}

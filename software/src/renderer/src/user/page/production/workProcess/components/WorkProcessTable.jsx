@@ -1,15 +1,13 @@
 /* eslint-disable react/prop-types */
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid'
 import '@glideapps/glide-data-grid/dist/index.css'
-import { Tag, Spin, Drawer, Checkbox } from 'antd'
-import { TableOutlined, NodeIndexOutlined, LoadingOutlined, HolderOutlined } from '@ant-design/icons'
+import { Drawer, Checkbox } from 'antd'
 
 import LayoutMenuSheet from '../../../../components/sheet/jsx/layoutMenu'
 import useTableManager from '../../../../components/hooks/sheet/useTableManager'
 import { useDateFormat } from '../../../../hooks/useDateFormat'
-import WorkProcessDetailHeader from './WorkProcessDetailHeader'
 
 const NUMBER_KEYS = new Set([
   'BuiltinOrder',
@@ -18,10 +16,40 @@ const NUMBER_KEYS = new Set([
   'QuantityCDIssue',
   'QuantityProduce',
   'QuantityPass',
+  'QuantityAdj',
+  'QuantityAfterAdj_Pass',
+  'QuantityAfterAdj',
+  'QuantityOff',
+  'QuantityReceipt',
   'QuantityTransfered',
-  'QuantityProductTransfered'
+  'QuantityProductTransfered',
+  'DocStatus',
+  'Stt',
+  'Id'
 ])
-const DATE_KEYS = new Set(['DocDate', 'CreatedDate', 'CreatedAt', 'ModifiedDate', 'EditDate', 'ModifiedAt', 'CreateDate'])
+
+const PERCENT_KEYS = new Set(['RateReceipt', 'RatePass', 'RateProduce'])
+
+const BOOLEAN_KEYS = new Set([
+  'IsComplete',
+  'Closed',
+  'IsStop',
+  'AllowAdj',
+  'IsCheckSample',
+  'PostSL'
+])
+
+const DATE_KEYS = new Set([
+  'DocDate',
+  'CreatedDate',
+  'CreatedAt',
+  'ModifiedDate',
+  'EditDate',
+  'ModifiedAt',
+  'CreateDate',
+  'DeliveryDateDO',
+  'ClosedDate'
+])
 
 export default function WorkProcessTable({
   masterList = [],
@@ -31,14 +59,7 @@ export default function WorkProcessTable({
   defaultMasterCols = [],
   masterSelection,
   setMasterSelection,
-  selectedMasterRow,
-  currentStepData = [],
-  stepCols = [],
-  setStepCols,
-  defaultStepCols = [],
-  stepSelection,
-  setStepSelection,
-  loadingSteps = false,
+  onVisibleRegionChanged,
   showSearch,
   setShowSearch,
   canEdit = false,
@@ -49,37 +70,6 @@ export default function WorkProcessTable({
   const { formatDateTime } = useDateFormat()
 
   const masterGridRef = useRef(null)
-  const stepGridRef = useRef(null)
-  const containerRef = useRef(null)
-
-  // 1. Resizable Splitter State (Kéo co giãn độ cao 2 bảng)
-  const [topHeightPercent, setTopHeightPercent] = useState(50)
-  const isDraggingRef = useRef(false)
-
-  const handleSplitterMouseDown = useCallback((e) => {
-    isDraggingRef.current = true
-    document.body.style.cursor = 'row-resize'
-    document.body.style.userSelect = 'none'
-
-    const handleMouseMove = (moveEvent) => {
-      if (!isDraggingRef.current || !containerRef.current) return
-      const rect = containerRef.current.getBoundingClientRect()
-      const offsetY = moveEvent.clientY - rect.top
-      const newPercent = Math.min(Math.max((offsetY / rect.height) * 100, 20), 80)
-      setTopHeightPercent(newPercent)
-    }
-
-    const handleMouseUp = () => {
-      isDraggingRef.current = false
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', handleMouseUp)
-    }
-
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', handleMouseUp)
-  }, [])
 
   const onSearchClose = useCallback(() => setShowSearch(false), [setShowSearch])
 
@@ -93,22 +83,6 @@ export default function WorkProcessTable({
     gridData: masterList,
     selection: masterSelection,
     setSelection: setMasterSelection,
-    canEdit,
-    canCreate,
-    setShowSearch,
-    onAddQueryField
-  })
-
-  // Table Manager for Step Table
-  const stepManager = useTableManager({
-    tableId: 'work_process_steps',
-    defaultCols: defaultStepCols,
-    cols: stepCols,
-    setCols: setStepCols,
-    setGridData: () => {},
-    gridData: currentStepData,
-    selection: stepSelection,
-    setSelection: setStepSelection,
     canEdit,
     canCreate,
     setShowSearch,
@@ -144,9 +118,25 @@ export default function WorkProcessTable({
       let rawVal = row[col.id]
       if (rawVal == null || rawVal === '') {
         if (col.id === 'CreatedBy_Name') {
-          rawVal = row.CreatedBy_Name ?? row.CreatedByName ?? row.CreatedBy ?? row.Creator ?? row.CreateBy_Name ?? row.CreateBy ?? ''
+          const cVal = row.CreatedBy_Name ?? row.CreatedByName ?? row.CreateBy_Name ?? ''
+          if (cVal) {
+            rawVal = cVal
+          } else {
+            const rawCre = row.CreatedBy ?? row.CreateBy ?? row.Creator ?? ''
+            if (rawCre === -1 || rawCre === '-1') rawVal = 'Hệ thống'
+            else if (rawCre && isNaN(Number(rawCre))) rawVal = rawCre
+            else rawVal = ''
+          }
         } else if (col.id === 'ModifiedBy_Name') {
-          rawVal = row.ModifiedBy_Name ?? row.ModifiedByName ?? row.ModifiedBy ?? row.EditBy_Name ?? row.EditBy ?? row.Editor ?? ''
+          const mVal = row.ModifiedBy_Name ?? row.ModifiedByName ?? row.EditBy_Name ?? ''
+          if (mVal) {
+            rawVal = mVal
+          } else {
+            const rawMod = row.ModifiedBy ?? row.EditBy ?? row.Editor ?? ''
+            if (rawMod === -1 || rawMod === '-1') rawVal = 'Hệ thống'
+            else if (rawMod && isNaN(Number(rawMod))) rawVal = rawMod
+            else rawVal = ''
+          }
         } else if (col.id === 'ModifiedDate') {
           rawVal = row.ModifiedDate ?? row.EditDate ?? row.ModifiedAt ?? row.UpdateDate ?? ''
         } else if (col.id === 'DocDate') {
@@ -161,36 +151,126 @@ export default function WorkProcessTable({
           displayData: `${rowIdx + 1}`,
           allowOverlay: false,
           readonly: true,
-          themeOverride: { textDark: '#2563eb', baseFontStyle: '600 11px Inter, sans-serif' }
+          contentAlign: 'center',
+          themeOverride: { textDark: '#225588', baseFontStyle: 'bold 12px Inter, sans-serif' }
         }
       }
 
-      if (DATE_KEYS.has(col.id)) {
+      // Trạng thái duyệt
+      if (col.id === 'ApprovalStatus') {
+        const valNum = rawVal != null && rawVal !== '' ? Number(rawVal) : null
+        let text = '-'
+        let color = '#94a3b8'
+        if (valNum === 0) {
+          text = '0 - Lập phiếu'
+          color = '#64748b'
+        } else if (valNum === 1) {
+          text = '1 - Chờ duyệt'
+          color = '#d97706'
+        } else if (valNum === 2) {
+          text = '2 - Đã duyệt chờ hoàn thiện'
+          color = '#2563eb'
+        } else if (valNum === 3) {
+          text = '3 - Đã duyệt chờ hoàn thiện'
+          color = '#0284c7'
+        } else if (valNum === 4 || row.IsComplete || row.Closed) {
+          text = '4 - Hoàn thiện'
+          color = '#15803d'
+        } else if (valNum != null && !isNaN(valNum)) {
+          text = `${valNum}`
+          color = '#475569'
+        }
+        return {
+          kind: GridCellKind.Text,
+          data: text,
+          displayData: text,
+          allowOverlay: false,
+          readonly: true,
+          contentAlign: 'center',
+          themeOverride: { textDark: color, baseFontStyle: '600 12px Inter, sans-serif' }
+        }
+      }
+
+      // Boolean Columns (True/False - Checkbox - Căn giữa)
+      if (BOOLEAN_KEYS.has(col.id) || col.kind === 'Boolean') {
+        const isChecked = rawVal === true || rawVal === 1 || rawVal === '1' || rawVal === 'true'
+        return {
+          kind: GridCellKind.Boolean,
+          data: isChecked,
+          allowOverlay: false,
+          readonly: true,
+          contentAlign: 'center'
+        }
+      }
+
+      // Date Columns (Căn giữa)
+      if (DATE_KEYS.has(col.id) || col.kind === 'Date') {
         const display = formatDisplayDate(rawVal)
         return {
           kind: GridCellKind.Text,
           data: String(rawVal || ''),
           displayData: display,
           allowOverlay: false,
-          readonly: true
+          readonly: true,
+          contentAlign: 'center'
         }
       }
 
-      if (NUMBER_KEYS.has(col.id)) {
+      // Percentage Columns (% Hệ thống & Tỷ lệ - Căn phải)
+      if (PERCENT_KEYS.has(col.id)) {
+        if (rawVal == null || rawVal === '') {
+          return {
+            kind: GridCellKind.Text,
+            data: '',
+            displayData: '-',
+            allowOverlay: false,
+            readonly: true,
+            contentAlign: 'right'
+          }
+        }
+        const num = Number(rawVal)
+        const display = isNaN(num) ? String(rawVal) : `${num.toFixed(1)}%`
+        return {
+          kind: GridCellKind.Text,
+          data: display,
+          displayData: display,
+          allowOverlay: false,
+          readonly: true,
+          contentAlign: 'right',
+          themeOverride: {
+            textDark:
+              num >= 100 ? '#15803d' : num >= 80 ? '#2563eb' : num > 0 ? '#d97706' : '#64748b',
+            baseFontStyle: '600 12px Inter, sans-serif'
+          }
+        }
+      }
+
+      // Number Columns (SL, Định mức, Điều chỉnh, Trạng thái - Căn phải 100%)
+      if (NUMBER_KEYS.has(col.id) || col.kind === 'Number' || col.contentAlign === 'right') {
         const num = rawVal != null && rawVal !== '' ? Number(rawVal) : null
-        const display = num != null && !isNaN(num) ? num.toLocaleString('vi-VN') : (col.id === 'StepCount' ? '-' : '')
+        const display =
+          num != null && !isNaN(num)
+            ? num.toLocaleString('vi-VN')
+            : col.id === 'StepCount'
+              ? '-'
+              : ''
         return {
           kind: GridCellKind.Number,
           data: num ?? 0,
           displayData: display,
           allowOverlay: false,
           readonly: true,
+          contentAlign: 'right',
           themeOverride:
             col.id === 'QuantityProduce'
               ? { textDark: '#15803d', baseFontStyle: '600 12px Inter, sans-serif' }
               : col.id === 'QuantityPass'
-              ? { textDark: '#1d4ed8', baseFontStyle: '600 12px Inter, sans-serif' }
-              : undefined
+                ? { textDark: '#1d4ed8', baseFontStyle: '600 12px Inter, sans-serif' }
+                : col.id === 'QuantityOff'
+                  ? { textDark: '#dc2626', baseFontStyle: '600 12px Inter, sans-serif' }
+                  : col.id === 'QuantityAdj' && num !== 0
+                    ? { textDark: '#7c3aed', baseFontStyle: '600 12px Inter, sans-serif' }
+                    : undefined
         }
       }
 
@@ -201,187 +281,43 @@ export default function WorkProcessTable({
         displayData: strVal,
         allowOverlay: false,
         readonly: true,
+        contentAlign: col.contentAlign || (col.id === 'Unit' ? 'center' : undefined),
         themeOverride: col.themeOverride
       }
     },
     [masterCols, masterList, formatDisplayDate]
   )
 
-  // Cell Content Provider cho Bảng DETAIL STEPS
-  const getStepCellContent = useCallback(
-    ([colIdx, rowIdx]) => {
-      const col = stepCols[colIdx]
-      if (!col) return { kind: GridCellKind.Loading, allowOverlay: false }
-
-      const row = currentStepData[rowIdx]
-      if (!row) return { kind: GridCellKind.Loading, allowOverlay: false }
-
-      const rawVal = row[col.id]
-
-      if (col.id === 'WorkingTag') {
-        return {
-          kind: GridCellKind.Text,
-          data: `${rowIdx + 1}`,
-          displayData: `${rowIdx + 1}`,
-          allowOverlay: false,
-          readonly: true,
-          themeOverride: { textDark: '#7c3aed', baseFontStyle: '600 11px Inter, sans-serif' }
-        }
-      }
-
-      if (NUMBER_KEYS.has(col.id)) {
-        const num = rawVal != null && rawVal !== '' ? Number(rawVal) : null
-        const display = num != null && !isNaN(num) ? num.toLocaleString('vi-VN') : ''
-        return {
-          kind: GridCellKind.Number,
-          data: num ?? 0,
-          displayData: display,
-          allowOverlay: false,
-          readonly: true,
-          themeOverride:
-            col.id === 'QuantityProduce'
-              ? { textDark: '#15803d', baseFontStyle: '600 12px Inter, sans-serif' }
-              : col.id === 'QuantityPass'
-              ? { textDark: '#1d4ed8', baseFontStyle: '600 12px Inter, sans-serif' }
-              : undefined
-        }
-      }
-
-      const strVal = rawVal != null ? String(rawVal) : ''
-      return {
-        kind: GridCellKind.Text,
-        data: strVal,
-        displayData: strVal,
-        allowOverlay: false,
-        readonly: true,
-        themeOverride: col.themeOverride
-      }
-    },
-    [stepCols, currentStepData]
-  )
-
   return (
-    <div ref={containerRef} className="flex flex-col h-full w-full overflow-hidden bg-white select-none relative">
-      {/* ── BẢNG 1: MASTER (LỆNH CÔNG ĐOẠN) ── */}
-      <div
-        style={{ height: `calc(${topHeightPercent}% - 4px)` }}
-        className="flex flex-col min-h-[120px] bg-white overflow-hidden"
-      >
-        <div className="flex items-center justify-between px-2.5 py-0.5 bg-[#eaedf1] border-b border-slate-200 shrink-0">
-          <div className="flex items-center gap-2">
-            <TableOutlined className="text-blue-600 text-xs" />
-            <span className="font-bold text-[11px] text-slate-700 uppercase tracking-wide">
-              Lệnh Công Đoạn
-            </span>
-            <Tag color="blue" className="text-[10px] font-semibold leading-none px-1.5 py-0.5 m-0 rounded-none">
-              {masterList.length} Lệnh
-            </Tag>
-          </div>
-          {selectedMasterRow && (
-            <div className="text-[11px] text-slate-600 truncate max-w-[60%]">
-              Đang chọn:{' '}
-              <span className="font-semibold text-blue-700">{selectedMasterRow.StageOrderNo}</span>
-              {selectedMasterRow.ItemName && (
-                <span className="text-slate-500 italic"> ({selectedMasterRow.ItemName})</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 w-full h-full relative">
-          <DataEditor
-            ref={masterGridRef}
-            columns={masterCols}
-            rows={masterList.length}
-            getCellContent={getMasterCellContent}
-            gridSelection={masterSelection}
-            onGridSelectionChange={setMasterSelection}
-            smoothScrollX
-            smoothScrollY
-            getCellsForSelection
-            theme={masterManager.gridTheme}
-            rowMarkers="both"
-            rowMarkerWidth={36}
-            rowHeight={26}
-            headerHeight={28}
-            width="100%"
-            height="100%"
-            showSearch={showSearch}
-            onSearchClose={onSearchClose}
-            onKeyDown={masterManager.onKeyDown}
-            onColumnMoved={masterManager.onColumnMoved}
-            onColumnResize={masterManager.onColumnResize}
-            onHeaderMenuClick={masterManager.onHeaderMenuClick}
-            onCellContextMenu={masterManager.onCellContextMenu}
-            onHeaderContextMenu={masterManager.onHeaderContextMenu}
-          />
-        </div>
-      </div>
-
-      {/* ── THANH KÉO CO GIÃN ĐỘ CAO (RESIZABLE SPLITTER) ── */}
-      <div
-        onMouseDown={handleSplitterMouseDown}
-        className="h-2 bg-[#dbe0e6] hover:bg-blue-500 active:bg-blue-600 cursor-row-resize flex items-center justify-center transition-colors border-y border-slate-300 z-10 shrink-0"
-        title="Kéo chuột lên/xuống để mở rộng danh sách"
-      >
-        <div className="w-8 h-1 bg-slate-400 rounded-full flex items-center justify-center opacity-70 hover:opacity-100" />
-      </div>
-
-      {/* ── BẢNG 2: DETAIL (DANH SÁCH THAO TÁC TT) ── */}
-      <div
-        style={{ height: `calc(${100 - topHeightPercent}% - 4px)` }}
-        className="flex flex-col min-h-[120px] bg-white overflow-hidden"
-      >
-        <div className="flex items-center justify-between px-2.5 py-0.5 bg-[#eaedf1] border-b border-slate-200 shrink-0">
-          <div className="flex items-center gap-2">
-            <NodeIndexOutlined className="text-purple-600 text-xs" />
-            <span className="font-bold text-[11px] text-slate-700 uppercase tracking-wide">
-              Chi Tiết Thao Tác TT
-            </span>
-            {loadingSteps ? (
-              <Spin indicator={<LoadingOutlined style={{ fontSize: 12 }} spin />} size="small" />
-            ) : (
-              <Tag color="purple" className="text-[10px] font-semibold leading-none px-1.5 py-0.5 m-0 rounded-none">
-                {currentStepData.length} Thao tác
-              </Tag>
-            )}
-            {selectedMasterRow && (
-              <span className="text-[11px] text-purple-700 font-medium">
-                (Lệnh: {selectedMasterRow.StageOrderNo})
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Readonly Info Panel for currently selected Master Row */}
-        <WorkProcessDetailHeader selectedRow={selectedMasterRow} className="shrink-0" />
-
-        <div className="flex-1 w-full h-full relative">
-          <DataEditor
-            ref={stepGridRef}
-            columns={stepCols}
-            rows={currentStepData.length}
-            getCellContent={getStepCellContent}
-            gridSelection={stepSelection}
-            onGridSelectionChange={setStepSelection}
-            smoothScrollX
-            smoothScrollY
-            getCellsForSelection
-            theme={stepManager.gridTheme}
-            rowMarkers="both"
-            rowMarkerWidth={36}
-            rowHeight={26}
-            headerHeight={28}
-            width="100%"
-            height="100%"
-            onKeyDown={stepManager.onKeyDown}
-            onColumnMoved={stepManager.onColumnMoved}
-            onColumnResize={stepManager.onColumnResize}
-            onHeaderMenuClick={stepManager.onHeaderMenuClick}
-            onCellContextMenu={stepManager.onCellContextMenu}
-            onHeaderContextMenu={stepManager.onHeaderContextMenu}
-          />
-        </div>
+    <div className="flex flex-col h-full w-full overflow-hidden bg-white select-none relative">
+      <div className="flex-1 w-full h-full relative">
+        <DataEditor
+          ref={masterGridRef}
+          columns={masterCols}
+          rows={masterList.length}
+          getCellContent={getMasterCellContent}
+          gridSelection={masterSelection}
+          onGridSelectionChange={setMasterSelection}
+          onVisibleRegionChanged={onVisibleRegionChanged}
+          smoothScrollX
+          smoothScrollY
+          getCellsForSelection
+          theme={masterManager.gridTheme}
+          rowMarkers="both"
+          rowMarkerWidth={36}
+          rowHeight={26}
+          headerHeight={28}
+          width="100%"
+          height="100%"
+          showSearch={showSearch}
+          onSearchClose={onSearchClose}
+          onKeyDown={masterManager.onKeyDown}
+          onColumnMoved={masterManager.onColumnMoved}
+          onColumnResize={masterManager.onColumnResize}
+          onHeaderMenuClick={masterManager.onHeaderMenuClick}
+          onCellContextMenu={masterManager.onCellContextMenu}
+          onHeaderContextMenu={masterManager.onHeaderContextMenu}
+        />
       </div>
 
       {/* Menus & Drawers */}
@@ -404,28 +340,13 @@ export default function WorkProcessTable({
           </div>
         )}
 
-      {stepManager.showMenu !== null &&
-        stepManager.renderLayer(
-          <div
-            {...stepManager.layerProps}
-            className="border w-64 bg-white shadow-lg cursor-pointer"
-          >
-            <LayoutMenuSheet
-              showMenu={stepManager.showMenu}
-              handleSort={stepManager.handleSort}
-              handleHideColumn={stepManager.handleHideColumn}
-              cols={stepCols}
-              setShowSearch={setShowSearch}
-              setShowMenu={stepManager.setShowMenu}
-              handleFreezeColumn={stepManager.handleFreezeColumn}
-              showDrawer={stepManager.showDrawer}
-            />
-          </div>
-        )}
-
       {/* Drawer Cài đặt ẩn / hiện cột cho Bảng Master */}
       <Drawer
-        title={<span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT CỘT LỆNH CÔNG ĐOẠN</span>}
+        title={
+          <span className="text-xs flex items-center justify-end font-bold">
+            {t('CÀI ĐẶT CỘT LỆNH CÔNG ĐOẠN')}
+          </span>
+        }
         styles={{ body: { padding: 15 } }}
         onClose={() => masterManager.setOpenDrawer(false)}
         open={masterManager.openDrawer}
@@ -435,25 +356,6 @@ export default function WorkProcessTable({
             <Checkbox
               checked={!masterManager.hiddenColumns.includes(col.id)}
               onChange={(e) => masterManager.handleCheckboxChange(col.id, e.target.checked)}
-            >
-              {col.title || col.id}
-            </Checkbox>
-          </div>
-        ))}
-      </Drawer>
-
-      {/* Drawer Cài đặt ẩn / hiện cột cho Bảng Detail Steps */}
-      <Drawer
-        title={<span className="text-xs flex items-center justify-end font-bold">CÀI ĐẶT CỘT THAO TÁC TT</span>}
-        styles={{ body: { padding: 15 } }}
-        onClose={() => stepManager.setOpenDrawer(false)}
-        open={stepManager.openDrawer}
-      >
-        {(stepManager.configurableCols || []).map((col) => (
-          <div key={col.id} style={{ marginBottom: '10px' }}>
-            <Checkbox
-              checked={!stepManager.hiddenColumns.includes(col.id)}
-              onChange={(e) => stepManager.handleCheckboxChange(col.id, e.target.checked)}
             >
               {col.title || col.id}
             </Checkbox>

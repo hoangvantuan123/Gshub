@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package datahub;
+
+option go_package = "service-datahub/pb/datahub";
+
+// ==========================================
+// 4. Ultra Fast Proxy & Streaming Messages
+// ==========================================
+
+message ProxyProtoRequest {
+  string config_key = 1;
+  string username = 2;
+  string method = 3;
+  string path = 4;
+  map<string, string> headers = 5;
+  map<string, string> params = 6;
+  string body_json = 7;
+  bytes body_raw = 8;
+}
+
+message ProxyProtoResponse {
+  bool success = 1;
+  int32 status_code = 2;
+  int64 latency_ms = 3;
+  string trace_id = 4;
+  string data_json = 5;
+  bytes data_raw = 6;
+  string error_message = 7;
+}

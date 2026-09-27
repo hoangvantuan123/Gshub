@@ -283,8 +283,6 @@ const StatusBar = ({ rootMenu, menuTransForm, userName }) => {
           )}
         </div>
 
-
-
         {/* Trạng thái mạng */}
         <StatusItem
           icon={isOnline ? Wifi : WifiOff}

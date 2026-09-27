@@ -12,6 +12,8 @@ func SetupRouter(
 	loginHandler *handlers.LoginHandler,
 	configHandler *handlers.ConfigHandler,
 	workProcessHandler *handlers.WorkProcessHandler,
+	orderSettlementHandler *handlers.OrderSettlementHandler,
+	factoryHandler *handlers.FactoryHandler,
 	healthHandler *handlers.HealthHandler,
 	logger *zap.Logger,
 ) *gin.Engine {
@@ -32,6 +34,7 @@ func SetupRouter(
 		auth := api.Group("/auth")
 		{
 			auth.POST("/login", loginHandler.Login)
+			auth.POST("/session", loginHandler.GetSession)
 			auth.GET("/session", loginHandler.GetSession)
 		}
 
@@ -40,8 +43,12 @@ func SetupRouter(
 		{
 			configs.GET("", configHandler.GetAllConfigs)
 			configs.POST("", configHandler.SaveConfig)
+			configs.POST("/all", configHandler.GetAllConfigs)
+			configs.POST("/save", configHandler.SaveConfig)
+			configs.POST("/get", configHandler.GetConfigByKey)
 			configs.GET("/:key", configHandler.GetConfigByKey)
 			configs.DELETE("/:key", configHandler.DeleteConfig)
+			configs.POST("/delete", configHandler.DeleteConfig)
 		}
 
 		// 3. DataHub Proxy & Logs
@@ -49,26 +56,53 @@ func SetupRouter(
 		{
 			dataHub.POST("/proxy", loginHandler.ProxyForward)
 			dataHub.GET("/logs", loginHandler.GetLogs)
+			dataHub.POST("/logs", loginHandler.GetLogs)
 		}
 
-		// 4. Lệnh Công Đoạn (WorkProcess - 3-step Aggregated API)
+		// 4. Danh mục Nhà máy (Factories)
+		factories := api.Group("/factories")
+		{
+			factories.POST("", factoryHandler.GetFactories)
+			factories.GET("", factoryHandler.GetFactories)
+		}
+
+		// 5. Lệnh Công Đoạn (WorkProcess - Master + Detail Aggregated API)
 		workProcess := api.Group("/work-process")
 		{
-			workProcess.GET("", workProcessHandler.GetWorkProcessByQuery)
 			workProcess.POST("", workProcessHandler.GetWorkProcess)
-			workProcess.GET("/steps", workProcessHandler.GetWorkProcessStepsByQuery)
-			workProcess.POST("/steps", workProcessHandler.GetWorkProcessSteps)
+			workProcess.POST("/query", workProcessHandler.GetWorkProcess)
+			workProcess.POST("/factories", factoryHandler.GetFactories)
+			workProcess.POST("/by-doc", workProcessHandler.GetWorkProcessByDocNo)
+			workProcess.GET("", workProcessHandler.GetWorkProcessByQuery)
+			workProcess.GET("/factories", factoryHandler.GetFactories)
 			workProcess.GET("/:doc_no", workProcessHandler.GetWorkProcessByDocNo)
+		}
+
+		// 6. Quyết Toán Lệnh (Order Settlement - Aggregated Flat Items)
+		orderSettlement := api.Group("/order-settlement")
+		{
+			orderSettlement.POST("", orderSettlementHandler.GetOrderSettlement)
+			orderSettlement.POST("/query", orderSettlementHandler.GetOrderSettlement)
+			orderSettlement.GET("", orderSettlementHandler.GetOrderSettlement)
 		}
 
 		// Vietnamese alias route
 		lenhCongDoan := api.Group("/lenh-cong-doan")
 		{
-			lenhCongDoan.GET("", workProcessHandler.GetWorkProcessByQuery)
 			lenhCongDoan.POST("", workProcessHandler.GetWorkProcess)
-			lenhCongDoan.GET("/steps", workProcessHandler.GetWorkProcessStepsByQuery)
-			lenhCongDoan.POST("/steps", workProcessHandler.GetWorkProcessSteps)
+			lenhCongDoan.POST("/query", workProcessHandler.GetWorkProcess)
+			lenhCongDoan.POST("/factories", factoryHandler.GetFactories)
+			lenhCongDoan.POST("/by-doc", workProcessHandler.GetWorkProcessByDocNo)
+			lenhCongDoan.GET("", workProcessHandler.GetWorkProcessByQuery)
+			lenhCongDoan.GET("/factories", factoryHandler.GetFactories)
 			lenhCongDoan.GET("/:doc_no", workProcessHandler.GetWorkProcessByDocNo)
+		}
+
+		quyetToanLenh := api.Group("/quyet-toan-lenh")
+		{
+			quyetToanLenh.POST("", orderSettlementHandler.GetOrderSettlement)
+			quyetToanLenh.POST("/query", orderSettlementHandler.GetOrderSettlement)
+			quyetToanLenh.GET("", orderSettlementHandler.GetOrderSettlement)
 		}
 	}
 

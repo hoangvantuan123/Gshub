@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package datahub;
+
+option go_package = "service-datahub/pb/datahub";
+
+// ==========================================
+// 5. Audit Trail Messages
+// ==========================================
+
+message AuditLogsProtoRequest {
+  string config_key = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message AuditLogProto {
+  uint32 id = 1;
+  string trace_id = 2;
+  string config_key = 3;
+  string username = 4;
+  string method = 5;
+  string endpoint = 6;
+  string target_url = 7;
+  int32 status_code = 8;
+  int64 latency_ms = 9;
+  string client_ip = 10;
+  string user_agent = 11;
+  string request_payload = 12;
+  string response_brief = 13;
+  string error_message = 14;
+  string created_at = 15;
+}
+
+message AuditLogsProtoResponse {
+  bool success = 1;
+  repeated AuditLogProto logs = 2;
+  int64 total = 3;
+  string error_message = 4;
+}

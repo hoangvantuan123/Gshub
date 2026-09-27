@@ -11,10 +11,13 @@ export const useFetchGenericData = (loadingBarRef, controllers, setStatusMessage
 
   const increaseFetchCount = useCallback(() => {
     activeFetchCountRef.current += 1
+    if (activeFetchCountRef.current === 1) {
+      togglePageInteraction(true)
+    }
   }, [])
 
   const decreaseFetchCount = useCallback(() => {
-    activeFetchCountRef.current -= 1
+    activeFetchCountRef.current = Math.max(0, activeFetchCountRef.current - 1)
     if (activeFetchCountRef.current === 0) {
       loadingBarRef.current?.complete()
       togglePageInteraction(false)

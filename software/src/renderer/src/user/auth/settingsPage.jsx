@@ -16,7 +16,6 @@ import {
 } from 'lucide-react'
 import Logo from '../../assets/logo3.png'
 
-
 const settingsTranslations = {
   vi: {
     settingsTitle: 'Cài đặt',

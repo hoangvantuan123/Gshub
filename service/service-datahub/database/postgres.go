@@ -65,40 +65,100 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		&models.ErpConfig{},
 		&models.TokenSession{},
 		&models.AuditLog{},
+		&models.ErpEndpoint{},
 	)
 }
 
 func SeedDefaults(db *gorm.DB, cfg *config.Config, log *zap.Logger) error {
-	var count int64
-	if err := db.Model(&models.ErpConfig{}).Where("\"ConfigKey\" = ?", "BravoDefault").Count(&count).Error; err != nil {
-		return err
+	for _, key := range []string{"BravoDefault", "Bravo_PROD"} {
+		var count int64
+		if err := db.Model(&models.ErpConfig{}).Where("\"ConfigKey\" = ?", key).Count(&count).Error; err == nil && count == 0 {
+			cfgItem := models.ErpConfig{
+				ConfigKey:          key,
+				ConfigName:         fmt.Sprintf("Bravo ERP Goldsun (%s)", key),
+				Provider:           "Bravo",
+				AuthUrl:            cfg.Bravo.AuthURL,
+				BaseApiUrl:         cfg.Bravo.BaseAPIURL,
+				Referer:            cfg.Bravo.Referer,
+				ClientId:           cfg.Bravo.ClientID,
+				ClientSecret:       cfg.Bravo.ClientSecret,
+				DeviceCode:         cfg.Bravo.DeviceCode,
+				ConnectionName:     cfg.Bravo.ConnectionName,
+				GrantType:          cfg.Bravo.GrantType,
+				Scope:              cfg.Bravo.Scope,
+				InsecureSkipVerify: cfg.Bravo.InsecureSkipVerify,
+				ExtraParams:        "{}",
+				IsActive:           true,
+				CreatedAt:          time.Now(),
+				UpdatedAt:          time.Now(),
+			}
+			if err := db.Create(&cfgItem).Error; err == nil {
+				log.Info("ERP Configuration seeded successfully", zap.String("config_key", key))
+			}
+		}
 	}
 
-	if count == 0 {
-		defaultConfig := models.ErpConfig{
-			ConfigKey:          "BravoDefault",
-			ConfigName:         "Bravo ERP Goldsun",
-			Provider:           "Bravo",
-			AuthUrl:            cfg.Bravo.AuthURL,
-			BaseApiUrl:         cfg.Bravo.BaseAPIURL,
-			Referer:            cfg.Bravo.Referer,
-			ClientId:           cfg.Bravo.ClientID,
-			ClientSecret:       cfg.Bravo.ClientSecret,
-			DeviceCode:         cfg.Bravo.DeviceCode,
-			ConnectionName:     cfg.Bravo.ConnectionName,
-			GrantType:          cfg.Bravo.GrantType,
-			Scope:              cfg.Bravo.Scope,
-			InsecureSkipVerify: cfg.Bravo.InsecureSkipVerify,
-			ExtraParams:        "{}",
-			IsActive:           true,
-			CreatedAt:          time.Now(),
-			UpdatedAt:          time.Now(),
-		}
-
-		if err := db.Create(&defaultConfig).Error; err != nil {
-			return err
-		}
-		log.Info("Default ERP Configuration seeded successfully (BravoDefault)")
+	// Seed Default Endpoints
+	defaultEndpoints := []models.ErpEndpoint{
+		{
+			EndpointKey: "WorkDocCD_Master",
+			ConfigKey:   "BravoDefault",
+			Endpoint:    "4e9b7232116b4a4af1b990d81e00a049",
+			Stn:         "vB30WorkProcess_Explorer",
+			San:         "Ct",
+			Alc:         "CommandKey=WorkDocCD|LayoutName=Layout1|TemplateName=StatsDocVoucher",
+			Ndcn:        "_NoDelete_gim00a",
+			Nocn:        "_NoOpen_esjp5f",
+			Necn:        "_NoEdit_tc393n",
+			Nrcn:        "_NoRecall_voxx2",
+			Description: "Truy vấn Master Lệnh Công Đoạn (Ct)",
+			IsActive:    true,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		},
+		{
+			EndpointKey: "WorkDocCD_Detail",
+			ConfigKey:   "BravoDefault",
+			Endpoint:    "4e9b7232116b4a4af1b990d81e00a049",
+			Stn:         "vB30WorkProcessDetail_Explorer",
+			San:         "ChildTable_Detail",
+			Alc:         "CommandKey=WorkDocCD|LayoutName=Layout1|TemplateName=StatsDocVoucher",
+			Ndcn:        "_NoDelete_in55v",
+			Nocn:        "_NoOpen_osvfze",
+			Necn:        "_NoEdit_z1dhnu",
+			Nrcn:        "_NoRecall_a48pk",
+			Description: "Truy vấn Chi Tiết Lệnh Công Đoạn (ChildTable_Detail)",
+			IsActive:    true,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		},
+		{
+			EndpointKey: "WorkDocCD_Factory",
+			ConfigKey:   "BravoDefault",
+			Endpoint:    "7100966925033d94da5b1876d4f4582e",
+			Stn:         "vB30WorkProcess_Explorer",
+			San:         "gr",
+			Alc:         "CommandKey=WorkDocCD|LayoutName=Layout1|TemplateName=StatsDocVoucher",
+			Ndcn:        "_NoDelete_xmxz8m",
+			Nocn:        "_NoOpen_bedh7t",
+			Necn:        "_NoEdit_8qcok",
+			Nrcn:        "_NoRecall_y2a9z",
+			Description: "Truy vấn Danh Mục Nhà Máy (gr)",
+			IsActive:    true,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		},
 	}
+
+	for _, ep := range defaultEndpoints {
+		var epCount int64
+		_ = db.Model(&models.ErpEndpoint{}).Where("\"EndpointKey\" = ?", ep.EndpointKey).Count(&epCount).Error
+		if epCount == 0 {
+			if err := db.Create(&ep).Error; err != nil {
+				log.Warn("Failed to seed ERP endpoint", zap.String("key", ep.EndpointKey), zap.Error(err))
+			}
+		}
+	}
+
 	return nil
 }

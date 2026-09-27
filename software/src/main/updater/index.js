@@ -300,7 +300,11 @@ export async function downloadAndApplyUiUpdate() {
       uiDownloadUrl.includes('.gshub') ||
       uiDownloadUrl.endsWith('.syscore') ||
       uiDownloadUrl.includes('.syscore')
-    const downloadExt = isEncrypted ? (uiDownloadUrl.includes('.gshub') ? 'gshub' : 'syscore') : 'zip'
+    const downloadExt = isEncrypted
+      ? uiDownloadUrl.includes('.gshub')
+        ? 'gshub'
+        : 'syscore'
+      : 'zip'
     const downloadedFilePath = join(tempDir, `download-ui-${newUiVersion}.${downloadExt}`)
     const readyZipPath = join(tempDir, `extracted-ui-${newUiVersion}.zip`)
     const targetExtractDir = join(UI_BUNDLES_DIR, `v${newUiVersion}`)

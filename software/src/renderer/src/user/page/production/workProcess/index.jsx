@@ -1,4 +1,5 @@
 /* eslint-disable react/prop-types */
+/* eslint-disable no-unused-vars */
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -51,17 +52,7 @@ export default function WorkProcessPage({
     defaultMasterCols,
     masterSelection,
     setMasterSelection,
-    selectedMasterIndex,
-    setSelectedMasterIndex,
-    selectedMasterRow,
-    // Step Table State
-    currentStepData,
-    stepCols,
-    setStepCols,
-    defaultStepCols,
-    stepSelection,
-    setStepSelection,
-    loadingSteps,
+    onVisibleRegionChanged,
     // Actions
     showSearch,
     setShowSearch,
@@ -120,14 +111,7 @@ export default function WorkProcessPage({
           defaultMasterCols={defaultMasterCols}
           masterSelection={masterSelection}
           setMasterSelection={setMasterSelection}
-          selectedMasterRow={selectedMasterRow}
-          currentStepData={currentStepData}
-          stepCols={stepCols}
-          setStepCols={setStepCols}
-          defaultStepCols={defaultStepCols}
-          stepSelection={stepSelection}
-          setStepSelection={setStepSelection}
-          loadingSteps={loadingSteps}
+          onVisibleRegionChanged={onVisibleRegionChanged}
           showSearch={showSearch}
           setShowSearch={setShowSearch}
           canEdit={pagePerms.canEdit}

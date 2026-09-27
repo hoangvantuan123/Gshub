@@ -76,7 +76,6 @@ export function createCodeHelpFetcher(apiFn, getExtraParams = null) {
   }
 }
 
-
 export async function fetchBatchCodeHelp(apiFn, textListOrSet, maxItems = 200) {
   const items = Array.isArray(textListOrSet)
     ? textListOrSet

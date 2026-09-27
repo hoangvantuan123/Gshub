@@ -75,10 +75,25 @@ func (h *LoginHandler) GetSession(c *gin.Context) {
 	configKey := c.DefaultQuery("config_key", "BravoDefault")
 	username := c.Query("username")
 
+	if c.Request.Method == http.MethodPost {
+		var req struct {
+			ConfigKey string `json:"config_key"`
+			Username  string `json:"username"`
+		}
+		if err := c.ShouldBindJSON(&req); err == nil {
+			if req.ConfigKey != "" {
+				configKey = req.ConfigKey
+			}
+			if req.Username != "" {
+				username = req.Username
+			}
+		}
+	}
+
 	if username == "" {
 		c.JSON(http.StatusBadRequest, models.ApiResponse{
 			Success: false,
-			Message: "Username query parameter is required",
+			Message: "Username parameter is required",
 		})
 		return
 	}

@@ -12,9 +12,18 @@ func ExtractRows(raw []byte) []map[string]interface{} {
 		return []map[string]interface{}{}
 	}
 
-	// Case 1: Bravo Web ERP format { "rtv": { "cln": [...], "rws": [ { "crt": [...] } ] } } or root { "cln": [...], "rws": [...] }
+	// Case 1: Bravo Web ERP format { "rtv": { "tbl": [ { "cln": [...], "rws": [ { "crt": [...] } ] } ] } }
+	// or { "rtv": { "cln": [...], "rws": [ { "crt": [...] } ] } } or root { "cln": [...], "rws": [...] }
 	var bravoRtv struct {
 		Rtv struct {
+			Tbl []struct {
+				Cln []struct {
+					Cln string `json:"cln"`
+				} `json:"cln"`
+				Rws []struct {
+					Crt []interface{} `json:"crt"`
+				} `json:"rws"`
+			} `json:"tbl"`
 			Cln []struct {
 				Cln string `json:"cln"`
 			} `json:"cln"`
@@ -22,6 +31,14 @@ func ExtractRows(raw []byte) []map[string]interface{} {
 				Crt []interface{} `json:"crt"`
 			} `json:"rws"`
 		} `json:"rtv"`
+		Tbl []struct {
+			Cln []struct {
+				Cln string `json:"cln"`
+			} `json:"cln"`
+			Rws []struct {
+				Crt []interface{} `json:"crt"`
+			} `json:"rws"`
+		} `json:"tbl"`
 		Cln []struct {
 			Cln string `json:"cln"`
 		} `json:"cln"`
@@ -30,6 +47,47 @@ func ExtractRows(raw []byte) []map[string]interface{} {
 		} `json:"rws"`
 	}
 	if err := json.Unmarshal(raw, &bravoRtv); err == nil {
+		// Priority 1: rtv.tbl[0]
+		if len(bravoRtv.Rtv.Tbl) > 0 && len(bravoRtv.Rtv.Tbl[0].Cln) > 0 {
+			tbl := bravoRtv.Rtv.Tbl[0]
+			colNames := make([]string, len(tbl.Cln))
+			for i, c := range tbl.Cln {
+				colNames[i] = c.Cln
+			}
+			var res []map[string]interface{}
+			for _, r := range tbl.Rws {
+				rowMap := make(map[string]interface{})
+				for i, val := range r.Crt {
+					if i < len(colNames) {
+						rowMap[colNames[i]] = val
+					}
+				}
+				res = append(res, rowMap)
+			}
+			return res
+		}
+
+		// Priority 2: tbl[0] at root
+		if len(bravoRtv.Tbl) > 0 && len(bravoRtv.Tbl[0].Cln) > 0 {
+			tbl := bravoRtv.Tbl[0]
+			colNames := make([]string, len(tbl.Cln))
+			for i, c := range tbl.Cln {
+				colNames[i] = c.Cln
+			}
+			var res []map[string]interface{}
+			for _, r := range tbl.Rws {
+				rowMap := make(map[string]interface{})
+				for i, val := range r.Crt {
+					if i < len(colNames) {
+						rowMap[colNames[i]] = val
+					}
+				}
+				res = append(res, rowMap)
+			}
+			return res
+		}
+
+		// Priority 3: rtv.cln / cln at root
 		clnList := bravoRtv.Rtv.Cln
 		rwsList := bravoRtv.Rtv.Rws
 		if len(clnList) == 0 && len(bravoRtv.Cln) > 0 {

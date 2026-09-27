@@ -148,6 +148,22 @@ func SeedDefaults(db *gorm.DB, cfg *config.Config, log *zap.Logger) error {
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
 		},
+		{
+			EndpointKey: "WorkDocCD_DetailTT",
+			ConfigKey:   "BravoDefault",
+			Endpoint:    "4e9b7232116b4a4af1b990d81e00a049",
+			Stn:         "vB30WorkProcessDetailTT",
+			San:         "detailtt",
+			Alc:         "CommandKey=WorkDocCD|LayoutName=Layout1|TemplateName=StatsDocVoucher",
+			Ndcn:        "_NoDelete_bggduv",
+			Nocn:        "_NoOpen_gi177m",
+			Necn:        "_NoEdit_25en9",
+			Nrcn:        "_NoRecall_w1f9sb",
+			Description: "Truy vấn Chi Tiết Lệnh Thao Tác Quyết Toán (detailtt)",
+			IsActive:    true,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		},
 	}
 
 	for _, ep := range defaultEndpoints {

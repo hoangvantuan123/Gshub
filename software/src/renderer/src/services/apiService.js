@@ -155,7 +155,10 @@ apiService.interceptors.response.use(
       'Yêu cầu API thất bại'
 
     // Tự động phát hiện phiên hết hạn / lỗi token ERP để hiển thị Modal cảnh báo
-    if (isSessionExpiredError(errorMsg, response?.status) || isSessionExpiredError(response?.data, response?.status)) {
+    if (
+      isSessionExpiredError(errorMsg, response?.status) ||
+      isSessionExpiredError(response?.data, response?.status)
+    ) {
       triggerSessionExpired(errorMsg)
     }
 

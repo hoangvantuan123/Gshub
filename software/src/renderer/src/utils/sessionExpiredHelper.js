@@ -7,9 +7,9 @@ let lastTriggerTime = 0
 export function isSessionExpiredError(errorOrMessage, status) {
   if (status === 401) return true
   const str = String(
-    (typeof errorOrMessage === 'string'
+    typeof errorOrMessage === 'string'
       ? errorOrMessage
-      : errorOrMessage?.message || errorOrMessage?.error || '')
+      : errorOrMessage?.message || errorOrMessage?.error || ''
   ).toLowerCase()
 
   return (

@@ -144,7 +144,9 @@ export default function DynamicQueryBar({
       `}</style>
 
       {/* Grid điều kiện tìm kiếm ERP - Chuẩn tối đa 4 cột / 1 hàng, hết 4 cột tự động xuống dòng */}
-      <div className={`grid ${gridColsClass} w-full border-t border-l border-slate-200 bg-slate-50/20`}>
+      <div
+        className={`grid ${gridColsClass} w-full border-t border-l border-slate-200 bg-slate-50/20`}
+      >
         {visibleFields.map((field) => (
           <QueryFieldItem
             key={field.key}

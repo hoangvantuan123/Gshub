@@ -1,32 +1,13 @@
 import axios from 'axios'
 import { BACKEND_DATAHUB_URL } from '../../config/serverConfig'
 import { isSessionExpiredError, triggerSessionExpired } from '../../utils/sessionExpiredHelper'
-import { accessToken, getEmployeeCode } from '../../services/tokenService'
+import { accessToken, getEmployeeCode, getBravoUserId } from '../../services/tokenService'
 
 const DATAHUB_API_URL = BACKEND_DATAHUB_URL || 'http://localhost:8080'
 
 /**
  * Gọi API DataHub Quyết toán lệnh sản xuất (tổng hợp CD và DetailTT)
  * @param {Object} params
- * @param {string} [params.stage_order_no] - Mã lệnh công đoạn
- * @param {string} [params.item_code] - Mã mặt hàng
- * @param {Array<string>} [params.item_codes] - Danh sách mã mặt hàng
- * @param {string} [params.item_name] - Tên vật tư, hàng hóa
- * @param {Array<string>} [params.item_names] - Danh sách tên hàng hóa
- * @param {string} [params.operation_code] - Mã công đoạn thao tác TT
- * @param {string} [params.status] - Trạng thái quyết toán
- * @param {string} [params.factory_name] - Xưởng sản xuất
- * @param {string} [params.branch_code="A01"] - Mã chi nhánh/đơn vị
- * @param {string} [params.fiscal_year="2026"] - Năm tài chính
- * @param {number} [params.page=0] - Trang hiện tại
- * @param {number} [params.page_size=100] - Số dòng mỗi trang
- * @param {string} [params.config_key="BravoDefault"] - Cấu hình ERP
- * @param {string} [params.username] - Tài khoản truy vấn
- * @param {Object} [params.column_filters] - Bộ lọc cột dynamic
- * @param {Object} [params.raw_sse] - SSE payload
- * @param {boolean} [params.include_raw=false] - Trả về raw ERP data
- * @param {AbortSignal} [params.signal] - Signal hủy request
- * @returns {Promise<Object>}
  */
 export async function queryOrderSettlement({
   stage_order_no,
@@ -37,6 +18,16 @@ export async function queryOrderSettlement({
   operation_code,
   status,
   factory_name,
+  from_date,
+  to_date,
+  date_range,
+  factory_id,
+  factory_id_tt,
+  stt_ltt,
+  item_id,
+  dept_id,
+  user_id,
+  lang_id = 0,
   branch_code = 'A01',
   fiscal_year = '2026',
   page = 0,
@@ -53,6 +44,14 @@ export async function queryOrderSettlement({
 }) {
   const activeToken = token || accessToken() || ''
   const activeUsername = username || getEmployeeCode() || ''
+  const activeUserId = user_id || getBravoUserId() || 1688
+
+  let effFromDate = from_date?.trim() || undefined
+  let effToDate = to_date?.trim() || undefined
+  if (Array.isArray(date_range) && date_range.length === 2) {
+    if (date_range[0]) effFromDate = String(date_range[0]).trim()
+    if (date_range[1]) effToDate = String(date_range[1]).trim()
+  }
 
   const payload = {
     stage_order_no: stage_order_no?.trim() || undefined,
@@ -63,6 +62,15 @@ export async function queryOrderSettlement({
     operation_code: operation_code?.trim() || undefined,
     status: status?.trim() || undefined,
     factory_name: factory_name?.trim() || undefined,
+    from_date: effFromDate,
+    to_date: effToDate,
+    factory_id: factory_id || undefined,
+    factory_id_tt: factory_id_tt || undefined,
+    stt_ltt: stt_ltt?.trim() || undefined,
+    item_id: item_id || undefined,
+    dept_id: dept_id || undefined,
+    user_id: activeUserId,
+    lang_id: Number(lang_id) || 0,
     branch_code: branch_code || 'A01',
     fiscal_year: fiscal_year || String(new Date().getFullYear()),
     page: Number(page) || 0,
@@ -71,8 +79,6 @@ export async function queryOrderSettlement({
     config_key: config_key || 'BravoDefault',
     menu_key: menu_key || 'production_order_settlement',
     api_key: api_key || 'WorkDocCD_Detail',
-    username: activeUsername || undefined,
-    token: activeToken || undefined,
     column_filters:
       column_filters && Object.keys(column_filters).length > 0 ? column_filters : undefined,
     raw_sse: raw_sse && Object.keys(raw_sse).length > 0 ? raw_sse : undefined
@@ -91,6 +97,9 @@ export async function queryOrderSettlement({
     }
     if (activeUsername) {
       headers['X-Username'] = activeUsername
+    }
+    if (activeUserId) {
+      headers['X-User-Id'] = String(activeUserId)
     }
 
     const response = await axios.post(`${DATAHUB_API_URL}/api/v1/order-settlement`, payload, {

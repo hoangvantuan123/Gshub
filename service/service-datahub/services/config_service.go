@@ -143,6 +143,80 @@ func (s *ConfigService) GetEndpointByKey(ctx context.Context, endpointKey, confi
 		// Fallback without configKey check
 		err = s.db.WithContext(ctx).Where("\"EndpointKey\" = ? AND \"IsActive\" = true", endpointKey).First(&ep).Error
 		if err != nil {
+			// Auto provision well-known default endpoints
+			switch endpointKey {
+			case "WorkDocCD_Master":
+				return &models.ErpEndpoint{
+					EndpointKey: "WorkDocCD_Master",
+					ConfigKey:   configKey,
+					Endpoint:    "4e9b7232116b4a4af1b990d81e00a049",
+					Stn:         "vB30WorkProcess_Explorer",
+					San:         "Ct",
+					Alc:         "CommandKey=WorkDocCD|LayoutName=Layout1|TemplateName=StatsDocVoucher",
+					Ndcn:        "_NoDelete_gim00a",
+					Nocn:        "_NoOpen_esjp5f",
+					Necn:        "_NoEdit_tc393n",
+					Nrcn:        "_NoRecall_voxx2",
+					Description: "Truy vấn Master Lệnh Công Đoạn (Ct)",
+					IsActive:    true,
+				}, nil
+			case "WorkDocCD_Detail":
+				return &models.ErpEndpoint{
+					EndpointKey: "WorkDocCD_Detail",
+					ConfigKey:   configKey,
+					Endpoint:    "4e9b7232116b4a4af1b990d81e00a049",
+					Stn:         "vB30WorkProcessDetail_Explorer",
+					San:         "ChildTable_Detail",
+					Alc:         "CommandKey=WorkDocCD|LayoutName=Layout1|TemplateName=StatsDocVoucher",
+					Ndcn:        "_NoDelete_in55v",
+					Nocn:        "_NoOpen_osvfze",
+					Necn:        "_NoEdit_z1dhnu",
+					Nrcn:        "_NoRecall_a48pk",
+					Description: "Truy vấn Chi Tiết Lệnh Công Đoạn (ChildTable_Detail)",
+					IsActive:    true,
+				}, nil
+			case "WorkDocCD_DetailTT":
+				return &models.ErpEndpoint{
+					EndpointKey: "WorkDocCD_DetailTT",
+					ConfigKey:   configKey,
+					Endpoint:    "4e9b7232116b4a4af1b990d81e00a049",
+					Stn:         "vB30WorkProcessDetailTT",
+					San:         "detailtt",
+					Alc:         "CommandKey=WorkDocCD|LayoutName=Layout1|TemplateName=StatsDocVoucher",
+					Ndcn:        "_NoDelete_bggduv",
+					Nocn:        "_NoOpen_gi177m",
+					Necn:        "_NoEdit_25en9",
+					Nrcn:        "_NoRecall_w1f9sb",
+					Description: "Truy vấn Chi Tiết Lệnh Thao Tác Quyết Toán (detailtt)",
+					IsActive:    true,
+				}, nil
+			case "WorkDocCD_Factory":
+				return &models.ErpEndpoint{
+					EndpointKey: "WorkDocCD_Factory",
+					ConfigKey:   configKey,
+					Endpoint:    "7100966925033d94da5b1876d4f4582e",
+					Stn:         "vB30WorkProcess_Explorer",
+					San:         "gr",
+					Alc:         "CommandKey=WorkDocCD|LayoutName=Layout1|TemplateName=StatsDocVoucher",
+					Ndcn:        "_NoDelete_xmxz8m",
+					Nocn:        "_NoOpen_bedh7t",
+					Necn:        "_NoEdit_8qcok",
+					Nrcn:        "_NoRecall_y2a9z",
+					Description: "Truy vấn Danh Mục Nhà Máy (gr)",
+					IsActive:    true,
+				}, nil
+			case "REP_TK_THLTT":
+				return &models.ErpEndpoint{
+					EndpointKey: "REP_TK_THLTT",
+					ConfigKey:   configKey,
+					Endpoint:    "13965d2918007354dfa7a43183486a57",
+					Stn:         "",
+					San:         "usp_TK_THLTT",
+					Alc:         "CommandKey=REP_TK_THLTT|LayoutName=Layout1|TemplateName=Reporter",
+					Description: "Báo cáo Quyết toán Lệnh Sản Xuất (usp_TK_THLTT)",
+					IsActive:    true,
+				}, nil
+			}
 			return nil, err
 		}
 	}

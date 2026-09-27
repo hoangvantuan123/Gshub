@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -46,9 +47,29 @@ func (h *OrderSettlementHandler) GetOrderSettlement(c *gin.Context) {
 		req.OperationCode = c.Query("operation_code")
 		req.Status = c.Query("status")
 		req.BranchCode = c.Query("branch_code")
-		req.FiscalYear = c.Query("fiscal_year")
+		req.FromDate = c.Query("from_date")
+		req.ToDate = c.Query("to_date")
+		if fid := c.Query("factory_id"); fid != "" {
+			req.FactoryId = fid
+		}
+		if fidTT := c.Query("factory_id_tt"); fidTT != "" {
+			req.FactoryIdTT = fidTT
+		}
+		req.Stt_LTT = c.Query("stt_ltt")
+		if itmId := c.Query("item_id"); itmId != "" {
+			req.ItemId = itmId
+		}
+		if deptId := c.Query("dept_id"); deptId != "" {
+			req.DeptId = deptId
+		}
 		req.ConfigKey = c.Query("config_key")
 		req.Username = c.Query("username")
+		if uid := c.Query("user_id"); uid != "" {
+			req.UserId = uid
+		}
+		if lid := c.Query("lang_id"); lid != "" {
+			req.LangId = lid
+		}
 	}
 
 	if req.ConfigKey == "" {
@@ -56,6 +77,16 @@ func (h *OrderSettlementHandler) GetOrderSettlement(c *gin.Context) {
 	}
 	if req.Username == "" {
 		req.Username = c.GetHeader("X-Username")
+	}
+	if req.UserId == nil || fmt.Sprintf("%v", req.UserId) == "" {
+		if uidHeader := c.GetHeader("X-User-Id"); uidHeader != "" {
+			req.UserId = uidHeader
+		}
+	}
+	if req.LangId == nil || fmt.Sprintf("%v", req.LangId) == "" {
+		if lidHeader := c.GetHeader("X-Lang-Id"); lidHeader != "" {
+			req.LangId = lidHeader
+		}
 	}
 	if req.Token == "" {
 		authHeader := c.GetHeader("Authorization")
@@ -78,7 +109,11 @@ func (h *OrderSettlementHandler) GetOrderSettlement(c *gin.Context) {
 	)
 	if err != nil {
 		h.logger.Error("GetOrderSettlement handler failed", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, models.ApiResponse{
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "401") || strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
+			statusCode = http.StatusUnauthorized
+		}
+		c.JSON(statusCode, models.ApiResponse{
 			Success: false,
 			Message: "Failed to query order settlement from Bravo ERP",
 			Error:   err.Error(),

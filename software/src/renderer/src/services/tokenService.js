@@ -88,3 +88,27 @@ export const getId = () => {
     return null
   }
 }
+
+export const getBravoUserId = () => {
+  try {
+    const token = accessToken()
+    if (token && typeof token === 'string' && token.includes('.')) {
+      const parts = token.split('.')
+      if (parts[1]) {
+        let payloadStr = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+        while (payloadStr.length % 4) {
+          payloadStr += '='
+        }
+        const decoded = JSON.parse(atob(payloadStr))
+        if (decoded?.sub) {
+          const subParts = String(decoded.sub).split('|')
+          if (subParts[0] && !isNaN(Number(subParts[0]))) {
+            return Number(subParts[0])
+          }
+        }
+      }
+    }
+  } catch {}
+  return getId() || 1688
+}
+

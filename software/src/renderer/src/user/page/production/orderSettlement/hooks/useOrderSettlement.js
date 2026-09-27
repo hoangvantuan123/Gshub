@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { message } from 'antd'
 import { CompactSelection } from '@glideapps/glide-data-grid'
 import * as XLSX from 'xlsx'
@@ -7,12 +7,16 @@ import { saveAs } from 'file-saver'
 import { getNow_yyyymmdd_hhmmss } from '../../../../../utils/getToday_yyyymmdd_hhmmss'
 import { useOrderSettlementColumns } from '../columns/orderSettlementColumns'
 import {
-  MOCK_SETTLEMENT_FLAT_DATA,
   buildDynamicGroupedTree,
   flattenDynamicTree,
   getAllGroupKeys
 } from '../mock/mockSettlementData'
 import { queryOrderSettlement } from '../../../../../api/production/orderSettlementApi'
+import { usePageData } from '../../../../../context/PageDataContext'
+import {
+  isSessionExpiredError,
+  triggerSessionExpired
+} from '../../../../../utils/sessionExpiredHelper'
 
 export function useOrderSettlement({
   canCreate = true,
@@ -24,28 +28,41 @@ export function useOrderSettlement({
   controllers,
   customLimits
 }) {
-  // 1. Query Filters
-  const [stageOrderNo, setStageOrderNo] = useState('')
-  const [itemCode, setItemCode] = useState('')
-  const [itemName, setItemName] = useState('')
-  const [operationCode, setOperationCode] = useState('')
-  const [status, setStatus] = useState('')
+  const { setPageData, setStatusMessage, setLoadingInfo } = usePageData() || {}
+
+  // 1. Query Filters (Cấu trúc tìm kiếm chuẩn học từ WorkProcess)
+  const [searchValues, setSearchValues] = useState(() => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const d = String(now.getDate()).padStart(2, '0')
+    return {
+      StageOrderNo: '',
+      DetailNo: '',
+      FactoryName: '',
+      DateRange: [`${y}-${m}-01`, `${y}-${m}-${d}`],
+      ItemCode: '',
+      ItemName: '',
+      OperationCode: '',
+      Status: '',
+      BranchCode: 'A01',
+      FiscalYear: String(y)
+    }
+  })
   const [dynamicQueryFields, setDynamicQueryFields] = useState([])
   const [loading, setLoading] = useState(false)
+  const isSearchingRef = useRef(false)
 
   // 2. Dynamic Grouping State (Group by any column key, e.g. 'StageOrderNo', 'ItemCode', or null for flat view)
   const [groupByColumn, setGroupByColumn] = useState('StageOrderNo')
-  const [rawFlatData, setRawFlatData] = useState(MOCK_SETTLEMENT_FLAT_DATA)
+  const [rawFlatData, setRawFlatData] = useState([])
 
   // Tree & Expanded groups (mặc định mở full toàn bộ)
   const treeData = useMemo(() => {
-    return buildDynamicGroupedTree(rawFlatData, 'StageOrderNo')
-  }, [rawFlatData])
+    return buildDynamicGroupedTree(rawFlatData, groupByColumn || 'StageOrderNo')
+  }, [rawFlatData, groupByColumn])
 
-  const [expandedIds, setExpandedIds] = useState(
-    () =>
-      new Set(getAllGroupKeys(buildDynamicGroupedTree(MOCK_SETTLEMENT_FLAT_DATA, 'StageOrderNo')))
-  )
+  const [expandedIds, setExpandedIds] = useState(() => new Set())
 
   // 3. Grid Columns & Display Data
   const defaultCols = useOrderSettlementColumns()
@@ -138,53 +155,195 @@ export function useOrderSettlement({
   }, [])
 
   const handleResetQuery = useCallback(() => {
-    setStageOrderNo('')
-    setItemCode('')
-    setItemName('')
-    setOperationCode('')
-    setStatus('')
+    setSearchValues({
+      StageOrderNo: '',
+      FactoryName: '',
+      DateRange: ['', ''],
+      ItemCode: '',
+      ItemName: '',
+      OperationCode: '',
+      Status: '',
+      BranchCode: 'A01',
+      FiscalYear: String(new Date().getFullYear())
+    })
     setDynamicQueryFields([])
   }, [])
 
-  // Fetch Data from DataHub API
+  // Đồng bộ số lượng dòng hiển thị và số lượng cột xuống StatusBar
+  useEffect(() => {
+    if (setPageData) {
+      setPageData((prev) => ({
+        ...prev,
+        loadedCount: gridData.length,
+        totalColumns: cols.length
+      }))
+    }
+  }, [gridData.length, cols.length, setPageData])
+
+  // Fetch Data from DataHub API (Chuẩn hóa cấu trúc theo WorkProcess)
   const fetchData = useCallback(
     async (overrideParams = {}) => {
+      // Thu thập tất cả các trường tìm kiếm bổ sung/động sang column_filters giống WorkProcess
+      const extraColumnFilters = {}
+      const effectiveSearch = { ...searchValues, ...overrideParams }
+
+      Object.entries(effectiveSearch).forEach(([k, v]) => {
+        if (
+          k !== 'StageOrderNo' &&
+          k !== 'DocNo' &&
+          k !== 'ItemCode' &&
+          k !== 'ItemName' &&
+          k !== 'OperationCode' &&
+          k !== 'Status' &&
+          k !== 'FactoryName' &&
+          k !== 'DateRange' &&
+          k !== 'FromDate' &&
+          k !== 'ToDate' &&
+          k !== 'BranchCode' &&
+          k !== 'FiscalYear' &&
+          v !== undefined &&
+          v !== null &&
+          String(v).trim() !== ''
+        ) {
+          extraColumnFilters[k] = String(v).trim()
+        }
+      })
+
+      const formatDateStr = (val) => {
+        if (!val) return undefined
+        if (typeof val === 'string') {
+          const s = val.trim()
+          if (!s) return undefined
+          if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10)
+          const d = new Date(s)
+          if (!isNaN(d.getTime())) {
+            const y = d.getFullYear()
+            const m = String(d.getMonth() + 1).padStart(2, '0')
+            const day = String(d.getDate()).padStart(2, '0')
+            return `${y}-${m}-${day}`
+          }
+          return s
+        }
+        if (val instanceof Date && !isNaN(val.getTime())) {
+          const y = val.getFullYear()
+          const m = String(val.getMonth() + 1).padStart(2, '0')
+          const day = String(val.getDate()).padStart(2, '0')
+          return `${y}-${m}-${day}`
+        }
+        if (typeof val?.format === 'function') {
+          return val.format('YYYY-MM-DD')
+        }
+        return String(val).trim()
+      }
+
+      let fromDate = formatDateStr(effectiveSearch.FromDate)
+      let toDate = formatDateStr(effectiveSearch.ToDate)
+      if (Array.isArray(effectiveSearch.DateRange) && effectiveSearch.DateRange.length === 2) {
+        if (effectiveSearch.DateRange[0]) fromDate = formatDateStr(effectiveSearch.DateRange[0])
+        if (effectiveSearch.DateRange[1]) toDate = formatDateStr(effectiveSearch.DateRange[1])
+      }
+
+      const searchSummary =
+        effectiveSearch.StageOrderNo?.trim() ||
+        effectiveSearch.ItemCode?.trim() ||
+        effectiveSearch.ItemName?.trim() ||
+        effectiveSearch.OperationCode?.trim() ||
+        (fromDate && toDate ? `${fromDate} ~ ${toDate}` : fromDate || toDate) ||
+        (effectiveSearch.FactoryName?.trim() &&
+        effectiveSearch.FactoryName.trim() !== '-- Tất cả nhà máy --'
+          ? effectiveSearch.FactoryName.trim()
+          : '') ||
+        effectiveSearch.Status?.trim() ||
+        Object.values(extraColumnFilters)[0] ||
+        'tất cả'
+
       setLoading(true)
-      loadingBarRef?.current?.continuousStart()
+      setLoadingInfo?.({ isLoading: true })
+      loadingBarRef?.current?.continuousStart?.()
+      setStatusMessage?.({
+        type: 'info',
+        text: `Đang tra cứu quyết toán theo "${searchSummary}" từ Bravo ERP...`
+      })
+
       try {
         const queryParams = {
-          stage_order_no: overrideParams.stageOrderNo ?? stageOrderNo,
-          item_code: overrideParams.itemCode ?? itemCode,
-          item_name: overrideParams.itemName ?? itemName,
-          operation_code: overrideParams.operationCode ?? operationCode,
-          status: overrideParams.status ?? status,
-          ...overrideParams
+          stage_order_no: effectiveSearch.StageOrderNo?.trim() || undefined,
+          doc_no: effectiveSearch.DocNo?.trim() || undefined,
+          item_code: effectiveSearch.ItemCode?.trim() || undefined,
+          item_name: effectiveSearch.ItemName?.trim() || undefined,
+          operation_code: effectiveSearch.OperationCode?.trim() || undefined,
+          status: effectiveSearch.Status?.trim() || undefined,
+          factory_name: effectiveSearch.FactoryName?.trim() || undefined,
+          from_date: fromDate,
+          to_date: toDate,
+          factory_id: effectiveSearch.FactoryId || undefined,
+          factory_id_tt: effectiveSearch.FactoryIdTT || undefined,
+          stt_ltt: effectiveSearch.Stt_LTT?.trim() || undefined,
+          item_id: effectiveSearch.ItemId || undefined,
+          dept_id: effectiveSearch.DeptId || undefined,
+          branch_code: effectiveSearch.BranchCode?.trim() || 'A01',
+          fiscal_year: effectiveSearch.FiscalYear?.trim() || String(new Date().getFullYear()),
+          column_filters:
+            Object.keys(extraColumnFilters).length > 0 ? extraColumnFilters : undefined,
+          page: 0,
+          page_size: 100,
+          include_raw: false
         }
 
         const res = await queryOrderSettlement(queryParams)
         if (res.success && Array.isArray(res.data?.items)) {
           const items = res.data.items
           setRawFlatData(items)
-          setExpandedIds(new Set(getAllGroupKeys(buildDynamicGroupedTree(items, 'StageOrderNo'))))
+          const newTree = buildDynamicGroupedTree(items, groupByColumn || 'StageOrderNo')
+          setExpandedIds(new Set(getAllGroupKeys(newTree)))
+
+          setLoadingInfo?.({
+            isLoading: false,
+            lastLoadTime: res.latency
+          })
+          setStatusMessage?.({
+            type: 'success',
+            text: `Tải thành công ${items.length} chi tiết quyết toán (${res.latency} ms)`
+          })
           message.success(`Đã tải ${items.length} dòng dữ liệu quyết toán (${res.latency}ms)`)
         } else {
           message.warning(res.message || 'Không có dữ liệu quyết toán phù hợp')
+          setStatusMessage?.({
+            type: 'warning',
+            text: res.message || 'Không có dữ liệu quyết toán phù hợp'
+          })
         }
       } catch (err) {
+        if (isSessionExpiredError(err)) {
+          triggerSessionExpired()
+          return
+        }
         message.error(`Lỗi tải dữ liệu quyết toán: ${err.message || err}`)
+        setStatusMessage?.({
+          type: 'error',
+          text: `Lỗi tải dữ liệu: ${err.message || err}`
+        })
       } finally {
         setLoading(false)
-        loadingBarRef?.current?.complete()
+        setLoadingInfo?.({ isLoading: false })
+        loadingBarRef?.current?.complete?.()
       }
     },
-    [stageOrderNo, itemCode, itemName, operationCode, status, loadingBarRef]
+    [searchValues, groupByColumn, loadingBarRef, setLoadingInfo, setStatusMessage]
   )
 
   // Actions
-  const handleSearch = useCallback(() => {
-    setShowSearch(true)
-    fetchData()
-  }, [fetchData])
+  const handleSearch = useCallback(
+    (overrideStageOrderNo = null) => {
+      setShowSearch(true)
+      if (typeof overrideStageOrderNo === 'string' && overrideStageOrderNo.trim()) {
+        fetchData({ StageOrderNo: overrideStageOrderNo.trim() })
+      } else {
+        fetchData()
+      }
+    },
+    [fetchData]
+  )
 
   const handleReload = useCallback(() => {
     fetchData()
@@ -329,6 +488,7 @@ export function useOrderSettlement({
       'SL quyết toán': row.SettlementQty ?? '',
       'Số chi tiết': row.DetailNo || '',
       'Mã TT': row.OperationCode || '',
+      'Tên thao tác': row.OperationName || '',
       'SL đạt đã lên lệnh TT': row.PlannedAchievedQty ?? '',
       'SL SX đã lên lệnh TT': row.PlannedProductionQty ?? '',
       'SL đạt đã thống kê': row.StatAchievedQty ?? '',
@@ -355,17 +515,9 @@ export function useOrderSettlement({
   }, [])
 
   return {
-    // Query
-    stageOrderNo,
-    setStageOrderNo,
-    itemCode,
-    setItemCode,
-    itemName,
-    setItemName,
-    operationCode,
-    setOperationCode,
-    status,
-    setStatus,
+    // Query Filters & Search Values
+    searchValues,
+    setSearchValues,
     dynamicQueryFields,
     handleAddQueryField,
     handleRemoveQueryField,

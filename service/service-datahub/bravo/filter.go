@@ -86,3 +86,40 @@ func MatchesAnyRowField(row map[string]interface{}, fieldKeys []string, rawTarge
 	}
 	return false
 }
+
+// BuildDateRangeFilter creates a date range AST expression for fieldName (>= fromDate AND <= toDate)
+func BuildDateRangeFilter(fieldName, fromDate, toDate string) map[string]interface{} {
+	fDate := strings.TrimSpace(fromDate)
+	tDate := strings.TrimSpace(toDate)
+	if fDate == "" && tDate == "" {
+		return nil
+	}
+
+	var conds []map[string]interface{}
+	if fDate != "" {
+		// Field >= 'fDate' (opr: 22)
+		conds = append(conds, map[string]interface{}{
+			"opr": 22,
+			"eps": []interface{}{
+				map[string]interface{}{"opr": 4, "val": fieldName},
+				map[string]interface{}{"opr": 4, "val": fmt.Sprintf("'%s'", fDate)},
+			},
+		})
+	}
+	if tDate != "" {
+		// Field <= 'tDate' or 'tDate 23:59:59' (opr: 20)
+		val := tDate
+		if !strings.Contains(val, " ") {
+			val = val + " 23:59:59"
+		}
+		conds = append(conds, map[string]interface{}{
+			"opr": 20,
+			"eps": []interface{}{
+				map[string]interface{}{"opr": 4, "val": fieldName},
+				map[string]interface{}{"opr": 4, "val": fmt.Sprintf("'%s'", val)},
+			},
+		})
+	}
+	return CombineAnd(conds)
+}
+

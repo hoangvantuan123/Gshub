@@ -37,17 +37,9 @@ export default function OrderSettlementPage({
   })
 
   const {
-    // Query Filters
-    stageOrderNo,
-    setStageOrderNo,
-    itemCode,
-    setItemCode,
-    itemName,
-    setItemName,
-    operationCode,
-    setOperationCode,
-    status,
-    setStatus,
+    // Query Filters & Search Values
+    searchValues,
+    setSearchValues,
     dynamicQueryFields,
     handleAddQueryField,
     handleRemoveQueryField,
@@ -124,21 +116,17 @@ export default function OrderSettlementPage({
           handlePrint={handlePrint}
           handleDelete={handleDelete}
           handleReload={handleReload}
+          handleExpandAll={handleExpandAll}
+          handleCollapseAll={handleCollapseAll}
+          handleToggleGroupingMode={handleToggleGroupingMode}
+          groupByColumn={groupByColumn}
           permissions={pagePerms}
         />
       }
       query={
         <OrderSettlementQuery
-          stageOrderNo={stageOrderNo}
-          setStageOrderNo={setStageOrderNo}
-          itemCode={itemCode}
-          setItemCode={setItemCode}
-          itemName={itemName}
-          setItemName={setItemName}
-          operationCode={operationCode}
-          setOperationCode={setOperationCode}
-          status={status}
-          setStatus={setStatus}
+          searchValues={searchValues}
+          setSearchValues={setSearchValues}
           handleSearch={handleSearch}
           disabled={!pagePerms.canView}
           dynamicQueryFields={dynamicQueryFields}

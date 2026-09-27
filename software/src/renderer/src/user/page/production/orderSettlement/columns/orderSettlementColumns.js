@@ -55,6 +55,18 @@ export const useOrderSettlementColumns = ({ isFieldVisible, isFieldReadOnly } = 
         icon: GridColumnIcon.HeaderString,
         trailingRowOptions: { disabled: true }
       },
+      {
+        title: t('production.unit', 'ĐVT'),
+        id: 'Unit',
+        group: t('production.grpGeneral', 'Thông tin Lệnh & Hàng hóa'),
+        kind: 'Text',
+        readonly: true,
+        width: 75,
+        hasMenu: true,
+        visible: true,
+        icon: GridColumnIcon.HeaderString,
+        trailingRowOptions: { disabled: true }
+      },
 
       // ── Nhóm 2: Kế hoạch & Định mức (Cột số lượng) ──
       {
@@ -148,6 +160,18 @@ export const useOrderSettlementColumns = ({ isFieldVisible, isFieldReadOnly } = 
 
       // ── Nhóm 4: Thực hiện Lệnh Thao tác Chi tiết ──
       {
+        title: t('production.builtinOrder', 'Thứ tự TT'),
+        id: 'BuiltinOrder',
+        group: t('production.grpOperationDetail', 'Thực hiện Lệnh Thao tác'),
+        kind: 'Number',
+        readonly: true,
+        width: 80,
+        hasMenu: true,
+        visible: true,
+        icon: GridColumnIcon.HeaderNumber,
+        trailingRowOptions: { disabled: true }
+      },
+      {
         title: t('production.detailNo', 'Số chi tiết'),
         id: 'DetailNo',
         group: t('production.grpOperationDetail', 'Thực hiện Lệnh Thao tác'),
@@ -161,12 +185,48 @@ export const useOrderSettlementColumns = ({ isFieldVisible, isFieldReadOnly } = 
         themeOverride: { textDark: '#6b21a8', baseFontStyle: '600 12px Inter, sans-serif' }
       },
       {
+        title: t('production.workStepTypeCode', 'Loại thao tác'),
+        id: 'WorkStepTypeCode',
+        group: t('production.grpOperationDetail', 'Thực hiện Lệnh Thao tác'),
+        kind: 'Text',
+        readonly: true,
+        width: 110,
+        hasMenu: true,
+        visible: true,
+        icon: GridColumnIcon.HeaderString,
+        trailingRowOptions: { disabled: true }
+      },
+      {
         title: t('production.operationCode', 'Mã TT'),
         id: 'OperationCode',
         group: t('production.grpOperationDetail', 'Thực hiện Lệnh Thao tác'),
         kind: 'Text',
         readonly: true,
         width: 115,
+        hasMenu: true,
+        visible: true,
+        icon: GridColumnIcon.HeaderString,
+        trailingRowOptions: { disabled: true }
+      },
+      {
+        title: t('production.operationName', 'Tên thao tác'),
+        id: 'OperationName',
+        group: t('production.grpOperationDetail', 'Thực hiện Lệnh Thao tác'),
+        kind: 'Text',
+        readonly: true,
+        width: 160,
+        hasMenu: true,
+        visible: true,
+        icon: GridColumnIcon.HeaderString,
+        trailingRowOptions: { disabled: true }
+      },
+      {
+        title: t('production.machineName', 'Máy / Thiết bị'),
+        id: 'MachineName',
+        group: t('production.grpOperationDetail', 'Thực hiện Lệnh Thao tác'),
+        kind: 'Text',
+        readonly: true,
+        width: 150,
         hasMenu: true,
         visible: true,
         icon: GridColumnIcon.HeaderString,
@@ -369,6 +429,16 @@ export const defaultOrderSettlementColumns = [
     visible: true
   },
   {
+    title: 'ĐVT',
+    id: 'Unit',
+    group: 'Thông tin Lệnh & Hàng hóa',
+    kind: 'Text',
+    readonly: true,
+    width: 75,
+    hasMenu: true,
+    visible: true
+  },
+  {
     title: 'SL cần đạt theo DO',
     id: 'DoRequiredQty',
     group: 'Kế hoạch & Định mức sản xuất',
@@ -439,6 +509,16 @@ export const defaultOrderSettlementColumns = [
     visible: true
   },
   {
+    title: 'Thứ tự TT',
+    id: 'BuiltinOrder',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Number',
+    readonly: true,
+    width: 80,
+    hasMenu: true,
+    visible: true
+  },
+  {
     title: 'Số chi tiết',
     id: 'DetailNo',
     group: 'Thực hiện Lệnh Thao tác',
@@ -449,12 +529,42 @@ export const defaultOrderSettlementColumns = [
     visible: true
   },
   {
+    title: 'Loại thao tác',
+    id: 'WorkStepTypeCode',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Text',
+    readonly: true,
+    width: 110,
+    hasMenu: true,
+    visible: true
+  },
+  {
     title: 'Mã TT',
     id: 'OperationCode',
     group: 'Thực hiện Lệnh Thao tác',
     kind: 'Text',
     readonly: true,
     width: 115,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Tên thao tác',
+    id: 'OperationName',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Text',
+    readonly: true,
+    width: 160,
+    hasMenu: true,
+    visible: true
+  },
+  {
+    title: 'Máy / Thiết bị',
+    id: 'MachineName',
+    group: 'Thực hiện Lệnh Thao tác',
+    kind: 'Text',
+    readonly: true,
+    width: 150,
     hasMenu: true,
     visible: true
   },

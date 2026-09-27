@@ -7,7 +7,10 @@ import { getNow_yyyymmdd_hhmmss } from '../../../../../utils/getToday_yyyymmdd_h
 import { useWorkProcessMasterColumns } from '../columns/workProcessColumns'
 import { queryWorkProcess } from '../../../../../api/production/workProcessApi'
 import { usePageData } from '../../../../../context/PageDataContext'
-import { isSessionExpiredError, triggerSessionExpired } from '../../../../../utils/sessionExpiredHelper'
+import {
+  isSessionExpiredError,
+  triggerSessionExpired
+} from '../../../../../utils/sessionExpiredHelper'
 
 /**
  * Chuyển đổi dữ liệu từ API DataHub thành danh sách Lệnh Công Đoạn hiển thị lên bảng
@@ -90,12 +93,12 @@ export function parseApiDataToMasterRows(apiData) {
               ? Number(master.QuantitySO)
               : null
         const qAdj = detail.QuantityAdj != null ? Number(detail.QuantityAdj) : null
-        
+
         // Công thức chuẩn: SL đạt sau điều chỉnh (DO) = SL Đạt theo DO - SL Điều chỉnh
         let qAfterAdjPass = null
         if (qPass != null) {
           if (qAdj != null) {
-            qAfterAdjPass = qAdj < 0 ? (qPass + qAdj) : (qPass - qAdj)
+            qAfterAdjPass = qAdj < 0 ? qPass + qAdj : qPass - qAdj
           } else {
             qAfterAdjPass = qPass
           }
@@ -107,11 +110,11 @@ export function parseApiDataToMasterRows(apiData) {
             ? Number(detail.WasteCompensationQty)
             : detail.QuantityWaste != null
               ? Number(detail.QuantityWaste)
-              : (qProduce != null && qAfterAdjPass != null && qProduce > qAfterAdjPass
-                  ? Math.max(0, qProduce - qAfterAdjPass - (qOff || 0))
-                  : (qProduce != null && qPass != null && qProduce > qPass
-                      ? Math.max(0, qProduce - qPass - (qOff || 0))
-                      : 0))
+              : qProduce != null && qAfterAdjPass != null && qProduce > qAfterAdjPass
+                ? Math.max(0, qProduce - qAfterAdjPass - (qOff || 0))
+                : qProduce != null && qPass != null && qProduce > qPass
+                  ? Math.max(0, qProduce - qPass - (qOff || 0))
+                  : 0
 
         // Tỷ lệ đạt (%) = (SL Đạt / SL Đơn hàng gốc) * 100
         const baseSO = qSO != null && qSO > 0 ? qSO : qProduce
@@ -122,14 +125,18 @@ export function parseApiDataToMasterRows(apiData) {
         const targetBaseReceipt =
           qAfterAdjPass != null && qAfterAdjPass > 0
             ? qAfterAdjPass
-            : (qPass != null && qPass > 0
-                ? qPass
-                : (qSO != null && qSO > 0 ? qSO : qProduce))
+            : qPass != null && qPass > 0
+              ? qPass
+              : qSO != null && qSO > 0
+                ? qSO
+                : qProduce
 
         let rateReceipt =
           qReceipt != null && targetBaseReceipt != null && targetBaseReceipt > 0
             ? (qReceipt / targetBaseReceipt) * 100
-            : (detail.RateReceipt != null ? Number(detail.RateReceipt) : null)
+            : detail.RateReceipt != null
+              ? Number(detail.RateReceipt)
+              : null
         if (rateReceipt != null && rateReceipt > 0 && rateReceipt <= 1) {
           rateReceipt = rateReceipt * 100
         }
@@ -169,10 +176,18 @@ export function parseApiDataToMasterRows(apiData) {
             const rawApp = master.ApprovalStatus ?? detail.ApprovalStatus
             if (rawApp != null && rawApp !== '') return Number(rawApp)
             const isCompleted =
-              detail.IsComplete === true || detail.IsComplete === 1 || detail.IsComplete === '1' ||
-              master.IsComplete === true || master.IsComplete === 1 || master.IsComplete === '1' ||
-              detail.Closed === true || detail.Closed === 1 || detail.Closed === '1' ||
-              master.Closed === true || master.Closed === 1 || master.Closed === '1'
+              detail.IsComplete === true ||
+              detail.IsComplete === 1 ||
+              detail.IsComplete === '1' ||
+              master.IsComplete === true ||
+              master.IsComplete === 1 ||
+              master.IsComplete === '1' ||
+              detail.Closed === true ||
+              detail.Closed === 1 ||
+              detail.Closed === '1' ||
+              master.Closed === true ||
+              master.Closed === 1 ||
+              master.Closed === '1'
             return isCompleted ? 4 : null
           })(),
           DocStatus:
@@ -285,12 +300,21 @@ export function parseApiDataToMasterRows(apiData) {
         WorkProcessCode: master.WorkProcessCode || '',
         ProductTypeName: master.ProductTypeName || '',
         StepCount: master.StepCount ?? null,
-        QuantitySO: master.QuantitySO != null ? Number(master.QuantitySO) : (master.Quantity != null ? Number(master.Quantity) : null),
+        QuantitySO:
+          master.QuantitySO != null
+            ? Number(master.QuantitySO)
+            : master.Quantity != null
+              ? Number(master.Quantity)
+              : null,
         QuantityCDIssue: master.QuantityCDIssue != null ? Number(master.QuantityCDIssue) : null,
         QuantityAdj: master.QuantityAdj != null ? Number(master.QuantityAdj) : null,
         QuantityAfterAdj_Pass:
           qPass != null
-            ? (master.QuantityAdj != null ? (Number(master.QuantityAdj) < 0 ? qPass + Number(master.QuantityAdj) : qPass - Number(master.QuantityAdj)) : qPass)
+            ? master.QuantityAdj != null
+              ? Number(master.QuantityAdj) < 0
+                ? qPass + Number(master.QuantityAdj)
+                : qPass - Number(master.QuantityAdj)
+              : qPass
             : null,
         QuantityOff: master.QuantityOff != null ? Number(master.QuantityOff) : null,
         QuantityReceipt: qReceipt,
@@ -298,10 +322,15 @@ export function parseApiDataToMasterRows(apiData) {
         QuantityProduce: qProduce,
         QuantityAfterAdj: master.QuantityAfterAdj != null ? Number(master.QuantityAfterAdj) : null,
         ApprovalStatus: (() => {
-          if (master.ApprovalStatus != null && master.ApprovalStatus !== '') return Number(master.ApprovalStatus)
+          if (master.ApprovalStatus != null && master.ApprovalStatus !== '')
+            return Number(master.ApprovalStatus)
           const isCompleted =
-            master.IsComplete === true || master.IsComplete === 1 || master.IsComplete === '1' ||
-            master.Closed === true || master.Closed === 1 || master.Closed === '1'
+            master.IsComplete === true ||
+            master.IsComplete === 1 ||
+            master.IsComplete === '1' ||
+            master.Closed === true ||
+            master.Closed === 1 ||
+            master.Closed === '1'
           return isCompleted ? 4 : null
         })(),
         DocStatus: master.DocStatus != null ? Number(master.DocStatus) : null,
@@ -478,7 +507,10 @@ export function useWorkProcess({ loadingBarRef }) {
         searchValues.ItemCode?.trim() ||
         searchValues.ItemName?.trim() ||
         searchValues.WorkProcessCode?.trim() ||
-        (searchValues.FactoryName?.trim() && searchValues.FactoryName.trim() !== '-- Tất cả nhà máy --' ? searchValues.FactoryName.trim() : '') ||
+        (searchValues.FactoryName?.trim() &&
+        searchValues.FactoryName.trim() !== '-- Tất cả nhà máy --'
+          ? searchValues.FactoryName.trim()
+          : '') ||
         Object.values(extraColumnFilters)[0] ||
         'tất cả'
       setStatusMessage?.({
@@ -733,7 +765,10 @@ export function useWorkProcess({ loadingBarRef }) {
       if (!isScrollingDown) return
 
       // Khi cuộn tới gần đáy bảng Master (cách đáy ~15 dòng) -> tự động nạp trang tiếp
-      const bufferLookahead = Math.min(20, Math.max(5, Math.floor((curInfo.pageSize || 100) * 0.15)))
+      const bufferLookahead = Math.min(
+        20,
+        Math.max(5, Math.floor((curInfo.pageSize || 100) * 0.15))
+      )
       const triggerThreshold = Math.max(0, curInfo.loadedCount - bufferLookahead)
       const viewportBottom = currentY + (range.height || 0)
 

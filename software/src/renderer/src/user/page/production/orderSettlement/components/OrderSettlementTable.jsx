@@ -428,7 +428,7 @@ export default function OrderSettlementTable({
           getCellContent={getData}
           onFill={onFill}
           rows={effectiveRows}
-          showSearch={showSearch}
+          showSearch={false}
           onSearchClose={onSearchClose}
           rowMarkers="number"
           width="100%"
@@ -452,7 +452,10 @@ export default function OrderSettlementTable({
           freezeTrailingRows={0}
           rowHeight={24}
           fillHandle={true}
-          keybindings={keybindings}
+          keybindings={{
+            ...keybindings,
+            search: false
+          }}
           isDraggable={false}
           onCellEdited={onCellEdited}
           highlightRegions={EMPTY_ARRAY}

@@ -4,9 +4,7 @@ import { useTranslation } from 'react-i18next'
 import DynamicQueryBar from '../../../../components/query/core/DynamicQueryBar'
 import { fetchWorkProcessFactories } from '../../../../../api/production/workProcessApi'
 
-const DEFAULT_FACTORY_OPTIONS = [
-  { value: '', label: '-- Tất cả nhà máy --' }
-]
+const DEFAULT_FACTORY_OPTIONS = [{ value: '', label: '-- Tất cả nhà máy --' }]
 
 export default function WorkProcessQuery({
   searchValues = {},
@@ -354,10 +352,7 @@ export default function WorkProcessQuery({
 
     if (checked && onAddQueryField) {
       const isDefault =
-        key === 'StageOrderNo' ||
-        key === 'FactoryName' ||
-        key === 'ItemCode' ||
-        key === 'ItemName'
+        key === 'StageOrderNo' || key === 'FactoryName' || key === 'ItemCode' || key === 'ItemName'
       if (!isDefault && !dynamicQueryFields.some((f) => f.key === key)) {
         onAddQueryField(key, fieldMeta?.label || key, fieldMeta)
       }

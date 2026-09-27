@@ -1,6 +1,17 @@
 /* eslint-disable react/prop-types */
 import { Button } from 'antd'
-import { Search, Save, CheckCheck, FileSpreadsheet, Printer, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  Search,
+  Save,
+  CheckCheck,
+  FileSpreadsheet,
+  Printer,
+  RotateCcw,
+  Trash2,
+  ListTree,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export default function OrderSettlementActions({
@@ -11,6 +22,10 @@ export default function OrderSettlementActions({
   handlePrint,
   handleDelete,
   handleReload,
+  handleExpandAll,
+  handleCollapseAll,
+  handleToggleGroupingMode,
+  groupByColumn,
   permissions = {}
 }) {
   const { t } = useTranslation()
@@ -34,6 +49,54 @@ export default function OrderSettlementActions({
           title="Tra cứu (Ctrl+Q / F2)"
         >
           {t('TÌM KIẾM (F2)')}
+        </Button>
+      )}
+
+      {handleToggleGroupingMode && (
+        <Button
+          key="ToggleGrouping"
+          icon={<ListTree className="text-indigo-600 w-3.5 h-3.5" />}
+          size="small"
+          onClick={handleToggleGroupingMode}
+          className="uppercase text-[10px] whitespace-nowrap font-medium flex items-center gap-1"
+          style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
+          color="default"
+          variant="link"
+          title="Chuyển đổi giữa Xem phẳng và Phân cấp Cây Thao tác"
+        >
+          {groupByColumn ? t('BẢNG PHẲNG') : t('GOM NHÓM LỆNH')}
+        </Button>
+      )}
+
+      {groupByColumn && handleExpandAll && (
+        <Button
+          key="ExpandAll"
+          icon={<ChevronDown className="text-sky-600 w-3.5 h-3.5" />}
+          size="small"
+          onClick={handleExpandAll}
+          className="uppercase text-[10px] whitespace-nowrap font-medium flex items-center gap-1"
+          style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
+          color="default"
+          variant="link"
+          title="Mở rộng tất cả chi tiết thao tác"
+        >
+          {t('MỞ RỘNG TT')}
+        </Button>
+      )}
+
+      {groupByColumn && handleCollapseAll && (
+        <Button
+          key="CollapseAll"
+          icon={<ChevronUp className="text-slate-600 w-3.5 h-3.5" />}
+          size="small"
+          onClick={handleCollapseAll}
+          className="uppercase text-[10px] whitespace-nowrap font-medium flex items-center gap-1"
+          style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
+          color="default"
+          variant="link"
+          title="Thu gọn tất cả chi tiết thao tác"
+        >
+          {t('THU GỌN')}
         </Button>
       )}
 

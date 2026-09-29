@@ -1,21 +1,44 @@
-/* eslint-disable react/prop-types */
+// --- React & Routing Core ---
 import { memo, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import Cookies from 'js-cookie'
+
+// --- Ant Design UI & Icons ---
 import { Form, Input, Modal, Select } from 'antd'
 import { UserOutlined, LockOutlined, LoadingOutlined } from '@ant-design/icons'
+
+// --- Lucide Icons ---
+import {
+  Minus,
+  X,
+  Eye,
+  EyeOff,
+  Settings,
+  Languages,
+  Server,
+  Users,
+  Info,
+  Trash2,
+  RefreshCw,
+  CheckCircle2
+} from 'lucide-react'
+
+// --- Business API & Authentication ---
 import { LoginAuth } from '../../api/auth/login'
-import decodeJWT from '../../utils/decode-JWT'
-import Cookies from 'js-cookie'
 import { ChangePassword } from '../../api/auth/changePassword'
+import decodeJWT from '../../utils/decode-JWT'
 import { HandleSuccess } from '../page/default/handleSuccess'
-import ErpSoftBg from '../../assets/erpsoft.png'
-import Logo from '../../assets/logo3.png'
+
+// --- Storage & Config ---
 import { getLanguageData } from '../../IndexedDB/loadLanguageData'
 import { clearMenuData } from '../../IndexedDB/loadMenuData'
-
 import { configApp } from '../../utils/config'
+import { getDefaultDataHubUrl } from '../../config/serverConfig'
 import { languages } from '../../i18n/langs'
-import { Minus, X, Eye, EyeOff, Settings } from 'lucide-react'
+
+// --- Assets ---
+import ErpSoftBg from '../../assets/erpsoft.png'
+import Logo from '../../assets/logo3.png'
 
 const ErrorAlert = memo(({ message: errMsg, t }) => {
   const displayMsg = typeof t === 'function' ? t(errMsg) : t?.[errMsg] || errMsg
@@ -51,6 +74,8 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showWebSettingsModal, setShowWebSettingsModal] = useState(false)
+  const [webActiveTab, setWebActiveTab] = useState('server')
+  const [clearingCache, setClearingCache] = useState(false)
   const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'vi')
   const [webLoggedUsers, setWebLoggedUsers] = useState([])
   const [envSelection, setEnvSelection] = useState(
@@ -399,16 +424,21 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
               setKeyLanguage(langVal)
             }
           }
-          if (tokenVal) {
-            Cookies.set('a_a', tokenVal, { expires: 7, path: '/' })
-            Cookies.remove('access_token', { path: '/' })
-            localStorage.setItem('access_token', tokenVal)
-            localStorage.setItem('token', tokenVal)
+          const finalToken = tokenVal || ''
+          const finalRefreshToken = refreshTokenVal || tokenVal || ''
+
+          if (finalToken) {
+            Cookies.set('a_a', finalToken, { expires: 7, path: '/' })
+            Cookies.set('access_token', finalToken, { expires: 7, path: '/' })
+            localStorage.setItem('access_token', finalToken)
+            localStorage.setItem('token', finalToken)
+            localStorage.setItem('a_a', finalToken)
           }
-          if (refreshTokenVal) {
-            Cookies.set('r_t', refreshTokenVal, { expires: 30, path: '/' })
-            Cookies.remove('refresh_token', { path: '/' })
-            localStorage.setItem('refresh_token', refreshTokenVal)
+          if (finalRefreshToken) {
+            Cookies.set('r_t', finalRefreshToken, { expires: 30, path: '/' })
+            Cookies.set('refresh_token', finalRefreshToken, { expires: 30, path: '/' })
+            localStorage.setItem('refresh_token', finalRefreshToken)
+            localStorage.setItem('r_t', finalRefreshToken)
           }
 
           const currentUser = {
@@ -619,6 +649,62 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
     }
   }, [])
 
+  const handleDeleteUserLog = useCallback(async (userSeq) => {
+    setWebLoggedUsers((prev) => {
+      const updated = prev.filter((u) => u.UserSeq !== userSeq)
+      try {
+        localStorage.setItem('save_users_log', JSON.stringify(updated))
+        if (window.electron?.writeDataToFile) {
+          window.electron.writeDataToFile('save_users_log.json', updated)
+        }
+      } catch (err) {
+        console.warn('Failed to delete saved user log:', err)
+      }
+      return updated
+    })
+  }, [])
+
+  const handleClearAllUserLogs = useCallback(async () => {
+    setWebLoggedUsers([])
+    try {
+      localStorage.setItem('save_users_log', JSON.stringify([]))
+      if (window.electron?.writeDataToFile) {
+        await window.electron.writeDataToFile('save_users_log.json', [])
+      }
+    } catch (err) {
+      console.warn('Failed to clear saved users log:', err)
+    }
+  }, [])
+
+  const handleClearCache = useCallback(async () => {
+    try {
+      setClearingCache(true)
+      const currentLang = localStorage.getItem('lang') || 'vi'
+      const currentEnv = localStorage.getItem('envSelection') || 'official'
+
+      sessionStorage.clear()
+      localStorage.clear()
+
+      localStorage.setItem('lang', currentLang)
+      localStorage.setItem('envSelection', currentEnv)
+
+      try {
+        if (typeof indexedDB !== 'undefined') {
+          indexedDB.deleteDatabase('GS_DATABASE')
+          indexedDB.deleteDatabase('gshub_cache')
+        }
+      } catch (e) {
+        console.warn('IndexedDB clear warning:', e)
+      }
+
+      await new Promise((r) => setTimeout(r, 600))
+      window.location.reload()
+    } catch (err) {
+      console.warn('Error clearing cache:', err)
+      setClearingCache(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (showWebSettingsModal) {
       readSavedUserLogs().then((users) => {
@@ -636,14 +722,14 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
   const loginCardContent = (
     <div className="flex-1 flex overflow-hidden relative z-10 w-full h-full antialiased font-sans bg-white">
       <div
-        className="w-72 bg-slate-100 flex flex-col justify-between items-center text-center shrink-0 relative overflow-hidden select-none"
+        className="w-64 bg-slate-100 flex flex-col justify-between items-center text-center shrink-0 relative overflow-hidden select-none"
         style={{ WebkitAppRegion: isElectron ? 'drag' : 'no-drag' }}
       >
-        <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img
             src={ErpSoftBg}
             alt="ERP Soft"
-            className="w-full h-full object-cover pointer-events-none"
+            className="w-full h-full object-cover object-center scale-115 pointer-events-none transform transition-transform duration-300"
             loading="eager"
             decoding="async"
           />
@@ -734,21 +820,9 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                 <h2 className="text-sm font-bold text-slate-900 tracking-tight">
                   {t.accountLogin || 'Đăng nhập tài khoản'}
                 </h2>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      envSelection === 'official' ? 'bg-emerald-500' : 'bg-amber-500'
-                    }`}
-                  />
-                  <p className="text-xs text-slate-500 font-medium">
-                    Môi trường:{' '}
-                    <span className="font-bold text-slate-700">
-                      {envSelection === 'official'
-                        ? 'Goldsun PROD (Chính Thức)'
-                        : 'Goldsun DEV (Testing / UAT)'}
-                    </span>
-                  </p>
-                </div>
+                <p className="text-xs text-slate-500 font-normal mt-0.5">
+                  {t.loginSubtitle || 'Đăng nhập tài khoản doanh nghiệp của bạn'}
+                </p>
               </div>
 
               <Form
@@ -1004,86 +1078,365 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
         </div>
       </div>
 
-      {/* Web fallback Modal */}
+      {/* Web Settings Modal - Wide, Centered, Square Framed matching Settings view */}
       <Modal
-        title={
-          <span className="text-sm font-bold text-slate-900">
-            {t.systemSettings || 'Cài đặt hệ thống'}
-          </span>
-        }
         open={showWebSettingsModal}
         onCancel={() => setShowWebSettingsModal(false)}
-        footer={
-          <button
-            type="button"
-            onClick={() => setShowWebSettingsModal(false)}
-            className="w-full h-9 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-all cursor-pointer shadow-xs active:scale-[0.98]"
-          >
-            {t.closeOrDone || 'ĐÓNG / HOÀN TẤT'}
-          </button>
-        }
+        footer={null}
+        closable={false}
         centered
-        width={500}
+        width={760}
+        styles={{
+          content: {
+            padding: 0,
+            borderRadius: '2px',
+            overflow: 'hidden',
+            border: '1px solid #cbd5e1',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+          },
+          body: { padding: 0, height: 420, overflow: 'hidden' }
+        }}
       >
-        <div className="py-2 space-y-3.5">
-          <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-              {t.serverEnv || 'Môi trường máy chủ (Database)'}
-            </label>
-            <Select
-              value={envSelection}
-              onChange={handleEnvChange}
-              className="w-full"
-              options={[
-                { value: 'dev', label: 'Goldsun DEV (Testing / UAT) - BravoDefault' },
-                { value: 'official', label: 'Goldsun PROD (Chính Thức) - Bravo_PROD' }
-              ]}
-            />
+        <div className="w-full h-full flex flex-col bg-white text-slate-800 font-sans select-none antialiased">
+          {/* Top Header Bar */}
+          <div className="h-10 px-4 flex items-center justify-between border-b border-slate-200 bg-white shrink-0">
+            <span className="text-xs font-bold text-slate-900 tracking-tight">
+              {lang === 'zh' ? '系统设置' : lang === 'en' ? 'System Settings' : 'Cài đặt'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowWebSettingsModal(false)}
+              className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-              {t.displayLang || 'Ngôn ngữ hiển thị'}
-            </label>
-            <Select
-              value={lang}
-              onChange={handleChange}
-              className="w-full"
-              options={[
-                { value: 'vi', label: '🇻🇳 Tiếng Việt' },
-                { value: 'en', label: '🇬🇧 English' },
-                { value: 'zh', label: '🇨🇳 中文' }
-              ]}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-              {t.loggedAccounts || 'Tài khoản đã đăng nhập'} ({webLoggedUsers.length})
-            </label>
-            {webLoggedUsers.length > 0 ? (
-              <div className="max-h-56 overflow-y-auto space-y-1.5 p-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-                {webLoggedUsers.map((user, idx) => (
-                  <div
-                    key={user.UserSeq || idx}
-                    className="flex items-center justify-between px-2.5 py-1.5 bg-white border border-slate-200 rounded-md text-xs"
-                  >
-                    <div>
-                      <div className="font-bold text-slate-900">{user.UserId || user.UserName}</div>
-                      <div className="text-[10px] text-slate-500">
-                        {user.LastLoginTime
-                          ? new Date(user.LastLoginTime).toLocaleString(
-                              lang === 'zh' ? 'zh-CN' : lang === 'en' ? 'en-US' : 'vi-VN'
-                            )
-                          : ''}
+
+          {/* Body Split View */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Left Sidebar Navigation */}
+            <div className="w-44 bg-[#F8F9FA] border-r border-slate-200 py-2.5 flex flex-col justify-between shrink-0">
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => setWebActiveTab('display')}
+                  className={`w-full px-3.5 py-2.5 text-xs text-left transition-all flex items-center gap-2.5 cursor-pointer rounded-none ${
+                    webActiveTab === 'display'
+                      ? 'bg-[#ECEEEF] text-slate-900 font-semibold'
+                      : 'text-slate-500 hover:bg-[#F1F3F5] hover:text-slate-800 font-medium'
+                  }`}
+                >
+                  <Languages className="w-4 h-4 shrink-0" />
+                  <span className="truncate whitespace-nowrap">
+                    {lang === 'zh' ? '语言' : lang === 'en' ? 'Language' : 'Ngôn ngữ'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setWebActiveTab('server')}
+                  className={`w-full px-3.5 py-2.5 text-xs text-left transition-all flex items-center gap-2.5 cursor-pointer rounded-none ${
+                    webActiveTab === 'server'
+                      ? 'bg-[#ECEEEF] text-slate-900 font-semibold'
+                      : 'text-slate-500 hover:bg-[#F1F3F5] hover:text-slate-800 font-medium'
+                  }`}
+                >
+                  <Server className="w-4 h-4 shrink-0" />
+                  <span className="truncate whitespace-nowrap">
+                    {lang === 'zh' ? '服务器与数据库' : lang === 'en' ? 'Server & DB' : 'Máy chủ & CSDL'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setWebActiveTab('accounts')}
+                  className={`w-full px-3.5 py-2.5 text-xs text-left transition-all flex items-center gap-2.5 cursor-pointer rounded-none ${
+                    webActiveTab === 'accounts'
+                      ? 'bg-[#ECEEEF] text-slate-900 font-semibold'
+                      : 'text-slate-500 hover:bg-[#F1F3F5] hover:text-slate-800 font-medium'
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span className="truncate whitespace-nowrap">
+                    {lang === 'zh' ? '账户' : lang === 'en' ? 'Accounts' : 'Tài khoản'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setWebActiveTab('about')}
+                  className={`w-full px-3.5 py-2.5 text-xs text-left transition-all flex items-center gap-2.5 cursor-pointer rounded-none ${
+                    webActiveTab === 'about'
+                      ? 'bg-[#ECEEEF] text-slate-900 font-semibold'
+                      : 'text-slate-500 hover:bg-[#F1F3F5] hover:text-slate-800 font-medium'
+                  }`}
+                >
+                  <Info className="w-4 h-4 shrink-0" />
+                  <span className="truncate whitespace-nowrap">
+                    {lang === 'zh' ? '关于' : lang === 'en' ? 'About' : 'Giới thiệu'}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Right Tab Content */}
+            <div className="flex-1 p-4 overflow-y-auto bg-white min-w-0 flex flex-col justify-between select-text">
+              <div className="space-y-3.5">
+                {webActiveTab === 'display' && (
+                  <div className="space-y-3">
+                    <div className="pb-2 border-b border-slate-200">
+                      <h2 className="text-xs font-bold text-slate-900">
+                        {lang === 'zh' ? '语言' : lang === 'en' ? 'Language' : 'Ngôn ngữ'}
+                      </h2>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {lang === 'zh'
+                          ? '设置界面的显示语言'
+                          : lang === 'en'
+                            ? 'Display language preferences across all menus'
+                            : 'Tùy chọn ngôn ngữ hiển thị trên giao diện'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        {lang === 'zh' ? '应用语言' : lang === 'en' ? 'Application Language' : 'Ngôn ngữ ứng dụng'}
+                      </label>
+                      <Select
+                        value={lang}
+                        onChange={handleChange}
+                        className="w-full !rounded-none"
+                        options={[
+                          { value: 'vi', label: '🇻🇳 Tiếng Việt' },
+                          { value: 'en', label: '🇬🇧 English' },
+                          { value: 'zh', label: '🇨🇳 中文' }
+                        ]}
+                      />
+                      <p className="text-[10px] text-slate-400 font-normal pt-0.5">
+                        {lang === 'zh'
+                          ? '语言设置立即生效。'
+                          : lang === 'en'
+                            ? 'Language settings take effect immediately.'
+                            : 'Tùy chọn ngôn ngữ có hiệu lực ngay lập tức trên toàn hệ thống.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {webActiveTab === 'server' && (
+                  <div className="space-y-3">
+                    <div className="pb-2 border-b border-slate-200">
+                      <h2 className="text-xs font-bold text-slate-900">
+                        {lang === 'zh'
+                          ? '服务器与连接'
+                          : lang === 'en'
+                            ? 'Server Connection'
+                            : 'Máy chủ kết nối'}
+                      </h2>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {lang === 'zh'
+                          ? '选择 Goldsun Hub ERP MES 系统的运行环境'
+                          : lang === 'en'
+                            ? 'Select Goldsun Hub ERP MES system environment'
+                            : 'Lựa chọn môi trường kết nối hệ thống Goldsun Hub ERP MES'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          {lang === 'zh'
+                            ? '服务器环境 (Environment)'
+                            : lang === 'en'
+                              ? 'Server Environment'
+                              : 'Môi trường kết nối (Environment)'}
+                        </label>
+                        <Select
+                          value={envSelection}
+                          onChange={handleEnvChange}
+                          className="w-full !rounded-none"
+                          options={[
+                            {
+                              value: 'dev',
+                              label: (
+                                <div className="flex items-center gap-2 text-xs font-semibold">
+                                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                                  <span>
+                                    {lang === 'zh'
+                                      ? 'Goldsun DEV (测试环境 / UAT)'
+                                      : lang === 'en'
+                                        ? 'Goldsun DEV (Testing / UAT)'
+                                        : 'Goldsun DEV (Môi trường Thử nghiệm)'}
+                                  </span>
+                                </div>
+                              )
+                            },
+                            {
+                              value: 'official',
+                              label: (
+                                <div className="flex items-center gap-2 text-xs font-semibold">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                                  <span>
+                                    {lang === 'zh'
+                                      ? 'Goldsun PROD (正式环境 / Production)'
+                                      : lang === 'en'
+                                        ? 'Goldsun PROD (Production)'
+                                        : 'Goldsun PROD (Môi trường Chính thức)'}
+                                  </span>
+                                </div>
+                              )
+                            }
+                          ]}
+                        />
+                      </div>
+
+                      <div className="pt-1">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          {lang === 'zh'
+                            ? '服务器连接地址'
+                            : lang === 'en'
+                              ? 'Server Connection Address'
+                              : 'Địa chỉ máy chủ kết nối'}
+                          :
+                        </div>
+                        <div className="text-xs font-mono font-bold text-emerald-700 p-2 bg-emerald-50/60 border border-emerald-200 rounded-none break-all mt-1 flex items-center justify-between">
+                          <span>{getDefaultDataHubUrl()}</span>
+                          <span className="text-[10px] font-sans font-normal text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
+                            Connected
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-normal mt-1">
+                          {lang === 'zh'
+                            ? 'Goldsun Hub ERP MES 生产报表与参数分析系统。'
+                            : lang === 'en'
+                              ? 'Goldsun Hub ERP MES Production Report & Parameter Analytics System.'
+                              : 'Hệ thống báo cáo và phân tích thông số sản xuất Goldsun Hub ERP MES.'}
+                        </p>
                       </div>
                     </div>
                   </div>
-                ))}
+                )}
+
+                {webActiveTab === 'accounts' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div>
+                        <h2 className="text-xs font-bold text-slate-900">
+                          {lang === 'zh' ? '账户' : lang === 'en' ? 'Accounts' : 'Tài khoản'}
+                        </h2>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {lang === 'zh'
+                            ? '此应用程序上以往登录过的账户历史记录'
+                            : lang === 'en'
+                              ? 'History of accounts previously logged into this application'
+                              : 'Danh sách nhật ký tài khoản đã từng đăng nhập'}
+                        </p>
+                      </div>
+                      {webLoggedUsers.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearAllUserLogs}
+                          className="px-2 py-1 text-[10px] font-semibold text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>{lang === 'zh' ? '全部清除' : lang === 'en' ? 'Clear All' : 'Xóa tất cả'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {webLoggedUsers.length > 0 ? (
+                      <div className="max-h-52 overflow-y-auto space-y-1.5 p-1 bg-slate-50 border border-slate-200">
+                        {webLoggedUsers.map((user, idx) => (
+                          <div
+                            key={user.UserSeq || idx}
+                            className="flex items-center justify-between px-3 py-2 bg-white border border-slate-200 text-xs"
+                          >
+                            <div>
+                              <div className="font-bold text-slate-900">
+                                {user.UserId || user.UserName}
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                {user.LastLoginTime
+                                  ? `${lang === 'zh' ? '最近登录' : lang === 'en' ? 'Last Login' : 'Đăng nhập gần nhất'}: ${new Date(user.LastLoginTime).toLocaleString(
+                                      lang === 'zh' ? 'zh-CN' : lang === 'en' ? 'en-US' : 'vi-VN'
+                                    )}`
+                                  : ''}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteUserLog(user.UserSeq)}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              title={lang === 'zh' ? '删除' : lang === 'en' ? 'Delete' : 'Xóa'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-400 italic p-6 text-center border border-dashed border-slate-200">
+                        {lang === 'zh'
+                          ? '暂无账户日志记录。'
+                          : lang === 'en'
+                            ? 'No account log history recorded.'
+                            : 'Chưa có lịch sử tài khoản nào được lưu.'}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {webActiveTab === 'about' && (
+                  <div className="space-y-3">
+                    <div className="pb-2 border-b border-slate-200">
+                      <h2 className="text-xs font-bold text-slate-900">
+                        {lang === 'zh' ? '系统信息' : lang === 'en' ? 'System Information' : 'Thông tin hệ thống'}
+                      </h2>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Goldsun Hub ERP MES • Goldsun Packaging
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                      <div className="flex justify-between items-center text-slate-700">
+                        <span className="font-medium">Hệ thống ứng dụng:</span>
+                        <span className="font-bold text-slate-900">Goldsun Hub ERP MES</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-700">
+                        <span className="font-medium">Mục đích sử dụng:</span>
+                        <span className="font-medium text-slate-900">Báo cáo & Phân tích thông số sản xuất</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-700">
+                        <span className="font-medium">Phiên bản giao diện:</span>
+                        <span className="font-mono font-bold text-slate-900">v1.0.0</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        disabled={clearingCache}
+                        onClick={handleClearCache}
+                        className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-300 transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${clearingCache ? 'animate-spin' : ''}`} />
+                        <span>{clearingCache ? 'Đang dọn dẹp...' : 'Xóa bộ nhớ đệm (Clear Cache)'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-xs text-slate-400 italic p-3 text-center border border-dashed border-slate-200 rounded-lg">
-                {t.noAccountHistory || 'Chưa có lịch sử tài khoản.'}
+
+              {/* Bottom Footer Button */}
+              <div className="pt-3 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowWebSettingsModal(false)}
+                  className="px-5 h-8 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors cursor-pointer"
+                >
+                  {lang === 'zh' ? '关闭' : lang === 'en' ? 'Close' : 'Đóng'}
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </Modal>
@@ -1122,9 +1475,9 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
         <div className="fixed inset-0 z-[9999] cursor-wait pointer-events-auto select-none" />
       )}
 
-      {/* Web version: Desktop landscape card with clean rounded-lg borders */}
+      {/* Web version: Desktop landscape card with compact dimensions */}
       <div className="w-screen h-screen m-0 p-0 overflow-hidden text-slate-900 flex items-center justify-center select-none font-sans bg-slate-100">
-        <div className="w-[850px] h-[480px] overflow-hidden relative z-10 bg-white flex flex-row border border-slate-300 ">
+        <div className="w-[720px] h-[420px] overflow-hidden relative z-10 bg-white flex flex-row border border-slate-300 shadow-md">
           {loginCardContent}
         </div>
       </div>

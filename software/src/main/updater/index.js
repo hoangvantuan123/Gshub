@@ -658,8 +658,8 @@ export function setupUpdaterIpc() {
           published_at: r.published_at
         }))
       }
-    } catch (e) {
-      console.warn('[Get Releases Error]:', e.message)
+    } catch {
+      // Bỏ qua log khi chưa cấu hình hoặc chưa publish GitHub release
     }
     return []
   })

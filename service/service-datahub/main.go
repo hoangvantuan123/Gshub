@@ -15,6 +15,9 @@ import (
 	"service-datahub/handlers"
 	"service-datahub/routes"
 	"service-datahub/services"
+	"service-datahub/services/report/plan_detail"
+	"service-datahub/services/report/plan_master"
+	"service-datahub/services/report/prod_stats_detail"
 
 	"go.uber.org/zap"
 )
@@ -49,22 +52,45 @@ func main() {
 	}
 
 	// 4. Initialize Services
+	authService := services.NewAuthService(db, cfg, logger)
 	configService := services.NewConfigService(cfg, db, logger)
 	loginService := services.NewLoginService(db, configService, logger)
 	workProcessService := services.NewWorkProcessService(cfg, db, configService, loginService, logger)
 	orderSettlementService := services.NewOrderSettlementService(cfg, configService, loginService, workProcessService, logger)
 	factoryService := services.NewFactoryService(cfg, db, configService, loginService, logger)
 
+	// Báo cáo Master & Detail Services (KHSX & TKSX tách biệt từng thư mục A/U/D/Q)
+	planMasterService := plan_master.NewPlanMasterService(db, logger)
+	planDetailService := plan_detail.NewPlanDetailService(db, logger)
+	prodStatsDetailService := prod_stats_detail.NewProdStatsDetailService(db, logger)
+
 	// 5. Initialize Handlers for REST
+	authHandler := handlers.NewAuthHandler(authService, logger)
 	loginHandler := handlers.NewLoginHandler(loginService, logger)
 	configHandler := handlers.NewConfigHandler(configService, logger)
 	workProcessHandler := handlers.NewWorkProcessHandler(workProcessService, logger)
 	orderSettlementHandler := handlers.NewOrderSettlementHandler(orderSettlementService, logger)
 	factoryHandler := handlers.NewFactoryHandler(factoryService, logger)
+
+	planMasterHandler := handlers.NewPlanMasterHandler(planMasterService, planDetailService, prodStatsDetailService, db, logger)
+	planDetailHandler := handlers.NewPlanDetailHandler(planDetailService, logger)
+	prodStatsDetailHandler := handlers.NewProdStatsDetailHandler(prodStatsDetailService, logger)
 	healthHandler := handlers.NewHealthHandler(db)
 
 	// 6. Setup HTTP REST Router
-	router := routes.SetupRouter(loginHandler, configHandler, workProcessHandler, orderSettlementHandler, factoryHandler, healthHandler, logger)
+	router := routes.SetupRouter(
+		authHandler,
+		loginHandler,
+		configHandler,
+		workProcessHandler,
+		orderSettlementHandler,
+		factoryHandler,
+		planMasterHandler,
+		planDetailHandler,
+		prodStatsDetailHandler,
+		healthHandler,
+		logger,
+	)
 
 	// 7. Setup HTTP REST Server
 	httpAddr := fmt.Sprintf(":%s", cfg.Server.Port)

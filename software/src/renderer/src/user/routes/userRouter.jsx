@@ -43,6 +43,7 @@ import { buildPermissionsTree } from '../../utils/buildPermissionsTree'
 import { mergeWithDefaultMenuConfig } from '../../config/menuConfig'
 
 const DefaultPage = lazy(() => import('../page/default/default'))
+const PublicReportViewer = lazy(() => import('../page/report/public/PublicReportViewer'))
 
 import { systemsRoutes, preloadAllSystemRoutes } from './router/system.routes'
 import { subWindowRoutes } from './router/subWindow.routes'
@@ -157,7 +158,8 @@ const getRefreshToken = () => {
     Cookies.get('r_t') ||
     Cookies.get('refresh_token') ||
     localStorage.getItem('refresh_token') ||
-    localStorage.getItem('r_t')
+    localStorage.getItem('r_t') ||
+    getAuthToken()
   )
 }
 
@@ -425,10 +427,12 @@ const UserRouter = () => {
 
   const checkLoginStatus = useCallback(() => {
     const token = getAuthToken()
-    const refToken = getRefreshToken()
     const userInfo = localStorage.getItem('userInfo')
-    if (token && refToken && userInfo) {
+    if (token && userInfo) {
       setIsLoggedIn(true)
+      if (!Cookies.get('r_t') && !Cookies.get('refresh_token')) {
+        Cookies.set('r_t', token, { expires: 30, path: '/' })
+      }
       processRolesMenu()
     } else {
       setIsLoggedIn(false)
@@ -459,13 +463,17 @@ const UserRouter = () => {
     }
   }, [navigate, processRolesMenu])
 
-  const skippedRoutes = useMemo(() => ['/erp/u/login', '/erp/u/settings', '/docx/print-logs'], [])
+  const skippedRoutes = useMemo(
+    () => ['/erp/u/login', '/erp/u/settings', '/docx/print-logs', '/public/report'],
+    []
+  )
   const lastWindowModeRef = useRef(null)
 
   useEffect(() => {
     const isLogin = location.pathname === '/erp/u/login'
     const isSettings = location.pathname === '/erp/u/settings'
     const isSubWindow = location.pathname.startsWith('/sub/')
+    const isPublicReport = location.pathname.startsWith('/public/report')
 
     if (isLogin) {
       if (lastWindowModeRef.current !== 'login') {
@@ -489,12 +497,12 @@ const UserRouter = () => {
 
     if (
       !skippedRoutes.includes(location.pathname) &&
+      !isPublicReport &&
       !location.pathname.startsWith('/app/erp/p/asst-aems/maintain/mr-04/')
     ) {
       const token = getAuthToken()
-      const refToken = getRefreshToken()
       const userInfo = localStorage.getItem('userInfo')
-      if (!token || !refToken || !userInfo) {
+      if (!token || !userInfo) {
         checkLoginStatus()
       }
     }
@@ -503,9 +511,8 @@ const UserRouter = () => {
   useEffect(() => {
     const handleAuthChange = () => {
       const token = getAuthToken()
-      const refToken = getRefreshToken()
       const userInfo = localStorage.getItem('userInfo')
-      if (token && refToken && userInfo) {
+      if (token && userInfo) {
         setIsLoggedIn(true)
         lastProcessedRolesMenuRef.current = null
         processRolesMenu(true)
@@ -603,6 +610,14 @@ const UserRouter = () => {
           element={<Login processRolesMenu={processRolesMenu} setKeyLanguage={setKeyLanguage} />}
         />
         <Route path="/erp/u/settings" element={<SettingsPage />} />
+        <Route
+          path="/public/report/*"
+          element={
+            <Suspense fallback={<Spinner />}>
+              <PublicReportViewer />
+            </Suspense>
+          }
+        />
         <Route
           path="/app/erp/p/asst-aems/maintain/mr-04/:seq"
           element={

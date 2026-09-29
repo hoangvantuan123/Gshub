@@ -1,5 +1,4 @@
 import { lazy } from 'react'
-import DefaultPage from '../../page/default/default'
 
 export const pageLoaders = {
   UserManagement: () => import('../../page/system/userManagement'),
@@ -23,7 +22,10 @@ export const pageLoaders = {
   HanoiGs1PlanPage: () => import('../../page/report/production/hanoiGs1/plan'),
   QuevoGs5StatPage: () => import('../../page/report/production/quevoGs5/stat'),
   QuevoGs5PlanPage: () => import('../../page/report/production/quevoGs5/plan'),
-  DataImportPage: () => import('../../page/report/data/import')
+  DataRegisterPage: () => import('../../page/report/data/import'),
+  DataImportPage: () => import('../../page/report/data/import'),
+  PlanRegistrationDetailView: () =>
+    import('../../page/report/data/import/components/PlanRegistrationDetailView')
 }
 
 const UserManagement = lazy(pageLoaders.UserManagement)
@@ -47,7 +49,9 @@ const HanoiGs1StatPage = lazy(pageLoaders.HanoiGs1StatPage)
 const HanoiGs1PlanPage = lazy(pageLoaders.HanoiGs1PlanPage)
 const QuevoGs5StatPage = lazy(pageLoaders.QuevoGs5StatPage)
 const QuevoGs5PlanPage = lazy(pageLoaders.QuevoGs5PlanPage)
+const DataRegisterPage = lazy(pageLoaders.DataRegisterPage)
 const DataImportPage = lazy(pageLoaders.DataImportPage)
+const PlanRegistrationDetailView = lazy(pageLoaders.PlanRegistrationDetailView)
 
 const PermResourcePage = (props) => <PermResource {...props} defaultTab="perm_resource" />
 
@@ -96,7 +100,9 @@ export const routeToLoaderMap = {
   '/erp/u/report/production/hanoi-gs1/plan': pageLoaders.HanoiGs1PlanPage,
   '/erp/u/report/production/quevo-gs5/statistics': pageLoaders.QuevoGs5StatPage,
   '/erp/u/report/production/quevo-gs5/plan': pageLoaders.QuevoGs5PlanPage,
-  '/erp/u/report/data/import': pageLoaders.DataImportPage
+  '/erp/u/report/data/register': pageLoaders.DataRegisterPage,
+  '/erp/u/report/data/import': pageLoaders.DataImportPage,
+  '/erp/u/report/data/detail': pageLoaders.PlanRegistrationDetailView
 }
 
 export const preloadRoute = (path) => {
@@ -144,576 +150,138 @@ export const preloadAllSystemRoutes = () => {
 }
 
 export const systemsRoutes = [
-  {
-    path: '/erp/u/system-settings/structure/modules',
-    element: RootMenuTechnique,
-    permission: 'sys_module',
-    fallback: RootMenuTechnique
-  },
-  {
-    path: '/erp/u/system/modules',
-    element: RootMenuTechnique,
-    permission: 'sys_module',
-    fallback: RootMenuTechnique
-  },
-  {
-    path: '/erp/u/system-settings/structure/menus',
-    element: MenuTechnique,
-    permission: 'sys_menu',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system/menus',
-    element: MenuTechnique,
-    permission: 'sys_menu',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/structure/permissions',
-    element: PermResource,
-    permission: 'perm_resource',
-    fallback: PermResource
-  },
-  {
-    path: '/erp/u/system-settings/perm-resource',
-    element: PermResource,
-    permission: 'perm_resource',
-    fallback: PermResource
-  },
-  {
-    path: '/erp/u/system-settings/perm-catalog',
-    element: PermResource,
-    permission: 'perm_catalog',
-    fallback: PermResource
-  },
 
-  // 1.1 Đăng ký chức năng nhóm quyền (perm_resource)
-  {
-    path: '/erp/u/system-settings/structure/permissions/resources',
-    element: PermResourcePage,
-    permission: 'perm_resource',
-    fallback: PermResourcePage
-  },
-  {
-    path: '/erp/u/system-settings/perm-resource',
-    element: PermResourcePage,
-    permission: 'perm_resource',
-    fallback: PermResourcePage
-  },
-  {
-    path: '/erp/u/system/perm-resource',
-    element: PermResourcePage,
-    permission: 'perm_resource',
-    fallback: PermResourcePage
-  },
-
-  // 1.2 Đăng ký trường dữ liệu phân quyền (perm_field)
-  {
-    path: '/erp/u/system-settings/structure/permissions/fields',
-    element: PermFieldPage,
-    permission: 'perm_field',
-    fallback: PermFieldPage
-  },
-  {
-    path: '/erp/u/system-settings/perm-field',
-    element: PermFieldPage,
-    permission: 'perm_field',
-    fallback: PermFieldPage
-  },
-  {
-    path: '/erp/u/system/perm-field',
-    element: PermFieldPage,
-    permission: 'perm_field',
-    fallback: PermFieldPage
-  },
-
-  // 1.3 Đăng ký hành động quyền hạn (perm_action)
-  {
-    path: '/erp/u/system-settings/structure/permissions/actions',
-    element: PermActionPage,
-    permission: 'perm_action',
-    fallback: PermActionPage
-  },
-  {
-    path: '/erp/u/system-settings/perm-action',
-    element: PermActionPage,
-    permission: 'perm_action',
-    fallback: PermActionPage
-  },
-  {
-    path: '/erp/u/system/perm-action',
-    element: PermActionPage,
-    permission: 'perm_action',
-    fallback: PermActionPage
-  },
-
-  // 1.4 Đăng ký phạm vi dữ liệu (perm_scope)
-  {
-    path: '/erp/u/system-settings/structure/permissions/scopes',
-    element: PermScopePage,
-    permission: 'perm_scope',
-    fallback: PermScopePage
-  },
-  {
-    path: '/erp/u/system-settings/perm-scope',
-    element: PermScopePage,
-    permission: 'perm_scope',
-    fallback: PermScopePage
-  },
-  {
-    path: '/erp/u/system/perm-scope',
-    element: PermScopePage,
-    permission: 'perm_scope',
-    fallback: PermScopePage
-  },
-
-  // 1.5 Đăng ký nhóm thuộc tính (sys_attr_group)
-  {
-    path: '/erp/u/system-settings/structure/attribute-groups',
-    element: SysAttrGroupPage,
-    permission: 'sys_attr_group',
-    fallback: SysAttrGroupPage
-  },
-  {
-    path: '/erp/u/system-settings/sys-attr-group',
-    element: SysAttrGroupPage,
-    permission: 'sys_attr_group',
-    fallback: SysAttrGroupPage
-  },
-  {
-    path: '/erp/u/system/attribute-groups',
-    element: SysAttrGroupPage,
-    permission: 'sys_attr_group',
-    fallback: SysAttrGroupPage
-  },
-  {
-    path: '/erp/u/system/sys-attr-group',
-    element: SysAttrGroupPage,
-    permission: 'sys_attr_group',
-    fallback: SysAttrGroupPage
-  },
-
-  // 1.6 Đăng ký giá trị thuộc tính (sys_attr_value)
-  {
-    path: '/erp/u/system-settings/structure/attribute-values',
-    element: SysAttrValuePage,
-    permission: 'sys_attr_value',
-    fallback: SysAttrValuePage
-  },
-  {
-    path: '/erp/u/system-settings/sys-attr-value',
-    element: SysAttrValuePage,
-    permission: 'sys_attr_value',
-    fallback: SysAttrValuePage
-  },
-  {
-    path: '/erp/u/system/attribute-values',
-    element: SysAttrValuePage,
-    permission: 'sys_attr_value',
-    fallback: SysAttrValuePage
-  },
-  {
-    path: '/erp/u/system/sys-attr-value',
-    element: SysAttrValuePage,
-    permission: 'sys_attr_value',
-    fallback: SysAttrValuePage
-  },
-
+  
   // =========================================================================
-  // 2. NGƯỜI DÙNG & TRUY CẬP (user_access & user_mgmt)
+  // 2. NGƯỜI DÙNG & VAI TRÒ
   // =========================================================================
   {
     path: '/erp/u/system-settings/users/user-management',
     element: UserManagement,
-    permission: 'user_mgmt',
-    fallback: DefaultPage
+    permission: 'user_mgmt'
   },
   {
     path: '/erp/u/system/users',
     element: UserManagement,
-    permission: 'user_mgmt',
-    fallback: DefaultPage
+    permission: 'user_mgmt'
   },
-
-  // =========================================================================
-  // 3. VAI TRÒ HỆ THỐNG (role_perm, role_mgmt, perm_assign, role_group)
-  // =========================================================================
   {
     path: '/erp/u/system-settings/roles/role-management',
     element: RoleGroupPage,
-    permission: 'role_mgmt',
-    fallback: DefaultPage
+    permission: 'role_mgmt'
   },
   {
     path: '/erp/u/system-settings/roles/permission-assignment',
     element: RoleManagement,
-    permission: 'perm_assign',
-    fallback: DefaultPage
+    permission: 'perm_assign'
   },
   {
     path: '/erp/u/system-settings/role-groups',
     element: RoleGroupPage,
-    permission: 'role_group',
-    fallback: DefaultPage
+    permission: 'role_group'
   },
   {
     path: '/erp/u/system/role-management',
     element: RoleManagement,
-    permission: 'perm_assign',
-    fallback: DefaultPage
+    permission: 'perm_assign'
   },
 
-  // =========================================================================
-  // 4. QUẢN LÝ TỪ ĐIỂN (dict_mgmt, sys_lang, sys_dict)
-  // =========================================================================
-  {
-    path: '/erp/u/system-settings/dictionaries/languages',
-    element: LangSys,
-    permission: 'sys_lang',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system/languages',
-    element: LangSys,
-    permission: 'sys_lang',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/dictionaries/entries',
-    element: DictSys,
-    permission: 'sys_dict',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system/dictionary',
-    element: DictSys,
-    permission: 'sys_dict',
-    fallback: DefaultPage
-  },
+
 
   // =========================================================================
-  // 5. QUY TRÌNH & PHÊ DUYỆT (wf_approval, wf_config, wf_delegate, wf_catalog...)
-  // =========================================================================
-  {
-    path: '/erp/u/system-settings/workflows/configuration',
-    element: DefaultPage,
-    permission: 'wf_config',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/workflows/delegations',
-    element: DefaultPage,
-    permission: 'wf_delegate',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/workflows/catalog/statuses',
-    element: DefaultPage,
-    permission: 'wf_status',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/workflows/catalog/actions',
-    element: DefaultPage,
-    permission: 'wf_action',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/workflows/catalog/assignees',
-    element: DefaultPage,
-    permission: 'wf_assignee',
-    fallback: DefaultPage
-  },
-
-  // =========================================================================
-  // 6. KIỂM SOÁT & NHẬT KÝ (audit_control, perm_check, sys_audit...)
-  // =========================================================================
-  {
-    path: '/erp/u/system-settings/audit-control/access/permission-simulation',
-    element: DefaultPage,
-    permission: 'perm_sim',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/audit-control/access/permission-lookup',
-    element: DefaultPage,
-    permission: 'perm_lookup',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/audit-control/logs/authorizations',
-    element: DefaultPage,
-    permission: 'perm_log',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/audit-control/logs/access',
-    element: DefaultPage,
-    permission: 'access_log',
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/system-settings/audit-control/logs/data-changes',
-    element: DefaultPage,
-    permission: 'change_log',
-    fallback: DefaultPage
-  },
-
-  // =========================================================================
-  // 7. CẤU HÌNH CÁ NHÂN (public)
+  // 4. CẤU HÌNH CÁ NHÂN
   // =========================================================================
   {
     path: '/erp/u/setting',
     element: SettingPrivate,
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
 
+ 
   // =========================================================================
-  // 8. QUẢN LÝ SẢN XUẤT (production_mgmt, order_settlement, work_process, operation_detail)
+  // 6. MODULE BÁO CÁO (ROOT_REPORT)
   // =========================================================================
-  {
-    path: '/erp/u/production/work-process',
-    element: WorkProcess,
-    permission: 'production_work_process',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/work-process/*',
-    element: WorkProcess,
-    permission: 'production_work_process',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/operation-detail',
-    element: OperationDetail,
-    permission: 'production_operation_detail',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/operation-detail/*',
-    element: OperationDetail,
-    permission: 'production_operation_detail',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/monitoring',
-    element: DefaultPage,
-    permission: 'production_monitoring',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/monitoring/*',
-    element: DefaultPage,
-    permission: 'production_monitoring',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/shift-log',
-    element: DefaultPage,
-    permission: 'production_shift_log',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/shift-log/*',
-    element: DefaultPage,
-    permission: 'production_shift_log',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/material-issue',
-    element: DefaultPage,
-    permission: 'production_material_issue',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/material-issue/*',
-    element: DefaultPage,
-    permission: 'production_material_issue',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/receipt',
-    element: DefaultPage,
-    permission: 'production_receipt',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/receipt/*',
-    element: DefaultPage,
-    permission: 'production_receipt',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/progress',
-    element: DefaultPage,
-    permission: 'production_progress',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/progress/*',
-    element: DefaultPage,
-    permission: 'production_progress',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/sample-check',
-    element: DefaultPage,
-    permission: 'production_sample_check',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/sample-check/*',
-    element: DefaultPage,
-    permission: 'production_sample_check',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/defect-report',
-    element: DefaultPage,
-    permission: 'production_defect_report',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/defect-report/*',
-    element: DefaultPage,
-    permission: 'production_defect_report',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/order-settlement',
-    element: OrderSettlement,
-    permission: 'production_order_settlement',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/order-settlement/*',
-    element: OrderSettlement,
-    permission: 'production_order_settlement',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/bom',
-    element: DefaultPage,
-    permission: 'production_bom',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/bom/*',
-    element: DefaultPage,
-    permission: 'production_bom',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/routing',
-    element: DefaultPage,
-    permission: 'production_routing',
-    public: true,
-    fallback: DefaultPage
-  },
-  {
-    path: '/erp/u/production/routing/*',
-    element: DefaultPage,
-    permission: 'production_routing',
-    public: true,
-    fallback: DefaultPage
-  },
-
-  // ── Module Báo Cáo: GS1 Hà Nội ──────────────────────────────────────────
+  // ── GS1 Hà Nội ──────────────────────────────────────────────────────────
   {
     path: '/erp/u/report/production/hanoi-gs1/statistics',
     element: HanoiGs1StatPage,
     permission: 'report_hanoi_gs1_stat',
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
   {
     path: '/erp/u/report/production/hanoi-gs1/statistics/*',
     element: HanoiGs1StatPage,
     permission: 'report_hanoi_gs1_stat',
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
   {
     path: '/erp/u/report/production/hanoi-gs1/plan',
     element: HanoiGs1PlanPage,
     permission: 'report_hanoi_gs1_plan',
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
   {
     path: '/erp/u/report/production/hanoi-gs1/plan/*',
     element: HanoiGs1PlanPage,
     permission: 'report_hanoi_gs1_plan',
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
 
-  // ── Module Báo Cáo: GS5 Quế Võ 1B ───────────────────────────────────────
+  // ── GS5 Quế Võ 1B ───────────────────────────────────────────────────────
   {
     path: '/erp/u/report/production/quevo-gs5/statistics',
     element: QuevoGs5StatPage,
     permission: 'report_quevo_gs5_stat',
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
   {
     path: '/erp/u/report/production/quevo-gs5/statistics/*',
     element: QuevoGs5StatPage,
     permission: 'report_quevo_gs5_stat',
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
   {
     path: '/erp/u/report/production/quevo-gs5/plan',
     element: QuevoGs5PlanPage,
     permission: 'report_quevo_gs5_plan',
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
   {
     path: '/erp/u/report/production/quevo-gs5/plan/*',
     element: QuevoGs5PlanPage,
     permission: 'report_quevo_gs5_plan',
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
 
-  // ── Module Báo Cáo: Quản lý & Import dữ liệu ────────────────────────────
+  // ── Đăng ký báo cáo KHSX & TKSX ─────────────────────────────────────────
+  {
+    path: '/erp/u/report/data/register',
+    element: DataRegisterPage,
+    permission: 'report_data_import',
+    public: true
+  },
+  {
+    path: '/erp/u/report/data/register/*',
+    element: DataRegisterPage,
+    permission: 'report_data_import',
+    public: true
+  },
   {
     path: '/erp/u/report/data/import',
     element: DataImportPage,
     permission: 'report_data_import',
-    public: true,
-    fallback: DefaultPage
+    public: true
   },
   {
     path: '/erp/u/report/data/import/*',
     element: DataImportPage,
     permission: 'report_data_import',
-    public: true,
-    fallback: DefaultPage
+    public: true
+  },
+  {
+    path: '/erp/u/report/data/detail/:regCode',
+    element: PlanRegistrationDetailView,
+    permission: 'report_data_import',
+    public: true
   }
 ]

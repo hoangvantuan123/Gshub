@@ -159,225 +159,30 @@ export const DEFAULT_SETTING_ITEMS = [
     OrderSeq: 3
   },
 
-  // ── Nhóm 2: Thực thi & Giám sát xưởng ─────────────────────────────────────
-  {
-    Id: 'sub_prod_execution',
-    MenuKey: 'production_execution_group',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Thực thi & Giám sát xưởng',
-    MenuType: 'submenu',
-    Icon: 'FolderOutlined',
-    MenuIcon: 'FolderOutlined',
-    View: true,
-    OrderSeq: 2
-  },
-  {
-    Id: 'menu_production_monitoring',
-    MenuKey: 'production_monitoring',
-    MenuSubRootId: 'sub_prod_execution',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Bảng giám sát sản xuất Realtime',
-    MenuLink: '/erp/u/production/monitoring',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'menu_production_shift_log',
-    MenuKey: 'production_shift_log',
-    MenuSubRootId: 'sub_prod_execution',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Nhật ký sản xuất ca kíp',
-    MenuLink: '/erp/u/production/shift-log',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 2
-  },
-  {
-    Id: 'menu_production_material_issue',
-    MenuKey: 'production_material_issue',
-    MenuSubRootId: 'sub_prod_execution',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Cấp phát vật tư sản xuất',
-    MenuLink: '/erp/u/production/material-issue',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 3
-  },
-  {
-    Id: 'menu_production_receipt',
-    MenuKey: 'production_receipt',
-    MenuSubRootId: 'sub_prod_execution',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Nhập kho BTP & Thành phẩm',
-    MenuLink: '/erp/u/production/receipt',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 4
-  },
-  {
-    Id: 'menu_production_progress',
-    MenuKey: 'production_progress',
-    MenuSubRootId: 'sub_prod_execution',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Theo dõi tiến độ đơn hàng',
-    MenuLink: '/erp/u/production/progress',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 5
-  },
-
-  // ── Nhóm 3: Quản lý chất lượng (QC) ───────────────────────────────────────
-  {
-    Id: 'sub_prod_qc',
-    MenuKey: 'production_qc_group',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Kiểm soát chất lượng (QC)',
-    MenuType: 'submenu',
-    Icon: 'FolderOutlined',
-    MenuIcon: 'FolderOutlined',
-    View: true,
-    OrderSeq: 3
-  },
-  {
-    Id: 'menu_production_sample_check',
-    MenuKey: 'production_sample_check',
-    MenuSubRootId: 'sub_prod_qc',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Kiểm tra mẫu & Nghiệm thu',
-    MenuLink: '/erp/u/production/sample-check',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'menu_production_defect_report',
-    MenuKey: 'production_defect_report',
-    MenuSubRootId: 'sub_prod_qc',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Báo cáo sự cố & Phế phẩm',
-    MenuLink: '/erp/u/production/defect-report',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 2
-  },
-
-  // ── Nhóm 4: Định mức & Quy trình công nghệ (BOM) ──────────────────────────
-  {
-    Id: 'sub_prod_bom',
-    MenuKey: 'production_bom_group',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Định mức & Quy trình (BOM)',
-    MenuType: 'submenu',
-    Icon: 'FolderOutlined',
-    MenuIcon: 'FolderOutlined',
-    View: true,
-    OrderSeq: 4
-  },
-  {
-    Id: 'menu_production_bom',
-    MenuKey: 'production_bom',
-    MenuSubRootId: 'sub_prod_bom',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Định mức kỹ thuật sản phẩm (BOM)',
-    MenuLink: '/erp/u/production/bom',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'menu_production_routing',
-    MenuKey: 'production_routing',
-    MenuSubRootId: 'sub_prod_bom',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Quy trình công nghệ & Thiết bị máy',
-    MenuLink: '/erp/u/production/routing',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 2
-  },
-
   // =========================================================================
   // ── ROOT_REPORT: Module Báo cáo ──────────────────────────────────────────
   // =========================================================================
 
-  // ── Nhóm 1: Báo cáo sản xuất ─────────────────────────────────────────────
-  {
-    Id: 'sub_report_production',
-    MenuKey: 'report_production_group',
-    MenuRootId: 'ROOT_REPORT',
-    MenuLabel: 'Báo cáo sản xuất',
-    MenuType: 'submenu',
-    Icon: 'FolderOutlined',
-    MenuIcon: 'FolderOutlined',
-    View: true,
-    OrderSeq: 1
-  },
-  // ── Phân nhánh Cấp 3: Báo cáo sản xuất GS1 Hà Nội
+  // ── Nhóm 1: Báo cáo sản xuất GS Hà Nội ───────────────────────────────────
   {
     Id: 'sub_report_prod_hanoi_gs1',
     MenuKey: 'report_prod_hanoi_gs1',
-    MenuSubRootId: 'sub_report_production',
     MenuRootId: 'ROOT_REPORT',
-    MenuLabel: 'Báo cáo sản xuất GS1 Hà Nội',
-    MenuType: 'menu',
-    Icon: 'FolderOutlined',
-    MenuIcon: 'FolderOutlined',
-    View: true,
-    OrderSeq: 1
-  },
-  // ── Phân nhánh Cấp 3: Báo cáo sản xuất GS5 Quế Võ 1B
-  {
-    Id: 'sub_report_prod_quevo_gs5',
-    MenuKey: 'report_prod_quevo_gs5',
-    MenuSubRootId: 'sub_report_production',
-    MenuRootId: 'ROOT_REPORT',
-    MenuLabel: 'Báo cáo sản xuất GS5 Quế Võ 1B',
-    MenuType: 'menu',
-    Icon: 'FolderOutlined',
-    MenuIcon: 'FolderOutlined',
-    View: true,
-    OrderSeq: 2
-  },
-
-  // ── Nhóm 2: Quản lý data ─────────────────────────────────────────────────
-  {
-    Id: 'sub_report_data_manage',
-    MenuKey: 'report_data_group',
-    MenuRootId: 'ROOT_REPORT',
-    MenuLabel: 'Quản lý data',
+    MenuLabel: 'Báo cáo sản xuất GS Hà Nội',
     MenuType: 'submenu',
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
     View: true,
-    OrderSeq: 2
-  },
-  // ── Menu Cấp 3 trực tiếp: Import dữ liệu sản xuất
-  {
-    Id: 'menu_report_data_import',
-    MenuKey: 'report_data_import',
-    MenuSubRootId: 'sub_report_data_manage',
-    MenuRootId: 'ROOT_REPORT',
-    MenuLabel: 'Import dữ liệu sản xuất',
-    MenuLink: '/erp/u/report/data/import',
-    MenuType: 'menu',
-    Icon: 'FileSpreadsheet',
-    MenuIcon: 'FileSpreadsheet',
-    View: true,
     OrderSeq: 1
-  }
-]
-
-// Menu Items Cấp 4
-export const DEFAULT_MENU_ITEMS = [
-  // ── Thuộc Báo cáo sản xuất GS1 Hà Nội
+  },
   {
     Id: 'menu_report_hanoi_gs1_stat',
     MenuKey: 'report_hanoi_gs1_stat',
     MenuSubRootId: 'sub_report_prod_hanoi_gs1',
-    MenuLabel: 'Báo cáo thống kê sản xuất',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Thống kê sản xuất',
     MenuLink: '/erp/u/report/production/hanoi-gs1/statistics',
-    MenuType: 'menuitem',
+    MenuType: 'menu',
     Icon: 'BarChart3',
     MenuIcon: 'BarChart3',
     View: true,
@@ -387,23 +192,36 @@ export const DEFAULT_MENU_ITEMS = [
     Id: 'menu_report_hanoi_gs1_plan',
     MenuKey: 'report_hanoi_gs1_plan',
     MenuSubRootId: 'sub_report_prod_hanoi_gs1',
-    MenuLabel: 'Báo cáo kế hoạch sản xuất',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Kế hoạch sản xuất',
     MenuLink: '/erp/u/report/production/hanoi-gs1/plan',
-    MenuType: 'menuitem',
+    MenuType: 'menu',
     Icon: 'Calendar',
     MenuIcon: 'Calendar',
     View: true,
     OrderSeq: 2
   },
 
-  // ── Thuộc Báo cáo sản xuất GS5 Quế Võ 1B
+  // ── Nhóm 2: Báo cáo sản xuất GS Quế Võ 1B ────────────────────────────────
+  {
+    Id: 'sub_report_prod_quevo_gs5',
+    MenuKey: 'report_prod_quevo_gs5',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Báo cáo sản xuất GS Quế Võ 1B',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 2
+  },
   {
     Id: 'menu_report_quevo_gs5_stat',
     MenuKey: 'report_quevo_gs5_stat',
     MenuSubRootId: 'sub_report_prod_quevo_gs5',
-    MenuLabel: 'Báo cáo thống kê sản xuất',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Thống kê sản xuất',
     MenuLink: '/erp/u/report/production/quevo-gs5/statistics',
-    MenuType: 'menuitem',
+    MenuType: 'menu',
     Icon: 'BarChart3',
     MenuIcon: 'BarChart3',
     View: true,
@@ -413,15 +231,45 @@ export const DEFAULT_MENU_ITEMS = [
     Id: 'menu_report_quevo_gs5_plan',
     MenuKey: 'report_quevo_gs5_plan',
     MenuSubRootId: 'sub_report_prod_quevo_gs5',
-    MenuLabel: 'Báo cáo kế hoạch sản xuất',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Kế hoạch sản xuất',
     MenuLink: '/erp/u/report/production/quevo-gs5/plan',
-    MenuType: 'menuitem',
+    MenuType: 'menu',
     Icon: 'Calendar',
     MenuIcon: 'Calendar',
     View: true,
     OrderSeq: 2
+  },
+
+  // ── Nhóm 3: Đăng ký báo cáo KHSX & TKSX ──────────────────────────────────
+  {
+    Id: 'sub_report_data_manage',
+    MenuKey: 'report_data_group',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Đăng ký báo cáo KHSX & TKSX',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 3
+  },
+  {
+    Id: 'menu_report_data_import',
+    MenuKey: 'report_data_import',
+    MenuSubRootId: 'sub_report_data_manage',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Đăng ký báo cáo KHSX & TKSX',
+    MenuLink: '/erp/u/report/data/import',
+    MenuType: 'menu',
+    Icon: 'FileSpreadsheet',
+    MenuIcon: 'FileSpreadsheet',
+    View: true,
+    OrderSeq: 1
   }
 ]
+
+// Menu Items Cấp 4 (nếu có các mục con sâu hơn)
+export const DEFAULT_MENU_ITEMS = []
 
 /**
  * Merge server roles menu with default code config

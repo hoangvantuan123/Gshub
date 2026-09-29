@@ -898,13 +898,14 @@ function getSystemInfo() {
   const interfaces = os.networkInterfaces()
   let localIP = 'Unknown'
 
-  for (const [name, list] of Object.entries(interfaces)) {
-    console.log(`Interface: ${name}`)
+  for (const list of Object.values(interfaces)) {
     for (const iface of list) {
-      console.log(
-        `  -> IP: ${iface.address}, Family: ${iface.family}, MAC: ${iface.mac}, Internal: ${iface.internal}`
-      )
+      if (iface.family === 'IPv4' && !iface.internal) {
+        localIP = iface.address
+        break
+      }
     }
+    if (localIP !== 'Unknown') break
   }
 
   const cpus = os.cpus()

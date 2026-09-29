@@ -144,5 +144,6 @@ type ApiResponse struct {
 	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data,omitempty"`
 	Error   interface{} `json:"error,omitempty"`
+	Code    interface{} `json:"code,omitempty"`
 	Meta    interface{} `json:"meta,omitempty"`
 }

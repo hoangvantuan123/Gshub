@@ -22,7 +22,7 @@ const settingsTranslations = {
     settingsTitle: 'Cài đặt',
     tabs: {
       display: 'Ngôn ngữ',
-      server: 'Máy chủ & CSDL',
+      server: 'Máy chủ kết nối',
       accounts: 'Tài khoản',
       about: 'Giới thiệu'
     },
@@ -33,14 +33,12 @@ const settingsTranslations = {
       langHint: 'Tùy chọn ngôn ngữ có hiệu lực ngay lập tức trên toàn hệ thống.'
     },
     server: {
-      title: 'Máy chủ & Cổng kết nối ERP',
-      subtitle: 'Lựa chọn môi trường Goldsun Packaging ERP & Cổng dịch vụ',
+      title: 'Máy chủ kết nối',
+      subtitle: 'Lựa chọn môi trường kết nối hệ thống Goldsun Hub ERP MES',
       envLabel: 'Môi trường kết nối (Environment)',
-      official: 'Goldsun PROD (Chính Thức / Production)',
-      dev: 'Goldsun DEV (Testing / UAT)',
-      endpointLabel: 'Địa chỉ máy chủ ERP (Bravo Gateway)',
-      backendLabel: 'Địa chỉ Cổng xác thực & Dịch vụ (Backend DataHub)',
-      configKeyLabel: 'Mã cấu hình (Config Key)'
+      official: 'Goldsun PROD (Môi trường Chính thức)',
+      dev: 'Goldsun DEV (Môi trường Thử nghiệm)',
+      backendLabel: 'Địa chỉ máy chủ kết nối'
     },
     accounts: {
       title: 'Tài khoản',
@@ -63,7 +61,7 @@ const settingsTranslations = {
       cacheCleared: 'Đã xóa bộ nhớ đệm thành công!'
     },
     footer: {
-      clientTitle: 'Ứng dụng GsHub ERP Desktop Client',
+      clientTitle: 'Goldsun Hub ERP MES • Hệ thống báo cáo thông số sản xuất',
       close: 'Đóng'
     }
   },
@@ -71,7 +69,7 @@ const settingsTranslations = {
     settingsTitle: 'System Settings',
     tabs: {
       display: 'Language',
-      server: 'Server & DB',
+      server: 'Server Connection',
       accounts: 'Accounts',
       about: 'About'
     },
@@ -82,14 +80,12 @@ const settingsTranslations = {
       langHint: 'Language settings take effect immediately across all menus.'
     },
     server: {
-      title: 'ERP Server & Gateway',
-      subtitle: 'Select Goldsun Packaging ERP environment & DataHub Service',
+      title: 'Server Connection',
+      subtitle: 'Select Goldsun Hub ERP MES environment',
       envLabel: 'Server Environment',
       official: 'Goldsun PROD (Production)',
       dev: 'Goldsun DEV (Testing / UAT)',
-      endpointLabel: 'ERP Server Address (Bravo Gateway)',
-      backendLabel: 'Auth & Proxy Service Address (Backend DataHub)',
-      configKeyLabel: 'Config Key'
+      backendLabel: 'Server Connection Address'
     },
     accounts: {
       title: 'Accounts',
@@ -112,7 +108,7 @@ const settingsTranslations = {
       cacheCleared: 'Cache cleared successfully!'
     },
     footer: {
-      clientTitle: 'GsHub ERP Desktop Client Application',
+      clientTitle: 'Goldsun Hub ERP MES • Production Parameter Analytics System',
       close: 'Close'
     }
   },
@@ -120,7 +116,7 @@ const settingsTranslations = {
     settingsTitle: '系统设置',
     tabs: {
       display: '语言',
-      server: '服务器与数据库',
+      server: '服务器与连接',
       accounts: '账户',
       about: '关于'
     },
@@ -131,14 +127,12 @@ const settingsTranslations = {
       langHint: '语言设置立即在所有菜单中生效。'
     },
     server: {
-      title: 'ERP 服务器与网关',
-      subtitle: '选择 Goldsun Packaging ERP 环境与服务网关',
+      title: '服务器与连接',
+      subtitle: '选择 Goldsun Hub ERP MES 系统的运行环境',
       envLabel: '服务器环境 (Environment)',
-      official: 'Goldsun PROD (正式版 / Production)',
-      dev: 'Goldsun DEV (开发测试版 / Testing)',
-      endpointLabel: 'ERP 服务器地址 (Bravo Gateway)',
-      backendLabel: '认证与代理服务地址 (Backend DataHub)',
-      configKeyLabel: '配置密钥 (Config Key)'
+      official: 'Goldsun PROD (正式环境 / Production)',
+      dev: 'Goldsun DEV (测试环境 / UAT)',
+      backendLabel: '服务器连接地址'
     },
     accounts: {
       title: '账户',
@@ -161,7 +155,7 @@ const settingsTranslations = {
       cacheCleared: '缓存已成功清除！'
     },
     footer: {
-      clientTitle: 'GsHub ERP 桌面客户端',
+      clientTitle: 'Goldsun Hub ERP MES • 生产报表与参数分析系统',
       close: '关闭'
     }
   }
@@ -263,16 +257,6 @@ export default function SettingsPage() {
           })
           .catch(() => {})
       }
-      if (window.electron?.updater?.getReleases) {
-        window.electron.updater
-          .getReleases()
-          .then((list) => {
-            if (Array.isArray(list) && list.length > 0) {
-              setReleasesList(list)
-            }
-          })
-          .catch(() => {})
-      }
       if (window.electron?.getSystemInfo) {
         window.electron
           .getSystemInfo()
@@ -300,12 +284,6 @@ export default function SettingsPage() {
         })
         if (info.currentState) {
           setUpdateState(info.currentState)
-        }
-      }
-      if (window.electron.updater.getReleases) {
-        const list = await window.electron.updater.getReleases()
-        if (Array.isArray(list) && list.length > 0) {
-          setReleasesList(list)
         }
       }
       message.success('Đã hoàn tất kiểm tra phiên bản mới nhất!')
@@ -550,12 +528,12 @@ export default function SettingsPage() {
 
                   <div className="pt-1">
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      {t.server.backendLabel || 'Cổng Backend Service'}:
+                      {t.server.backendLabel || 'Địa chỉ máy chủ kết nối'}:
                     </div>
-                    <div className="text-xs font-mono font-bold text-emerald-700 pt-1 p-2 bg-emerald-50/60 border border-emerald-200 rounded-none break-all mt-0.5 flex items-center justify-between">
-                      <span>{`${getDefaultDataHubUrl()}/api/v1/auth/login`}</span>
+                    <div className="text-xs font-mono font-bold text-emerald-700 p-2 bg-emerald-50/60 border border-emerald-200 rounded-none break-all mt-0.5 flex items-center justify-between">
+                      <span>{getDefaultDataHubUrl()}</span>
                       <span className="text-[10px] font-sans font-normal text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
-                        service-datahub
+                        Connected
                       </span>
                     </div>
                   </div>

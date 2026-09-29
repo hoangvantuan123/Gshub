@@ -1,0 +1,279 @@
+syntax = "proto3";
+
+package datahub;
+
+option go_package = "service-datahub/pb/datahub";
+
+// ==========================================
+// 1. Plan Master (Đăng ký báo cáo) Proto Messages
+// ==========================================
+
+message PlanMasterProtoItem {
+  int64 id_seq = 1;
+  string reg_code = 2;
+  string report_type = 3;
+  string factory_name = 4;
+  string apply_date = 5;
+  string remark = 6;
+  string status = 7;
+  int32 total_rows = 8;
+  int64 row_version = 9;
+  bool is_active = 10;
+  string created_by = 11;
+  string created_by_name = 12;
+  string created_at = 13;
+  string updated_by = 14;
+  string updated_by_name = 15;
+  string updated_at = 16;
+}
+
+message PlanMasterProtoRequest {
+  string reg_code = 1;
+  string report_type = 2;
+  string factory_name = 3;
+  string apply_date = 4;
+  string apply_date_from = 5;
+  string apply_date_to = 6;
+  string status = 7;
+  string is_active = 8;
+  int32 page = 9;
+  int32 page_size = 10;
+  string sort_field = 11;
+  string sort_order = 12;
+}
+
+message PlanMasterProtoResponse {
+  bool success = 1;
+  string message = 2;
+  repeated PlanMasterProtoItem data = 3;
+  int64 total_records = 4;
+  int64 total_all = 5;
+  int32 total_pages = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+  string error_message = 9;
+}
+
+// ==========================================
+// 2. KHSX Detail (Chi tiết kế hoạch điều phối 24 cột)
+// ==========================================
+
+message PlanDetailProtoItem {
+  int64 id_seq = 1;
+  int64 master_seq = 2;
+  string reg_code = 3;
+  int32 row_seq = 4;
+  string working_tag = 5;
+  string pic_dp = 6;
+  string operation_no = 7;
+  string op_date = 8;
+  string routing_doc_no = 9;
+  string routing_doc_date = 10;
+  string item_code = 11;
+  string item_name = 12;
+  string operation_name = 13;
+  string op_type_name = 14;
+  string machine_name = 15;
+  string unit = 16;
+  string target_pass_qty = 17;
+  string target_prod_qty = 18;
+  string stat_pass_qty = 19;
+  string start_time = 20;
+  string end_time = 21;
+  string standard_prod_time = 22;
+  string actual_prod_time = 23;
+  string standard_capa = 24;
+  string actual_capa = 25;
+  string status_dp_sx = 26;
+  string time_status = 27;
+  string capa_status = 28;
+  string user_memo = 29;
+  int64 row_version = 30;
+  bool is_active = 31;
+}
+
+message PlanDetailProtoRequest {
+  int64 master_seq = 1;
+  string reg_code = 2;
+  string item_code = 3;
+  string operation_no = 4;
+  string routing_doc_no = 5;
+  string op_date = 6;
+  string machine_name = 7;
+  int32 page = 8;
+  int32 page_size = 9;
+  string sort_field = 10;
+  string sort_order = 11;
+}
+
+message PlanDetailProtoResponse {
+  bool success = 1;
+  string message = 2;
+  repeated PlanDetailProtoItem data = 3;
+  int64 total_records = 4;
+  int64 total_all = 5;
+  int32 total_pages = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+  string error_message = 9;
+}
+
+// ==========================================
+// 3. TKSX Detail (Chi tiết thống kê sản xuất thực tế)
+// ==========================================
+
+message ProdStatsDetailProtoItem {
+  int64 id_seq = 1;
+  int64 master_seq = 2;
+  string reg_code = 3;
+  int32 row_seq = 4;
+  string working_tag = 5;
+  string item_code = 6;
+  string item_name = 7;
+  string version = 8;
+  string model = 9;
+  string defect_margin_weight = 10;
+  string tech_margin_weight = 11;
+  string operation_no = 12;
+  string main_worker = 13;
+  string sub_worker1 = 14;
+  string sub_worker2 = 15;
+  string breakdown_reason = 16;
+  string machine_code = 17;
+  string machine_name = 18;
+  string op_type_code = 19;
+  string op_type_name = 20;
+  string uv_plate = 21;
+  string mold_set_qty1 = 22;
+  string mold_set_qty2 = 23;
+  string mold_set_qty3 = 24;
+  string prod_qty = 25;
+  string pass_qty = 26;
+  string actual_meters = 27;
+  string standard_meters = 28;
+  string team_name = 29;
+  string shift = 30;
+  string start_date = 31;
+  string start_time = 32;
+  string end_date = 33;
+  string end_time = 34;
+  string stat_date = 35;
+  string stat_ticket_no = 36;
+  string stat_staff = 37;
+  string customer = 38;
+  string sales_staff = 39;
+  string order_no = 40;
+  string process_name = 41;
+  string unit = 42;
+  string conv_unit = 43;
+  string process_spec = 44;
+  string part_no = 45;
+  string corrugated_part_no = 46;
+  string trim_part_no = 47;
+  string color_qty = 48;
+  string out_plate_type = 49;
+  string front_colors = 50;
+  string back_colors = 51;
+  string job_number = 52;
+  string width = 53;
+  string length = 54;
+  string height = 55;
+  string product_line = 56;
+  string raw_width = 57;
+  string raw_length = 58;
+  string raw_line_code = 59;
+  string raw_line_name = 60;
+  string flip_type = 61;
+  string bom_plates = 62;
+  string coating = 63;
+  string slitter_blades = 64;
+  string code_positions = 65;
+  string punch_holes = 66;
+  string structure_code = 67;
+  string structure_name = 68;
+  string routing_doc_no = 69;
+  string routing_date = 70;
+  string release_date = 71;
+  string target_pass_qty = 72;
+  string target_prod_qty = 73;
+  string routing_unit = 74;
+  string breakdown_minutes = 75;
+  string waiting_material_minutes = 76;
+  string setup_minutes = 77;
+  string repair_minutes = 78;
+  string total_waste_minutes = 79;
+  string rigid_box_glue = 80;
+  string outsourcing = 81;
+  string defect_qty = 82;
+  string defect_rate = 83;
+  string defect_unit = 84;
+  string status = 85;
+  string auto_export = 86;
+  string auto_import = 87;
+  string export_doc_no = 88;
+  string import_doc_no = 89;
+  string wrong_op_code = 90;
+  string is_additional_stat = 91;
+  string ticket_created_date = 92;
+  string actual_run_time = 93;
+  string actual_capa = 94;
+  string check_plan_status = 95;
+  string mes_approval_time = 96;
+  string sync_delay_minutes = 97;
+  string is_duplicate_ticket = 98;
+  string ticket_creation_location = 99;
+  string auto_io_status = 100;
+  string user_memo = 101;
+  int64 row_version = 102;
+  bool is_active = 103;
+}
+
+message ProdStatsDetailProtoRequest {
+  int64 master_seq = 1;
+  string reg_code = 2;
+  string item_code = 3;
+  string operation_no = 4;
+  string stat_ticket_no = 5;
+  string stat_date = 6;
+  string customer = 7;
+  string order_no = 8;
+  int32 page = 9;
+  int32 page_size = 10;
+  string sort_field = 11;
+  string sort_order = 12;
+}
+
+message ProdStatsDetailProtoResponse {
+  bool success = 1;
+  string message = 2;
+  repeated ProdStatsDetailProtoItem data = 3;
+  int64 total_records = 4;
+  int64 total_all = 5;
+  int32 total_pages = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+  string error_message = 9;
+}
+
+// ==========================================
+// 4. Registration Save Payload
+// ==========================================
+
+message PlanRegistrationSaveProtoRequest {
+  string report_type = 1;
+  string factory_name = 2;
+  string apply_date = 3;
+  string reg_code = 4;
+  string remark = 5;
+  string status = 6;
+  bool is_draft = 7;
+  string data_json = 8;
+}
+
+message PlanRegistrationSaveProtoResponse {
+  bool success = 1;
+  string message = 2;
+  PlanMasterProtoItem master = 3;
+  int64 inserted_rows = 4;
+  string error_message = 5;
+}

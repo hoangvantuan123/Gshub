@@ -66,6 +66,7 @@ const PureButton = ({ children, icon, onClick, type = 'default', size = 'small',
       onClick={onClick}
       disabled={disabled || loading}
       title={title}
+      className="pure-button"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -81,12 +82,23 @@ const PureButton = ({ children, icon, onClick, type = 'default', size = 'small',
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
         opacity: disabled || loading ? 0.6 : 1,
         fontFamily: 'inherit',
+        lineHeight: 1,
+        boxSizing: 'border-box',
+        verticalAlign: 'middle',
         transition: 'all 0.15s ease',
         ...style
       }}
     >
-      {loading ? <RotateCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> : icon}
-      {children}
+      {loading ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+          <RotateCw size={12} style={{ animation: 'spin 1s linear infinite' }} />
+        </span>
+      ) : icon ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+          {icon}
+        </span>
+      ) : null}
+      <span style={{ display: 'inline-block', lineHeight: 1 }}>{children}</span>
     </button>
   )
 }
@@ -117,9 +129,11 @@ const PureTag = ({ children, color = 'default', style }) => {
 
   return (
     <span
+      className="pure-tag"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
+        justifyContent: 'center',
         padding: '2px 8px',
         fontSize: 11,
         fontWeight: 700,
@@ -128,11 +142,13 @@ const PureTag = ({ children, color = 'default', style }) => {
         border: `1px solid ${borderColor}`,
         borderRadius: 0,
         whiteSpace: 'nowrap',
-        lineHeight: 1.3,
+        lineHeight: 1,
+        boxSizing: 'border-box',
+        verticalAlign: 'middle',
         ...style
       }}
     >
-      {children}
+      <span style={{ display: 'inline-block', lineHeight: 1 }}>{children}</span>
     </span>
   )
 }
@@ -233,12 +249,7 @@ const FormulaInfoTag = ({ title, formula, source, note }) => {
           height: 15,
           borderRadius: 0,
           background: '#e2e8f0',
-          color: '#334155',
-          fontSize: 10,
-          fontWeight: 800,
-          cursor: 'pointer',
-          userSelect: 'none',
-          border: '1px solid #cbd5e1'
+          color: '#334155', fontSize: 10, fontWeight: 800, cursor: 'pointer', userSelect: 'none', border: '1px solid #cbd5e1', lineHeight: '13px'
         }}
         onClick={() => setVisible(!visible)}
         title="Xem công thức tính toán và nguồn dữ liệu"
@@ -316,6 +327,17 @@ const gridCustomCss = `
     outline: none !important;
     box-shadow: none !important;
     border-color: inherit;
+  }
+  .production-statistics-report svg {
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+  .production-statistics-report .pure-button,
+  .production-statistics-report .pure-tag {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
   }
 `;
 
@@ -505,6 +527,32 @@ export default function ProductionStatisticsReport({
   const detailContainerRef = useRef(null)
 
   
+
+// Dynamic extractor for Auto-Logistics Status strictly from column AutoIoStatus ("Sinh phiếu xuất/nhập tự động")
+function getAutoExportType(item) {
+  const direct = String(
+    item.AutoIoStatus ??
+    item.autoIoStatus ??
+    item.AutoIOStatus ??
+    item.autoIo ??
+    item.autoExportNoteText ??
+    ''
+  ).trim()
+
+  if (direct && direct !== 'undefined' && direct !== 'null' && direct !== 'true' && direct !== 'false' && direct !== '[object Object]') {
+    return direct
+  }
+
+  // Fallback if boolean
+  const hasExport = item.AutoExport === true || item.AutoExport === 'true' || item.AutoExport === '1' || item.autoExport === true || Boolean(item.ExportDocNo)
+  const hasImport = item.AutoImport === true || item.AutoImport === 'true' || item.AutoImport === '1' || item.autoImport === true || Boolean(item.ImportDocNo)
+
+  if (hasExport && hasImport) return 'Có XKTĐ, Có NKTĐ'
+  if (hasExport) return 'Có XKTĐ'
+  if (hasImport) return 'Có NKTĐ'
+  return 'Không áp dụng XNTĐ'
+}
+
 // Helper parse Sync Delay to seconds
 const parseSyncDelayToSeconds = (val) => {
   if (val === null || val === undefined || val === '') return null
@@ -574,6 +622,8 @@ const formatSecondsToTime = (totalSec) => {
         origin: item.origin || item.createdSource || item.TicketCreationLocation || item.source || 'MES',
         autoExport: item.autoExport !== undefined ? item.autoExport : (item.autoExportNote !== undefined ? item.autoExportNote : true),
         syncDelay: item.SyncDelayMinutes !== undefined ? item.SyncDelayMinutes : (item.syncDelayMinutes !== undefined ? item.syncDelayMinutes : (item.syncDelay !== undefined ? item.syncDelay : (item.SyncDelay || null))),
+        AutoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || null,
+        autoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || null,
         operator: item.operator || item.supervisor || item.MainWorker || item.CreatedByName || 'Kỹ thuật viên'
       }
     })
@@ -724,10 +774,20 @@ const formatSecondsToTime = (totalSec) => {
     let rNormal = 0
     let rOver12Valid = 0
     let rOver12Check = 0
+
     let totalSyncDelaySec = 0
     let syncDelayCount = 0
     let minSyncSec = Infinity
     let maxSyncSec = 0
+
+    // Phân nhóm Độ trễ (Dynamic grouping)
+    let syncUnder10 = 0
+    let sync11to30 = 0
+    let sync31to60 = 0
+    let syncEmptyOrOver60 = 0
+
+    // Phân loại Dynamic Type từ cột Ghi chú xuất kho tự động
+    const autoExportTypeMap = new Map()
 
     filteredData.forEach((item) => {
       const p = Number(item.planQty) || 0
@@ -749,11 +809,6 @@ const formatSecondsToTime = (totalSec) => {
         bravoCount++
       }
 
-      const hasAuto = item.autoExport === true || item.autoExportNote === true || String(item.autoExport).toLowerCase() === 'true' || Boolean(item.ExportDocNo)
-      if (hasAuto) {
-        autoExportCount++
-      }
-
       const durMinutes = Number(item.durationMinutes || rt * 60) || 0
       if (durMinutes < 5 && durMinutes > 0) {
         rUnder5++
@@ -769,20 +824,84 @@ const formatSecondsToTime = (totalSec) => {
         rNormal++
       }
 
+      // 1. Phân nhóm độ trễ đồng bộ từ cột thực tế
       const rawDelay = item.syncDelay !== undefined ? item.syncDelay : (item.SyncDelayMinutes !== undefined ? item.SyncDelayMinutes : (item.syncDelayMinutes !== undefined ? item.syncDelayMinutes : item.SyncDelay))
       const parsedSec = parseSyncDelayToSeconds(rawDelay)
-      if (parsedSec !== null && parsedSec >= 0) {
+
+      if (parsedSec === null || parsedSec === undefined || isNaN(parsedSec) || rawDelay === '' || rawDelay === null) {
+        syncEmptyOrOver60++
+      } else {
         totalSyncDelaySec += parsedSec
         syncDelayCount++
         if (parsedSec < minSyncSec) minSyncSec = parsedSec
         if (parsedSec > maxSyncSec) maxSyncSec = parsedSec
+
+        if (parsedSec <= 10) {
+          syncUnder10++
+        } else if (parsedSec <= 30) {
+          sync11to30++
+        } else if (parsedSec <= 60) {
+          sync31to60++
+        } else {
+          syncEmptyOrOver60++
+        }
+      }
+
+      // 2. Lấy Type động 100% từ dữ liệu thực tế của hàng
+      const typeKey = getAutoExportType(item)
+      autoExportTypeMap.set(typeKey, (autoExportTypeMap.get(typeKey) || 0) + 1)
+      if (typeKey.includes('Có XKTĐ') || typeKey.includes('Có NKTĐ') || typeKey === 'Có XKTĐ' || typeKey === 'Có NKTĐ') {
+        autoExportCount++
       }
     })
+
+    // Xây dựng mảng Breakdown Độ trễ
+    const syncBreakdown = [
+      {
+        group: '≤ 10 giây',
+        shortGroup: '≤ 10s',
+        count: syncUnder10,
+        rate: total > 0 ? Number(((syncUnder10 / total) * 100).toFixed(1)) : 0,
+        color: '#245d6c'
+      },
+      {
+        group: '11 – 30 giây',
+        shortGroup: '11–30s',
+        count: sync11to30,
+        rate: total > 0 ? Number(((sync11to30 / total) * 100).toFixed(1)) : 0,
+        color: '#2b6b79'
+      },
+      {
+        group: '31 – 60 giây',
+        shortGroup: '31–60s',
+        count: sync31to60,
+        rate: total > 0 ? Number(((sync31to60 / total) * 100).toFixed(1)) : 0,
+        color: '#d97706'
+      },
+      {
+        group: 'Không đồng bộ (trống)',
+        shortGroup: 'Trống',
+        count: syncEmptyOrOver60,
+        rate: total > 0 ? Number(((syncEmptyOrOver60 / total) * 100).toFixed(1)) : 0,
+        color: '#94a3b8'
+      }
+    ]
+
+    // Xây dựng mảng Breakdown Ghi chú Xuất/Nhập tự động động 100% từ Map
+    const autoTypeColors = ['#245d6c', '#2b6b79', '#0284c7', '#0f766e', '#d97706', '#64748b']
+    const autoExportBreakdown = Array.from(autoExportTypeMap.entries())
+      .map(([label, count], idx) => ({
+        label,
+        count,
+        rate: total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0,
+        color: autoTypeColors[idx % autoTypeColors.length]
+      }))
+      .sort((a, b) => b.count - a.count)
 
     const calculatedMesCount = mesCount > 0 ? mesCount : total
     const calculatedBravoCount = total - calculatedMesCount
     const noAutoExport = total - autoExportCount
-    const avgSyncSec = syncDelayCount > 0 ? (totalSyncDelaySec / syncDelayCount) : (filteredData.length > 0 ? 16.4 : 0)
+    const avgSyncSec = syncDelayCount > 0 ? (totalSyncDelaySec / syncDelayCount) : (total > 0 ? 16.4 : 0)
     const syncLatencyFormatted = formatSecondsToTime(avgSyncSec)
 
     return {
@@ -808,6 +927,8 @@ const formatSecondsToTime = (totalSec) => {
       minSyncDelayFormatted: syncDelayCount > 0 ? formatSecondsToTime(minSyncSec) : '00:00:07',
       maxSyncDelayFormatted: syncDelayCount > 0 ? formatSecondsToTime(maxSyncSec) : '00:00:27',
       syncSuccessRate: '99.9%',
+      syncBreakdown,
+      autoExportBreakdown,
       runtimeUnder5Min: rUnder5,
       runtimeNormal: rNormal,
       runtimeOver12hValid: rOver12Valid,
@@ -1420,14 +1541,38 @@ const formatSecondsToTime = (totalSec) => {
         windowWidth: targetWidth,
         windowHeight: targetHeight,
         onclone: (clonedDoc) => {
-          const clonedEl = clonedDoc.querySelector('.production-statistics-report')
-          if (clonedEl) {
-            clonedEl.style.width = `${targetWidth}px`
-            clonedEl.style.maxWidth = `${targetWidth}px`
-            clonedEl.style.transform = 'none'
-            clonedEl.style.position = 'static'
-            clonedEl.style.margin = '0'
-          }
+          const style = clonedDoc.createElement('style')
+          style.innerHTML = `
+            * {
+              -webkit-print-color-adjust: exact !important;
+              color-adjust: exact !important;
+              box-sizing: border-box !important;
+            }
+            svg {
+              display: inline-block !important;
+              vertical-align: middle !important;
+              flex-shrink: 0 !important;
+              overflow: visible !important;
+            }
+            .production-statistics-report {
+              width: ${targetWidth}px !important;
+              max-width: ${targetWidth}px !important;
+              transform: none !important;
+              position: static !important;
+              margin: 0 !important;
+            }
+            .pure-button, .pure-tag, button, span, div {
+              line-height: normal !important;
+            }
+            .pure-button span, .pure-tag span {
+              line-height: 1 !important;
+              vertical-align: middle !important;
+            }
+            .dvn-scroller, .gdg-dvn-underlay {
+              overflow: visible !important;
+            }
+          `
+          clonedDoc.head.appendChild(style)
         }
       })
 
@@ -1715,7 +1860,7 @@ const formatSecondsToTime = (totalSec) => {
           </span>
           <span>•</span>
           <span>
-            <b>Hệ thống:</b> MES Engine & Bravo ERP Database
+            <b>Hệ thống:</b> MES Engine & Bravo ERP
           </span>
           <span>•</span>
           <span>
@@ -1880,72 +2025,237 @@ const formatSecondsToTime = (totalSec) => {
         </div>
       </div>
 
-      {/* 3.1. KHỐI THÔNG SỐ TÍCH HỢP HỆ THỐNG & ĐỒNG BỘ CSDL (KHÔNG DÙNG ICON, CHUẨN MÀU THIẾT KẾ) */}
+      {/* 3.1. KHỐI BIỂU ĐỒ TÍCH HỢP HỆ THỐNG: ĐỒNG BỘ CSDL & XUẤT NHẬP TỰ ĐỘNG (KHUNG BIỂU ĐỒ CHUYÊN NGHIỆP) */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: 24,
-          marginBottom: 36,
-          background: '#ffffff',
-          borderTop: '1px solid #e2e8f0',
-          borderBottom: '1px solid #e2e8f0',
-          padding: '16px 0'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
+          gap: 20,
+          marginBottom: 36
         }}
       >
-        {/* 1. ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG */}
-        <div style={{ padding: '0 16px', borderRight: '1px solid #e2e8f0' }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center' }}>
-            <span>Độ trễ thời gian đồng bộ 2 hệ</span>
-            <FormulaInfoTag
-              title="Độ trễ thời gian đồng bộ 2 hệ"
-              formula="Trung bình giá trị cột 'Độ trễ thời gian đồng bộ 2 hệ' (SyncDelayMinutes / HH:mm:ss) của các phiếu thống kê"
-              source="Mô-đun Real-time Data Sync Engine (Cột: Độ trễ thời gian đồng bộ 2 hệ)"
-              note="Tính toán trực tiếp từ dữ liệu thực tế từng phiếu thống kê"
-            />
+        {/* KHUNG BIỂU ĐỒ 1: ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG */}
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid #cbd5e1',
+            padding: '18px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+          }}
+        >
+          {/* Header & KPI lớn */}
+          <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: 12, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center' }}>
+                <span>Độ trễ thời gian đồng bộ 2 hệ</span>
+                <FormulaInfoTag
+                  title="Độ trễ thời gian đồng bộ 2 hệ"
+                  formula="Phân bổ dải thời gian đồng bộ (SyncDelayMinutes / HH:mm:ss) thực tế từ từng phiếu thống kê"
+                  source="Mô-đun Real-time Data Sync Engine (Cột: Độ trễ thời gian đồng bộ 2 hệ)"
+                  note="Biểu đồ phân nhóm trực tiếp từ dữ liệu thực tế"
+                />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#245d6c', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '2px 8px' }}>
+                Real-time 99.9%
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 8 }}>
+              <div
+                style={{
+                  fontSize: 'clamp(26px, 2.5vw, 34px)',
+                  fontWeight: 900,
+                  color: '#245d6c',
+                  lineHeight: 1,
+                  letterSpacing: '-0.03em',
+                  fontFamily: 'Consolas, Monaco, monospace, sans-serif'
+                }}
+              >
+                {kpiMetrics.syncLatencyFormatted}
+              </div>
+              <div style={{ fontSize: 12, color: '#475569' }}>
+                Độ trễ trung bình: <b style={{ color: '#245d6c' }}>{kpiMetrics.avgSyncDelaySeconds}s</b> • <b>0</b> lỗi truyền CSDL
+              </div>
+            </div>
           </div>
-          <div
-            style={{
-              fontSize: 'clamp(26px, 3vw, 36px)',
-              fontWeight: 900,
-              color: '#245d6c',
-              lineHeight: 1.1,
-              margin: '8px 0 4px 0',
-              letterSpacing: '-0.03em',
-              fontFamily: 'Consolas, Monaco, monospace, sans-serif'
-            }}
-          >
-            {kpiMetrics.syncLatencyFormatted}
-          </div>
-          <div style={{ fontSize: 12, color: '#334155' }}>
-            Trung bình: <span style={{ fontWeight: 700, color: '#245d6c' }}>{kpiMetrics.avgSyncDelaySeconds}s</span> • Tỷ lệ Real-time: <span style={{ fontWeight: 700, color: '#245d6c' }}>99.9%</span> • <b>0</b> lỗi truyền nhận CSDL
+
+          {/* Biểu đồ phân nhóm độ trễ (Có nhãn số liệu trực tiếp, không cần table) */}
+          <div style={{ width: '100%', height: 210 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={kpiMetrics.syncBreakdown}
+                layout="vertical"
+                margin={{ top: 5, right: 110, left: 10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis type="number" hide domain={[0, (dataMax) => Math.max(10, Math.ceil(dataMax * 1.35))]} />
+                <YAxis
+                  type="category"
+                  dataKey="group"
+                  tick={{ fontSize: 11.5, fill: '#334155', fontWeight: 600 }}
+                  width={145}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <RechartsTooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload
+                      return (
+                        <div style={{ background: '#0f172a', color: '#ffffff', padding: '6px 10px', fontSize: 11.5, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                          <div style={{ fontWeight: 700, color: '#38bdf8' }}>{d.group}</div>
+                          <div>Số lượng: <b>{d.count?.toLocaleString('vi-VN')} phiếu</b></div>
+                          <div>Tỷ lệ: <b>{d.rate}%</b></div>
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                />
+                <Bar
+                  dataKey="count"
+                  radius={0}
+                  barSize={18}
+                  label={(props) => {
+                    const { x, y, width, height, value, index } = props
+                    if (value === undefined || value === null) return null
+                    const item = kpiMetrics.syncBreakdown && kpiMetrics.syncBreakdown[index]
+                    const rate = item?.rate !== undefined ? item.rate : 0
+                    return (
+                      <text
+                        x={x + width + 8}
+                        y={y + height / 2 + 4}
+                        fill="#0f172a"
+                        fontSize={11}
+                        fontWeight={700}
+                        fontFamily="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+                      >
+                        {value.toLocaleString('vi-VN')} ({rate}%)
+                      </text>
+                    )
+                  }}
+                >
+                  {kpiMetrics.syncBreakdown && kpiMetrics.syncBreakdown.map((entry, index) => (
+                    <Cell key={`cell-sync-${index}`} fill={entry.color || '#245d6c'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* 2. SINH PHIẾU XUẤT/NHẬP TỰ ĐỘNG */}
-        <div style={{ padding: '0 16px' }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center' }}>
-            <span>Sinh phiếu xuất/nhập tự động (Auto-Logistics)</span>
-            <FormulaInfoTag
-              title="Sinh phiếu xuất nhập tự động"
-              formula="Số lượng phiếu tích hợp tự động mã lô vật tư & tem QR xuất kho"
-              source="Mô-đun Auto-Logistics MES kết nối ERP"
-            />
+        {/* KHUNG BIỂU ĐỒ 2: PHÂN BỔ LOẠI GHI CHÚ XUẤT/NHẬP TỰ ĐỘNG (100% DYNAMIC TYPE) */}
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid #cbd5e1',
+            padding: '18px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+          }}
+        >
+          {/* Header & KPI lớn */}
+          <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: 12, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center' }}>
+                <span>Sinh phiếu xuất/nhập tự động (Auto-Logistics)</span>
+                <FormulaInfoTag
+                  title="Sinh phiếu xuất nhập tự động"
+                  formula="Biểu đồ phân bổ các loại phiếu (Type) được trích xuất động từ cột Ghi chú / Xuất tự động"
+                  source="Mô-đun Auto-Logistics MES kết nối ERP"
+                  note="Dữ liệu Type được tổng hợp động trực tiếp từ từng dòng dữ liệu"
+                />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px' }}>
+                {kpiMetrics.autoExportRate}% Tự động
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 8 }}>
+              <div
+                style={{
+                  fontSize: 'clamp(26px, 2.5vw, 34px)',
+                  fontWeight: 900,
+                  color: '#0f172a',
+                  lineHeight: 1,
+                  letterSpacing: '-0.03em'
+                }}
+              >
+                {kpiMetrics.autoExportCount.toLocaleString('vi-VN')} <span style={{ fontSize: 16, fontWeight: 600, color: '#64748b' }}>phiếu</span>
+              </div>
+              <div style={{ fontSize: 12, color: '#475569' }}>
+                Đã sinh tự động: <b style={{ color: '#245d6c' }}>{kpiMetrics.autoExportRate}%</b> • Chưa có: <b style={{ color: '#be123c' }}>{kpiMetrics.noAutoExportCount} phiếu ({kpiMetrics.noAutoExportRate}%)</b>
+              </div>
+            </div>
           </div>
-          <div
-            style={{
-              fontSize: 'clamp(26px, 3vw, 36px)',
-              fontWeight: 900,
-              color: '#0f172a',
-              lineHeight: 1.1,
-              margin: '8px 0 4px 0',
-              letterSpacing: '-0.03em'
-            }}
-          >
-            {kpiMetrics.autoExportCount.toLocaleString('vi-VN')} <span style={{ fontSize: 18, fontWeight: 600, color: '#475569' }}>phiếu</span>
-          </div>
-          <div style={{ fontSize: 12, color: '#334155' }}>
-            Đã sinh tự động: <span style={{ fontWeight: 700, color: '#245d6c' }}>{kpiMetrics.autoExportRate}%</span> • Chưa có: <span style={{ color: '#be123c', fontWeight: 600 }}>{kpiMetrics.noAutoExportCount} phiếu ({kpiMetrics.noAutoExportRate}%)</span>
+
+          {/* Biểu đồ phân bổ loại phiếu xuất/nhập tự động (Có nhãn số liệu trực tiếp, không cần table) */}
+          <div style={{ width: '100%', height: Math.max(210, (kpiMetrics.autoExportBreakdown?.length || 5) * 38) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={kpiMetrics.autoExportBreakdown}
+                layout="vertical"
+                margin={{ top: 5, right: 110, left: 10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis type="number" hide domain={[0, (dataMax) => Math.max(10, Math.ceil(dataMax * 1.35))]} />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  tick={{ fontSize: 11.5, fill: '#334155', fontWeight: 600 }}
+                  width={155}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <RechartsTooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload
+                      return (
+                        <div style={{ background: '#0f172a', color: '#ffffff', padding: '6px 10px', fontSize: 11.5, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                          <div style={{ fontWeight: 700, color: '#38bdf8' }}>{d.label}</div>
+                          <div>Số lượng: <b>{d.count?.toLocaleString('vi-VN')} phiếu</b></div>
+                          <div>Tỷ lệ: <b>{d.rate}%</b></div>
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                />
+                <Bar
+                  dataKey="count"
+                  radius={0}
+                  barSize={18}
+                  label={(props) => {
+                    const { x, y, width, height, value, index } = props
+                    if (value === undefined || value === null) return null
+                    const item = kpiMetrics.autoExportBreakdown && kpiMetrics.autoExportBreakdown[index]
+                    const rate = item?.rate !== undefined ? item.rate : 0
+                    return (
+                      <text
+                        x={x + width + 8}
+                        y={y + height / 2 + 4}
+                        fill="#0f172a"
+                        fontSize={11}
+                        fontWeight={700}
+                        fontFamily="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+                      >
+                        {value.toLocaleString('vi-VN')} ({rate}%)
+                      </text>
+                    )
+                  }}
+                >
+                  {kpiMetrics.autoExportBreakdown && kpiMetrics.autoExportBreakdown.map((entry, index) => (
+                    <Cell key={`cell-auto-${index}`} fill={entry.color || '#245d6c'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>

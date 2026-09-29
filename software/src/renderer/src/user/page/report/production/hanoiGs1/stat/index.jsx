@@ -117,6 +117,8 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     syncDelayMinutes: parseFloat(item.SyncDelayMinutes || 0) || 3.0,
     isDuplicate: item.IsDuplicateTicket === 'true' || item.IsDuplicateTicket === '1',
     autoExportNote: item.AutoExport === 'true' || item.AutoExport === '1' || Boolean(item.ExportDocNo),
+    AutoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || (item.AutoExport === 'true' || item.AutoExport === '1' || Boolean(item.ExportDocNo) ? 'Có XKTĐ' : 'Không áp dụng XNTĐ'),
+    autoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || (item.AutoExport === 'true' || item.AutoExport === '1' || Boolean(item.ExportDocNo) ? 'Có XKTĐ' : 'Không áp dụng XNTĐ'),
     supervisor: item.MainWorker || item.StatStaff || item.PicDp || item.CreatedByName || 'Quản lý sản xuất',
     status: item.Status || item.StatusDpSx || 'Hoàn thành',
     createdTime: item.TicketCreatedDate || (item.CreatedAt ? new Date(item.CreatedAt).toLocaleString('vi-VN') : `${prodDate} 08:00:00`),

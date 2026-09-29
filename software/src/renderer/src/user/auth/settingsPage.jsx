@@ -15,6 +15,7 @@ import {
   RefreshCw
 } from 'lucide-react'
 import Logo from '../../assets/logo3.png'
+import { getDefaultDataHubUrl } from '../../config/serverConfig'
 
 const settingsTranslations = {
   vi: {
@@ -547,33 +548,12 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                        {t.server.endpointLabel}:
-                      </div>
-                      <div className="text-xs font-mono font-bold text-slate-900 pt-1 p-2 bg-slate-50 border border-slate-200 rounded-none break-all mt-0.5">
-                        {envSelection === 'official'
-                          ? 'https://bravo.goldsunpackaging.vn:5052'
-                          : 'https://bravo.goldsunpackaging.vn:5051'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                        {t.server.configKeyLabel || 'Mã Cấu hình'}:
-                      </div>
-                      <div className="text-xs font-mono font-bold text-blue-700 pt-1 p-2 bg-blue-50/60 border border-blue-200 rounded-none break-all mt-0.5">
-                        {envSelection === 'official' ? 'Bravo_PROD' : 'BravoDefault'}
-                      </div>
-                    </div>
-                  </div>
-
                   <div className="pt-1">
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                       {t.server.backendLabel || 'Cổng Backend Service'}:
                     </div>
                     <div className="text-xs font-mono font-bold text-emerald-700 pt-1 p-2 bg-emerald-50/60 border border-emerald-200 rounded-none break-all mt-0.5 flex items-center justify-between">
-                      <span>http://localhost:8080/api/v1/auth/login</span>
+                      <span>{`${getDefaultDataHubUrl()}/api/v1/auth/login`}</span>
                       <span className="text-[10px] font-sans font-normal text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
                         service-datahub
                       </span>

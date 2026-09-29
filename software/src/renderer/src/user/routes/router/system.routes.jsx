@@ -18,7 +18,12 @@ export const pageLoaders = {
   SettingPrivate: () => import('../../page/private/setting'),
   OrderSettlement: () => import('../../page/production/orderSettlement'),
   WorkProcess: () => import('../../page/production/workProcess'),
-  OperationDetail: () => import('../../page/production/operationDetail')
+  OperationDetail: () => import('../../page/production/operationDetail'),
+  HanoiGs1StatPage: () => import('../../page/report/production/hanoiGs1/stat'),
+  HanoiGs1PlanPage: () => import('../../page/report/production/hanoiGs1/plan'),
+  QuevoGs5StatPage: () => import('../../page/report/production/quevoGs5/stat'),
+  QuevoGs5PlanPage: () => import('../../page/report/production/quevoGs5/plan'),
+  DataImportPage: () => import('../../page/report/data/import')
 }
 
 const UserManagement = lazy(pageLoaders.UserManagement)
@@ -38,6 +43,11 @@ const SettingPrivate = lazy(pageLoaders.SettingPrivate)
 const OrderSettlement = lazy(pageLoaders.OrderSettlement)
 const WorkProcess = lazy(pageLoaders.WorkProcess)
 const OperationDetail = lazy(pageLoaders.OperationDetail)
+const HanoiGs1StatPage = lazy(pageLoaders.HanoiGs1StatPage)
+const HanoiGs1PlanPage = lazy(pageLoaders.HanoiGs1PlanPage)
+const QuevoGs5StatPage = lazy(pageLoaders.QuevoGs5StatPage)
+const QuevoGs5PlanPage = lazy(pageLoaders.QuevoGs5PlanPage)
+const DataImportPage = lazy(pageLoaders.DataImportPage)
 
 const PermResourcePage = (props) => <PermResource {...props} defaultTab="perm_resource" />
 
@@ -81,7 +91,12 @@ export const routeToLoaderMap = {
   '/erp/u/setting': pageLoaders.SettingPrivate,
   '/erp/u/production/order-settlement': pageLoaders.OrderSettlement,
   '/erp/u/production/work-process': pageLoaders.WorkProcess,
-  '/erp/u/production/operation-detail': pageLoaders.OperationDetail
+  '/erp/u/production/operation-detail': pageLoaders.OperationDetail,
+  '/erp/u/report/production/hanoi-gs1/statistics': pageLoaders.HanoiGs1StatPage,
+  '/erp/u/report/production/hanoi-gs1/plan': pageLoaders.HanoiGs1PlanPage,
+  '/erp/u/report/production/quevo-gs5/statistics': pageLoaders.QuevoGs5StatPage,
+  '/erp/u/report/production/quevo-gs5/plan': pageLoaders.QuevoGs5PlanPage,
+  '/erp/u/report/data/import': pageLoaders.DataImportPage
 }
 
 export const preloadRoute = (path) => {
@@ -622,6 +637,82 @@ export const systemsRoutes = [
     path: '/erp/u/production/routing/*',
     element: DefaultPage,
     permission: 'production_routing',
+    public: true,
+    fallback: DefaultPage
+  },
+
+  // ── Module Báo Cáo: GS1 Hà Nội ──────────────────────────────────────────
+  {
+    path: '/erp/u/report/production/hanoi-gs1/statistics',
+    element: HanoiGs1StatPage,
+    permission: 'report_hanoi_gs1_stat',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/report/production/hanoi-gs1/statistics/*',
+    element: HanoiGs1StatPage,
+    permission: 'report_hanoi_gs1_stat',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/report/production/hanoi-gs1/plan',
+    element: HanoiGs1PlanPage,
+    permission: 'report_hanoi_gs1_plan',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/report/production/hanoi-gs1/plan/*',
+    element: HanoiGs1PlanPage,
+    permission: 'report_hanoi_gs1_plan',
+    public: true,
+    fallback: DefaultPage
+  },
+
+  // ── Module Báo Cáo: GS5 Quế Võ 1B ───────────────────────────────────────
+  {
+    path: '/erp/u/report/production/quevo-gs5/statistics',
+    element: QuevoGs5StatPage,
+    permission: 'report_quevo_gs5_stat',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/report/production/quevo-gs5/statistics/*',
+    element: QuevoGs5StatPage,
+    permission: 'report_quevo_gs5_stat',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/report/production/quevo-gs5/plan',
+    element: QuevoGs5PlanPage,
+    permission: 'report_quevo_gs5_plan',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/report/production/quevo-gs5/plan/*',
+    element: QuevoGs5PlanPage,
+    permission: 'report_quevo_gs5_plan',
+    public: true,
+    fallback: DefaultPage
+  },
+
+  // ── Module Báo Cáo: Quản lý & Import dữ liệu ────────────────────────────
+  {
+    path: '/erp/u/report/data/import',
+    element: DataImportPage,
+    permission: 'report_data_import',
+    public: true,
+    fallback: DefaultPage
+  },
+  {
+    path: '/erp/u/report/data/import/*',
+    element: DataImportPage,
+    permission: 'report_data_import',
     public: true,
     fallback: DefaultPage
   }

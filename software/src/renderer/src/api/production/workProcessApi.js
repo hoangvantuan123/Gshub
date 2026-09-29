@@ -1,9 +1,9 @@
 import axios from 'axios'
-import { BACKEND_DATAHUB_URL } from '../../config/serverConfig'
+import { getDefaultDataHubUrl } from '../../config/serverConfig'
 import { isSessionExpiredError, triggerSessionExpired } from '../../utils/sessionExpiredHelper'
 import { accessToken, getEmployeeCode } from '../../services/tokenService'
 
-const DATAHUB_API_URL = BACKEND_DATAHUB_URL || 'http://localhost:8080'
+const getApiUrl = () => getDefaultDataHubUrl()
 
 /**
  * Gọi API DataHub tổng hợp 3 cURL Lệnh công đoạn (Master -> Detail -> TT Steps)
@@ -136,7 +136,7 @@ export async function queryWorkProcess({
       headers['X-Username'] = activeUsername
     }
 
-    const response = await axios.post(`${DATAHUB_API_URL}/api/v1/work-process`, payload, {
+    const response = await axios.post(`${getApiUrl()}/api/v1/work-process`, payload, {
       headers,
       timeout: 45000,
       signal

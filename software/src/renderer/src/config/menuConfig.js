@@ -33,6 +33,19 @@ export const DEFAULT_ROOT_MENUS = [
     RootMenuUtilities: true,
     View: true,
     OrderSeq: 2
+  },
+  {
+    Id: 'ROOT_REPORT',
+    RootMenuId: 'ROOT_REPORT',
+    RootMenuKey: 'report',
+    RootMenuName: 'Báo Cáo',
+    RootMenuLabel: 'Báo Cáo',
+    Icon: 'BarChart3',
+    MenuIcon: 'BarChart3',
+    RootMenuIcon: 'BarChart3',
+    RootMenuUtilities: true,
+    View: true,
+    OrderSeq: 3
   }
 ]
 
@@ -282,11 +295,133 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'menu',
     View: true,
     OrderSeq: 2
+  },
+
+  // =========================================================================
+  // ── ROOT_REPORT: Module Báo cáo ──────────────────────────────────────────
+  // =========================================================================
+
+  // ── Nhóm 1: Báo cáo sản xuất ─────────────────────────────────────────────
+  {
+    Id: 'sub_report_production',
+    MenuKey: 'report_production_group',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Báo cáo sản xuất',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 1
+  },
+  // ── Phân nhánh Cấp 3: Báo cáo sản xuất GS1 Hà Nội
+  {
+    Id: 'sub_report_prod_hanoi_gs1',
+    MenuKey: 'report_prod_hanoi_gs1',
+    MenuSubRootId: 'sub_report_production',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Báo cáo sản xuất GS1 Hà Nội',
+    MenuType: 'menu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 1
+  },
+  // ── Phân nhánh Cấp 3: Báo cáo sản xuất GS5 Quế Võ 1B
+  {
+    Id: 'sub_report_prod_quevo_gs5',
+    MenuKey: 'report_prod_quevo_gs5',
+    MenuSubRootId: 'sub_report_production',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Báo cáo sản xuất GS5 Quế Võ 1B',
+    MenuType: 'menu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 2
+  },
+
+  // ── Nhóm 2: Quản lý data ─────────────────────────────────────────────────
+  {
+    Id: 'sub_report_data_manage',
+    MenuKey: 'report_data_group',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Quản lý data',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 2
+  },
+  // ── Menu Cấp 3 trực tiếp: Import dữ liệu sản xuất
+  {
+    Id: 'menu_report_data_import',
+    MenuKey: 'report_data_import',
+    MenuSubRootId: 'sub_report_data_manage',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Import dữ liệu sản xuất',
+    MenuLink: '/erp/u/report/data/import',
+    MenuType: 'menu',
+    Icon: 'FileSpreadsheet',
+    MenuIcon: 'FileSpreadsheet',
+    View: true,
+    OrderSeq: 1
   }
 ]
 
-// Chỉ khai báo menuitem cấp 4 khi thực sự có phân nhánh con (để trống khi menu cấp 3 là trực tiếp)
-export const DEFAULT_MENU_ITEMS = []
+// Menu Items Cấp 4
+export const DEFAULT_MENU_ITEMS = [
+  // ── Thuộc Báo cáo sản xuất GS1 Hà Nội
+  {
+    Id: 'menu_report_hanoi_gs1_stat',
+    MenuKey: 'report_hanoi_gs1_stat',
+    MenuSubRootId: 'sub_report_prod_hanoi_gs1',
+    MenuLabel: 'Báo cáo thống kê sản xuất',
+    MenuLink: '/erp/u/report/production/hanoi-gs1/statistics',
+    MenuType: 'menuitem',
+    Icon: 'BarChart3',
+    MenuIcon: 'BarChart3',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_report_hanoi_gs1_plan',
+    MenuKey: 'report_hanoi_gs1_plan',
+    MenuSubRootId: 'sub_report_prod_hanoi_gs1',
+    MenuLabel: 'Báo cáo kế hoạch sản xuất',
+    MenuLink: '/erp/u/report/production/hanoi-gs1/plan',
+    MenuType: 'menuitem',
+    Icon: 'Calendar',
+    MenuIcon: 'Calendar',
+    View: true,
+    OrderSeq: 2
+  },
+
+  // ── Thuộc Báo cáo sản xuất GS5 Quế Võ 1B
+  {
+    Id: 'menu_report_quevo_gs5_stat',
+    MenuKey: 'report_quevo_gs5_stat',
+    MenuSubRootId: 'sub_report_prod_quevo_gs5',
+    MenuLabel: 'Báo cáo thống kê sản xuất',
+    MenuLink: '/erp/u/report/production/quevo-gs5/statistics',
+    MenuType: 'menuitem',
+    Icon: 'BarChart3',
+    MenuIcon: 'BarChart3',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_report_quevo_gs5_plan',
+    MenuKey: 'report_quevo_gs5_plan',
+    MenuSubRootId: 'sub_report_prod_quevo_gs5',
+    MenuLabel: 'Báo cáo kế hoạch sản xuất',
+    MenuLink: '/erp/u/report/production/quevo-gs5/plan',
+    MenuType: 'menuitem',
+    Icon: 'Calendar',
+    MenuIcon: 'Calendar',
+    View: true,
+    OrderSeq: 2
+  }
+]
 
 /**
  * Merge server roles menu with default code config

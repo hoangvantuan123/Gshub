@@ -1,9 +1,9 @@
 import axios from 'axios'
-import { BACKEND_DATAHUB_URL } from '../../config/serverConfig'
+import { getDefaultDataHubUrl } from '../../config/serverConfig'
 import { isSessionExpiredError, triggerSessionExpired } from '../../utils/sessionExpiredHelper'
 import { accessToken, getEmployeeCode, getBravoUserId } from '../../services/tokenService'
 
-const DATAHUB_API_URL = BACKEND_DATAHUB_URL || 'http://localhost:8080'
+const getApiUrl = () => getDefaultDataHubUrl()
 
 /**
  * Gọi API DataHub Quyết toán lệnh sản xuất (tổng hợp CD và DetailTT)
@@ -102,7 +102,7 @@ export async function queryOrderSettlement({
       headers['X-User-Id'] = String(activeUserId)
     }
 
-    const response = await axios.post(`${DATAHUB_API_URL}/api/v1/order-settlement`, payload, {
+    const response = await axios.post(`${getApiUrl()}/api/v1/order-settlement`, payload, {
       headers,
       timeout: 45000,
       signal

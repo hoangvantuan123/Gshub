@@ -5,23 +5,15 @@
  */
 
 import Cookies from 'js-cookie'
+import { getDefaultDataHubUrl } from '../config/serverConfig'
 
-const DEFAULT_BASE_URL = 'http://localhost:8080'
 const STORAGE_KEY_AUTH_SESSION = 'datahub_auth_session'
 const STORAGE_KEY_GSHUB_AUTH_SESSION = 'gshub_auth_session'
 const STORAGE_KEY_LAST_CONFIG = 'datahub_last_config_key'
 
 export const gshubAuthService = {
   getBaseUrl() {
-    try {
-      return (
-        localStorage.getItem('gshub_api_url') ||
-        localStorage.getItem('datahub_api_url') ||
-        DEFAULT_BASE_URL
-      )
-    } catch {
-      return DEFAULT_BASE_URL
-    }
+    return getDefaultDataHubUrl()
   },
 
   /**

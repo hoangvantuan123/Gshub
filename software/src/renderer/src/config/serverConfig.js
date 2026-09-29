@@ -8,7 +8,29 @@ export const STORAGE_KEY_ENV = 'envSelection'
 export const STORAGE_KEY_SAVED_USERS = 'datahub_saved_user_logs'
 export const STORAGE_KEY_REMEMBER_USER = 'datahub_remember_username'
 
-export const BACKEND_DATAHUB_URL = 'http://localhost:8080'
+export const getDefaultDataHubUrl = () => {
+  try {
+    if (typeof window !== 'undefined') {
+      const customUrl =
+        localStorage.getItem('gshub_api_url') || localStorage.getItem('datahub_api_url')
+      if (customUrl) return customUrl
+
+      const hostname = window.location.hostname
+      // Khi chạy trên Web domain (vd: gshub.erpsheet.vn) không phải localhost
+      if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+        return window.location.origin
+      }
+    }
+  } catch (e) {
+    console.warn('Error resolving default DataHub URL:', e)
+  }
+  return (
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+    'http://localhost:8080'
+  )
+}
+
+export const BACKEND_DATAHUB_URL = getDefaultDataHubUrl()
 
 export const SERVER_ENVIRONMENTS = [
   {
@@ -17,7 +39,7 @@ export const SERVER_ENVIRONMENTS = [
     shortLabel: 'Dev / UAT',
     endpoint: 'https://bravo.goldsunpackaging.vn:5051',
     configKey: 'BravoDefault',
-    backendUrl: 'http://localhost:8080',
+    backendUrl: getDefaultDataHubUrl(),
     tag: 'Goldsun DEV'
   },
   {
@@ -26,7 +48,7 @@ export const SERVER_ENVIRONMENTS = [
     shortLabel: 'Production',
     endpoint: 'https://bravo.goldsunpackaging.vn:5052',
     configKey: 'Bravo_PROD',
-    backendUrl: 'http://localhost:8080',
+    backendUrl: getDefaultDataHubUrl(),
     tag: 'Goldsun PROD'
   }
 ]
@@ -54,13 +76,18 @@ export function setCurrentEnv(envKey) {
 
 export function getEnvConfig(envKey = null) {
   const current = envKey || getCurrentEnv()
-  return SERVER_ENVIRONMENTS.find((e) => e.value === current) || SERVER_ENVIRONMENTS[0]
+  const found = SERVER_ENVIRONMENTS.find((e) => e.value === current) || SERVER_ENVIRONMENTS[0]
+  return {
+    ...found,
+    backendUrl: getDefaultDataHubUrl()
+  }
 }
 
 export default {
   STORAGE_KEY_ENV,
   STORAGE_KEY_SAVED_USERS,
   STORAGE_KEY_REMEMBER_USER,
+  getDefaultDataHubUrl,
   BACKEND_DATAHUB_URL,
   SERVER_ENVIRONMENTS,
   getCurrentEnv,

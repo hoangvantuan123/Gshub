@@ -15,13 +15,19 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
     const q = searchQuery.toLowerCase().trim()
     if (!q) return matchCat
     const matchText =
-      item.title.toLowerCase().includes(q) ||
-      item.scope.toLowerCase().includes(q) ||
-      item.formula.toLowerCase().includes(q) ||
-      item.source.toLowerCase().includes(q) ||
-      item.description.toLowerCase().includes(q)
+      (item.title && item.title.toLowerCase().includes(q)) ||
+      (item.columnId && item.columnId.toLowerCase().includes(q)) ||
+      (item.columnName && item.columnName.toLowerCase().includes(q)) ||
+      (item.scope && item.scope.toLowerCase().includes(q)) ||
+      (item.formula && item.formula.toLowerCase().includes(q)) ||
+      (item.source && item.source.toLowerCase().includes(q)) ||
+      (item.description && item.description.toLowerCase().includes(q))
     return matchCat && matchText
   })
+
+  const kpiCount = FORMULA_DATABASE.filter((f) => f.category === 'KPI').length
+  const chartsCount = FORMULA_DATABASE.filter((f) => f.category === 'CHARTS').length
+  const tablesCount = FORMULA_DATABASE.filter((f) => f.category === 'TABLES').length
 
   return (
     <div
@@ -41,8 +47,8 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
       <div
         style={{
           background: '#ffffff',
-          width: 'clamp(1020px, 88vw, 1440px)',
-          height: 'clamp(660px, 88vh, 900px)',
+          width: 'clamp(1020px, 90vw, 1440px)',
+          height: 'clamp(660px, 88vh, 920px)',
           maxHeight: '94vh',
           maxWidth: '96vw',
           border: '1.5px solid #245d6c',
@@ -72,15 +78,29 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
               <div
                 style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.02em', lineHeight: 1.2 }}
               >
-                SỔ TAY CÔNG THỨC & QUY TẮC TÍNH TOÁN BÁO CÁO KHSX
+                SỔ TAY CÔNG THỨC & TỪ ĐIỂN CỘT DỮ LIỆU BÁO CÁO KHSX
               </div>
               <div style={{ fontSize: 11.5, color: '#e0f2fe', marginTop: 2, fontWeight: 500 }}>
-                Tổng hợp chi tiết công thức, định nghĩa, vị trí áp dụng và nguồn dữ liệu trên toàn
-                bộ giao diện
+                Tổng hợp chi tiết Cột ID, Tên tiếng Việt, công thức tính toán, nguồn dữ liệu và vị
+                trí áp dụng
               </div>
             </div>
           </div>
-        
+          <button
+            onClick={onClose}
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              color: '#ffffff',
+              padding: '4px 12px',
+              borderRadius: 2,
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: 12
+            }}
+          >
+            Đóng ✕
+          </button>
         </div>
 
         {/* Modal Toolbar (Category Tabs & Search) */}
@@ -101,9 +121,9 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
             {[
               { key: 'ALL', label: `Tất cả (${FORMULA_DATABASE.length})` },
-              { key: 'KPI', label: 'I. Thẻ KPI Tổng quan (6)' },
-              { key: 'CHARTS', label: 'II & III. Biểu đồ (3)' },
-              { key: 'TABLES', label: 'IV. Bảng biểu (3)' }
+              { key: 'KPI', label: `I. Thẻ KPI Điều hành (${kpiCount})` },
+              { key: 'CHARTS', label: `II. Biểu đồ Phân tích (${chartsCount})` },
+              { key: 'TABLES', label: `IV. Bảng biểu Chi tiết (${tablesCount})` }
             ].map((tab) => {
               const active = activeCategory === tab.key
               return (
@@ -137,13 +157,13 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
               border: '1px solid #cbd5e1',
               background: '#ffffff',
               padding: '3px 8px',
-              minWidth: 240
+              minWidth: 260
             }}
           >
             <Search size={13} color="#64748b" />
             <input
               type="text"
-              placeholder="Tìm công thức, tên mục, vị trí..."
+              placeholder="Tìm mã cột ID, tên tiếng Việt, công thức..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
@@ -223,20 +243,40 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
                     gap: 8
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
                       {item.title}
                     </span>
                     <span
                       style={{
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: 700,
+                        padding: '1px 6px',
+                        background:
+                          item.badgeColor === 'blue'
+                            ? '#eff6ff'
+                            : item.badgeColor === 'green'
+                              ? '#f0fdf4'
+                              : item.badgeColor === 'red'
+                                ? '#fef2f2'
+                                : '#fffbeb',
                         color:
                           item.badgeColor === 'blue'
                             ? '#2563eb'
                             : item.badgeColor === 'green'
                               ? '#16a34a'
-                              : '#d97706'
+                              : item.badgeColor === 'red'
+                                ? '#dc2626'
+                                : '#d97706',
+                        border: `1px solid ${
+                          item.badgeColor === 'blue'
+                            ? '#bfdbfe'
+                            : item.badgeColor === 'green'
+                              ? '#bbf7d0'
+                              : item.badgeColor === 'red'
+                                ? '#fecaca'
+                                : '#fde68a'
+                        }`
                       }}
                     >
                       {item.categoryName}
@@ -255,6 +295,59 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
 
                 {/* Item Content */}
                 <div style={{ padding: '10px 14px' }}>
+                  {/* Field Mapping Badge Line (Cột ID & Tên tiếng Việt) */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      marginBottom: 8,
+                      padding: '6px 8px',
+                      background: '#f1f5f9',
+                      border: '1px solid #e2e8f0'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>
+                        Cột ID / Trường code:
+                      </span>
+                      <code
+                        style={{
+                          background: '#e0f2fe',
+                          color: '#0369a1',
+                          padding: '2px 6px',
+                          borderRadius: 2,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          fontFamily: 'Consolas, Monaco, "Courier New", monospace'
+                        }}
+                      >
+                        {item.columnId || item.id}
+                      </code>
+                    </div>
+
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}
+                    >
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>
+                        Tên tiếng Việt:
+                      </span>
+                      <span
+                        style={{
+                          background: '#fef3c7',
+                          color: '#92400e',
+                          padding: '2px 6px',
+                          borderRadius: 2,
+                          fontSize: 11,
+                          fontWeight: 700
+                        }}
+                      >
+                        {item.columnName || item.title}
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Formula Display Box */}
                   <div style={{ marginBottom: 8 }}>
                     <div
@@ -271,7 +364,7 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
                     </div>
                     <div
                       style={{
-                        background: '#f1f5f9',
+                        background: '#ffffff',
                         border: '1px solid #cbd5e1',
                         borderLeft: '3px solid #245d6c',
                         padding: '6px 10px',
@@ -348,8 +441,8 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
           }}
         >
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            Hiển thị <b>{filteredFormulas.length}</b> / <b>{FORMULA_DATABASE.length}</b> công thức
-            tính toán
+            Hiển thị <b>{filteredFormulas.length}</b> / <b>{FORMULA_DATABASE.length}</b> công thức &
+            cột trường dữ liệu
           </div>
           <PureButton type="primary" onClick={onClose} style={{ padding: '5px 16px' }}>
             Đóng bảng tra cứu

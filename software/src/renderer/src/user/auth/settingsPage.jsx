@@ -559,7 +559,9 @@ export default function SettingsPage() {
                                 m.updateApiServers(envSelection)
                               }
                             })
-                            window.dispatchEvent(new CustomEvent('env-changed', { detail: envSelection }))
+                            window.dispatchEvent(
+                              new CustomEvent('env-changed', { detail: envSelection })
+                            )
                             window.dispatchEvent(new Event('storage'))
                             message.info('Đã khôi phục địa chỉ kết nối mặc định!')
                           }}
@@ -572,7 +574,11 @@ export default function SettingsPage() {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        placeholder={envSelection === 'official' ? 'https://gshub.erpsheet.vn' : 'http://localhost:8080'}
+                        placeholder={
+                          envSelection === 'official'
+                            ? 'https://gshub.erpsheet.vn'
+                            : 'http://localhost:8080'
+                        }
                         defaultValue={localStorage.getItem('gshub_api_url') || ''}
                         id="custom_server_url_input"
                         className="flex-1 px-2.5 py-1.5 text-xs font-mono border border-slate-300 rounded-none focus:outline-none focus:border-slate-800 bg-white"
@@ -580,7 +586,9 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          const val = (document.getElementById('custom_server_url_input')?.value || '').trim()
+                          const val = (
+                            document.getElementById('custom_server_url_input')?.value || ''
+                          ).trim()
                           if (val) {
                             localStorage.setItem('gshub_api_url', val)
                             localStorage.setItem('datahub_api_url', val)
@@ -593,7 +601,9 @@ export default function SettingsPage() {
                               m.updateApiServers(envSelection)
                             }
                           })
-                          window.dispatchEvent(new CustomEvent('env-changed', { detail: envSelection }))
+                          window.dispatchEvent(
+                            new CustomEvent('env-changed', { detail: envSelection })
+                          )
                           window.dispatchEvent(new Event('storage'))
                           message.success('Đã cập nhật địa chỉ kết nối máy chủ!')
                         }}

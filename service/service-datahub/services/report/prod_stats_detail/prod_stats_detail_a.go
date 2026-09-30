@@ -3,10 +3,58 @@ package prod_stats_detail
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	models "service-datahub/models/report"
 )
+
+// cleanNumberStr chuẩn hóa chuỗi số (xử lý dấu chấm/phẩy phân cách hàng nghìn như 57.211 -> 57211)
+func cleanNumberStr(ptr *string) *string {
+	if ptr == nil {
+		return nil
+	}
+	s := strings.TrimSpace(*ptr)
+	if s == "" {
+		return ptr
+	}
+	s = strings.ReplaceAll(s, " ", "")
+
+	// Nếu có cả . và ,
+	if strings.Contains(s, ".") && strings.Contains(s, ",") {
+		lastDot := strings.LastIndex(s, ".")
+		lastComma := strings.LastIndex(s, ",")
+		if lastComma > lastDot {
+			// Dạng VN/EU: 1.234,56 -> 1234.56
+			s = strings.ReplaceAll(s, ".", "")
+			s = strings.ReplaceAll(s, ",", ".")
+		} else {
+			// Dạng US: 1,234.56 -> 1234.56
+			s = strings.ReplaceAll(s, ",", "")
+		}
+	} else if strings.Contains(s, ".") {
+		parts := strings.Split(s, ".")
+		if len(parts) > 2 {
+			s = strings.Join(parts, "")
+		} else if len(parts) == 2 && len(parts[1]) == 3 && len(parts[0]) >= 1 {
+			// 57.211 -> 57211
+			s = parts[0] + parts[1]
+		}
+	} else if strings.Contains(s, ",") {
+		parts := strings.Split(s, ",")
+		if len(parts) > 2 {
+			s = strings.Join(parts, "")
+		} else if len(parts) == 2 {
+			if len(parts[1]) == 3 && len(parts[0]) >= 1 {
+				// 57,211 -> 57211
+				s = parts[0] + parts[1]
+			} else {
+				s = parts[0] + "." + parts[1]
+			}
+		}
+	}
+	return &s
+}
 
 // ProdStatsDetailA - Thêm mới danh sách dòng chi tiết Thống Kê Sản Xuất
 func (s *ProdStatsDetailService) ProdStatsDetailA(
@@ -28,6 +76,15 @@ func (s *ProdStatsDetailService) ProdStatsDetailA(
 		items[i].CreatedAt = &now
 		items[i].UpdatedAt = &now
 		items[i].IsActive = true
+
+		// Làm sạch chuẩn hóa các trường số lượng và thời gian trước khi lưu DB
+		items[i].ProdQty = cleanNumberStr(items[i].ProdQty)
+		items[i].PassQty = cleanNumberStr(items[i].PassQty)
+		items[i].DefectQty = cleanNumberStr(items[i].DefectQty)
+		items[i].ActualMeters = cleanNumberStr(items[i].ActualMeters)
+		items[i].StandardMeters = cleanNumberStr(items[i].StandardMeters)
+		items[i].TargetProdQty = cleanNumberStr(items[i].TargetProdQty)
+		items[i].TargetPassQty = cleanNumberStr(items[i].TargetPassQty)
 	}
 
 	if err := s.db.WithContext(ctx).CreateInBatches(items, 500).Error; err != nil {
@@ -37,3 +94,4 @@ func (s *ProdStatsDetailService) ProdStatsDetailA(
 	s.totalAllCount.Add(int64(len(items)))
 	return items, nil
 }
+

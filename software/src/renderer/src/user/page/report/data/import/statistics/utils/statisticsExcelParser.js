@@ -325,6 +325,41 @@ export function parseStatisticsExcelFast(buffer, defaultContext = {}) {
   }
 }
 
+export function cleanNumberString(val) {
+  if (val === undefined || val === null) return ''
+  let s = String(val).trim().replace(/\s+/g, '')
+  if (!s) return ''
+
+  if (s.includes('.') && s.includes(',')) {
+    const lastDot = s.lastIndexOf('.')
+    const lastComma = s.lastIndexOf(',')
+    if (lastComma > lastDot) {
+      s = s.replace(/\./g, '').replace(',', '.')
+    } else {
+      s = s.replace(/,/g, '')
+    }
+  } else if (s.includes('.')) {
+    const parts = s.split('.')
+    if (parts.length > 2) {
+      s = parts.join('')
+    } else if (parts.length === 2 && parts[1].length === 3 && parts[0].length >= 1) {
+      s = parts[0] + parts[1]
+    }
+  } else if (s.includes(',')) {
+    const parts = s.split(',')
+    if (parts.length > 2) {
+      s = parts.join('')
+    } else if (parts.length === 2) {
+      if (parts[1].length === 3 && parts[0].length >= 1) {
+        s = parts[0] + parts[1]
+      } else {
+        s = parts[0] + '.' + parts[1]
+      }
+    }
+  }
+  return s
+}
+
 /**
  * Chuẩn hóa 1 dòng dữ liệu Thống Kê Sản Xuất (TKSX) - Toàn bộ là Text nguyên bản từ Excel
  */
@@ -350,10 +385,10 @@ export function normalizeStatRow(raw, index, todayStr) {
     MoldSetQty1: String(raw.MoldSetQty1 ?? '').trim(),
     MoldSetQty2: String(raw.MoldSetQty2 ?? '').trim(),
     MoldSetQty3: String(raw.MoldSetQty3 ?? '').trim(),
-    ProdQty: String(raw.ProdQty ?? '').trim(),
-    PassQty: String(raw.PassQty ?? '').trim(),
-    ActualMeters: String(raw.ActualMeters ?? '').trim(),
-    StandardMeters: String(raw.StandardMeters ?? '').trim(),
+    ProdQty: cleanNumberString(raw.ProdQty),
+    PassQty: cleanNumberString(raw.PassQty),
+    ActualMeters: cleanNumberString(raw.ActualMeters),
+    StandardMeters: cleanNumberString(raw.StandardMeters),
     TeamName: String(raw.TeamName ?? '').trim(),
     Shift: String(raw.Shift ?? '').trim(),
     StartDate: formatExcelCellValue(raw.StartDate),
@@ -397,8 +432,8 @@ export function normalizeStatRow(raw, index, todayStr) {
     RoutingDocNo: String(raw.RoutingDocNo ?? '').trim(),
     RoutingDate: formatExcelCellValue(raw.RoutingDate),
     ReleaseDate: formatExcelCellValue(raw.ReleaseDate),
-    TargetPassQty: String(raw.TargetPassQty ?? '').trim(),
-    TargetProdQty: String(raw.TargetProdQty ?? '').trim(),
+    TargetPassQty: cleanNumberString(raw.TargetPassQty),
+    TargetProdQty: cleanNumberString(raw.TargetProdQty),
     RoutingUnit: String(raw.RoutingUnit ?? '').trim(),
     BreakdownMinutes: String(raw.BreakdownMinutes ?? '').trim(),
     WaitingMaterialMinutes: String(raw.WaitingMaterialMinutes ?? '').trim(),
@@ -407,7 +442,7 @@ export function normalizeStatRow(raw, index, todayStr) {
     TotalWasteMinutes: String(raw.TotalWasteMinutes ?? '').trim(),
     RigidBoxGlue: String(raw.RigidBoxGlue ?? '').trim(),
     Outsourcing: String(raw.Outsourcing ?? '').trim(),
-    DefectQty: String(raw.DefectQty ?? '').trim(),
+    DefectQty: cleanNumberString(raw.DefectQty),
     DefectRate: String(raw.DefectRate ?? '').trim(),
     DefectUnit: String(raw.DefectUnit ?? '').trim(),
     Status: String(raw.Status ?? '').trim(),

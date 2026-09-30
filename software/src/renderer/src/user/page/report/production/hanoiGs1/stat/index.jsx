@@ -8,72 +8,127 @@ import {
 } from '../../../data/import/services/planRegistrationService'
 
 /**
- * Chuyển đổi định dạng thời gian (HH:mm hoặc số phút/giờ) sang Giờ thực tế (Hours)
+ * Chuyển đổi và tính toán chính xác Thời gian thao tác theo PHÚT (Duration in Minutes)
  */
-function parseRuntimeToHours(rawTime, startTime, endTime, qty = 0) {
-  // 1. Nếu có StartTime và EndTime dạng giờ:phút
+function parseDurationToMinutes(rawTime, startTime, endTime) {
+  // 1. Nếu có StartTime và EndTime
   if (startTime && endTime) {
     const sStr = String(startTime).trim()
     const eStr = String(endTime).trim()
+
+    const sDate = new Date(sStr.includes('T') ? sStr : sStr.replace(' ', 'T')).getTime()
+    const eDate = new Date(eStr.includes('T') ? eStr : eStr.replace(' ', 'T')).getTime()
+    if (!isNaN(sDate) && !isNaN(eDate) && eDate >= sDate) {
+      const diffMin = (eDate - sDate) / (1000 * 60)
+      if (diffMin >= 0 && diffMin <= 1440) {
+        return Number(diffMin.toFixed(1))
+      }
+    }
+
     if (sStr.includes(':') && eStr.includes(':')) {
-      const sParts = sStr.split(':').map((v) => parseFloat(v) || 0)
-      const eParts = eStr.split(':').map((v) => parseFloat(v) || 0)
-      const sHour = sParts[0] + (sParts[1] || 0) / 60
-      const eHour = eParts[0] + (eParts[1] || 0) / 60
-      let diff = eHour - sHour
-      if (diff < 0) diff += 24 // Qua đêm
-      if (diff > 0 && diff <= 24) return Number(diff.toFixed(2))
+      const sParts = sStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+      const eParts = eStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+      const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
+      const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
+      let diff = eMin - sMin
+      if (diff < 0) diff += 1440
+      if (diff >= 0 && diff <= 1440) return Number(diff.toFixed(1))
     }
   }
 
-  // 2. Nếu có chuỗi thời gian ActualRunTime
+  // 2. Nếu có chuỗi thời gian ActualRunTime (Đơn vị trong hệ thống MES/ERP luôn là PHÚT)
   if (rawTime !== undefined && rawTime !== null && rawTime !== '') {
     const str = String(rawTime).trim().replace(',', '.')
     if (str.includes(':')) {
       const parts = str.split(':').map((v) => parseFloat(v) || 0)
-      const hrs = parts[0] + (parts[1] || 0) / 60 + (parts[2] || 0) / 3600
-      if (hrs > 0) return Number(hrs.toFixed(2))
+      const totalMin = parts[0] * 60 + (parts[1] || 0) + (parts[2] || 0) / 60
+      if (totalMin >= 0) return Number(totalMin.toFixed(1))
     }
     const val = parseFloat(str)
-    if (!isNaN(val) && val > 0) {
-      // Nếu giá trị > 24, trong sản xuất bao bì thường được ghi theo số phút (e.g. 450 phút = 7.5 giờ)
-      if (val > 24) {
-        return Number((val / 60).toFixed(2))
-      }
-      return Number(val.toFixed(2))
+    if (!isNaN(val) && val >= 0) {
+      return Number(val.toFixed(1))
     }
   }
 
-  // 3. Ước tính từ sản lượng nếu không có thời gian ghi nhận (định mức ~3500 sp/giờ)
-  if (qty > 0) {
-    const est = qty / 3500
-    return Number(Math.min(12, Math.max(0.5, est)).toFixed(1))
+  return 0
+}
+
+export function parseCleanNumber(val, defaultVal = 0) {
+  if (val === undefined || val === null || val === '') return defaultVal
+  if (typeof val === 'number') return isNaN(val) ? defaultVal : val
+
+  let s = String(val).trim().replace(/\s+/g, '')
+  if (!s) return defaultVal
+
+  if (s.includes('.') && s.includes(',')) {
+    const lastDot = s.lastIndexOf('.')
+    const lastComma = s.lastIndexOf(',')
+    if (lastComma > lastDot) {
+      s = s.replace(/\./g, '').replace(',', '.')
+    } else {
+      s = s.replace(/,/g, '')
+    }
+  } else if (s.includes('.')) {
+    const parts = s.split('.')
+    if (parts.length > 2) {
+      s = parts.join('')
+    } else if (parts.length === 2 && parts[1].length === 3 && parts[0].length >= 1) {
+      s = parts[0] + parts[1]
+    }
+  } else if (s.includes(',')) {
+    const parts = s.split(',')
+    if (parts.length > 2) {
+      s = parts.join('')
+    } else if (parts.length === 2) {
+      if (parts[1].length === 3 && parts[0].length >= 1) {
+        s = parts[0] + parts[1]
+      } else {
+        s = parts[0] + '.' + parts[1]
+      }
+    }
   }
 
-  return 7.5
+  const num = parseFloat(s)
+  return isNaN(num) ? defaultVal : num
 }
 
 /**
  * Hàm chuyển đổi bản ghi Chi tiết TKSX/KHSX từ Database sang định dạng chuẩn của Báo cáo Thống kê Sản xuất
  */
 function mapDBRowToStatItem(item, idx, masterInfo) {
-  const planQty =
-    parseFloat(item.TargetProdQty || item.TargetPassQty || item.StandardMeters || 0) || 0
+  const planQty = parseCleanNumber(
+    item.TargetProdQty || item.TargetPassQty || item.StandardMeters || 0
+  )
   const actualQty =
-    parseFloat(item.ProdQty || item.ActualMeters || item.StatPassQty || 0) || planQty || 0
+    parseCleanNumber(item.ProdQty || item.ActualMeters || item.StatPassQty || 0) || planQty || 0
   const passQty =
-    parseFloat(item.PassQty || item.StatPassQty || item.ProdQty || 0) || actualQty || 0
-  const defectQty = parseFloat(item.DefectQty || 0) || Math.max(0, actualQty - passQty) || 0
+    parseCleanNumber(item.PassQty || item.StatPassQty || item.ProdQty || 0) || actualQty || 0
+  const parsedDefect = parseCleanNumber(item.DefectQty, 0)
+  const defectQty = parsedDefect > 0 ? parsedDefect : Math.max(0, actualQty - passQty)
   const passRate =
     actualQty > 0 ? Number(Math.min(100, Math.max(0, (passQty / actualQty) * 100)).toFixed(2)) : 100
 
-  // Tính toán runtime chính xác
-  const runtimeHours = parseRuntimeToHours(
-    item.ActualRunTime || item.ActualProdTime || item.BreakdownMinutes,
-    item.StartTime,
-    item.EndTime,
-    actualQty || planQty
-  )
+  // Tính toán durationMinutes và runtimeHours chính xác theo phút
+  const durationMinutes =
+    item.DurationMinutes !== undefined && item.DurationMinutes !== null && item.DurationMinutes !== ''
+      ? Number(item.DurationMinutes)
+      : item.durationMinutes !== undefined && item.durationMinutes !== null && item.durationMinutes !== ''
+        ? Number(item.durationMinutes)
+        : undefined
+
+  const finalDurationMinutes =
+    durationMinutes !== undefined
+      ? durationMinutes
+      : parseDurationToMinutes(
+          item.ActualRunTime || item.ActualProdTime || item.BreakdownMinutes,
+          item.StartTime || item.startTime || item.TicketCreatedDate,
+          item.EndTime || item.endTime || item.MesApprovalTime
+        )
+
+  const runtimeHours =
+    item.RuntimeHours !== undefined && item.RuntimeHours !== null && item.RuntimeHours !== ''
+      ? Number(item.RuntimeHours)
+      : Number((finalDurationMinutes / 60).toFixed(2))
 
   const prodDate =
     item.StatDate ||
@@ -115,8 +170,39 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     defectQty,
     passRate,
     runtimeHours,
+    durationMinutes: finalDurationMinutes,
+    AuditCategory:
+      finalDurationMinutes < 5
+        ? 'UNDER_5MIN'
+        : finalDurationMinutes > 720
+          ? 'OVER_12H'
+          : '5MIN_12H',
     shift: item.Shift || 'Ca 1',
     prodDate,
+    startTime:
+      item.StartTime ||
+      item.startTime ||
+      (item.TicketCreatedDate
+        ? String(item.TicketCreatedDate).slice(0, 19).replace('T', ' ')
+        : `${prodDate} 07:30:00`),
+    endTime:
+      item.EndTime ||
+      item.endTime ||
+      (item.MesApprovalTime
+        ? String(item.MesApprovalTime).slice(0, 19).replace('T', ' ')
+        : `${prodDate} 15:30:00`),
+    StartTime:
+      item.StartTime ||
+      item.startTime ||
+      (item.TicketCreatedDate
+        ? String(item.TicketCreatedDate).slice(0, 19).replace('T', ' ')
+        : `${prodDate} 07:30:00`),
+    EndTime:
+      item.EndTime ||
+      item.endTime ||
+      (item.MesApprovalTime
+        ? String(item.MesApprovalTime).slice(0, 19).replace('T', ' ')
+        : `${prodDate} 15:30:00`),
     createdSource: item.TicketCreationLocation || 'MES',
     syncDelayMinutes:
       item.SyncDelayMinutes !== undefined && item.SyncDelayMinutes !== null
@@ -183,7 +269,9 @@ export default function HanoiGs1StatPage() {
       const allMasters = resAll?.data || []
 
       const masters = allMasters.filter((m) => {
-        const code = String(m.FactoryCode || m.factoryCode || '').toUpperCase().trim()
+        const code = String(m.FactoryCode || m.factoryCode || '')
+          .toUpperCase()
+          .trim()
         const f = String(m.FactoryName || m.factoryName || '')
           .toLowerCase()
           .trim()
@@ -261,7 +349,7 @@ export default function HanoiGs1StatPage() {
       // 1. Ưu tiên thử lấy từ _ERPProdStatsDetail (Chi tiết TKSX) theo RegCode
       if (regCode) {
         try {
-          const resStats = await queryProdStatsDetail({ RegCode: regCode })
+          const resStats = await queryProdStatsDetail({ RegCode: regCode, pageSize: '10000' })
           if (resStats?.data && resStats.data.length > 0) {
             rows = resStats.data
           }
@@ -272,7 +360,7 @@ export default function HanoiGs1StatPage() {
         // 2. Nếu không có ở bảng TKSX, lấy từ _ERPPlanDetail (Chi tiết KHSX)
         if (rows.length === 0) {
           try {
-            const resPlan = await queryPlanDetail({ RegCode: regCode })
+            const resPlan = await queryPlanDetail({ RegCode: regCode, pageSize: '10000' })
             if (resPlan?.data && resPlan.data.length > 0) {
               rows = resPlan.data
             }

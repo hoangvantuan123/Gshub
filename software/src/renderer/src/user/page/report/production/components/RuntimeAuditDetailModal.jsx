@@ -59,26 +59,18 @@ export const RuntimeAuditDetailModal = ({
       let badgeColor = '#0f766e'
       let badgeBg = '#f0fdfa'
 
-      if (durMin < 5 && durMin > 0) {
+      if (durMin < 5 && durMin >= 0) {
         category = 'UNDER_5MIN'
         auditText = '< 5p Nhập nhanh (Cảnh báo)'
         isWarning = true
         badgeColor = '#be123c'
         badgeBg = '#fff1f2'
       } else if (durMin > 720) {
-        if (actual >= 50000 || plan >= 50000) {
-          category = 'OVER_12H_VALID'
-          auditText = '> 12h Đơn lớn (Chuẩn)'
-          isWarning = false
-          badgeColor = '#0f766e'
-          badgeBg = '#f0fdfa'
-        } else {
-          category = 'OVER_12H_CHECK'
-          auditText = '> 12h Cần kiểm tra (Cảnh báo)'
-          isWarning = true
-          badgeColor = '#b45309'
-          badgeBg = '#fffbeb'
-        }
+        category = 'OVER_12H'
+        auditText = '> 12h Cần kiểm tra (Cảnh báo)'
+        isWarning = true
+        badgeColor = '#b45309'
+        badgeBg = '#fffbeb'
       }
 
       return {
@@ -99,18 +91,16 @@ export const RuntimeAuditDetailModal = ({
   const categoryCounts = useMemo(() => {
     let all = classifiedData.length
     let normal = 0
-    let over12Valid = 0
-    let over12Check = 0
+    let over12 = 0
     let under5 = 0
 
     classifiedData.forEach((d) => {
       if (d.auditCategory === 'NORMAL') normal++
-      else if (d.auditCategory === 'OVER_12H_VALID') over12Valid++
-      else if (d.auditCategory === 'OVER_12H_CHECK') over12Check++
+      else if (d.auditCategory === 'OVER_12H') over12++
       else if (d.auditCategory === 'UNDER_5MIN') under5++
     })
 
-    return { all, normal, over12Valid, over12Check, under5 }
+    return { all, normal, over12, under5 }
   }, [classifiedData])
 
   // Lọc dữ liệu theo Category + Search Query + Team + Machine
@@ -157,9 +147,9 @@ export const RuntimeAuditDetailModal = ({
       { title: 'Tổ sản xuất', width: 140, id: 'teamName' },
       { title: 'Thời gian bắt đầu', width: 130, id: 'startTime' },
       { title: 'Thời gian kết thúc', width: 130, id: 'endTime' },
-      { title: 'SL Kế hoạch', width: 110, id: 'planQty' },
       { title: 'SL Sản xuất', width: 110, id: 'actualQty' },
       { title: 'SL Đạt', width: 110, id: 'passQty' },
+      { title: 'SL Lỗi', width: 100, id: 'defectQty' },
       { title: 'Tỷ lệ đạt (%)', width: 105, id: 'passRate' },
       { title: 'Giờ chạy (h)', width: 100, id: 'runtimeHours' },
       { title: 'Kiểm toán & Cảnh báo QLSX', width: 200, id: 'auditStatus' },
@@ -181,6 +171,9 @@ export const RuntimeAuditDetailModal = ({
       const colId = auditGridCols[col]?.id
       const actual = Number(item.actualQty || item.output) || 0
       const pass = Number(item.passQty || item.passQuantity) || 0
+      const parsedDef =
+        item.defectQty !== undefined && item.defectQty !== null ? Number(item.defectQty) : 0
+      const defect = parsedDef > 0 ? parsedDef : Math.max(0, actual - pass)
       const passRateVal = actual > 0 ? ((pass / actual) * 100).toFixed(1) : '100.0'
 
       switch (colId) {
@@ -235,14 +228,6 @@ export const RuntimeAuditDetailModal = ({
             allowOverlay: false,
             contentAlign: 'center'
           }
-        case 'planQty':
-          return {
-            kind: GridCellKind.Number,
-            data: Number(item.planQty) || 0,
-            displayData: (Number(item.planQty) || 0).toLocaleString('vi-VN'),
-            allowOverlay: false,
-            contentAlign: 'right'
-          }
         case 'actualQty':
           return {
             kind: GridCellKind.Number,
@@ -256,6 +241,14 @@ export const RuntimeAuditDetailModal = ({
             kind: GridCellKind.Number,
             data: pass,
             displayData: pass.toLocaleString('vi-VN'),
+            allowOverlay: false,
+            contentAlign: 'right'
+          }
+        case 'defectQty':
+          return {
+            kind: GridCellKind.Number,
+            data: defect,
+            displayData: defect > 0 ? defect.toLocaleString('vi-VN') : '0',
             allowOverlay: false,
             contentAlign: 'right'
           }
@@ -310,6 +303,9 @@ export const RuntimeAuditDetailModal = ({
       const wsData = filteredData.map((item, idx) => {
         const actual = Number(item.actualQty || item.output) || 0
         const pass = Number(item.passQty || item.passQuantity) || 0
+        const parsedDef =
+          item.defectQty !== undefined && item.defectQty !== null ? Number(item.defectQty) : 0
+        const defect = parsedDef > 0 ? parsedDef : Math.max(0, actual - pass)
         const passRateVal = actual > 0 ? ((pass / actual) * 100).toFixed(1) : '100.0'
         return {
           STT: idx + 1,
@@ -320,9 +316,9 @@ export const RuntimeAuditDetailModal = ({
           'Tổ sản xuất': item.teamName || '',
           'Thời gian bắt đầu': item.startTime || item.prodDate || '',
           'Thời gian kết thúc': item.endTime || item.prodDate || '',
-          'SL Kế hoạch': item.planQty || 0,
           'SL Sản xuất': actual,
           'SL Đạt': pass,
+          'SL Lỗi': defect,
           'Tỷ lệ đạt (%)': `${passRateVal}%`,
           'Giờ chạy (h)': (Number(item.runtimeHours) || 0).toFixed(1),
           'Kiểm toán & Cảnh báo QLSX': item.auditText,
@@ -350,9 +346,9 @@ export const RuntimeAuditDetailModal = ({
         'Tổ SX',
         'Bắt đầu',
         'Kết thúc',
-        'SL KH',
         'SL SX',
         'SL Đạt',
+        'SL Lỗi',
         'Tỷ lệ đạt (%)',
         'Giờ chạy (h)',
         'Kiểm toán QLSX',
@@ -364,6 +360,9 @@ export const RuntimeAuditDetailModal = ({
         .map((item) => {
           const actual = Number(item.actualQty || item.output) || 0
           const pass = Number(item.passQty || item.passQuantity) || 0
+          const parsedDef =
+            item.defectQty !== undefined && item.defectQty !== null ? Number(item.defectQty) : 0
+          const defect = parsedDef > 0 ? parsedDef : Math.max(0, actual - pass)
           const passRateVal = actual > 0 ? ((pass / actual) * 100).toFixed(1) : '100.0'
           return [
             item.ticketCode || item.ticketNo || '',
@@ -373,9 +372,9 @@ export const RuntimeAuditDetailModal = ({
             item.teamName || '',
             item.startTime || item.prodDate || '',
             item.endTime || item.prodDate || '',
-            item.planQty || 0,
             actual,
             pass,
+            defect,
             `${passRateVal}%`,
             (Number(item.runtimeHours) || 0).toFixed(1),
             item.auditText,
@@ -454,7 +453,6 @@ export const RuntimeAuditDetailModal = ({
               </div>
             </div>
           </div>
-
         </div>
 
         {/* Modal Category Filter Bar (Pills with Counts) */}
@@ -533,66 +531,34 @@ export const RuntimeAuditDetailModal = ({
           </button>
 
           <button
-            onClick={() => setActiveCategory('OVER_12H_VALID')}
+            onClick={() => setActiveCategory('OVER_12H')}
             style={{
               padding: '4px 12px',
               fontSize: 12,
               fontWeight: 700,
               cursor: 'pointer',
               border: '1px solid',
-              borderColor: activeCategory === 'OVER_12H_VALID' ? '#2b6b79' : '#cbd5e1',
-              background: activeCategory === 'OVER_12H_VALID' ? '#2b6b79' : '#ffffff',
-              color: activeCategory === 'OVER_12H_VALID' ? '#ffffff' : '#334155',
+              borderColor: activeCategory === 'OVER_12H' ? '#d97706' : '#fde68a',
+              background: activeCategory === 'OVER_12H' ? '#d97706' : '#fffbeb',
+              color: activeCategory === 'OVER_12H' ? '#ffffff' : '#92400e',
               borderRadius: 2,
               display: 'flex',
               alignItems: 'center',
               gap: 6
             }}
           >
-            <span>2. Đơn lớn &gt; 12h (≥ 50k SP)</span>
+            <span>2. Thao tác &gt; 12 giờ (Cảnh báo)</span>
             <span
               style={{
                 fontSize: 11,
                 padding: '1px 6px',
                 borderRadius: 10,
                 background:
-                  activeCategory === 'OVER_12H_VALID' ? 'rgba(255,255,255,0.25)' : '#eff6ff',
-                color: activeCategory === 'OVER_12H_VALID' ? '#ffffff' : '#1d4ed8'
+                  activeCategory === 'OVER_12H' ? 'rgba(255,255,255,0.25)' : '#fef3c7',
+                color: activeCategory === 'OVER_12H' ? '#ffffff' : '#b45309'
               }}
             >
-              {categoryCounts.over12Valid}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveCategory('OVER_12H_CHECK')}
-            style={{
-              padding: '4px 12px',
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: 'pointer',
-              border: '1px solid',
-              borderColor: activeCategory === 'OVER_12H_CHECK' ? '#d97706' : '#fde68a',
-              background: activeCategory === 'OVER_12H_CHECK' ? '#d97706' : '#fffbeb',
-              color: activeCategory === 'OVER_12H_CHECK' ? '#ffffff' : '#92400e',
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-          >
-            <span>3. Đơn nhỏ &gt; 12h (Cảnh báo)</span>
-            <span
-              style={{
-                fontSize: 11,
-                padding: '1px 6px',
-                borderRadius: 10,
-                background:
-                  activeCategory === 'OVER_12H_CHECK' ? 'rgba(255,255,255,0.25)' : '#fef3c7',
-                color: activeCategory === 'OVER_12H_CHECK' ? '#ffffff' : '#b45309'
-              }}
-            >
-              {categoryCounts.over12Check}
+              {categoryCounts.over12}
             </span>
           </button>
 
@@ -613,7 +579,7 @@ export const RuntimeAuditDetailModal = ({
               gap: 6
             }}
           >
-            <span>4. Thao tác &lt; 5 phút (Cảnh báo)</span>
+            <span>3. Thao tác &lt; 5 phút (Cảnh báo)</span>
             <span
               style={{
                 fontSize: 11,
@@ -718,7 +684,6 @@ export const RuntimeAuditDetailModal = ({
               </button>
             )}
           </div>
-
         </div>
 
         {/* Summary Indicators Strip */}

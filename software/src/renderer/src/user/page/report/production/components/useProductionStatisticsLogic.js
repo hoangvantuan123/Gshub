@@ -104,6 +104,71 @@ export const formatSecondsToTime = (totalSec) => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+// Helper format date & time chuẩn xác cho báo cáo (YYYY-MM-DD HH:mm:ss)
+export function formatReportTimeOrDateTime(rawVal, defaultDate = '', fallbackTime = '') {
+  if (!rawVal && !fallbackTime) return defaultDate ? `${defaultDate} 07:30:00` : ''
+  const val = rawVal || fallbackTime
+  if (!val) return ''
+
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return ''
+    const Y = val.getFullYear()
+    const M = String(val.getMonth() + 1).padStart(2, '0')
+    const D = String(val.getDate()).padStart(2, '0')
+    const h = String(val.getHours()).padStart(2, '0')
+    const m = String(val.getMinutes()).padStart(2, '0')
+    const s = String(val.getSeconds()).padStart(2, '0')
+    return `${Y}-${M}-${D} ${h}:${m}:${s}`
+  }
+
+  const str = String(val).trim()
+  if (!str || str === 'null' || str === 'undefined') return ''
+
+  // ISO string like 2026-09-28T07:45:10Z or 2026-09-28T07:45:10
+  if (str.includes('T')) {
+    return str.slice(0, 19).replace('T', ' ')
+  }
+
+  // Already standard format YYYY-MM-DD HH:mm:ss
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(str)) {
+    return str.length === 16 ? `${str}:00` : str
+  }
+
+  // Just HH:mm:ss or HH:mm
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(str)) {
+    const padTime = str.length <= 5 ? `${str}:00` : str
+    return defaultDate ? `${defaultDate} ${padTime}` : padTime
+  }
+
+  // Try parse as standard date
+  const parsed = new Date(str)
+  if (!isNaN(parsed.getTime()) && str.length >= 10) {
+    const Y = parsed.getFullYear()
+    const M = String(parsed.getMonth() + 1).padStart(2, '0')
+    const D = String(parsed.getDate()).padStart(2, '0')
+    const h = String(parsed.getHours()).padStart(2, '0')
+    const m = String(parsed.getMinutes()).padStart(2, '0')
+    const s = String(parsed.getSeconds()).padStart(2, '0')
+    return `${Y}-${M}-${D} ${h}:${m}:${s}`
+  }
+
+  return str
+}
+
+// Helper check if machine is manual / contains 'thủ công'
+export const isManualMachine = (itemOrName) => {
+  if (!itemOrName) return false
+  const text =
+    typeof itemOrName === 'string'
+      ? itemOrName
+      : `${itemOrName.machineName || ''} ${itemOrName.machineCode || ''} ${itemOrName.machineGroup || ''} ${itemOrName.name || ''}`
+
+  const lower = text.toLowerCase()
+  if (lower.includes('thủ công')) return true
+  const normalized = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return normalized.includes('thu cong')
+}
+
 export const useProductionStatisticsLogic = ({
   plantKey = 'hanoi',
   dataset,
@@ -115,6 +180,7 @@ export const useProductionStatisticsLogic = ({
   selectedMasterKey
 }) => {
   const [machineChartMode, setMachineChartMode] = useState('runtime') // 'runtime' | 'composed' | 'tickets'
+  const [showManualMachines, setShowManualMachines] = useState(false) // Mặc định ẩn máy thủ công, tích chọn để hiện
   const [selectedTeam, setSelectedTeam] = useState('ALL')
   const [selectedMachine, setSelectedMachine] = useState('ALL')
   const [selectedDurationAudit, setSelectedDurationAudit] = useState('ALL')
@@ -126,6 +192,18 @@ export const useProductionStatisticsLogic = ({
   // Machine Sorting State: Mặc định sắp xếp theo Giờ chạy máy cao nhất lên đầu
   const [machineSortConfig, setMachineSortConfig] = useState({
     key: 'totalRuntimeHours',
+    direction: 'desc'
+  })
+
+  // Team Sorting State: Mặc định sắp xếp theo Tỷ lệ đạt cao nhất lên đầu
+  const [teamSortConfig, setTeamSortConfig] = useState({
+    key: 'passRate',
+    direction: 'desc'
+  })
+
+  // Detail Sorting State: Mặc định sắp xếp theo Thời gian bắt đầu mới nhất
+  const [detailSortConfig, setDetailSortConfig] = useState({
+    key: 'startTime',
     direction: 'desc'
   })
 
@@ -159,10 +237,16 @@ export const useProductionStatisticsLogic = ({
   // 1. Unified Raw Data Pipeline: Đổ chính xác 100% dữ liệu từ API Backend / props
   const inputDataset = customData || dataset || initialData || data
   const rawData = useMemo(() => {
+    const isQuevoPlant =
+      plantKey === 'quevo' ||
+      plantKey === 'quevo_gs5' ||
+      String(plantKey).toLowerCase().includes('quevo') ||
+      String(plantKey).toLowerCase().includes('gs5')
+
     const list =
       inputDataset && inputDataset.length > 0
         ? inputDataset
-        : plantKey === 'quevo'
+        : isQuevoPlant
           ? initialQuevoGs5Stats
           : initialHanoiGs1Stats
 
@@ -172,44 +256,182 @@ export const useProductionStatisticsLogic = ({
       const pass = Number(item.passQty || item.StatPassQty) || a || 0
       const def = Number(item.defectQty) || Math.max(0, a - pass) || 0
       const pRate = a > 0 ? Number(((pass / a) * 100).toFixed(1)) : 100
-      const rt =
-        Number(item.runtimeHours || item.ActualRunTime) ||
-        (a > 0 ? Number((a / 3500).toFixed(1)) : 7.5)
+
+      // Ưu tiên tuyệt đối trường DurationMinutes đã được chuẩn hóa theo phút
+      let durMinutes =
+        item.DurationMinutes !== undefined && item.DurationMinutes !== null && item.DurationMinutes !== ''
+          ? Number(item.DurationMinutes)
+          : item.durationMinutes !== undefined && item.durationMinutes !== null && item.durationMinutes !== ''
+            ? Number(item.durationMinutes)
+            : undefined
+
+      // Nếu chưa có durMinutes, tính trực tiếp theo phút từ StartTime và EndTime
+      const rawStart = item.startTime || item.StartTime || item.TicketCreatedDate || item.createdTime
+      const rawEnd = item.endTime || item.EndTime || item.MesApprovalTime || item.syncTime
+
+      if (durMinutes === undefined && rawStart && rawEnd) {
+        const sStr = String(rawStart).trim()
+        const eStr = String(rawEnd).trim()
+
+        if (sStr.includes(':') && eStr.includes(':')) {
+          // Xử lý cả dạng HH:mm:ss hoặc ngày giờ YYYY-MM-DD HH:mm:ss
+          const sDate = new Date(sStr.includes('T') ? sStr : sStr.replace(' ', 'T')).getTime()
+          const eDate = new Date(eStr.includes('T') ? eStr : eStr.replace(' ', 'T')).getTime()
+
+          if (!isNaN(sDate) && !isNaN(eDate) && eDate >= sDate) {
+            const diffMin = (eDate - sDate) / (1000 * 60)
+            if (diffMin >= 0 && diffMin <= 1440) {
+              durMinutes = Number(diffMin.toFixed(1))
+            }
+          }
+
+          if (durMinutes === undefined) {
+            const sParts = sStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+            const eParts = eStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+            const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
+            const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
+            let diff = eMin - sMin
+            if (diff < 0) diff += 1440
+            if (diff >= 0 && diff <= 1440) {
+              durMinutes = Number(diff.toFixed(1))
+            }
+          }
+        }
+      }
+
+      // Nếu chưa có, tính từ ActualRunTime (Đơn vị trong hệ thống luôn là PHÚT)
+      if (durMinutes === undefined) {
+        const rawRt =
+          item.ActualRunTime !== undefined && item.ActualRunTime !== null && item.ActualRunTime !== ''
+            ? item.ActualRunTime
+            : item.ActualProdTime !== undefined && item.ActualProdTime !== null && item.ActualProdTime !== ''
+              ? item.ActualProdTime
+              : item.runtimeHours !== undefined && item.runtimeHours !== null && item.runtimeHours !== ''
+                ? item.runtimeHours
+                : undefined
+
+        if (rawRt !== undefined && rawRt !== null && rawRt !== '') {
+          const str = String(rawRt).trim().replace(',', '.')
+          if (str.includes(':')) {
+            const parts = str.split(':').map((v) => parseFloat(v) || 0)
+            const totalMin = parts[0] * 60 + (parts[1] || 0) + (parts[2] || 0) / 60
+            durMinutes = Number(totalMin.toFixed(1))
+          } else {
+            const val = parseFloat(str)
+            if (!isNaN(val) && val >= 0) {
+              // ActualRunTime trong hệ thống ERP luôn là số PHÚT
+              durMinutes = Number(val.toFixed(1))
+            }
+          }
+        }
+      }
+
+      if (durMinutes === undefined) {
+        durMinutes = 0
+      }
+
+      let rt =
+        item.RuntimeHours !== undefined && item.RuntimeHours !== null && item.RuntimeHours !== ''
+          ? Number(item.RuntimeHours)
+          : Number((durMinutes / 60).toFixed(2))
+
+      const prodDate =
+        item.prodDate ||
+        item.date ||
+        item.StatDate ||
+        item.StartDate ||
+        new Date().toISOString().slice(0, 10)
+
+      const finalStart = formatReportTimeOrDateTime(rawStart || item.CreatedAt, prodDate, `${prodDate} 07:30:00`)
+
+      let finalEnd = ''
+      if (rawEnd && rawEnd !== rawStart) {
+        finalEnd = formatReportTimeOrDateTime(rawEnd, prodDate, '')
+      }
+
+      // Nếu thiếu endTime hoặc trùng startTime, suy diễn endTime = startTime + duration
+      if (!finalEnd || finalEnd === finalStart) {
+        try {
+          const startDateObj = new Date(finalStart.replace(' ', 'T'))
+          if (!isNaN(startDateObj.getTime())) {
+            const addMs = (durMinutes || rt * 60 || 450) * 60 * 1000
+            const endDateObj = new Date(startDateObj.getTime() + addMs)
+            finalEnd = formatReportTimeOrDateTime(endDateObj, prodDate)
+          }
+        } catch (_) {
+          finalEnd = `${prodDate} 15:30:00`
+        }
+      }
+      if (!finalEnd) {
+        finalEnd = `${prodDate} 15:30:00`
+      }
 
       return {
         ...item,
-        id: item.id || item.IdSeq || `HN-STAT-${idx + 1}`,
+        ActualRunTime: item.ActualRunTime ?? durMinutes,
+        durationMinutes: durMinutes,
+        runtimeHours: rt,
+        id: item.id || item.IdSeq || (isQuevoPlant ? `QV-STAT-${idx + 1}` : `HN-STAT-${idx + 1}`),
         ticketCode:
           item.ticketCode ||
           item.ticketNo ||
           item.StatTicketNo ||
           item.OperationNo ||
-          `PTK-HN-${String(idx + 1).padStart(3, '0')}`,
+          (isQuevoPlant
+            ? `PTK-GS5-${String(idx + 1).padStart(3, '0')}`
+            : `PTK-HN-${String(idx + 1).padStart(3, '0')}`),
         orderCode:
           item.orderCode ||
           item.docNo ||
           item.OrderNo ||
           item.RoutingDocNo ||
-          `LSX-HN-2026-${String(idx + 1).padStart(4, '0')}`,
-        teamName: item.teamName || item.team || item.OperationName || 'Tổ In Offset',
-        machineName: item.machineName || `Máy ${item.machineCode || idx + 1}`,
-        machineCode: item.machineCode || `MC-${String((idx % 32) + 1).padStart(2, '0')}`,
-        machineGroup: item.machineGroup || item.teamName || item.team || 'In Offset',
-        productName: item.productName || item.itemName || item.ItemName || 'Bao bì cao cấp Goldsun',
-        customerName: item.customerName || item.CustName || 'Tập đoàn Goldsun',
+          (isQuevoPlant
+            ? `LSX-GS5-2026-${String(idx + 1).padStart(4, '0')}`
+            : `LSX-HN-2026-${String(idx + 1).padStart(4, '0')}`),
+        teamName:
+          item.teamName ||
+          item.team ||
+          item.TeamName ||
+          item.OperationName ||
+          (isQuevoPlant ? 'Tổ Máy Sóng GS5' : 'Tổ In Offset'),
+        machineName:
+          item.machineName ||
+          item.MachineName ||
+          `Máy ${item.machineCode || item.MachineCode || (isQuevoPlant ? `SONG-TCY-${String((idx % 24) + 1).padStart(2, '0')}` : `MC-${String((idx % 32) + 1).padStart(2, '0')}`)}`,
+        machineCode:
+          item.machineCode ||
+          item.MachineCode ||
+          (isQuevoPlant
+            ? `SONG-TCY-${String((idx % 24) + 1).padStart(2, '0')}`
+            : `MC-${String((idx % 32) + 1).padStart(2, '0')}`),
+        machineGroup:
+          item.machineGroup ||
+          item.teamName ||
+          item.team ||
+          item.TeamName ||
+          (isQuevoPlant ? 'Máy Sóng GS5' : 'In Offset'),
+        productName:
+          item.productName ||
+          item.itemName ||
+          item.ItemName ||
+          (isQuevoPlant ? 'Thùng Carton Sóng Goldsun' : 'Bao bì cao cấp Goldsun'),
+        customerName:
+          item.customerName ||
+          item.customer ||
+          item.Customer ||
+          item.CustName ||
+          'Tập đoàn Goldsun',
         planQty: p,
         actualQty: a,
         passQty: pass,
         defectQty: def,
         passRate: pRate,
-        runtimeHours: rt,
         shift: item.shift || item.Shift || 'Ca 1',
-        prodDate:
-          item.prodDate ||
-          item.date ||
-          item.StatDate ||
-          item.StartDate ||
-          new Date().toISOString().slice(0, 10),
+        prodDate,
+        startTime: finalStart,
+        endTime: finalEnd,
+        StartTime: finalStart,
+        EndTime: finalEnd,
         origin:
           item.origin || item.createdSource || item.TicketCreationLocation || item.source || 'MES',
         autoExport:
@@ -233,7 +455,19 @@ export const useProductionStatisticsLogic = ({
           item.supervisor ||
           item.MainWorker ||
           item.CreatedByName ||
-          'Kỹ thuật viên'
+          'Kỹ thuật viên',
+        AuditCategory:
+          durMinutes < 5
+            ? 'UNDER_5MIN'
+            : durMinutes > 720
+              ? 'OVER_12H'
+              : '5MIN_12H',
+        auditCategory:
+          durMinutes < 5
+            ? 'UNDER_5MIN'
+            : durMinutes > 720
+              ? 'OVER_12H'
+              : '5MIN_12H'
       }
     })
   }, [inputDataset, plantKey])
@@ -261,20 +495,15 @@ export const useProductionStatisticsLogic = ({
       // 3. Lọc theo Cụm máy
       if (selectedMachine !== 'ALL' && item.machineCode !== selectedMachine) return false
 
-      // 4. Lọc theo Thời gian thao tác (cột lệnh thao tác / giờ chạy máy)
+      // 4. Lọc theo Thời gian thao tác
       if (selectedDurationAudit !== 'ALL') {
-        const durMin = Number(item.durationMinutes || (Number(item.runtimeHours) || 0) * 60)
-        const actual = Number(item.actualQty) || 0
+        const durMin = Number(item.durationMinutes ?? item.ActualRunTime ?? 0)
 
         if (selectedDurationAudit === 'UNDER_5MIN') {
-          if (!(durMin < 5 && durMin > 0)) return false
+          if (!(durMin < 5 && durMin >= 0)) return false
         } else if (selectedDurationAudit === '5MIN_12H') {
           if (!(durMin >= 5 && durMin <= 720)) return false
-        } else if (selectedDurationAudit === 'OVER_12H_VALID') {
-          if (!(durMin > 720 && actual >= 50000)) return false
-        } else if (selectedDurationAudit === 'OVER_12H_CHECK') {
-          if (!(durMin > 720 && actual < 50000)) return false
-        } else if (selectedDurationAudit === 'OVER_12H') {
+        } else if (selectedDurationAudit === 'OVER_12H' || selectedDurationAudit === 'OVER_12H_CHECK' || selectedDurationAudit === 'OVER_12H_VALID') {
           if (!(durMin > 720)) return false
         }
       }
@@ -418,16 +647,12 @@ export const useProductionStatisticsLogic = ({
       }
 
       const durMinutes = Number(item.durationMinutes || rt * 60) || 0
-      if (durMinutes < 5 && durMinutes > 0) {
+      if (durMinutes < 5 && durMinutes >= 0) {
         rUnder5++
       } else if (durMinutes >= 5 && durMinutes <= 720) {
         rNormal++
       } else if (durMinutes > 720) {
-        if (a >= 50000 || p >= 50000) {
-          rOver12Valid++
-        } else {
-          rOver12Check++
-        }
+        rOver12Check++
       } else {
         rNormal++
       }
@@ -436,18 +661,18 @@ export const useProductionStatisticsLogic = ({
       const rawDelay =
         item.syncDelay !== undefined && item.syncDelay !== null && item.syncDelay !== ''
           ? item.syncDelay
-          : item.SyncDelayMinutes !== undefined && item.SyncDelayMinutes !== null && item.SyncDelayMinutes !== ''
+          : item.SyncDelayMinutes !== undefined &&
+              item.SyncDelayMinutes !== null &&
+              item.SyncDelayMinutes !== ''
             ? item.SyncDelayMinutes
-            : item.syncDelayMinutes !== undefined && item.syncDelayMinutes !== null && item.syncDelayMinutes !== ''
+            : item.syncDelayMinutes !== undefined &&
+                item.syncDelayMinutes !== null &&
+                item.syncDelayMinutes !== ''
               ? item.syncDelayMinutes
               : item.SyncDelay
       const parsedSec = parseSyncDelayToSeconds(rawDelay, item)
 
-      if (
-        parsedSec === null ||
-        parsedSec === undefined ||
-        isNaN(parsedSec)
-      ) {
+      if (parsedSec === null || parsedSec === undefined || isNaN(parsedSec)) {
         syncEmpty++
       } else {
         totalSyncDelaySec += parsedSec
@@ -530,8 +755,7 @@ export const useProductionStatisticsLogic = ({
     const calculatedMesCount = mesCount > 0 ? mesCount : total
     const calculatedBravoCount = bravoCount > 0 ? bravoCount : total - calculatedMesCount
     const noAutoExport = total - autoExportCount
-    const avgSyncSec =
-      syncDelayCount > 0 ? totalSyncDelaySec / syncDelayCount : 0
+    const avgSyncSec = syncDelayCount > 0 ? totalSyncDelaySec / syncDelayCount : 0
     const syncLatencyFormatted = syncDelayCount > 0 ? formatSecondsToTime(avgSyncSec) : '00:00:00'
 
     return {
@@ -625,6 +849,9 @@ export const useProductionStatisticsLogic = ({
   // Filtered & Sorted Machine List
   const displayMachineList = useMemo(() => {
     let list = [...machineAggregates]
+    if (!showManualMachines) {
+      list = list.filter((m) => !isManualMachine(m))
+    }
     if (machineSearchText) {
       const q = machineSearchText.toLowerCase()
       list = list.filter(
@@ -673,7 +900,7 @@ export const useProductionStatisticsLogic = ({
     })
 
     return list
-  }, [machineAggregates, machineSearchText, machineSortConfig])
+  }, [machineAggregates, showManualMachines, machineSearchText, machineSortConfig])
 
   // Grand Total for Machines
   const machineGrandTotal = useMemo(() => {
@@ -710,21 +937,35 @@ export const useProductionStatisticsLogic = ({
         map.set(team, {
           teamName: team,
           ticketCount: 0,
-          totalPlanQty: 0,
           totalActualQty: 0,
           totalPassQty: 0,
           totalDefectQty: 0,
           totalRuntimeHours: 0,
-          mesCount: 0
+          mesCount: 0,
+          under5Min: 0,
+          anomalies: 0
         })
       }
       const rec = map.get(team)
+      const a = Number(item.actualQty) || 0
+      const pass = Number(item.passQty) || 0
+      const parsedDef = Number(item.defectQty) || 0
+      const def = parsedDef > 0 ? parsedDef : Math.max(0, a - pass)
+      const durMin = Number(item.durationMinutes || (Number(item.runtimeHours) || 0) * 60) || 0
+
       rec.ticketCount++
-      rec.totalPlanQty += Number(item.planQty) || 0
-      rec.totalActualQty += Number(item.actualQty) || 0
-      rec.totalPassQty += Number(item.passQty) || 0
-      rec.totalDefectQty += Number(item.defectQty) || 0
+      rec.totalActualQty += a
+      rec.totalPassQty += pass
+      rec.totalDefectQty += def
       rec.totalRuntimeHours += Number(item.runtimeHours) || 0
+
+      if (durMin > 720) {
+        rec.anomalies++
+      }
+      if (durMin < 5 && durMin >= 0) {
+        rec.under5Min++
+      }
+
       const orig = String(item.origin || item.createdSource || item.source || '').toUpperCase()
       if (orig.includes('MES')) rec.mesCount++
     })
@@ -732,67 +973,162 @@ export const useProductionStatisticsLogic = ({
     return Array.from(map.values())
       .map((t) => {
         const passRate = t.totalActualQty > 0 ? (t.totalPassQty / t.totalActualQty) * 100 : 100
-        const planRate = t.totalPlanQty > 0 ? (t.totalActualQty / t.totalPlanQty) * 100 : 100
         return {
           ...t,
           passRate: Number(passRate.toFixed(1)),
-          planRate: Number(planRate.toFixed(1)),
           mesRate: t.ticketCount > 0 ? Number(((t.mesCount / t.ticketCount) * 100).toFixed(1)) : 0
         }
       })
       .sort((a, b) => b.passRate - a.passRate)
   }, [filteredData])
 
-  // Filtered Team List for Search
+  // Filtered & Sorted Team List for Search and Column Header Sorting
   const displayTeamList = useMemo(() => {
-    if (!teamSearchText) return teamAggregates
-    const q = teamSearchText.toLowerCase()
-    return teamAggregates.filter((t) => t.teamName.toLowerCase().includes(q))
-  }, [teamAggregates, teamSearchText])
+    let list = [...teamAggregates]
+    if (teamSearchText) {
+      const q = teamSearchText.toLowerCase()
+      list = list.filter((t) => t.teamName.toLowerCase().includes(q))
+    }
+
+    const { key, direction } = teamSortConfig
+    list.sort((a, b) => {
+      let valA = a[key]
+      let valB = b[key]
+      if (key === 'actualQty') {
+        valA = a.totalActualQty
+        valB = b.totalActualQty
+      } else if (key === 'passQty') {
+        valA = a.totalPassQty
+        valB = b.totalPassQty
+      } else if (key === 'defectQty') {
+        valA = a.totalDefectQty
+        valB = b.totalDefectQty
+      } else if (key === 'anomalyCount' || key === 'anomalies') {
+        valA = a.anomalies
+        valB = b.anomalies
+      }
+
+      if (typeof valA === 'string') {
+        return direction === 'asc'
+          ? String(valA).localeCompare(String(valB))
+          : String(valB).localeCompare(String(valA))
+      }
+      const numA = Number(valA) || 0
+      const numB = Number(valB) || 0
+      return direction === 'asc' ? numA - numB : numB - numA
+    })
+
+    return list
+  }, [teamAggregates, teamSearchText, teamSortConfig])
 
   // Grand Total for Teams
   const teamGrandTotal = useMemo(() => {
     const totalTickets = displayTeamList.reduce((acc, t) => acc + t.ticketCount, 0)
-    const totalPlan = displayTeamList.reduce((acc, t) => acc + t.totalPlanQty, 0)
     const totalActual = displayTeamList.reduce((acc, t) => acc + t.totalActualQty, 0)
     const totalPass = displayTeamList.reduce((acc, t) => acc + t.totalPassQty, 0)
     const totalDefect = displayTeamList.reduce((acc, t) => acc + t.totalDefectQty, 0)
     const totalMes = displayTeamList.reduce((acc, t) => acc + t.mesCount, 0)
+    const totalUnder5 = displayTeamList.reduce((acc, t) => acc + (t.under5Min || 0), 0)
+    const totalAnomalies = displayTeamList.reduce((acc, t) => acc + (t.anomalies || 0), 0)
     const avgPassRate = totalActual > 0 ? Number(((totalPass / totalActual) * 100).toFixed(1)) : 100
-    const avgPlanRate = totalPlan > 0 ? Number(((totalActual / totalPlan) * 100).toFixed(1)) : 100
     const avgMesRate = totalTickets > 0 ? Number(((totalMes / totalTickets) * 100).toFixed(1)) : 0
     return {
       teamCount: displayTeamList.length,
       totalTickets,
-      totalPlan,
       totalActual,
       totalPass,
       totalDefect,
+      totalUnder5,
+      totalAnomalies,
       avgPassRate,
-      avgPlanRate,
       avgMesRate
     }
   }, [displayTeamList])
 
-  // Filtered Detail Tickets for Search
+  // Filtered & Sorted Detail Tickets for Search and Column Header Sorting
   const displayDetailList = useMemo(() => {
-    if (!detailSearchText) return filteredData
-    const q = detailSearchText.toLowerCase()
-    return filteredData.filter(
-      (item) =>
-        (item.ticketCode && item.ticketCode.toLowerCase().includes(q)) ||
-        (item.orderCode && item.orderCode.toLowerCase().includes(q)) ||
-        (item.machineName && item.machineName.toLowerCase().includes(q)) ||
-        (item.productName && item.productName.toLowerCase().includes(q)) ||
-        (item.customerName && item.customerName.toLowerCase().includes(q)) ||
-        (item.teamName && item.teamName.toLowerCase().includes(q))
-    )
-  }, [filteredData, detailSearchText])
+    let list = [...filteredData]
+    if (detailSearchText) {
+      const q = detailSearchText.toLowerCase()
+      list = list.filter(
+        (item) =>
+          (item.ticketCode && item.ticketCode.toLowerCase().includes(q)) ||
+          (item.ticketNo && item.ticketNo.toLowerCase().includes(q)) ||
+          (item.orderCode && item.orderCode.toLowerCase().includes(q)) ||
+          (item.docNo && item.docNo.toLowerCase().includes(q)) ||
+          (item.machineName && item.machineName.toLowerCase().includes(q)) ||
+          (item.machineCode && item.machineCode.toLowerCase().includes(q)) ||
+          (item.productName && item.productName.toLowerCase().includes(q)) ||
+          (item.customerName && item.customerName.toLowerCase().includes(q)) ||
+          (item.teamName && item.teamName.toLowerCase().includes(q)) ||
+          (item.operator && item.operator.toLowerCase().includes(q))
+      )
+    }
+
+    const { key, direction } = detailSortConfig
+    list.sort((a, b) => {
+      let valA = a[key]
+      let valB = b[key]
+      if (key === 'ticketNo' || key === 'ticketCode') {
+        valA = a.ticketCode || a.ticketNo || ''
+        valB = b.ticketCode || b.ticketNo || ''
+      } else if (key === 'docNo' || key === 'orderCode') {
+        valA = a.orderCode || a.docNo || ''
+        valB = b.orderCode || b.docNo || ''
+      } else if (key === 'startTime' || key === 'StartTime') {
+        valA = a.startTime || a.StartTime || a.prodDate || ''
+        valB = b.startTime || b.StartTime || b.prodDate || ''
+      } else if (key === 'endTime' || key === 'EndTime') {
+        valA = a.endTime || a.EndTime || a.prodDate || ''
+        valB = b.endTime || b.EndTime || b.prodDate || ''
+      } else if (key === 'actualQty') {
+        valA = Number(a.actualQty || a.output) || 0
+        valB = Number(b.actualQty || b.output) || 0
+      } else if (key === 'passQty') {
+        valA = Number(a.passQty || a.passQuantity) || 0
+        valB = Number(b.passQty || b.passQuantity) || 0
+      } else if (key === 'defectQty') {
+        const actA = Number(a.actualQty || a.output) || 0
+        const passA = Number(a.passQty || a.passQuantity) || 0
+        const defA = a.defectQty !== undefined && a.defectQty !== null ? Number(a.defectQty) : 0
+        valA = defA > 0 ? defA : Math.max(0, actA - passA)
+
+        const actB = Number(b.actualQty || b.output) || 0
+        const passB = Number(b.passQty || b.passQuantity) || 0
+        const defB = b.defectQty !== undefined && b.defectQty !== null ? Number(b.defectQty) : 0
+        valB = defB > 0 ? defB : Math.max(0, actB - passB)
+      } else if (key === 'passRate') {
+        valA = Number(a.passRate) || 0
+        valB = Number(b.passRate) || 0
+      } else if (key === 'runtimeHours') {
+        valA = Number(a.runtimeHours) || 0
+        valB = Number(b.runtimeHours) || 0
+      } else if (key === 'auditBadge') {
+        valA = Number(a.durationMinutes || (Number(a.runtimeHours) || 0) * 60) || 0
+        valB = Number(b.durationMinutes || (Number(b.runtimeHours) || 0) * 60) || 0
+      }
+
+      if (typeof valA === 'string') {
+        return direction === 'asc'
+          ? String(valA).localeCompare(String(valB))
+          : String(valB).localeCompare(String(valA))
+      }
+      const numA = Number(valA) || 0
+      const numB = Number(valB) || 0
+      return direction === 'asc' ? numA - numB : numB - numA
+    })
+
+    return list
+  }, [filteredData, detailSearchText, detailSortConfig])
 
   const executiveVerticalData = useMemo(() => {
+    let source = machineAggregates
+    if (!showManualMachines) {
+      source = source.filter((m) => !isManualMachine(m))
+    }
     // Sắp xếp các cụm máy theo tổng giờ chạy giảm dần để làm nổi bật sự bất thường
-    const sorted = [...machineAggregates].sort((a, b) => b.totalRuntimeHours - a.totalRuntimeHours)
-    return sorted.slice(0, 30).map((m) => {
+    const sorted = [...source].sort((a, b) => b.totalRuntimeHours - a.totalRuntimeHours)
+    return sorted.slice(0, 30).map((m, index) => {
       const rawName = m.machineName || m.machineCode || 'Máy'
       const maskedName = maskText(rawName, 5)
       const shortName =
@@ -817,17 +1153,19 @@ export const useProductionStatisticsLogic = ({
         passQty: m.totalPassQty,
         defectQty: m.totalDefectQty,
         speed: m.speed,
-        fill: isOver24h ? '#be123c' : m.totalRuntimeHours >= 16 ? '#d97706' : '#245d6c'
+        fill: isOver24h ? '#dc2626' : index === 0 ? '#245d6c' : index < 5 ? '#2b6b79' : '#0284c7'
       }
     })
-  }, [machineAggregates, maskText])
+  }, [machineAggregates, showManualMachines, maskText])
 
-  // Chart 2 Data: Team Benchmark
+  // Chart 2 Data: Team Production & Pass Comparison
   const executiveHorizontalData = useMemo(() => {
     return teamAggregates.map((t) => ({
       name: t.teamName,
-      value: t.passRate,
-      fill: t.passRate < 95 ? '#d97706' : '#245d6c'
+      actualQty: t.totalActualQty,
+      passQty: t.totalPassQty,
+      defectQty: t.totalDefectQty,
+      ticketCount: t.ticketCount
     }))
   }, [teamAggregates])
 
@@ -888,7 +1226,6 @@ export const useProductionStatisticsLogic = ({
         'Mã máy': m.machineCode,
         'Phiếu (TKSX)': m.ticketCount,
         'Giờ chạy (h)': m.totalRuntimeHours,
-        'So với 24 giờ (%)': `${m.runtimeVs24h}%`,
         'SL sản xuất': m.totalActualQty,
         'SL đạt': m.totalPassQty,
         'SL phế': m.totalDefectQty,
@@ -913,13 +1250,13 @@ export const useProductionStatisticsLogic = ({
         STT: idx + 1,
         'Tổ sản xuất': t.teamName,
         'Số phiếu': t.ticketCount,
-        'Kế hoạch': t.totalPlanQty,
-        'Thực tế': t.totalActualQty,
-        Đạt: t.totalPassQty,
-        'Phế phẩm': t.totalDefectQty,
+        'SL Sản xuất': t.totalActualQty,
+        'SL Đạt': t.totalPassQty,
+        'SL Lỗi': t.totalDefectQty,
         'Tỷ lệ đạt (%)': `${t.passRate}%`,
-        'Đạt KH (%)': `${t.planRate}%`,
-        'Tỷ lệ MES (%)': `${t.mesRate}%`
+        'Tỷ lệ MES (%)': `${t.mesRate}%`,
+        'Đơn < 5p (Nhập nhanh)': t.under5Min || 0,
+        'Đơn > 12h cần KT': t.anomalies || 0
       }))
       const ws = XLSX.utils.json_to_sheet(wsData)
       const wb = XLSX.utils.book_new()
@@ -934,24 +1271,29 @@ export const useProductionStatisticsLogic = ({
   // Export Detail Table Excel
   const handleExportDetailExcel = () => {
     try {
-      const wsData = displayDetailList.map((item, idx) => ({
-        STT: idx + 1,
-        'Mã phiếu': item.ticketCode || item.ticketNo || '',
-        'Lệnh sản xuất / CT': item.orderCode || item.docNo || '',
-        'Mã máy': item.machineCode || '',
-        'Máy sản xuất': item.machineName || '',
-        'Tổ sản xuất': item.teamName || '',
-        'Thời gian bắt đầu': item.startTime || item.prodDate || '',
-        'Thời gian kết thúc': item.endTime || item.prodDate || '',
-        'SL Kế hoạch': item.planQty || 0,
-        'SL Sản xuất': item.actualQty || 0,
-        'SL Đạt (KCS)': item.passQty || 0,
-        'SL Phế': item.defectQty || 0,
-        'Tỷ lệ đạt (%)': `${item.passRate}%`,
-        'Giờ chạy (h)': (Number(item.runtimeHours) || 0).toFixed(1),
-        'Nguồn gốc': item.origin || 'MES',
-        'Người thực hiện': item.operator || 'Kỹ thuật viên'
-      }))
+      const wsData = displayDetailList.map((item, idx) => {
+        const actual = Number(item.actualQty || item.output) || 0
+        const pass = Number(item.passQty || item.passQuantity) || 0
+        const parsedDef = Number(item.defectQty) || 0
+        const defect = parsedDef > 0 ? parsedDef : Math.max(0, actual - pass)
+        return {
+          STT: idx + 1,
+          'Mã phiếu': item.ticketCode || item.ticketNo || '',
+          'Lệnh sản xuất / CT': item.orderCode || item.docNo || '',
+          'Mã máy': item.machineCode || '',
+          'Máy sản xuất': item.machineName || '',
+          'Tổ sản xuất': item.teamName || '',
+          'Thời gian bắt đầu': item.startTime || item.StartTime || item.prodDate || '',
+          'Thời gian kết thúc': item.endTime || item.EndTime || item.prodDate || '',
+          'SL Sản xuất': actual,
+          'SL Đạt': pass,
+          'SL Lỗi': defect,
+          'Tỷ lệ đạt (%)': `${item.passRate}%`,
+          'Giờ chạy (h)': (Number(item.runtimeHours) || 0).toFixed(1),
+          'Nguồn gốc': item.origin || 'MES',
+          'Người thực hiện': item.operator || 'Kỹ thuật viên'
+        }
+      })
       const ws = XLSX.utils.json_to_sheet(wsData)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'NhatTrinhPhieu')
@@ -993,10 +1335,10 @@ export const useProductionStatisticsLogic = ({
       { title: 'Tên máy sản xuất', width: 250, id: 'machineName' },
       { title: 'Mã máy', width: 110, id: 'machineCode' },
       { title: 'Phiếu', width: 85, id: 'ticketCount' },
-      { title: 'Giờ chạy (h)', width: 105, id: 'runtimeHours' },
-      { title: 'So với 24h', width: 105, id: 'ratio24h' },
+      { title: 'Giờ chạy (h)', width: 115, id: 'runtimeHours' },
       { title: 'SL Sản xuất', width: 130, id: 'actualQty' },
       { title: 'SL Đạt', width: 130, id: 'passQty' },
+      { title: 'SL Lỗi', width: 110, id: 'defectQty' },
       { title: 'Tỷ lệ đạt (%)', width: 115, id: 'passRate' },
       { title: 'ĐVT', width: 80, id: 'unit' },
       { title: 'SL đạt / Giờ', width: 135, id: 'passPerHour' }
@@ -1006,7 +1348,6 @@ export const useProductionStatisticsLogic = ({
       const isSorted =
         machineSortConfig.key === col.id ||
         (machineSortConfig.key === 'totalRuntimeHours' && col.id === 'runtimeHours') ||
-        (machineSortConfig.key === 'runtimeVs24h' && col.id === 'ratio24h') ||
         (machineSortConfig.key === 'speed' && col.id === 'passPerHour')
       if (isSorted) {
         title += machineSortConfig.direction === 'asc' ? ' ↑' : ' ↓'
@@ -1028,11 +1369,9 @@ export const useProductionStatisticsLogic = ({
         const activeKey =
           prev.key === 'totalRuntimeHours'
             ? 'runtimeHours'
-            : prev.key === 'runtimeVs24h'
-              ? 'ratio24h'
-              : prev.key === 'speed'
-                ? 'passPerHour'
-                : prev.key
+            : prev.key === 'speed'
+              ? 'passPerHour'
+              : prev.key
 
         if (activeKey === colId) {
           return { key: colId, direction: prev.direction === 'desc' ? 'asc' : 'desc' }
@@ -1057,14 +1396,16 @@ export const useProductionStatisticsLogic = ({
             kind: GridCellKind.Text,
             data: item.machineName,
             displayData: maskText(item.machineName, 5),
-            allowOverlay: false
+            allowOverlay: false,
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '700 12px' }
           }
         case 'machineCode':
           return {
             kind: GridCellKind.Text,
             data: item.machineCode,
             displayData: item.machineCode,
-            allowOverlay: false
+            allowOverlay: false,
+            themeOverride: { textDark: '#245d6c', baseFontStyle: '700 12px' }
           }
         case 'ticketCount':
           return {
@@ -1072,31 +1413,31 @@ export const useProductionStatisticsLogic = ({
             data: item.ticketCount,
             displayData: Number(item.ticketCount || 0).toLocaleString('vi-VN'),
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: { textDark: '#1e293b', baseFontStyle: '600 12px' }
           }
-        case 'runtimeHours':
+        case 'runtimeHours': {
+          const hours = Number(item.totalRuntimeHours) || 0
+          const isOver = hours > 24
           return {
             kind: GridCellKind.Text,
-            data: `${(Number(item.totalRuntimeHours) || 0).toFixed(1)}h`,
-            displayData: `${(Number(item.totalRuntimeHours) || 0).toFixed(1)}h`,
+            data: `${hours.toFixed(1)}h`,
+            displayData: `${hours.toFixed(1)}h`,
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: isOver
+              ? { textDark: '#dc2626', baseFontStyle: '700 12px' }
+              : { textDark: '#0284c7', baseFontStyle: '700 12px' }
           }
-        case 'ratio24h':
-          return {
-            kind: GridCellKind.Text,
-            data: `${item.runtimeVs24h || 0}%`,
-            displayData: `${item.runtimeVs24h || 0}%`,
-            allowOverlay: false,
-            contentAlign: 'right'
-          }
+        }
         case 'actualQty':
           return {
             kind: GridCellKind.Number,
             data: item.totalActualQty,
             displayData: Number(item.totalActualQty || 0).toLocaleString('vi-VN'),
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '700 12px' }
           }
         case 'passQty':
           return {
@@ -1104,23 +1445,48 @@ export const useProductionStatisticsLogic = ({
             data: item.totalPassQty,
             displayData: Number(item.totalPassQty || 0).toLocaleString('vi-VN'),
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: { textDark: '#0f766e', baseFontStyle: '700 12px' }
           }
-        case 'passRate':
+        case 'defectQty': {
+          const def = Number(item.totalDefectQty) || 0
+          return {
+            kind: GridCellKind.Number,
+            data: def,
+            displayData: def.toLocaleString('vi-VN'),
+            allowOverlay: false,
+            contentAlign: 'right',
+            themeOverride:
+              def > 0
+                ? { textDark: '#dc2626', baseFontStyle: '700 12px' }
+                : { textDark: '#94a3b8', baseFontStyle: '500 12px' }
+          }
+        }
+        case 'passRate': {
+          const rate = Number(item.passRate) || 0
+          const rateTheme =
+            rate >= 98
+              ? { textDark: '#15803d', baseFontStyle: '700 12px' }
+              : rate >= 95
+                ? { textDark: '#0f766e', baseFontStyle: '700 12px' }
+                : { textDark: '#b45309', baseFontStyle: '700 12px' }
           return {
             kind: GridCellKind.Text,
             data: `${item.passRate}%`,
             displayData: `${item.passRate}%`,
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: rateTheme
           }
+        }
         case 'unit':
           return {
             kind: GridCellKind.Text,
             data: item.unit || 'Chiếc',
             displayData: item.unit || 'Chiếc',
             allowOverlay: false,
-            contentAlign: 'center'
+            contentAlign: 'center',
+            themeOverride: { textDark: '#64748b', baseFontStyle: '500 12px' }
           }
         case 'passPerHour':
           return {
@@ -1128,7 +1494,8 @@ export const useProductionStatisticsLogic = ({
             data: `${item.speed || 0}`,
             displayData: `${Number(item.speed || 0).toLocaleString('vi-VN')} SP/h`,
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: { textDark: '#245d6c', baseFontStyle: '700 12px' }
           }
         default:
           return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
@@ -1139,19 +1506,44 @@ export const useProductionStatisticsLogic = ({
 
   const teamGridCols = useMemo(() => {
     const base = [
-      { title: 'Tổ sản xuất', width: 230, id: 'teamName' },
-      { title: 'Số phiếu', width: 100, id: 'ticketCount' },
-      { title: 'SL Thực tế', width: 140, id: 'actualQty' },
-      { title: 'Đạt KH (%)', width: 120, id: 'planRate' },
-      { title: 'Tỷ lệ đạt (%)', width: 120, id: 'passRate' },
-      { title: 'Tỷ lệ MES (%)', width: 120, id: 'mesRate' },
-      { title: 'Đơn > 12h cần KT', width: 140, id: 'anomalyCount' }
+      { title: 'Tổ sản xuất', width: 220, id: 'teamName' },
+      { title: 'Số phiếu', width: 85, id: 'ticketCount' },
+      { title: 'SL Sản xuất', width: 125, id: 'actualQty' },
+      { title: 'SL Đạt', width: 125, id: 'passQty' },
+      { title: 'SL Lỗi', width: 110, id: 'defectQty' },
+      { title: 'Tỷ lệ đạt (%)', width: 115, id: 'passRate' },
+      { title: 'Tỷ lệ MES (%)', width: 110, id: 'mesRate' },
+      { title: 'Đơn < 5p (Nhập nhanh)', width: 145, id: 'under5Min' },
+      { title: 'Đơn > 12h cần KT', width: 130, id: 'anomalyCount' }
     ]
-    return base.map((col) => ({
-      ...col,
-      width: teamColWidths[col.id] || col.width
-    }))
-  }, [teamColWidths])
+    return base.map((col) => {
+      let title = col.title
+      const isSorted = teamSortConfig.key === col.id
+      if (isSorted) {
+        title += teamSortConfig.direction === 'asc' ? ' ↑' : ' ↓'
+      }
+      return {
+        ...col,
+        title,
+        width: teamColWidths[col.id] || col.width
+      }
+    })
+  }, [teamColWidths, teamSortConfig])
+
+  const onTeamHeaderClicked = useCallback(
+    (col) => {
+      const colObj = teamGridCols[col]
+      if (!colObj) return
+      const colId = colObj.id
+      setTeamSortConfig((prev) => {
+        if (prev.key === colId) {
+          return { key: colId, direction: prev.direction === 'desc' ? 'asc' : 'desc' }
+        }
+        return { key: colId, direction: 'desc' }
+      })
+    },
+    [teamGridCols]
+  )
 
   const getTeamCellContent = useCallback(
     ([col, row]) => {
@@ -1167,7 +1559,8 @@ export const useProductionStatisticsLogic = ({
             kind: GridCellKind.Text,
             data: item.teamName,
             displayData: item.teamName,
-            allowOverlay: false
+            allowOverlay: false,
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '700 12px' }
           }
         case 'ticketCount':
           return {
@@ -1175,7 +1568,8 @@ export const useProductionStatisticsLogic = ({
             data: item.ticketCount,
             displayData: Number(item.ticketCount || 0).toLocaleString('vi-VN'),
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: { textDark: '#1e293b', baseFontStyle: '600 12px' }
           }
         case 'actualQty':
           return {
@@ -1183,40 +1577,91 @@ export const useProductionStatisticsLogic = ({
             data: item.totalActualQty,
             displayData: Number(item.totalActualQty || 0).toLocaleString('vi-VN'),
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '700 12px' }
           }
-        case 'planRate':
+        case 'passQty':
           return {
-            kind: GridCellKind.Text,
-            data: `${item.planRate}%`,
-            displayData: `${item.planRate}%`,
+            kind: GridCellKind.Number,
+            data: item.totalPassQty,
+            displayData: Number(item.totalPassQty || 0).toLocaleString('vi-VN'),
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: { textDark: '#0f766e', baseFontStyle: '700 12px' }
           }
-        case 'passRate':
+        case 'defectQty': {
+          const def = Number(item.totalDefectQty) || 0
+          return {
+            kind: GridCellKind.Number,
+            data: def,
+            displayData: def.toLocaleString('vi-VN'),
+            allowOverlay: false,
+            contentAlign: 'right',
+            themeOverride:
+              def > 0
+                ? { textDark: '#dc2626', baseFontStyle: '700 12px' }
+                : { textDark: '#94a3b8', baseFontStyle: '500 12px' }
+          }
+        }
+        case 'passRate': {
+          const rate = Number(item.passRate) || 0
+          const rateTheme =
+            rate >= 98
+              ? { textDark: '#15803d', baseFontStyle: '700 12px' }
+              : rate >= 95
+                ? { textDark: '#0f766e', baseFontStyle: '700 12px' }
+                : { textDark: '#b45309', baseFontStyle: '700 12px' }
           return {
             kind: GridCellKind.Text,
             data: `${item.passRate}%`,
             displayData: `${item.passRate}%`,
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: rateTheme
           }
-        case 'mesRate':
+        }
+        case 'mesRate': {
+          const mes = Number(item.mesRate) || 0
           return {
             kind: GridCellKind.Text,
             data: `${item.mesRate}%`,
             displayData: `${item.mesRate}%`,
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride:
+              mes >= 95
+                ? { textDark: '#2563eb', baseFontStyle: '700 12px' }
+                : { textDark: '#d97706', baseFontStyle: '700 12px' }
           }
-        case 'anomalyCount':
+        }
+        case 'under5Min': {
+          const cnt = Number(item.under5Min) || 0
           return {
             kind: GridCellKind.Number,
-            data: item.anomalies || 0,
-            displayData: Number(item.anomalies || 0).toLocaleString('vi-VN'),
+            data: cnt,
+            displayData: cnt.toLocaleString('vi-VN'),
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride:
+              cnt > 0
+                ? { textDark: '#be123c', baseFontStyle: '700 12px' }
+                : { textDark: '#94a3b8', baseFontStyle: '500 12px' }
           }
+        }
+        case 'anomalyCount': {
+          const anom = Number(item.anomalies) || 0
+          return {
+            kind: GridCellKind.Number,
+            data: anom,
+            displayData: anom.toLocaleString('vi-VN'),
+            allowOverlay: false,
+            contentAlign: 'right',
+            themeOverride:
+              anom > 0
+                ? { textDark: '#d97706', baseFontStyle: '700 12px' }
+                : { textDark: '#94a3b8', baseFontStyle: '500 12px' }
+          }
+        }
         default:
           return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
       }
@@ -1233,20 +1678,43 @@ export const useProductionStatisticsLogic = ({
       { title: 'Tổ sản xuất', width: 150, id: 'teamName' },
       { title: 'Bắt đầu', width: 135, id: 'startTime' },
       { title: 'Kết thúc', width: 135, id: 'endTime' },
-      { title: 'SL Kế hoạch', width: 115, id: 'planQty' },
-      { title: 'SL Sản xuất', width: 115, id: 'actualQty' },
-      { title: 'SL Đạt', width: 115, id: 'passQty' },
+      { title: 'SL Sản xuất', width: 120, id: 'actualQty' },
+      { title: 'SL Đạt', width: 120, id: 'passQty' },
+      { title: 'SL Lỗi', width: 110, id: 'defectQty' },
       { title: 'Tỷ lệ đạt (%)', width: 110, id: 'passRate' },
       { title: 'Giờ chạy (h)', width: 105, id: 'runtimeHours' },
       { title: 'Kiểm toán QLSX', width: 145, id: 'auditBadge' },
       { title: 'Nguồn gốc', width: 95, id: 'origin' },
       { title: 'Người thực hiện', width: 150, id: 'operator' }
     ]
-    return base.map((col) => ({
-      ...col,
-      width: detailColWidths[col.id] || col.width
-    }))
-  }, [detailColWidths])
+    return base.map((col) => {
+      let title = col.title
+      const isSorted = detailSortConfig.key === col.id
+      if (isSorted) {
+        title += detailSortConfig.direction === 'asc' ? ' ↑' : ' ↓'
+      }
+      return {
+        ...col,
+        title,
+        width: detailColWidths[col.id] || col.width
+      }
+    })
+  }, [detailColWidths, detailSortConfig])
+
+  const onDetailHeaderClicked = useCallback(
+    (col) => {
+      const colObj = detailGridCols[col]
+      if (!colObj) return
+      const colId = colObj.id
+      setDetailSortConfig((prev) => {
+        if (prev.key === colId) {
+          return { key: colId, direction: prev.direction === 'desc' ? 'asc' : 'desc' }
+        }
+        return { key: colId, direction: 'desc' }
+      })
+    },
+    [detailGridCols]
+  )
 
   const getDetailCellContent = useCallback(
     ([col, row]) => {
@@ -1257,18 +1725,16 @@ export const useProductionStatisticsLogic = ({
       const colId = detailGridCols[col]?.id
       const actual = Number(item.actualQty || item.output) || 0
       const pass = Number(item.passQty || item.passQuantity) || 0
+      const parsedDef = Number(item.defectQty) || 0
+      const defect = parsedDef > 0 ? parsedDef : Math.max(0, actual - pass)
       const passRateVal = actual > 0 ? ((pass / actual) * 100).toFixed(1) : '100.0'
       const durMin = Number(item.durationMinutes || (Number(item.runtimeHours) || 0) * 60) || 0
 
       let auditText = 'Chuẩn tiến độ'
-      if (durMin < 5 && durMin > 0) {
+      if (durMin < 5 && durMin >= 0) {
         auditText = '< 5p Nhập nhanh'
       } else if (durMin > 720) {
-        if (actual >= 50000) {
-          auditText = '> 12h Đơn lớn (Chuẩn)'
-        } else {
-          auditText = '> 12h Cần kiểm tra'
-        }
+        auditText = '> 12h Cần kiểm tra'
       }
 
       switch (colId) {
@@ -1277,59 +1743,58 @@ export const useProductionStatisticsLogic = ({
             kind: GridCellKind.Text,
             data: item.ticketCode || item.ticketNo || '',
             displayData: item.ticketCode || item.ticketNo || '',
-            allowOverlay: false
+            allowOverlay: false,
+            themeOverride: { textDark: '#2563eb', baseFontStyle: '700 12px' }
           }
         case 'docNo':
           return {
             kind: GridCellKind.Text,
             data: item.orderCode || item.docNo || '',
             displayData: item.orderCode || item.docNo || '',
-            allowOverlay: false
+            allowOverlay: false,
+            themeOverride: { textDark: '#334155', baseFontStyle: '600 12px' }
           }
         case 'machineCode':
           return {
             kind: GridCellKind.Text,
             data: item.machineCode || '',
             displayData: item.machineCode || '',
-            allowOverlay: false
+            allowOverlay: false,
+            themeOverride: { textDark: '#245d6c', baseFontStyle: '700 12px' }
           }
         case 'machineName':
           return {
             kind: GridCellKind.Text,
             data: item.machineName || '',
             displayData: maskText(item.machineName || '', 5),
-            allowOverlay: false
+            allowOverlay: false,
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
           }
         case 'teamName':
           return {
             kind: GridCellKind.Text,
             data: item.teamName || '',
             displayData: item.teamName || '',
-            allowOverlay: false
+            allowOverlay: false,
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         case 'startTime':
           return {
             kind: GridCellKind.Text,
-            data: item.startTime || item.prodDate || '',
-            displayData: item.startTime || item.prodDate || '',
+            data: item.startTime || item.StartTime || item.prodDate || '',
+            displayData: item.startTime || item.StartTime || item.prodDate || '',
             allowOverlay: false,
-            contentAlign: 'center'
+            contentAlign: 'center',
+            themeOverride: { textDark: '#0f766e', baseFontStyle: '600 11.5px' }
           }
         case 'endTime':
           return {
             kind: GridCellKind.Text,
-            data: item.endTime || item.prodDate || '',
-            displayData: item.endTime || item.prodDate || '',
+            data: item.endTime || item.EndTime || item.prodDate || '',
+            displayData: item.endTime || item.EndTime || item.prodDate || '',
             allowOverlay: false,
-            contentAlign: 'center'
-          }
-        case 'planQty':
-          return {
-            kind: GridCellKind.Number,
-            data: item.planQty || 0,
-            displayData: Number(item.planQty || 0).toLocaleString('vi-VN'),
-            allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'center',
+            themeOverride: { textDark: '#0284c7', baseFontStyle: '600 11.5px' }
           }
         case 'actualQty':
           return {
@@ -1337,7 +1802,8 @@ export const useProductionStatisticsLogic = ({
             data: actual,
             displayData: actual.toLocaleString('vi-VN'),
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '700 12px' }
           }
         case 'passQty':
           return {
@@ -1345,46 +1811,92 @@ export const useProductionStatisticsLogic = ({
             data: pass,
             displayData: pass.toLocaleString('vi-VN'),
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: { textDark: '#0f766e', baseFontStyle: '700 12px' }
           }
-        case 'passRate':
+        case 'defectQty':
+          return {
+            kind: GridCellKind.Number,
+            data: defect,
+            displayData: defect.toLocaleString('vi-VN'),
+            allowOverlay: false,
+            contentAlign: 'right',
+            themeOverride:
+              defect > 0
+                ? { textDark: '#dc2626', baseFontStyle: '700 12px' }
+                : { textDark: '#94a3b8', baseFontStyle: '500 12px' }
+          }
+        case 'passRate': {
+          const rate = parseFloat(passRateVal) || 0
+          const rateTheme =
+            rate >= 98
+              ? { textDark: '#15803d', baseFontStyle: '700 12px' }
+              : rate >= 95
+                ? { textDark: '#0f766e', baseFontStyle: '700 12px' }
+                : { textDark: '#b45309', baseFontStyle: '700 12px' }
           return {
             kind: GridCellKind.Text,
             data: `${passRateVal}%`,
             displayData: `${passRateVal}%`,
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: rateTheme
           }
-        case 'runtimeHours':
+        }
+        case 'runtimeHours': {
+          const rh = Number(item.runtimeHours) || 0
+          const isOver = rh > 24
           return {
             kind: GridCellKind.Text,
-            data: `${(Number(item.runtimeHours) || 0).toFixed(1)}h`,
-            displayData: `${(Number(item.runtimeHours) || 0).toFixed(1)}h`,
+            data: `${rh.toFixed(1)}h`,
+            displayData: `${rh.toFixed(1)}h`,
             allowOverlay: false,
-            contentAlign: 'right'
+            contentAlign: 'right',
+            themeOverride: isOver
+              ? { textDark: '#dc2626', baseFontStyle: '700 12px' }
+              : { textDark: '#0284c7', baseFontStyle: '600 12px' }
           }
-        case 'auditBadge':
+        }
+        case 'auditBadge': {
+          let badgeTheme = { textDark: '#15803d', baseFontStyle: '600 12px' }
+          if (auditText.includes('< 5p')) {
+            badgeTheme = { textDark: '#be123c', baseFontStyle: '700 12px' }
+          } else if (auditText.includes('Cần kiểm tra')) {
+            badgeTheme = { textDark: '#b45309', baseFontStyle: '700 12px' }
+          } else if (auditText.includes('Đơn lớn')) {
+            badgeTheme = { textDark: '#0f766e', baseFontStyle: '700 12px' }
+          }
           return {
             kind: GridCellKind.Text,
             data: auditText,
             displayData: auditText,
             allowOverlay: false,
-            contentAlign: 'center'
+            contentAlign: 'center',
+            themeOverride: badgeTheme
           }
-        case 'origin':
+        }
+        case 'origin': {
+          const isMes = String(item.origin || item.createdSource || '')
+            .toUpperCase()
+            .includes('MES')
           return {
             kind: GridCellKind.Text,
             data: item.origin || 'MES',
             displayData: item.origin || 'MES',
             allowOverlay: false,
-            contentAlign: 'center'
+            contentAlign: 'center',
+            themeOverride: isMes
+              ? { textDark: '#2563eb', baseFontStyle: '700 12px' }
+              : { textDark: '#d97706', baseFontStyle: '600 12px' }
           }
+        }
         case 'operator':
           return {
             kind: GridCellKind.Text,
             data: maskText(item.operator || 'Kỹ thuật viên', 3),
             displayData: maskText(item.operator || 'Kỹ thuật viên', 3),
-            allowOverlay: false
+            allowOverlay: false,
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         default:
           return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
@@ -1544,6 +2056,8 @@ export const useProductionStatisticsLogic = ({
     // State
     machineChartMode,
     setMachineChartMode,
+    showManualMachines,
+    setShowManualMachines,
     selectedTeam,
     setSelectedTeam,
     selectedMachine,
@@ -1623,9 +2137,15 @@ export const useProductionStatisticsLogic = ({
     machineGridCols,
     getMachineCellContent,
     onMachineColumnResize,
+    teamSortConfig,
+    setTeamSortConfig,
+    onTeamHeaderClicked,
     teamGridCols,
     getTeamCellContent,
     onTeamColumnResize,
+    detailSortConfig,
+    setDetailSortConfig,
+    onDetailHeaderClicked,
     detailGridCols,
     getDetailCellContent,
     onDetailColumnResize

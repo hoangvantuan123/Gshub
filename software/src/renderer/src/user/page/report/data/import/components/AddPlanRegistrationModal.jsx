@@ -620,7 +620,9 @@ export default function AddPlanRegistrationModal({ isOpen, onClose, onSaveRegist
                   </div>
                   <div className="hidden sm:flex items-center gap-1 text-slate-500">
                     <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>[{factoryCode}] {factoryName}</span>
+                    <span>
+                      [{factoryCode}] {factoryName}
+                    </span>
                   </div>
                   <div className="hidden sm:flex items-center gap-1 text-slate-500">
                     <Calendar className="w-3 h-3 text-slate-400 shrink-0" />

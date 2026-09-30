@@ -858,21 +858,6 @@ export const ExecutiveChartTooltip = ({ active, payload, label, unit = '' }) => 
             </span>
           </div>
         )}
-        {pData.isOver24h && (
-          <div
-            style={{
-              marginTop: 6,
-              padding: '4px 6px',
-              background: '#881337',
-              borderRadius: 2,
-              fontSize: 11,
-              color: '#fecdd3',
-              fontWeight: 700
-            }}
-          >
-            ⚠ Cảnh báo: Tổng giờ chạy {pData.totalRuntimeHours}h vượt quá 24h/ngày!
-          </div>
-        )}
         {pData.desc && (
           <div style={{ marginTop: 6, fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
             {pData.desc}
@@ -886,11 +871,11 @@ export const ExecutiveChartTooltip = ({ active, payload, label, unit = '' }) => 
 
 // 4.1. Custom Machine Runtime Vertical Bar Component
 export const MachineRuntimeVerticalBar = (props) => {
-  const { x, y, width, height, fill, value } = props
+  const { x, y, width, height, fill, value, isOver24h } = props
   if (height === 0 || isNaN(y)) return null
 
-  const isOver24h = Number(value) > 24
-  const barColor = isOver24h ? '#be123c' : fill || '#245d6c'
+  const isWarning = isOver24h || Number(value) > 24
+  const barColor = isWarning ? '#dc2626' : fill || '#245d6c'
   const centerX = x + width / 2
 
   return (
@@ -899,13 +884,13 @@ export const MachineRuntimeVerticalBar = (props) => {
       <text
         x={centerX}
         y={Math.max(12, y - 6)}
-        fill={isOver24h ? '#be123c' : '#0f172a'}
+        fill={isWarning ? '#dc2626' : '#0f172a'}
         textAnchor="middle"
         fontSize={10.5}
         fontWeight={700}
         fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
       >
-        {value}h{isOver24h ? ' ⚠' : ''}
+        {value}h
       </text>
     </g>
   )

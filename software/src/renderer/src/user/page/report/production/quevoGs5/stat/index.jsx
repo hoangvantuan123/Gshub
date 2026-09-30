@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import ProductionStatisticsReport from '../../components/ProductionStatisticsReport'
 import { initialQuevoGs5Stats } from '../../../common/reportUtils'
 import {
@@ -9,63 +8,127 @@ import {
 } from '../../../data/import/services/planRegistrationService'
 
 /**
- * Hàm tính giờ chạy máy từ bản ghi chi tiết
+ * Chuyển đổi và tính toán chính xác Thời gian thao tác theo PHÚT (Duration in Minutes)
  */
-function parseRuntimeToHours(runtimeVal, startTime, endTime, qty = 0) {
-  // 1. Nếu có giờ bắt đầu và kết thúc -> Tính độ lệch chính xác theo giờ
+function parseDurationToMinutes(rawTime, startTime, endTime) {
+  // 1. Nếu có StartTime và EndTime
   if (startTime && endTime) {
-    try {
-      const s = new Date(startTime).getTime()
-      const e = new Date(endTime).getTime()
-      if (!isNaN(s) && !isNaN(e) && e > s) {
-        const diffHours = (e - s) / (1000 * 3600)
-        return Number(diffHours.toFixed(2))
+    const sStr = String(startTime).trim()
+    const eStr = String(endTime).trim()
+
+    const sDate = new Date(sStr.includes('T') ? sStr : sStr.replace(' ', 'T')).getTime()
+    const eDate = new Date(eStr.includes('T') ? eStr : eStr.replace(' ', 'T')).getTime()
+    if (!isNaN(sDate) && !isNaN(eDate) && eDate >= sDate) {
+      const diffMin = (eDate - sDate) / (1000 * 60)
+      if (diffMin >= 0 && diffMin <= 1440) {
+        return Number(diffMin.toFixed(1))
       }
-    } catch {
-      // Bỏ qua nếu parse date lỗi
+    }
+
+    if (sStr.includes(':') && eStr.includes(':')) {
+      const sParts = sStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+      const eParts = eStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+      const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
+      const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
+      let diff = eMin - sMin
+      if (diff < 0) diff += 1440
+      if (diff >= 0 && diff <= 1440) return Number(diff.toFixed(1))
     }
   }
 
-  // 2. Nếu có giá trị runtime số cụ thể
-  if (runtimeVal !== null && runtimeVal !== undefined && runtimeVal !== '') {
-    const val = parseFloat(runtimeVal)
-    if (!isNaN(val) && val > 0) {
-      if (val > 24) {
-        return Number((val / 60).toFixed(2))
-      }
-      return Number(val.toFixed(2))
+  // 2. Nếu có chuỗi thời gian ActualRunTime (Đơn vị trong hệ thống MES/ERP luôn là PHÚT)
+  if (rawTime !== undefined && rawTime !== null && rawTime !== '') {
+    const str = String(rawTime).trim().replace(',', '.')
+    if (str.includes(':')) {
+      const parts = str.split(':').map((v) => parseFloat(v) || 0)
+      const totalMin = parts[0] * 60 + (parts[1] || 0) + (parts[2] || 0) / 60
+      if (totalMin >= 0) return Number(totalMin.toFixed(1))
+    }
+    const val = parseFloat(str)
+    if (!isNaN(val) && val >= 0) {
+      return Number(val.toFixed(1))
     }
   }
 
-  // 3. Ước tính từ sản lượng nếu không có thời gian ghi nhận (định mức ~3500 sp/giờ)
-  if (qty > 0) {
-    const est = qty / 3500
-    return Number(Math.min(12, Math.max(0.5, est)).toFixed(1))
+  return 0
+}
+
+export function parseCleanNumber(val, defaultVal = 0) {
+  if (val === undefined || val === null || val === '') return defaultVal
+  if (typeof val === 'number') return isNaN(val) ? defaultVal : val
+
+  let s = String(val).trim().replace(/\s+/g, '')
+  if (!s) return defaultVal
+
+  if (s.includes('.') && s.includes(',')) {
+    const lastDot = s.lastIndexOf('.')
+    const lastComma = s.lastIndexOf(',')
+    if (lastComma > lastDot) {
+      s = s.replace(/\./g, '').replace(',', '.')
+    } else {
+      s = s.replace(/,/g, '')
+    }
+  } else if (s.includes('.')) {
+    const parts = s.split('.')
+    if (parts.length > 2) {
+      s = parts.join('')
+    } else if (parts.length === 2 && parts[1].length === 3 && parts[0].length >= 1) {
+      s = parts[0] + parts[1]
+    }
+  } else if (s.includes(',')) {
+    const parts = s.split(',')
+    if (parts.length > 2) {
+      s = parts.join('')
+    } else if (parts.length === 2) {
+      if (parts[1].length === 3 && parts[0].length >= 1) {
+        s = parts[0] + parts[1]
+      } else {
+        s = parts[0] + '.' + parts[1]
+      }
+    }
   }
 
-  return 7.5
+  const num = parseFloat(s)
+  return isNaN(num) ? defaultVal : num
 }
 
 /**
- * Hàm chuyển đổi bản ghi Chi tiết TKSX/KHSX từ Database sang định dạng chuẩn của Báo cáo Thống kê Sản xuất Quế Võ GS5
+ * Hàm chuyển đổi bản ghi Chi tiết TKSX/KHSX từ Database sang định dạng chuẩn của Báo cáo Thống kê Sản xuất GS5 Quế Võ
  */
 function mapDBRowToStatItem(item, idx, masterInfo) {
-  const planQty =
-    parseFloat(item.TargetProdQty || item.TargetPassQty || item.StandardMeters || 0) || 0
+  const planQty = parseCleanNumber(
+    item.TargetProdQty || item.TargetPassQty || item.StandardMeters || 0
+  )
   const actualQty =
-    parseFloat(item.ProdQty || item.ActualMeters || item.StatPassQty || 0) || planQty || 0
+    parseCleanNumber(item.ProdQty || item.ActualMeters || item.StatPassQty || 0) || planQty || 0
   const passQty =
-    parseFloat(item.PassQty || item.StatPassQty || item.ProdQty || 0) || actualQty || 0
-  const defectQty = parseFloat(item.DefectQty || 0) || Math.max(0, actualQty - passQty) || 0
+    parseCleanNumber(item.PassQty || item.StatPassQty || item.ProdQty || 0) || actualQty || 0
+  const parsedDefect = parseCleanNumber(item.DefectQty, 0)
+  const defectQty = parsedDefect > 0 ? parsedDefect : Math.max(0, actualQty - passQty)
   const passRate =
     actualQty > 0 ? Number(Math.min(100, Math.max(0, (passQty / actualQty) * 100)).toFixed(2)) : 100
 
-  const runtimeHours = parseRuntimeToHours(
-    item.ActualRunTime || item.ActualProdTime || item.BreakdownMinutes,
-    item.StartTime,
-    item.EndTime,
-    actualQty || planQty
-  )
+  // Tính toán durationMinutes và runtimeHours chính xác theo phút
+  const durationMinutes =
+    item.DurationMinutes !== undefined && item.DurationMinutes !== null && item.DurationMinutes !== ''
+      ? Number(item.DurationMinutes)
+      : item.durationMinutes !== undefined && item.durationMinutes !== null && item.durationMinutes !== ''
+        ? Number(item.durationMinutes)
+        : undefined
+
+  const finalDurationMinutes =
+    durationMinutes !== undefined
+      ? durationMinutes
+      : parseDurationToMinutes(
+          item.ActualRunTime || item.ActualProdTime || item.BreakdownMinutes,
+          item.StartTime || item.startTime || item.TicketCreatedDate,
+          item.EndTime || item.endTime || item.MesApprovalTime
+        )
+
+  const runtimeHours =
+    item.RuntimeHours !== undefined && item.RuntimeHours !== null && item.RuntimeHours !== ''
+      ? Number(item.RuntimeHours)
+      : Number((finalDurationMinutes / 60).toFixed(2))
 
   const prodDate =
     item.StatDate ||
@@ -78,28 +141,28 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     item.MachineCode ||
     (item.MachineName
       ? String(item.MachineName).toUpperCase().replace(/\s+/g, '_').slice(0, 15)
-      : `MC-QV-${String((idx % 24) + 1).padStart(2, '0')}`)
+      : `MC-GS5-${String((idx % 32) + 1).padStart(2, '0')}`)
   const machineName = item.MachineName || `Máy ${machineCode}`
 
   return {
-    id: item.IdSeq ? String(item.IdSeq) : item.StatTicketNo || `QV-STAT-${idx + 1}`,
+    id: item.IdSeq ? String(item.IdSeq) : item.StatTicketNo || `GS5-STAT-${idx + 1}`,
     ticketNo:
       item.StatTicketNo ||
       item.OperationNo ||
       item.RegCode ||
-      `PTK-QV-${String(idx + 1).padStart(3, '0')}`,
+      `PTK-GS5-${String(idx + 1).padStart(3, '0')}`,
     docNo:
       item.OperationNo ||
       item.OrderNo ||
       item.RoutingDocNo ||
-      `LSX-QV-2026-${String(idx + 1).padStart(4, '0')}`,
-    team: item.TeamName || item.OperationName || 'Tổ Sóng Carton',
-    teamCode: item.TeamName ? item.TeamName.toUpperCase().replace(/\s+/g, '_') : 'TO_SONG',
+      `LSX-GS5-2026-${String(idx + 1).padStart(4, '0')}`,
+    team: item.TeamName || item.OperationName || 'Tổ Máy Sóng GS5',
+    teamCode: item.TeamName ? item.TeamName.toUpperCase().replace(/\s+/g, '_') : 'TO_MAY_SONG',
     machineName,
     machineCode,
     isManual: false,
-    itemCode: item.ItemCode || 'CARTON-GS5',
-    itemName: item.ItemName || 'Thùng Carton Sóng Goldsun',
+    itemCode: item.ItemCode || 'BOX-GOLDSUN-GS5',
+    itemName: item.ItemName || 'Thùng carton 5 lớp Goldsun GS5',
     unit: item.Unit || item.RoutingUnit || 'Chiếc',
     planQty,
     actualQty,
@@ -107,8 +170,39 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     defectQty,
     passRate,
     runtimeHours,
+    durationMinutes: finalDurationMinutes,
+    AuditCategory:
+      finalDurationMinutes < 5
+        ? 'UNDER_5MIN'
+        : finalDurationMinutes > 720
+          ? 'OVER_12H'
+          : '5MIN_12H',
     shift: item.Shift || 'Ca 1',
     prodDate,
+    startTime:
+      item.StartTime ||
+      item.startTime ||
+      (item.TicketCreatedDate
+        ? String(item.TicketCreatedDate).slice(0, 19).replace('T', ' ')
+        : `${prodDate} 07:30:00`),
+    endTime:
+      item.EndTime ||
+      item.endTime ||
+      (item.MesApprovalTime
+        ? String(item.MesApprovalTime).slice(0, 19).replace('T', ' ')
+        : `${prodDate} 15:30:00`),
+    StartTime:
+      item.StartTime ||
+      item.startTime ||
+      (item.TicketCreatedDate
+        ? String(item.TicketCreatedDate).slice(0, 19).replace('T', ' ')
+        : `${prodDate} 07:30:00`),
+    EndTime:
+      item.EndTime ||
+      item.endTime ||
+      (item.MesApprovalTime
+        ? String(item.MesApprovalTime).slice(0, 19).replace('T', ' ')
+        : `${prodDate} 15:30:00`),
     createdSource: item.TicketCreationLocation || 'MES',
     syncDelayMinutes:
       item.SyncDelayMinutes !== undefined && item.SyncDelayMinutes !== null
@@ -142,7 +236,7 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
         ? 'Có XKTĐ'
         : 'Không áp dụng XNTĐ'),
     supervisor:
-      item.MainWorker || item.StatStaff || item.PicDp || item.CreatedByName || 'Quản lý sản xuất',
+      item.MainWorker || item.StatStaff || item.PicDp || item.CreatedByName || 'Quản lý sản xuất GS5',
     status: item.Status || item.StatusDpSx || 'Hoàn thành',
     createdTime:
       item.TicketCreatedDate ||
@@ -159,8 +253,6 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
 }
 
 export default function QuevoGs5StatPage() {
-  const navigate = useNavigate()
-
   const [loading, setLoading] = useState(false)
   const [masterList, setMasterList] = useState([])
   const [selectedMasterKey, setSelectedMasterKey] = useState(null)
@@ -168,24 +260,27 @@ export default function QuevoGs5StatPage() {
   const [statDataset, setStatDataset] = useState(initialQuevoGs5Stats)
   const [dataSourceType, setDataSourceType] = useState('sample') // 'database' | 'sample'
 
-  // Fetch danh sách Master các đợt đăng ký từ CSDL (Chỉ lọc riêng của GS5 Quế Võ)
+  // Fetch danh sách Master các đợt đăng ký từ CSDL cho GS5 Quế Võ
   const fetchMastersAndLatestData = useCallback(async (targetRegCode = null) => {
     setLoading(true)
     try {
-      // 1. Lấy danh sách master đăng ký từ DB và lọc CHẶT CHẼ theo mã nhà máy GS5 (Quế Võ) ngay từ API
+      // 1. Lấy danh sách master đăng ký từ DB và lọc theo mã nhà máy GS5 (Quế Võ)
       const resAll = await queryPlanMaster({ FactoryCode: 'GS5' })
       const allMasters = resAll?.data || []
 
       const masters = allMasters.filter((m) => {
-        const code = String(m.FactoryCode || m.factoryCode || '').toUpperCase().trim()
+        const code = String(m.FactoryCode || m.factoryCode || '')
+          .toUpperCase()
+          .trim()
         const f = String(m.FactoryName || m.factoryName || '')
           .toLowerCase()
           .trim()
         const isQuevo =
           code === 'GS5' ||
           f.includes('quế võ') ||
-          f.includes('gs5') ||
-          f.includes('quevo')
+          f.includes('que vo') ||
+          f.includes('quevo') ||
+          f.includes('gs5')
         const isStat =
           !m.ReportType ||
           m.ReportType === 'statistics' ||
@@ -204,7 +299,7 @@ export default function QuevoGs5StatPage() {
       setMasterList(masters)
 
       if (masters.length > 0) {
-        // Tìm master mục tiêu hoặc lấy master mới nhất
+        // Tìm master mục tiêu hoặc lấy master mới nhất (ưu tiên đợt TKSX nếu có)
         let activeMaster = null
         if (targetRegCode) {
           activeMaster = masters.find(
@@ -229,7 +324,7 @@ export default function QuevoGs5StatPage() {
         // 2. Tải dữ liệu chi tiết của master này
         await loadDetailForMaster(activeMaster)
       } else {
-        // Không có dữ liệu đăng ký trong DB cho Quế Võ -> Dùng dữ liệu mẫu Quế Võ
+        // Không có dữ liệu đăng ký trong DB -> Dùng dữ liệu mẫu GS5
         setStatDataset(initialQuevoGs5Stats)
         setDataSourceType('sample')
       }
@@ -254,23 +349,23 @@ export default function QuevoGs5StatPage() {
       // 1. Ưu tiên thử lấy từ _ERPProdStatsDetail (Chi tiết TKSX) theo RegCode
       if (regCode) {
         try {
-          const resStats = await queryProdStatsDetail({ RegCode: regCode })
+          const resStats = await queryProdStatsDetail({ RegCode: regCode, pageSize: '10000' })
           if (resStats?.data && resStats.data.length > 0) {
             rows = resStats.data
           }
         } catch (errStats) {
-          console.warn('Không tìm thấy trong ProdStatsDetail:', errStats)
+          console.warn('Không tìm thấy trong ProdStatsDetail GS5:', errStats)
         }
 
         // 2. Nếu không có ở bảng TKSX, lấy từ _ERPPlanDetail (Chi tiết KHSX)
         if (rows.length === 0) {
           try {
-            const resPlan = await queryPlanDetail({ RegCode: regCode })
+            const resPlan = await queryPlanDetail({ RegCode: regCode, pageSize: '10000' })
             if (resPlan?.data && resPlan.data.length > 0) {
               rows = resPlan.data
             }
           } catch (errPlan) {
-            console.warn('Không tìm thấy trong PlanDetail:', errPlan)
+            console.warn('Không tìm thấy trong PlanDetail GS5:', errPlan)
           }
         }
       }
@@ -280,12 +375,12 @@ export default function QuevoGs5StatPage() {
         setStatDataset(mappedData)
         setDataSourceType('database')
       } else {
-        // Master rỗng dòng detail -> Fallback dữ liệu mẫu Quế Võ
+        // Master rỗng dòng detail -> Fallback dữ liệu mẫu GS5
         setStatDataset(initialQuevoGs5Stats)
         setDataSourceType('sample')
       }
     } catch (err) {
-      console.error(`Lỗi tải chi tiết đợt ${regCode}:`, err)
+      console.error(`Lỗi tải chi tiết đợt GS5 ${regCode}:`, err)
       setStatDataset(initialQuevoGs5Stats)
       setDataSourceType('sample')
     } finally {
@@ -317,7 +412,7 @@ export default function QuevoGs5StatPage() {
       <div className="flex-1 w-full overflow-y-auto">
         <ProductionStatisticsReport
           plantKey="quevo_gs5"
-          plantName="GS5 Quế Võ - Bao bì Carton Sóng"
+          plantName="Nhà máy GS5 Quế Võ"
           dataset={statDataset}
           initialData={statDataset}
           masterList={masterList}
@@ -327,12 +422,6 @@ export default function QuevoGs5StatPage() {
           currentMaster={currentMaster}
           dataSourceType={dataSourceType}
           loadingMaster={loading}
-          activeMainTab="stat"
-          onMainTabChange={(tab) => {
-            if (tab === 'plan') {
-              navigate('/erp/u/report/production/quevo-gs5/plan')
-            }
-          }}
         />
       </div>
     </div>

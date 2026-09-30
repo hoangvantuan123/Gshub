@@ -1,7 +1,33 @@
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 
-// Sample data for Hanoi GS1 Production Statistics
+/**
+ * Chuẩn hóa chuỗi ngày bất kỳ về định dạng chuẩn YYYY-MM-DD
+ */
+export function getCleanDate(dateVal) {
+  if (!dateVal) return ''
+  const s = String(dateVal).trim()
+  if (!s) return ''
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  if (s.includes('/')) {
+    const parts = s.split(' ')[0].split('/')
+    if (parts.length === 3) {
+      let [m, d, y] = parts
+      if (y.length === 2) y = `20${y}`
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
+  }
+  if (s.includes('-')) {
+    const parts = s.split(' ')[0].split('-')
+    if (parts.length === 3 && parts[0].length <= 2 && parts[2].length === 4) {
+      const [d, m, y] = parts
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
+  }
+  return s.slice(0, 10)
+}
+
+// Sample data for Hanoi GS1 Production Statistics (Đầy đủ tất cả các Tổ và Cụm máy GS1)
 export const initialHanoiGs1Stats = [
   {
     id: 'HN-STAT-001',
@@ -249,8 +275,8 @@ export const initialHanoiGs1Stats = [
     docNo: 'LSX-HN-2026-0898',
     team: 'Tổ In Offset',
     teamCode: 'TO_IN',
-    machineName: 'Máy In Offset Heidelberg XL-106 6 Màu',
-    machineCode: 'OFFSET-01',
+    machineName: 'Máy In Komori Lithrone G40',
+    machineCode: 'OFFSET-02',
     isManual: false,
     itemCode: 'BOX-TEA-SPECIAL',
     itemName: 'Hộp trà đặc sản Tân Cương Thượng Hạng',
@@ -271,7 +297,7 @@ export const initialHanoiGs1Stats = [
     status: 'Hoàn thành',
     createdTime: '2026-09-29 08:30:00',
     syncTime: '2026-09-29 08:33:00',
-    note: 'CẢNH BÁO QLSX: Thao tác < 5 phút (3 phút) - Nghi vấn nhập sai hoặc chốt vội phiếu, cần chấn chỉnh thao tác'
+    note: 'CẢNH BÁO QLSX: Thao tác < 5 phút (3 phút) - Nghi vấn nhập sai hoặc chốt vội phiếu'
   },
   {
     id: 'HN-STAT-010',
@@ -332,6 +358,126 @@ export const initialHanoiGs1Stats = [
     createdTime: '2026-09-29 07:00:00',
     syncTime: '2026-09-29 22:12:00',
     note: 'CẢNH BÁO QLSX: Đơn nhỏ 3.100 sp ghi nhận 15.2 giờ - Nghi vấn công nhân quên kết thúc phiếu sau ca'
+  },
+  {
+    id: 'HN-STAT-012',
+    ticketNo: 'PTK-HN-2026-0930-01',
+    docNo: 'LSX-HN-2026-0901',
+    team: 'Tổ Bồi Tự Động',
+    teamCode: 'TO_BOI',
+    machineName: 'Máy Bồi Tự Động Sakurai 1450',
+    machineCode: 'BOI-01',
+    isManual: false,
+    itemCode: 'CARTON-B12-NAMHA',
+    itemName: 'Thùng carton đựng thuốc B-Complex 100ml',
+    unit: 'Tấm',
+    planQty: 35000,
+    actualQty: 35400,
+    passQty: 34950,
+    defectQty: 450,
+    passRate: 98.73,
+    runtimeHours: 6.5,
+    shift: 'Ca 1',
+    prodDate: '2026-09-30',
+    createdSource: 'MES',
+    syncDelayMinutes: 2.4,
+    isDuplicate: false,
+    autoExportNote: true,
+    supervisor: 'Trần Văn Mạnh',
+    status: 'Hoàn thành',
+    createdTime: '2026-09-30 08:00:00',
+    syncTime: '2026-09-30 08:02:24',
+    note: 'Đã sinh phiếu xuất kho giấy duplex tự động PXK-HN-0930-012'
+  },
+  {
+    id: 'HN-STAT-013',
+    ticketNo: 'PTK-HN-2026-0930-02',
+    docNo: 'LSX-HN-2026-0902',
+    team: 'Tổ Cắt Xén & Hoàn Thiện',
+    teamCode: 'TO_CATXEN',
+    machineName: 'Máy Cắt Xén Giấy Polar 137',
+    machineCode: 'CUT-01',
+    isManual: false,
+    itemCode: 'LBL-BEER-HN',
+    itemName: 'Nhãn bia Hà Nội Premium 330ml',
+    unit: 'Tấm',
+    planQty: 90000,
+    actualQty: 90500,
+    passQty: 89800,
+    defectQty: 700,
+    passRate: 99.23,
+    runtimeHours: 5.8,
+    shift: 'Ca 1',
+    prodDate: '2026-09-30',
+    createdSource: 'MES',
+    syncDelayMinutes: 3.1,
+    isDuplicate: false,
+    autoExportNote: true,
+    supervisor: 'Đỗ Đức Huy',
+    status: 'Hoàn thành',
+    createdTime: '2026-09-30 08:30:00',
+    syncTime: '2026-09-30 08:33:06',
+    note: 'Đã xuất kho thành phẩm tem nhãn'
+  },
+  {
+    id: 'HN-STAT-014',
+    ticketNo: 'PTK-HN-2026-0930-03',
+    docNo: 'LSX-HN-2026-0903',
+    team: 'Tổ Máy Sóng',
+    teamCode: 'TO_SONG',
+    machineName: 'Dây Chuyền Tạo Sóng Carton 2.5m',
+    machineCode: 'SONG-01',
+    isManual: false,
+    itemCode: 'BOARD-3L-E',
+    itemName: 'Tấm carton sóng E 3 lớp định lượng 150/125/150',
+    unit: 'Mét',
+    planQty: 18000,
+    actualQty: 18250,
+    passQty: 18100,
+    defectQty: 150,
+    passRate: 99.18,
+    runtimeHours: 7.0,
+    shift: 'Ca 2',
+    prodDate: '2026-09-30',
+    createdSource: 'MES',
+    syncDelayMinutes: 1.5,
+    isDuplicate: false,
+    autoExportNote: true,
+    supervisor: 'Lê Văn Thắng',
+    status: 'Đang chạy',
+    createdTime: '2026-09-30 14:00:00',
+    syncTime: '2026-09-30 14:01:30',
+    note: 'Cung cấp phôi sóng cho dây chuyền bế tự động BOBST-02'
+  },
+  {
+    id: 'HN-STAT-015',
+    ticketNo: 'PTK-HN-2026-0930-04',
+    docNo: 'LSX-HN-2026-0904',
+    team: 'Tổ Dán & Đóng Gói Hộp',
+    teamCode: 'TO_DAN',
+    machineName: 'Máy Dán Hộp Tự Động SBL-1050',
+    machineCode: 'DAN-02',
+    isManual: false,
+    itemCode: 'BOX-PIZZA-30',
+    itemName: 'Hộp Pizza cỡ lớn 30cm in offset bồi carton',
+    unit: 'Chiếc',
+    planQty: 40000,
+    actualQty: 39800,
+    passQty: 39200,
+    defectQty: 600,
+    passRate: 98.49,
+    runtimeHours: 6.0,
+    shift: 'Ca 2',
+    prodDate: '2026-09-30',
+    createdSource: 'MES',
+    syncDelayMinutes: 2.8,
+    isDuplicate: false,
+    autoExportNote: true,
+    supervisor: 'Phạm Minh Tuấn',
+    status: 'Hoàn thành',
+    createdTime: '2026-09-30 15:00:00',
+    syncTime: '2026-09-30 15:02:48',
+    note: 'Đã hoàn thành bàn giao kho vận'
   }
 ]
 

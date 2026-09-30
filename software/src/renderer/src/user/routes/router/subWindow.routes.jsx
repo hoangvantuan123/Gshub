@@ -5,6 +5,4 @@ const mappedSystemSubRoutes = systemsRoutes.map((route) => ({
   path: route.path.replace(/^\/erp\/u\//, '')
 }))
 
-export const subWindowRoutes = [
-  ...mappedSystemSubRoutes
-]
+export const subWindowRoutes = [...mappedSystemSubRoutes]

@@ -195,10 +195,10 @@ export default function DailyPlanRegistrationPage({
   }, [])
 
   // ── 4. Xử lý Lưu đăng ký mới từ Modal (Master + Chi tiết) ──
-  const handleSaveRegistration = async (regData) => {
+  const handleSaveRegistration = async (regData, onProgress = null) => {
     try {
       loadingBarRef?.current?.continuousStart?.()
-      const res = await savePlanRegistration(regData)
+      const res = await savePlanRegistration(regData, null, onProgress)
       loadingBarRef?.current?.complete?.()
 
       const savedMaster = res?.data || {}

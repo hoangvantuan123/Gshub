@@ -272,17 +272,25 @@ export default function AddPlanRegistrationModal({ isOpen, onClose, onSaveRegist
         text: `Đang lưu đăng ký ${sheetData.length} dòng lên hệ thống...`
       })
       if (onSaveRegistration) {
-        await onSaveRegistration({
-          reportType,
-          factoryCode,
-          factoryName,
-          applyDate,
-          regCode: finalRegCode,
-          remark,
-          status: 'published',
-          isDraft: false,
-          data: sheetData
-        })
+        await onSaveRegistration(
+          {
+            reportType,
+            factoryCode,
+            factoryName,
+            applyDate,
+            regCode: finalRegCode,
+            remark,
+            status: 'published',
+            isDraft: false,
+            data: sheetData
+          },
+          (progress) => {
+            setModalStatus({
+              type: 'info',
+              text: `Đang lưu: ${progress.current.toLocaleString('vi-VN')} / ${progress.total.toLocaleString('vi-VN')} dòng (${progress.percent}%)...`
+            })
+          }
+        )
       }
       setSheetData([])
       onClose()

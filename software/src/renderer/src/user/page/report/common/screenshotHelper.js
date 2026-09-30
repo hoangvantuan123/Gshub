@@ -1,4 +1,3 @@
-import * as htmlToImage from 'html-to-image'
 import html2canvas from 'html2canvas'
 
 /**
@@ -30,7 +29,7 @@ function defaultFilter(node) {
 
 /**
  * Inline computed styles onto SVG text, paths, and containers to guarantee
- * flawless rendering in Chromium/Electron SVG ForeignObject rasterizer without losing characters.
+ * flawless rendering in Chromium/Electron SVG rasterizer without losing characters.
  */
 function prepareSvgAndCanvasForCapture(rootEl) {
   const cleanups = []
@@ -79,8 +78,10 @@ function prepareSvgAndCanvasForCapture(rootEl) {
         const origInlineStyle = tNode.getAttribute('style')
 
         // Apply computed font & fill attributes directly
-        const fill = computed.fill && computed.fill !== 'none' ? computed.fill : (computed.color || '#0f172a')
-        const fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif'
+        const fill =
+          computed.fill && computed.fill !== 'none' ? computed.fill : computed.color || '#0f172a'
+        const fontFamily =
+          'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif'
         const fontSize = computed.fontSize || '12px'
         const fontWeight = computed.fontWeight || '500'
 
@@ -112,7 +113,8 @@ function prepareSvgAndCanvasForCapture(rootEl) {
           else tNode.removeAttribute('font-weight')
           if (origTextAnchor !== null) tNode.setAttribute('text-anchor', origTextAnchor)
           else tNode.removeAttribute('text-anchor')
-          if (origDominantBaseline !== null) tNode.setAttribute('dominant-baseline', origDominantBaseline)
+          if (origDominantBaseline !== null)
+            tNode.setAttribute('dominant-baseline', origDominantBaseline)
           else tNode.removeAttribute('dominant-baseline')
           if (origInlineStyle !== null) tNode.setAttribute('style', origInlineStyle)
           else tNode.removeAttribute('style')
@@ -121,7 +123,9 @@ function prepareSvgAndCanvasForCapture(rootEl) {
     })
 
     // 2. Lock Recharts wrappers to exact pixel widths/heights
-    const rechartsWrappers = rootEl.querySelectorAll('.recharts-wrapper, .recharts-responsive-container')
+    const rechartsWrappers = rootEl.querySelectorAll(
+      '.recharts-wrapper, .recharts-responsive-container'
+    )
     rechartsWrappers.forEach((rw) => {
       const rect = rw.getBoundingClientRect()
       const origW = rw.style.width
@@ -162,9 +166,8 @@ function prepareSvgAndCanvasForCapture(rootEl) {
 
 /**
  * Capture full production report screenshot
- * - Renders complete DOM tree natively with html-to-image
+ * - Renders complete DOM tree with html2canvas (2x Retina)
  * - Preserves all Recharts axis labels, metric values, reference lines, legends, and table contents
- * - High resolution 2x (Retina)
  */
 export async function captureReportScreenshot({
   targetEl,
@@ -219,49 +222,16 @@ export async function captureReportScreenshot({
     // Allow layout to stabilize
     await new Promise((resolve) => setTimeout(resolve, 150))
 
-    // 5. Capture with html-to-image (skipFonts: true to prevent CORS/file protocol crashes)
-    let dataUrl
-    try {
-      dataUrl = await htmlToImage.toPng(targetEl, {
-        filter: defaultFilter,
-        backgroundColor: '#ffffff',
-        pixelRatio: 2,
-        quality: 1,
-        skipFonts: true,
-        fontEmbedCSS: '',
-        cacheBust: true,
-        style: {
-          transform: 'none',
-          maxWidth: 'none',
-          boxSizing: 'border-box',
-          margin: '0',
-          padding: '24px 32px 40px 32px'
-        }
-      })
-    } catch (primaryErr) {
-      console.warn('htmlToImage capture failed, falling back to toCanvas/html2canvas:', primaryErr)
-      try {
-        const canvas = await htmlToImage.toCanvas(targetEl, {
-          filter: defaultFilter,
-          backgroundColor: '#ffffff',
-          pixelRatio: 2,
-          skipFonts: true,
-          fontEmbedCSS: ''
-        })
-        dataUrl = canvas.toDataURL('image/png')
-      } catch (canvasErr) {
-        console.warn('toCanvas failed, falling back to html2canvas:', canvasErr)
-        const canvas = await html2canvas(targetEl, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          ignoreElements: (element) => element.classList?.contains('screenshot-hide')
-        })
-        dataUrl = canvas.toDataURL('image/png')
-      }
-    }
+    // 5. Capture with html2canvas (scale 2 for crystal clear 2x Retina output)
+    const canvas = await html2canvas(targetEl, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      ignoreElements: (element) => element.classList?.contains('screenshot-hide')
+    })
+    const dataUrl = canvas.toDataURL('image/png')
 
     // 6. Download file
     const dateStr = new Date().toISOString().slice(0, 10)
@@ -336,47 +306,16 @@ export async function downloadSingleChart(targetRef, chartName = 'BieuDo') {
 
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    // 3. Capture with html-to-image for flawless SVG text & parameter preservation
-    let dataUrl
-    try {
-      dataUrl = await htmlToImage.toPng(el, {
-        filter: defaultFilter,
-        backgroundColor: '#ffffff',
-        pixelRatio: 2,
-        quality: 1,
-        skipFonts: true,
-        fontEmbedCSS: '',
-        cacheBust: true,
-        style: {
-          background: '#ffffff',
-          boxSizing: 'border-box',
-          padding: '16px 20px'
-        }
-      })
-    } catch (primaryErr) {
-      console.warn('htmlToImage single chart failed, trying fallback:', primaryErr)
-      try {
-        const canvas = await htmlToImage.toCanvas(el, {
-          filter: defaultFilter,
-          backgroundColor: '#ffffff',
-          pixelRatio: 2,
-          skipFonts: true,
-          fontEmbedCSS: ''
-        })
-        dataUrl = canvas.toDataURL('image/png')
-      } catch (canvasErr) {
-        console.warn('toCanvas single chart failed, falling back to html2canvas:', canvasErr)
-        const canvas = await html2canvas(el, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          ignoreElements: (element) => element.classList?.contains('screenshot-hide')
-        })
-        dataUrl = canvas.toDataURL('image/png')
-      }
-    }
+    // 3. Capture with html2canvas (2x Retina scale)
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      ignoreElements: (element) => element.classList?.contains('screenshot-hide')
+    })
+    const dataUrl = canvas.toDataURL('image/png')
 
     const dateStr = new Date().toISOString().slice(0, 10)
     triggerDownload(dataUrl, `${chartName}_${dateStr}.png`)
@@ -404,4 +343,3 @@ export async function downloadSingleChart(targetRef, chartName = 'BieuDo') {
     })
   }
 }
-

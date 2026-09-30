@@ -1,6 +1,15 @@
 /* eslint-disable react/prop-types */
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { Calendar, Download, Copy, Search, UserCheck, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import {
+  Calendar,
+  Download,
+  Copy,
+  Search,
+  UserCheck,
+  AlertTriangle,
+  CheckCircle,
+  Clock
+} from 'lucide-react'
 import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid'
 import * as XLSX from 'xlsx'
 import { PureButton, PureSelect, executiveGridTheme } from './reportUIComponents'
@@ -71,14 +80,39 @@ export const PlanAuditDetailModal = ({
     return data.filter((item) => {
       const st = item.dpStatusCode || item.dpStatus
       if (activeCategory !== 'ALL') {
-        if (activeCategory === 'SX_SAI_NGAY' && st !== 'SX_SAI_NGAY' && !String(item.dpStatusText || '').includes('sai ngày')) return false
-        if (activeCategory === 'TRUOT_KH' && st !== 'TRUOT_KH' && !String(item.dpStatusText || '').includes('Trượt')) return false
-        if (activeCategory === 'KHOP_SL' && st !== 'KHOP_SL' && !String(item.dpStatusText || '').includes('Khớp số lượng')) return false
-        if (activeCategory === 'KHOP_JOB' && st !== 'KHOP_JOB' && !String(item.dpStatusText || '').includes('Khớp job')) return false
+        if (
+          activeCategory === 'SX_SAI_NGAY' &&
+          st !== 'SX_SAI_NGAY' &&
+          !String(item.dpStatusText || '').includes('sai ngày')
+        )
+          return false
+        if (
+          activeCategory === 'TRUOT_KH' &&
+          st !== 'TRUOT_KH' &&
+          !String(item.dpStatusText || '').includes('Trượt')
+        )
+          return false
+        if (
+          activeCategory === 'KHOP_SL' &&
+          st !== 'KHOP_SL' &&
+          !String(item.dpStatusText || '').includes('Khớp số lượng')
+        )
+          return false
+        if (
+          activeCategory === 'KHOP_JOB' &&
+          st !== 'KHOP_JOB' &&
+          !String(item.dpStatusText || '').includes('Khớp job')
+        )
+          return false
       }
 
       if (selectedPic !== 'ALL' && item.pic !== selectedPic) return false
-      if (selectedMachine !== 'ALL' && (item.machineCode !== selectedMachine && item.machineName !== selectedMachine)) return false
+      if (
+        selectedMachine !== 'ALL' &&
+        item.machineCode !== selectedMachine &&
+        item.machineName !== selectedMachine
+      )
+        return false
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
@@ -157,7 +191,7 @@ export const PlanAuditDetailModal = ({
             data: item.docNo || item.orderNo || item.planNo || '',
             displayData: item.docNo || item.orderNo || item.planNo || '',
             allowOverlay: false,
-            themeOverride: { textDark: '#2563eb', baseFontStyle: '700 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
           }
         case 'orderNo':
           return {
@@ -169,43 +203,32 @@ export const PlanAuditDetailModal = ({
           }
         case 'dpStatus': {
           const txt = item.dpStatusText || item.dpStatus || 'Khớp số lượng'
-          let color = '#0f766e'
-          if (txt.includes('sai ngày')) color = '#d97706'
-          else if (txt.includes('Trượt')) color = '#be123c'
-          else if (txt.includes('job')) color = '#2563eb'
           return {
             kind: GridCellKind.Text,
             data: txt,
             displayData: txt,
             allowOverlay: false,
-            themeOverride: { textDark: color, baseFontStyle: '700 12px' }
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         }
         case 'timeStatus': {
           const txt = item.timeStatusText || item.timeStatus || 'Đúng ĐM'
-          let color = '#0f766e'
-          if (txt.includes('Chậm')) color = '#be123c'
-          else if (txt.includes('Nhanh')) color = '#0284c7'
-          else if (txt.includes('Chưa có')) color = '#64748b'
           return {
             kind: GridCellKind.Text,
             data: txt,
             displayData: txt,
             allowOverlay: false,
-            themeOverride: { textDark: color, baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         }
         case 'capaStatus': {
           const txt = item.capaStatusText || item.capaStatus || 'Đúng capa'
-          let color = '#0f766e'
-          if (txt.includes('Chậm')) color = '#d97706'
-          else if (txt.includes('Nhanh')) color = '#2563eb'
           return {
             kind: GridCellKind.Text,
             data: txt,
             displayData: txt,
             allowOverlay: false,
-            themeOverride: { textDark: color, baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         }
         case 'pic':
@@ -214,7 +237,7 @@ export const PlanAuditDetailModal = ({
             data: item.pic || 'Chưa phân công',
             displayData: item.pic || 'Chưa phân công',
             allowOverlay: false,
-            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '500 12px' }
           }
         case 'planDate':
           return {
@@ -233,8 +256,14 @@ export const PlanAuditDetailModal = ({
             allowOverlay: false,
             contentAlign: 'center',
             themeOverride: {
-              textDark: item.planDate && item.actualDate && item.planDate !== item.actualDate ? '#d97706' : '#334155',
-              baseFontStyle: item.planDate && item.actualDate && item.planDate !== item.actualDate ? '700 12px' : '400 12px'
+              textDark:
+                item.planDate && item.actualDate && item.planDate !== item.actualDate
+                  ? '#d97706'
+                  : '#334155',
+              baseFontStyle:
+                item.planDate && item.actualDate && item.planDate !== item.actualDate
+                  ? '700 12px'
+                  : '400 12px'
             }
           }
         case 'planQty':
@@ -342,7 +371,8 @@ export const PlanAuditDetailModal = ({
       'Ngày thực tế': item.actualDate || item.prodDate || '',
       'SL Kế hoạch': Number(item.planQty) || 0,
       'SL Thực tế': Number(item.actualQty) || 0,
-      'Tỷ lệ hoàn thành (%)': item.planQty > 0 ? Number(((item.actualQty / item.planQty) * 100).toFixed(1)) : 100,
+      'Tỷ lệ hoàn thành (%)':
+        item.planQty > 0 ? Number(((item.actualQty / item.planQty) * 100).toFixed(1)) : 100,
       'Mã máy': item.machineCode || '',
       'Tên máy': item.machineName || '',
       'Mã sản phẩm': item.itemCode || '',
@@ -354,7 +384,10 @@ export const PlanAuditDetailModal = ({
     const ws = XLSX.utils.json_to_sheet(exportRows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'ChiTiet_DieuPhoi_KHSX')
-    XLSX.writeFile(wb, `ChiTiet_DieuPhoi_KHSX_${activeCategory}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    XLSX.writeFile(
+      wb,
+      `ChiTiet_DieuPhoi_KHSX_${activeCategory}_${new Date().toISOString().slice(0, 10)}.xlsx`
+    )
   }
 
   // Copy toàn bộ bảng ra Clipboard
@@ -448,14 +481,32 @@ export const PlanAuditDetailModal = ({
               <Calendar size={18} color="#ffffff" />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 800,
+                  letterSpacing: '0.02em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}
+              >
                 <span>DANH SÁCH CHI TIẾT LỆNH ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT</span>
-                <span style={{ fontSize: 11, fontWeight: 600, background: '#334155', padding: '1px 8px', borderRadius: 3 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    background: '#334155',
+                    padding: '1px 8px',
+                    borderRadius: 3
+                  }}
+                >
                   {plantName}
                 </span>
               </div>
               <div style={{ fontSize: 11.5, color: '#94a3b8' }}>
-                Đối soát chi tiết theo trạng thái ĐP - SX, thời gian thực hiện so với định mức & tải capa
+                Đối soát chi tiết theo trạng thái ĐP - SX, thời gian thực hiện so với định mức & tải
+                capa
               </div>
             </div>
           </div>
@@ -464,14 +515,24 @@ export const PlanAuditDetailModal = ({
             <PureButton
               icon={<Copy size={13} />}
               onClick={handleCopyTable}
-              style={{ background: '#334155', color: '#ffffff', borderColor: '#475569', fontSize: 11.5 }}
+              style={{
+                background: '#334155',
+                color: '#ffffff',
+                borderColor: '#475569',
+                fontSize: 11.5
+              }}
             >
               Copy Bảng
             </PureButton>
             <PureButton
               icon={<Download size={13} />}
               onClick={handleExportExcel}
-              style={{ background: '#0284c7', color: '#ffffff', borderColor: '#0369a1', fontSize: 11.5 }}
+              style={{
+                background: '#0284c7',
+                color: '#ffffff',
+                borderColor: '#0369a1',
+                fontSize: 11.5
+              }}
             >
               Xuất Excel
             </PureButton>
@@ -705,7 +766,13 @@ export const PlanAuditDetailModal = ({
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 11 }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#94a3b8',
+                    fontSize: 11
+                  }}
                 >
                   ✕
                 </button>
@@ -713,8 +780,24 @@ export const PlanAuditDetailModal = ({
             </div>
 
             {/* Lọc PIC Điều phối */}
-            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #cbd5e1', background: '#ffffff' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#334155', background: '#f8fafc', padding: '4px 6px', borderRight: '1px solid #cbd5e1' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff'
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: '#334155',
+                  background: '#f8fafc',
+                  padding: '4px 6px',
+                  borderRight: '1px solid #cbd5e1'
+                }}
+              >
                 PIC:
               </span>
               <PureSelect
@@ -729,8 +812,24 @@ export const PlanAuditDetailModal = ({
             </div>
 
             {/* Lọc Cụm Máy */}
-            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #cbd5e1', background: '#ffffff' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#334155', background: '#f8fafc', padding: '4px 6px', borderRight: '1px solid #cbd5e1' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff'
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: '#334155',
+                  background: '#f8fafc',
+                  padding: '4px 6px',
+                  borderRight: '1px solid #cbd5e1'
+                }}
+              >
                 Máy:
               </span>
               <PureSelect
@@ -746,7 +845,8 @@ export const PlanAuditDetailModal = ({
           </div>
 
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            Hiển thị <strong style={{ color: '#0f172a' }}>{filteredData.length}</strong> / {data.length} lệnh
+            Hiển thị <strong style={{ color: '#0f172a' }}>{filteredData.length}</strong> /{' '}
+            {data.length} lệnh
           </div>
         </div>
 

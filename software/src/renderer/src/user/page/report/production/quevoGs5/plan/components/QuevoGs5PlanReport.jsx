@@ -10,7 +10,8 @@ import {
   Activity,
   Calendar,
   Download,
-  Search
+  Search,
+  X
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -246,115 +247,6 @@ export default function QuevoGs5PlanReport(props) {
             </PureButton>
           </div>
         </div>
-
-        {/* Hàng 2: Khung Bộ Lọc Dữ Liệu (Chỉ giữ Ngày lệnh thao tác và PIC Điều phối) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 10,
-            paddingTop: 10,
-            borderTop: '1px dashed #e2e8f0'
-          }}
-        >
-          {/* 1. Lọc Ngày lệnh thao tác */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: 28,
-              border: '1px solid #cbd5e1',
-              borderRadius: 3,
-              background: '#ffffff',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              verticalAlign: 'middle'
-            }}
-          >
-            <span
-              style={{
-                height: '100%',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#334155',
-                background: '#f8fafc',
-                padding: '0 8px',
-                borderRight: '1px solid #cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                boxSizing: 'border-box'
-              }}
-            >
-              <Calendar size={12} color="#245d6c" />
-              <span>Ngày lệnh thao tác:</span>
-            </span>
-            <PureDateRangePicker value={dateRange} onChange={setDateRange} />
-          </div>
-
-          {/* 2. Lọc PIC Điều phối */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: 28,
-              border: '1px solid #cbd5e1',
-              borderRadius: 3,
-              background: '#ffffff',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              verticalAlign: 'middle'
-            }}
-          >
-            <span
-              style={{
-                height: '100%',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#334155',
-                background: '#f8fafc',
-                padding: '0 8px',
-                borderRight: '1px solid #cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                boxSizing: 'border-box'
-              }}
-            >
-              <UserCheck size={12} color="#245d6c" />
-              <span>PIC ĐP:</span>
-            </span>
-            <PureSelect
-              value={selectedPic}
-              onChange={setSelectedPic}
-              style={{ width: 160 }}
-              options={[
-                { value: 'ALL', label: 'Tất cả PIC ĐP' },
-                ...filterOptions.pics.map((p) => ({ value: p, label: p }))
-              ]}
-            />
-          </div>
-
-          {/* Nút Đặt lại lọc */}
-          {hasActiveFilters && (
-            <PureButton
-              icon={<RotateCcw size={11} />}
-              onClick={handleResetFilters}
-              style={{
-                borderColor: '#fca5a5',
-                color: '#be123c',
-                background: '#fff1f2'
-              }}
-            >
-              Đặt lại lọc
-            </PureButton>
-          )}
-        </div>
       </div>
 
       {/* 2. MAIN REPORT HEADER */}
@@ -521,10 +413,8 @@ export default function QuevoGs5PlanReport(props) {
           </div>
           <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>
             Tỷ lệ:{' '}
-            <span style={{ color: '#ea580c', fontWeight: 700 }}>
-              {kpiMetrics.sxSaiNgayRate}%
-            </span>{' '}
-            • <span style={{ color: '#9a3412' }}>Lệch ngày kế hoạch</span>
+            <span style={{ color: '#ea580c', fontWeight: 700 }}>{kpiMetrics.sxSaiNgayRate}%</span> •{' '}
+            <span style={{ color: '#9a3412' }}>Lệch ngày kế hoạch</span>
           </div>
         </div>
 
@@ -571,10 +461,8 @@ export default function QuevoGs5PlanReport(props) {
           </div>
           <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>
             Tỷ lệ:{' '}
-            <span style={{ color: '#dc2626', fontWeight: 700 }}>
-              {kpiMetrics.truotKhRate}%
-            </span>{' '}
-            • <span style={{ color: '#991b1b' }}>Trượt kế hoạch</span>
+            <span style={{ color: '#dc2626', fontWeight: 700 }}>{kpiMetrics.truotKhRate}%</span> •{' '}
+            <span style={{ color: '#991b1b' }}>Trượt kế hoạch</span>
           </div>
         </div>
 
@@ -621,10 +509,8 @@ export default function QuevoGs5PlanReport(props) {
           </div>
           <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>
             Tỷ lệ:{' '}
-            <span style={{ color: '#059669', fontWeight: 700 }}>
-              {kpiMetrics.khopSlRate}%
-            </span>{' '}
-            • Đạt chuẩn sản lượng
+            <span style={{ color: '#059669', fontWeight: 700 }}>{kpiMetrics.khopSlRate}%</span> •
+            Đạt chuẩn sản lượng
           </div>
         </div>
 
@@ -671,10 +557,8 @@ export default function QuevoGs5PlanReport(props) {
           </div>
           <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>
             Tỷ lệ:{' '}
-            <span style={{ color: '#0284c7', fontWeight: 700 }}>
-              {kpiMetrics.khopJobRate}%
-            </span>{' '}
-            • Khớp đúng quy cách job
+            <span style={{ color: '#0284c7', fontWeight: 700 }}>{kpiMetrics.khopJobRate}%</span> •
+            Khớp đúng quy cách job
           </div>
         </div>
       </div>
@@ -907,7 +791,8 @@ export default function QuevoGs5PlanReport(props) {
                 maxWidth: 960
               }}
             >
-              Bảng theo dõi và biểu đồ phân tích năng lực điều hành chi tiết theo từng nhân sự điều phối (PIC), bao gồm khối lượng, tỷ lệ lệch ngày, tỷ lệ trượt và tỷ lệ đạt chuẩn.
+              Bảng theo dõi và biểu đồ phân tích năng lực điều hành chi tiết theo từng nhân sự điều
+              phối (PIC), bao gồm khối lượng, tỷ lệ lệch ngày, tỷ lệ trượt và tỷ lệ đạt chuẩn.
             </div>
           </div>
 
@@ -943,7 +828,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
                   }}
@@ -955,7 +840,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -968,7 +853,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -981,7 +866,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -994,7 +879,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -1007,7 +892,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -1020,7 +905,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -1034,9 +919,7 @@ export default function QuevoGs5PlanReport(props) {
               {picBreakdown.map((row, idx) => {
                 const totalPass = (row.khopSl || 0) + (row.khopJob || 0)
                 const passRate =
-                  row.totalOrders > 0
-                    ? ((totalPass / row.totalOrders) * 100).toFixed(1)
-                    : '0.0'
+                  row.totalOrders > 0 ? ((totalPass / row.totalOrders) * 100).toFixed(1) : '0.0'
                 const isSelected = selectedPic === row.pic
                 return (
                   <tr
@@ -1082,26 +965,28 @@ export default function QuevoGs5PlanReport(props) {
 
                     {/* Cột 3: SX sai ngày KH */}
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>{row.sxSaiNgay.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 11 }}>({row.sxSaiNgayRate}%)</span>
+                      <span style={{ fontWeight: 600 }}>
+                        {row.sxSaiNgay.toLocaleString('vi-VN')}
+                      </span>{' '}
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.sxSaiNgayRate}%)</span>
                     </td>
 
                     {/* Cột 4: Trượt KH */}
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
                       <span style={{ fontWeight: 600 }}>{row.truotKh.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 11 }}>({row.truotKhRate}%)</span>
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.truotKhRate}%)</span>
                     </td>
 
                     {/* Cột 5: Khớp số lượng */}
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
                       <span style={{ fontWeight: 600 }}>{row.khopSl.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 11 }}>({row.khopSlRate}%)</span>
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.khopSlRate}%)</span>
                     </td>
 
                     {/* Cột 6: Khớp job */}
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
                       <span style={{ fontWeight: 600 }}>{row.khopJob.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 11 }}>({row.khopJobRate}%)</span>
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.khopJobRate}%)</span>
                     </td>
 
                     {/* Cột 7: Tỷ lệ đạt chuẩn */}
@@ -1278,15 +1163,15 @@ export default function QuevoGs5PlanReport(props) {
                 {picChartMode === 'rate'
                   ? 'Biểu đồ Tỷ lệ cơ cấu trạng thái điều phối theo PIC (%)'
                   : picChartMode === 'pass'
-                  ? 'Xếp hạng Tỷ lệ đạt chuẩn điều phối (Benchmark 20%)'
-                  : 'Cơ cấu khối lượng và trạng thái điều phối theo từng PIC (Lệnh)'}
+                    ? 'Xếp hạng Tỷ lệ đạt chuẩn điều phối (Benchmark 20%)'
+                    : 'Cơ cấu khối lượng và trạng thái điều phối theo từng PIC (Lệnh)'}
               </div>
               <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
                 {picChartMode === 'rate'
                   ? 'So sánh tương quan tỷ lệ % Đạt chuẩn, Lệch ngày và Trượt kế hoạch của từng nhân sự'
                   : picChartMode === 'pass'
-                  ? 'Đánh giá tỷ lệ lệnh đạt chuẩn (Khớp SL + Khớp Job) so với mục tiêu 20%'
-                  : 'Khối lượng lệnh phân bổ theo: Khớp job, Khớp SL, SX sai ngày và Trượt kế hoạch'}
+                    ? 'Đánh giá tỷ lệ lệnh đạt chuẩn (Khớp SL + Khớp Job) so với mục tiêu 20%'
+                    : 'Khối lượng lệnh phân bổ theo: Khớp job, Khớp SL, SX sai ngày và Trượt kế hoạch'}
               </div>
             </div>
 
@@ -1683,14 +1568,22 @@ export default function QuevoGs5PlanReport(props) {
               borderLeft: '4px solid #059669'
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#475569',
+                textTransform: 'uppercase'
+              }}
+            >
               Đáp ứng sản lượng (QFR)
             </div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', margin: '4px 0' }}>
               {advancedPlanMetrics.qtyFulfillmentRate}%
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b' }}>
-              {(advancedPlanMetrics.totalActualQty || 0).toLocaleString('vi-VN')} / {(advancedPlanMetrics.totalPlanQty || 0).toLocaleString('vi-VN')} SP
+              {(advancedPlanMetrics.totalActualQty || 0).toLocaleString('vi-VN')} /{' '}
+              {(advancedPlanMetrics.totalPlanQty || 0).toLocaleString('vi-VN')} SP
             </div>
           </div>
 
@@ -1702,13 +1595,22 @@ export default function QuevoGs5PlanReport(props) {
               borderLeft: '4px solid #0284c7'
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#475569',
+                textTransform: 'uppercase'
+              }}
+            >
               Tuân thủ định mức TG
             </div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', margin: '4px 0' }}>
               {advancedPlanMetrics.timeComplianceRate}%
             </div>
-            <div style={{ fontSize: 11.5, color: '#64748b' }}>Đúng/Nhanh hơn định mức thời gian</div>
+            <div style={{ fontSize: 11.5, color: '#64748b' }}>
+              Đúng/Nhanh hơn định mức thời gian
+            </div>
           </div>
 
           <div
@@ -1719,11 +1621,21 @@ export default function QuevoGs5PlanReport(props) {
               borderLeft: '4px solid #ea580c'
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#475569',
+                textTransform: 'uppercase'
+              }}
+            >
               Độ lệch ngày bình quân
             </div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#ea580c', margin: '4px 0' }}>
-              +{advancedPlanMetrics.avgDriftDays} <span style={{ fontSize: 14, fontWeight: 600 }}>ngày</span>
+              {advancedPlanMetrics.avgDriftDays > 0
+                ? `+${advancedPlanMetrics.avgDriftDays}`
+                : advancedPlanMetrics.avgDriftDays}{' '}
+              <span style={{ fontSize: 14, fontWeight: 600 }}>ngày</span>
             </div>
             <div style={{ fontSize: 11.5, color: '#9a3412' }}>Chênh lệch OpDate vs RoutingDate</div>
           </div>
@@ -1736,13 +1648,22 @@ export default function QuevoGs5PlanReport(props) {
               borderLeft: '4px solid #7c3aed'
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#475569',
+                textTransform: 'uppercase'
+              }}
+            >
               Cân bằng tải Capa
             </div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', margin: '4px 0' }}>
               {advancedPlanMetrics.capaComplianceRate}%
             </div>
-            <div style={{ fontSize: 11.5, color: '#64748b' }}>Tỷ lệ lệnh đúng hoặc nằm trong capa máy</div>
+            <div style={{ fontSize: 11.5, color: '#64748b' }}>
+              Tỷ lệ lệnh đúng hoặc nằm trong capa máy
+            </div>
           </div>
         </div>
 
@@ -1767,7 +1688,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
                   }}
@@ -1779,7 +1700,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -1792,7 +1713,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -1805,7 +1726,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -1818,7 +1739,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -1831,7 +1752,7 @@ export default function QuevoGs5PlanReport(props) {
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -1855,18 +1776,34 @@ export default function QuevoGs5PlanReport(props) {
                     <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f172a' }}>
                       {row.teamName}
                     </td>
-                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
+                    <td
+                      style={{
+                        padding: '9px 12px',
+                        textAlign: 'right',
+                        fontWeight: 700,
+                        color: '#0f172a'
+                      }}
+                    >
                       {row.totalOrders.toLocaleString('vi-VN')}
                     </td>
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>{row.sxSaiNgay.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 11 }}>({row.sxSaiNgayRate}%)</span>
+                      <span style={{ fontWeight: 600 }}>
+                        {row.sxSaiNgay.toLocaleString('vi-VN')}
+                      </span>{' '}
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.sxSaiNgayRate}%)</span>
                     </td>
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
                       <span style={{ fontWeight: 600 }}>{row.truotKh.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 11 }}>({row.truotKhRate}%)</span>
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.truotKhRate}%)</span>
                     </td>
-                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
+                    <td
+                      style={{
+                        padding: '9px 12px',
+                        textAlign: 'right',
+                        fontWeight: 700,
+                        color: '#0f172a'
+                      }}
+                    >
                       {row.passRate}%
                     </td>
                     <td
@@ -2010,8 +1947,8 @@ export default function QuevoGs5PlanReport(props) {
               7. LỆNH THEO TRẠNG THÁI ĐP – SX (DANH SÁCH CHI TIẾT TỪNG LỆNH)
             </div>
             <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
-              Bảng dữ liệu chi tiết toàn bộ lệnh sản xuất điều phối, hỗ trợ lọc, tìm kiếm và xuất
-              dữ liệu
+              Bảng dữ liệu chi tiết toàn bộ lệnh sản xuất điều phối, hỗ trợ lọc, tìm kiếm và xuất dữ
+              liệu
             </div>
           </div>
 

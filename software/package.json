@@ -33,7 +33,6 @@
     "dayjs": "^1.11.13",
     "electron-updater": "^6.8.9",
     "file-saver": "^2.0.5",
-    "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "i18next": "^23.8.0",
     "idb": "^8.0.0",

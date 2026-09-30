@@ -42,13 +42,37 @@ export function generateDefaultHanoiGs1PlanData() {
   ]
 
   const items = [
-    { code: 'BOX-IP16-PRO', name: 'Hộp cứng điện thoại IP16 Pro', customer: 'Foxconn Việt Nam Group' },
-    { code: 'PK-SAMSUNG-A55', name: 'Bao bì phụ kiện Samsung Galaxy A55', customer: 'Samsung Electronics VN' },
-    { code: 'LBL-VINAMILK-100', name: 'Nhãn hộp sữa Vinamilk 100% 180ml', customer: 'Vinamilk CP Sữa VN' },
+    {
+      code: 'BOX-IP16-PRO',
+      name: 'Hộp cứng điện thoại IP16 Pro',
+      customer: 'Foxconn Việt Nam Group'
+    },
+    {
+      code: 'PK-SAMSUNG-A55',
+      name: 'Bao bì phụ kiện Samsung Galaxy A55',
+      customer: 'Samsung Electronics VN'
+    },
+    {
+      code: 'LBL-VINAMILK-100',
+      name: 'Nhãn hộp sữa Vinamilk 100% 180ml',
+      customer: 'Vinamilk CP Sữa VN'
+    },
     { code: 'BOX-PHARMA-B12', name: 'Vỏ hộp thuốc B-Complex 100ml', customer: 'Dược phẩm Nam Hà' },
-    { code: 'CTN-CANON-PRT', name: 'Thùng carton 5 lớp máy in Canon', customer: 'Canon Electronics VN' },
-    { code: 'BOX-COFFEE-TRUNGO', name: 'Hộp cà phê hòa tan Trung Nguyên Legend', customer: 'Tập đoàn Trung Nguyên' },
-    { code: 'BAG-GIFT-KRAFT', name: 'Túi quà tặng giấy Kraft quai xoắn', customer: 'Unilever Việt Nam' }
+    {
+      code: 'CTN-CANON-PRT',
+      name: 'Thùng carton 5 lớp máy in Canon',
+      customer: 'Canon Electronics VN'
+    },
+    {
+      code: 'BOX-COFFEE-TRUNGO',
+      name: 'Hộp cà phê hòa tan Trung Nguyên Legend',
+      customer: 'Tập đoàn Trung Nguyên'
+    },
+    {
+      code: 'BAG-GIFT-KRAFT',
+      name: 'Túi quà tặng giấy Kraft quai xoắn',
+      customer: 'Unilever Việt Nam'
+    }
   ]
 
   const list = []
@@ -57,7 +81,10 @@ export function generateDefaultHanoiGs1PlanData() {
   const makeItems = (count, dpStatusCode, dpStatusText, defaultTimeStatus, defaultCapaStatus) => {
     for (let i = 0; i < count; i++) {
       const day = 11 + (i % 20)
-      const planDay = Math.min(30, day + (dpStatusCode === 'SX_SAI_NGAY' ? (i % 2 === 0 ? -2 : 3) : 0))
+      const planDay = Math.min(
+        30,
+        day + (dpStatusCode === 'SX_SAI_NGAY' ? (i % 2 === 0 ? -2 : 3) : 0)
+      )
       const planDate = `2026-09-${String(planDay).padStart(2, '0')}`
       const actualDate = `2026-09-${String(day).padStart(2, '0')}`
 
@@ -65,12 +92,12 @@ export function generateDefaultHanoiGs1PlanData() {
       const machine = machines[i % machines.length]
       const prod = items[i % items.length]
 
-      const planQty = (Math.floor(i * 37) % 50 + 5) * 1000
+      const planQty = ((Math.floor(i * 37) % 50) + 5) * 1000
       let actualQty = planQty
       if (dpStatusCode === 'TRUOT_KH') {
-        actualQty = Math.floor(planQty * (0.6 + ((i % 30) / 100)))
+        actualQty = Math.floor(planQty * (0.6 + (i % 30) / 100))
       } else if (dpStatusCode === 'SX_SAI_NGAY') {
-        actualQty = Math.floor(planQty * (0.9 + ((i % 15) / 100)))
+        actualQty = Math.floor(planQty * (0.9 + (i % 15) / 100))
       } else if (dpStatusCode === 'KHOP_JOB') {
         actualQty = planQty
       }
@@ -108,7 +135,12 @@ export function generateDefaultHanoiGs1PlanData() {
         timeStatusText: timeStatus,
         capaStatus,
         capaStatusText: capaStatus,
-        note: dpStatusCode === 'SX_SAI_NGAY' ? `Sản xuất lệch ${Math.abs(planDay - day)} ngày so với KHSX` : (dpStatusCode === 'TRUOT_KH' ? 'Trượt tiến độ do thiếu phôi vật tư' : 'Lệnh điều phối hoàn thành đúng kế hoạch')
+        note:
+          dpStatusCode === 'SX_SAI_NGAY'
+            ? `Sản xuất lệch ${Math.abs(planDay - day)} ngày so với KHSX`
+            : dpStatusCode === 'TRUOT_KH'
+              ? 'Trượt tiến độ do thiếu phôi vật tư'
+              : 'Lệnh điều phối hoàn thành đúng kế hoạch'
       })
       idCounter++
     }
@@ -207,37 +239,15 @@ export function useHanoiGs1PlanLogic({
   // Đặt lại bộ lọc
   const handleResetFilters = useCallback(() => {
     setSelectedPic('ALL')
-    if (rawData && rawData.length > 0) {
-      let minD = ''
-      let maxD = ''
-      rawData.forEach((item) => {
-        const d = getCleanDate(item.actualDate || item.opDate || item.OpDate || item.prodDate)
-        if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-          if (!minD || d < minD) minD = d
-          if (!maxD || d > maxD) maxD = d
-        }
-      })
-      if (minD && maxD) {
-        setDateRange([minD, maxD])
-      }
-    }
-  }, [rawData])
+  }, [])
 
-  // Dữ liệu sau khi áp dụng toàn bộ bộ lọc trên Client-Side (Lọc theo Ngày lệnh thao tác và PIC ĐP)
+  // Dữ liệu sau khi áp dụng toàn bộ bộ lọc trên Client-Side (Lọc theo PIC ĐP và Search)
   const filteredData = useMemo(() => {
     return rawData.filter((item) => {
-      // 1. Lọc theo "Ngày lệnh thao tác" (OpDate / actualDate)
-      if (dateRange && dateRange[0] && dateRange[1]) {
-        const itemDate = getCleanDate(item.actualDate || item.opDate || item.OpDate || item.prodDate)
-        if (itemDate && (itemDate < dateRange[0] || itemDate > dateRange[1])) {
-          return false
-        }
-      }
-
-      // 2. Lọc PIC Điều phối
+      // 1. Lọc PIC Điều phối
       if (selectedPic !== 'ALL' && item.pic !== selectedPic) return false
 
-      // 3. Tìm kiếm Search Text
+      // 2. Tìm kiếm Search Text
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
         const match =
@@ -310,17 +320,42 @@ export function useHanoiGs1PlanLogic({
       khopJobRate: calcRate(khopJobCount),
       totalPlanQty,
       totalActualQty,
-      overallProgress: totalPlanQty > 0 ? ((totalActualQty / totalPlanQty) * 100).toFixed(1) : '100.0'
+      overallProgress:
+        totalPlanQty > 0 ? ((totalActualQty / totalPlanQty) * 100).toFixed(1) : '100.0'
     }
   }, [filteredData])
 
   // 3. TRẠNG THÁI ĐP - SX (Biểu đồ & Khối phân loại)
   const dpStatusBreakdown = useMemo(() => {
     return [
-      { name: 'SX sai ngày KH', count: kpiMetrics.sxSaiNgayCount, rate: Number(kpiMetrics.sxSaiNgayRate), color: '#ea580c', tag: 'Cảnh báo lệch ngày' },
-      { name: 'Trượt KH', count: kpiMetrics.truotKhCount, rate: Number(kpiMetrics.truotKhRate), color: '#dc2626', tag: 'Cảnh báo trượt' },
-      { name: 'Khớp số lượng', count: kpiMetrics.khopSlCount, rate: Number(kpiMetrics.khopSlRate), color: '#059669', tag: 'Đạt chuẩn SL' },
-      { name: 'Khớp job', count: kpiMetrics.khopJobCount, rate: Number(kpiMetrics.khopJobRate), color: '#0284c7', tag: 'Đạt chuẩn job' }
+      {
+        name: 'SX sai ngày KH',
+        count: kpiMetrics.sxSaiNgayCount,
+        rate: Number(kpiMetrics.sxSaiNgayRate),
+        color: '#ea580c',
+        tag: 'Cảnh báo lệch ngày'
+      },
+      {
+        name: 'Trượt KH',
+        count: kpiMetrics.truotKhCount,
+        rate: Number(kpiMetrics.truotKhRate),
+        color: '#dc2626',
+        tag: 'Cảnh báo trượt'
+      },
+      {
+        name: 'Khớp số lượng',
+        count: kpiMetrics.khopSlCount,
+        rate: Number(kpiMetrics.khopSlRate),
+        color: '#059669',
+        tag: 'Đạt chuẩn SL'
+      },
+      {
+        name: 'Khớp job',
+        count: kpiMetrics.khopJobCount,
+        rate: Number(kpiMetrics.khopJobRate),
+        color: '#0284c7',
+        tag: 'Đạt chuẩn job'
+      }
     ]
   }, [kpiMetrics])
 
@@ -341,10 +376,30 @@ export function useHanoiGs1PlanLogic({
 
     const total = filteredData.length || 1
     return [
-      { name: 'Chậm hơn ĐM', count: cham, rate: Number(((cham / total) * 100).toFixed(1)), color: '#dc2626' },
-      { name: 'Nhanh hơn ĐM', count: nhanh, rate: Number(((nhanh / total) * 100).toFixed(1)), color: '#0284c7' },
-      { name: 'Đúng ĐM', count: dung, rate: Number(((dung / total) * 100).toFixed(1)), color: '#059669' },
-      { name: 'Chưa có dữ liệu', count: noData, rate: Number(((noData / total) * 100).toFixed(1)), color: '#64748b' }
+      {
+        name: 'Chậm hơn ĐM',
+        count: cham,
+        rate: Number(((cham / total) * 100).toFixed(1)),
+        color: '#dc2626'
+      },
+      {
+        name: 'Nhanh hơn ĐM',
+        count: nhanh,
+        rate: Number(((nhanh / total) * 100).toFixed(1)),
+        color: '#0284c7'
+      },
+      {
+        name: 'Đúng ĐM',
+        count: dung,
+        rate: Number(((dung / total) * 100).toFixed(1)),
+        color: '#059669'
+      },
+      {
+        name: 'Chưa có dữ liệu',
+        count: noData,
+        rate: Number(((noData / total) * 100).toFixed(1)),
+        color: '#64748b'
+      }
     ]
   }, [filteredData])
 
@@ -363,9 +418,24 @@ export function useHanoiGs1PlanLogic({
 
     const total = filteredData.length || 1
     return [
-      { name: 'Nhanh hơn ĐM', count: nhanh, rate: Number(((nhanh / total) * 100).toFixed(1)), color: '#0284c7' },
-      { name: 'Chậm hơn ĐM', count: cham, rate: Number(((cham / total) * 100).toFixed(1)), color: '#ea580c' },
-      { name: 'Trống / Đúng capa', count: trong, rate: Number(((trong / total) * 100).toFixed(1)), color: '#059669' }
+      {
+        name: 'Nhanh hơn ĐM',
+        count: nhanh,
+        rate: Number(((nhanh / total) * 100).toFixed(1)),
+        color: '#0284c7'
+      },
+      {
+        name: 'Chậm hơn ĐM',
+        count: cham,
+        rate: Number(((cham / total) * 100).toFixed(1)),
+        color: '#ea580c'
+      },
+      {
+        name: 'Trống / Đúng capa',
+        count: trong,
+        rate: Number(((trong / total) * 100).toFixed(1)),
+        color: '#059669'
+      }
     ]
   }, [filteredData])
 
@@ -410,7 +480,10 @@ export function useHanoiGs1PlanLogic({
           truotKhRate: Number(((row.truotKh / total) * 100).toFixed(1)),
           khopSlRate: Number(((row.khopSl / total) * 100).toFixed(1)),
           khopJobRate: Number(((row.khopJob / total) * 100).toFixed(1)),
-          progressRate: row.totalPlanQty > 0 ? Number(((row.totalActualQty / row.totalPlanQty) * 100).toFixed(1)) : 100
+          progressRate:
+            row.totalPlanQty > 0
+              ? Number(((row.totalActualQty / row.totalPlanQty) * 100).toFixed(1))
+              : 100
         }
       })
       .sort((a, b) => b.totalOrders - a.totalOrders)
@@ -495,7 +568,10 @@ export function useHanoiGs1PlanLogic({
           sxSaiNgayRate: Number(((row.sxSaiNgay / total) * 100).toFixed(1)),
           truotKhRate: Number(((row.truotKh / total) * 100).toFixed(1)),
           passRate: Number(((passCount / total) * 100).toFixed(1)),
-          fulfillmentRate: row.totalPlanQty > 0 ? Number(((row.totalActualQty / row.totalPlanQty) * 100).toFixed(1)) : 100
+          fulfillmentRate:
+            row.totalPlanQty > 0
+              ? Number(((row.totalActualQty / row.totalPlanQty) * 100).toFixed(1))
+              : 100
         }
       })
       .sort((a, b) => b.totalOrders - a.totalOrders)
@@ -514,7 +590,8 @@ export function useHanoiGs1PlanLogic({
       if (timeStr.includes('Đúng') || timeStr.includes('Nhanh')) dungOrNhanhTime++
 
       const capaStr = String(item.capaStatus || item.capaStatusText || '')
-      if (capaStr.includes('Nhanh') || capaStr.includes('Đúng') || capaStr.includes('Trống')) dungOrNhanhCapa++
+      if (capaStr.includes('Nhanh') || capaStr.includes('Đúng') || capaStr.includes('Trống'))
+        dungOrNhanhCapa++
 
       if (item.planDate && item.actualDate) {
         const pDate = new Date(item.planDate).getTime()
@@ -531,7 +608,7 @@ export function useHanoiGs1PlanLogic({
     const scheduleAdherenceRate = total > 0 ? Number(((passOrders / total) * 100).toFixed(1)) : 0
     const timeComplianceRate = total > 0 ? Number(((dungOrNhanhTime / total) * 100).toFixed(1)) : 0
     const capaComplianceRate = total > 0 ? Number(((dungOrNhanhCapa / total) * 100).toFixed(1)) : 0
-    const avgDriftDays = driftCount > 0 ? Number((totalDriftDays / driftCount).toFixed(1)) : 1.2
+    const avgDriftDays = driftCount > 0 ? Number((totalDriftDays / driftCount).toFixed(1)) : 0
 
     return {
       scheduleAdherenceRate,
@@ -540,7 +617,10 @@ export function useHanoiGs1PlanLogic({
       avgDriftDays,
       totalPlanQty: kpiMetrics.totalPlanQty,
       totalActualQty: kpiMetrics.totalActualQty,
-      qtyFulfillmentRate: kpiMetrics.totalPlanQty > 0 ? Number(((kpiMetrics.totalActualQty / kpiMetrics.totalPlanQty) * 100).toFixed(1)) : 100
+      qtyFulfillmentRate:
+        kpiMetrics.totalPlanQty > 0
+          ? Number(((kpiMetrics.totalActualQty / kpiMetrics.totalPlanQty) * 100).toFixed(1))
+          : 0
     }
   }, [filteredData, kpiMetrics])
 
@@ -599,7 +679,7 @@ export function useHanoiGs1PlanLogic({
             data: item.docNo || item.orderNo || item.planNo || '',
             displayData: item.docNo || item.orderNo || item.planNo || '',
             allowOverlay: false,
-            themeOverride: { textDark: '#2563eb', baseFontStyle: '700 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
           }
         case 'orderNo':
           return {
@@ -611,43 +691,32 @@ export function useHanoiGs1PlanLogic({
           }
         case 'dpStatus': {
           const txt = item.dpStatusText || item.dpStatus || 'Khớp số lượng'
-          let color = '#0f766e'
-          if (txt.includes('sai ngày')) color = '#c27803'
-          else if (txt.includes('Trượt')) color = '#b91c1c'
-          else if (txt.includes('job')) color = '#2b6b79'
           return {
             kind: GridCellKind.Text,
             data: txt,
             displayData: txt,
             allowOverlay: false,
-            themeOverride: { textDark: color, baseFontStyle: '700 12px' }
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         }
         case 'timeStatus': {
           const txt = item.timeStatusText || item.timeStatus || 'Đúng ĐM'
-          let color = '#0f766e'
-          if (txt.includes('Chậm')) color = '#b91c1c'
-          else if (txt.includes('Nhanh')) color = '#0284c7'
-          else if (txt.includes('Chưa có')) color = '#64748b'
           return {
             kind: GridCellKind.Text,
             data: txt,
             displayData: txt,
             allowOverlay: false,
-            themeOverride: { textDark: color, baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         }
         case 'capaStatus': {
           const txt = item.capaStatusText || item.capaStatus || 'Đúng capa'
-          let color = '#0f766e'
-          if (txt.includes('Chậm')) color = '#c27803'
-          else if (txt.includes('Nhanh')) color = '#2b6b79'
           return {
             kind: GridCellKind.Text,
             data: txt,
             displayData: txt,
             allowOverlay: false,
-            themeOverride: { textDark: color, baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         }
         case 'pic':
@@ -656,7 +725,7 @@ export function useHanoiGs1PlanLogic({
             data: item.pic || 'Chưa phân công',
             displayData: item.pic || 'Chưa phân công',
             allowOverlay: false,
-            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '500 12px' }
           }
         case 'planDate':
           return {
@@ -674,10 +743,7 @@ export function useHanoiGs1PlanLogic({
             displayData: item.actualDate || item.prodDate || '',
             allowOverlay: false,
             contentAlign: 'center',
-            themeOverride: {
-              textDark: item.planDate && item.actualDate && item.planDate !== item.actualDate ? '#c27803' : '#334155',
-              baseFontStyle: item.planDate && item.actualDate && item.planDate !== item.actualDate ? '700 12px' : '400 12px'
-            }
+            themeOverride: { textDark: '#334155' }
           }
         case 'planQty':
           return {
@@ -686,7 +752,7 @@ export function useHanoiGs1PlanLogic({
             displayData: (Number(item.planQty) || 0).toLocaleString('vi-VN'),
             allowOverlay: false,
             contentAlign: 'right',
-            themeOverride: { textDark: '#1e293b' }
+            themeOverride: { textDark: '#334155' }
           }
         case 'actualQty':
           return {
@@ -695,7 +761,7 @@ export function useHanoiGs1PlanLogic({
             displayData: (Number(item.actualQty) || 0).toLocaleString('vi-VN'),
             allowOverlay: false,
             contentAlign: 'right',
-            themeOverride: { textDark: '#047857', baseFontStyle: '700 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
           }
         case 'completionRate': {
           const p = Number(item.planQty) || 0
@@ -708,8 +774,8 @@ export function useHanoiGs1PlanLogic({
             allowOverlay: false,
             contentAlign: 'right',
             themeOverride: {
-              textDark: Number(rate) >= 95 ? '#047857' : '#b91c1c',
-              baseFontStyle: '700 12px'
+              textDark: '#0f172a',
+              baseFontStyle: '600 12px'
             }
           }
         }
@@ -719,7 +785,7 @@ export function useHanoiGs1PlanLogic({
             data: item.machineCode || '',
             displayData: item.machineCode || '',
             allowOverlay: false,
-            themeOverride: { textDark: '#0284c7', baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         case 'machineName':
           return {
@@ -743,7 +809,7 @@ export function useHanoiGs1PlanLogic({
             data: maskText(item.itemName || ''),
             displayData: maskText(item.itemName || ''),
             allowOverlay: false,
-            themeOverride: { textDark: '#0f172a', baseFontStyle: '500 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '400 12px' }
           }
         case 'customer':
           return {
@@ -783,7 +849,8 @@ export function useHanoiGs1PlanLogic({
       'Ngày thực tế': item.actualDate || item.prodDate || '',
       'SL Kế hoạch': Number(item.planQty) || 0,
       'SL Thực tế': Number(item.actualQty) || 0,
-      'Tỷ lệ hoàn thành (%)': item.planQty > 0 ? Number(((item.actualQty / item.planQty) * 100).toFixed(1)) : 100,
+      'Tỷ lệ hoàn thành (%)':
+        item.planQty > 0 ? Number(((item.actualQty / item.planQty) * 100).toFixed(1)) : 100,
       'Mã máy': item.machineCode || '',
       'Tên máy': item.machineName || '',
       'Mã sản phẩm': item.itemCode || '',
@@ -795,7 +862,10 @@ export function useHanoiGs1PlanLogic({
     const ws = XLSX.utils.json_to_sheet(exportRows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'BaoCao_DieuPhoi_KHSX')
-    XLSX.writeFile(wb, `BaoCao_DieuPhoi_KHSX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    XLSX.writeFile(
+      wb,
+      `BaoCao_DieuPhoi_KHSX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`
+    )
   }
 
   // Tải ảnh biểu đồ đơn lẻ

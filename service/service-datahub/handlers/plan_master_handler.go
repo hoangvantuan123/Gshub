@@ -123,9 +123,12 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 		}
 	}
 
-	totalRows := len(req.PlanData)
-	if reportType == "statistics" || reportType == "tksx" {
-		totalRows = len(req.StatsData)
+	totalRows := req.TotalRows
+	if totalRows <= 0 {
+		totalRows = len(req.PlanData)
+		if reportType == "statistics" || reportType == "tksx" {
+			totalRows = len(req.StatsData)
+		}
 	}
 
 	regCode := strings.TrimSpace(req.RegCode)

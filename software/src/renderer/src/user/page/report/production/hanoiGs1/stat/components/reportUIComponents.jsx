@@ -34,8 +34,8 @@ export const PureButton = ({
         fontWeight: isPrimary ? 700 : 600,
         color: isPrimary ? '#ffffff' : '#334155',
         background: isPrimary ? '#245d6c' : '#ffffff',
-        border: isPrimary ? '1px solid #245d6c' : '1px solid #cbd5e1',
-        borderRadius: 3,
+        border: isPrimary ? '1px solid #245d6c' : '1px solid #94a3b8',
+        borderRadius: 0,
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
         opacity: disabled || loading ? 0.6 : 1,
         fontFamily: 'inherit',
@@ -178,12 +178,13 @@ export const MasterBatchSearchSelect = ({
         display: 'inline-flex',
         alignItems: 'center',
         height: 28,
-        border: '1px solid #cbd5e1',
-        borderRadius: 3,
+        border: isOpen ? '1px solid #0f766e' : '1px solid #94a3b8',
+        borderRadius: 0,
         background: '#ffffff',
         boxSizing: 'border-box',
-        overflow: 'hidden',
+        overflow: 'visible',
         verticalAlign: 'middle',
+        transition: 'border-color 0.15s ease',
         ...style
       }}
     >
@@ -193,15 +194,17 @@ export const MasterBatchSearchSelect = ({
           height: '100%',
           fontSize: 11.5,
           fontWeight: 700,
-          color: '#334155',
-          background: '#f8fafc',
+          color: '#1e293b',
+          background: '#f1f5f9',
           padding: '0 8px',
-          borderRight: '1px solid #cbd5e1',
+          borderRight: isOpen ? '1px solid #0f766e' : '1px solid #cbd5e1',
+          borderRadius: 0,
           display: 'inline-flex',
           alignItems: 'center',
           userSelect: 'none',
           whiteSpace: 'nowrap',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          letterSpacing: '0.01em'
         }}
       >
         Đợt nạp:
@@ -214,6 +217,7 @@ export const MasterBatchSearchSelect = ({
         style={{
           height: '100%',
           border: 'none',
+          borderRadius: 0,
           background: isOpen ? '#f8fafc' : '#ffffff',
           padding: '0 10px',
           display: 'inline-flex',
@@ -229,28 +233,36 @@ export const MasterBatchSearchSelect = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{currentCode}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+            {currentCode}
+          </span>
           {isCurrentNewest && (
             <span
               style={{
                 fontSize: 9.5,
                 fontWeight: 800,
-                color: '#047857',
+                color: '#065f46',
                 background: '#ecfdf5',
                 border: '1px solid #a7f3d0',
-                padding: '1px 4px',
-                borderRadius: 2,
-                lineHeight: 1
+                padding: '1px 5px',
+                borderRadius: 0,
+                lineHeight: 1,
+                letterSpacing: '0.02em',
+                whiteSpace: 'nowrap'
               }}
             >
               MỚI NHẤT
             </span>
           )}
-          {currentDate && <span style={{ fontSize: 11, color: '#64748b' }}>({currentDate})</span>}
+          {currentDate && (
+            <span style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>
+              ({currentDate})
+            </span>
+          )}
         </div>
         <ChevronDown
           size={13}
-          color="#64748b"
+          color="#475569"
           style={{
             transform: isOpen ? 'rotate(180deg)' : 'none',
             transition: 'transform 0.15s ease',
@@ -268,7 +280,8 @@ export const MasterBatchSearchSelect = ({
           style={{
             height: '100%',
             border: 'none',
-            borderLeft: '1px solid #cbd5e1',
+            borderLeft: isOpen ? '1px solid #0f766e' : '1px solid #cbd5e1',
+            borderRadius: 0,
             background: 'transparent',
             padding: '0 8px',
             cursor: 'pointer',
@@ -278,6 +291,8 @@ export const MasterBatchSearchSelect = ({
             color: '#475569',
             boxSizing: 'border-box'
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
           <RotateCw size={12} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -290,11 +305,11 @@ export const MasterBatchSearchSelect = ({
             position: 'absolute',
             top: 'calc(100% + 2px)',
             left: 0,
-            zIndex: 1100,
-            width: 360,
+            zIndex: 99999,
+            width: 420,
             background: '#ffffff',
-            border: '1px solid #94a3b8',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #334155',
+            boxShadow: '0 10px 25px -3px rgba(15, 23, 42, 0.25), 0 4px 6px -4px rgba(15, 23, 42, 0.15)',
             borderRadius: 0,
             overflow: 'hidden'
           }}
@@ -302,19 +317,19 @@ export const MasterBatchSearchSelect = ({
           {/* Search Header */}
           <div
             style={{
-              padding: '6px 8px',
+              padding: '6px 10px',
               background: '#f8fafc',
-              borderBottom: '1px solid #e2e8f0',
+              borderBottom: '1px solid #cbd5e1',
               display: 'flex',
               alignItems: 'center',
               gap: 6
             }}
           >
-            <Search size={13} color="#64748b" />
+            <Search size={13} color="#475569" />
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Tìm kiếm đợt nạp (mã, ngày, loại, người nạp)..."
+              placeholder="Tìm kiếm mã đợt, ngày nạp, người nạp..."
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
               style={{
@@ -322,9 +337,10 @@ export const MasterBatchSearchSelect = ({
                 border: 'none',
                 outline: 'none',
                 background: 'transparent',
-                fontSize: 11.5,
+                fontSize: 12,
                 color: '#0f172a',
-                fontFamily: 'inherit'
+                fontFamily: 'inherit',
+                borderRadius: 0
               }}
             />
             {searchKeyword && (
@@ -336,7 +352,7 @@ export const MasterBatchSearchSelect = ({
                   background: 'transparent',
                   padding: 2,
                   cursor: 'pointer',
-                  color: '#94a3b8'
+                  color: '#64748b'
                 }}
               >
                 <X size={12} />
@@ -347,24 +363,26 @@ export const MasterBatchSearchSelect = ({
           {/* Header Subtitle */}
           <div
             style={{
-              padding: '4px 10px',
+              padding: '5px 10px',
               fontSize: 10.5,
               fontWeight: 700,
-              color: '#64748b',
+              color: '#475569',
               background: '#f1f5f9',
-              borderBottom: '1px solid #e2e8f0',
+              borderBottom: '1px solid #cbd5e1',
               display: 'flex',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              letterSpacing: '0.02em',
+              userSelect: 'none'
             }}
           >
             <span>DANH SÁCH ĐỢT NẠP ({filteredMasters.length})</span>
-            <span>MỚI NHẤT Ở TRÊN CÙNG</span>
+            <span>MỚI NHẤT TRÊN CÙNG</span>
           </div>
 
           {/* List of Batches */}
           <div
             style={{
-              maxHeight: 260,
+              maxHeight: 280,
               overflowY: 'auto',
               background: '#ffffff'
             }}
@@ -372,9 +390,9 @@ export const MasterBatchSearchSelect = ({
             {filteredMasters.length === 0 ? (
               <div
                 style={{
-                  padding: '16px 12px',
+                  padding: '18px 12px',
                   textAlign: 'center',
-                  fontSize: 11.5,
+                  fontSize: 12,
                   color: '#94a3b8'
                 }}
               >
@@ -404,10 +422,11 @@ export const MasterBatchSearchSelect = ({
                       setIsOpen(false)
                     }}
                     style={{
-                      padding: '7px 10px',
+                      padding: '8px 10px',
                       borderBottom: '1px solid #f1f5f9',
-                      borderLeft: isSelected ? '3px solid #245d6c' : '3px solid transparent',
+                      borderLeft: isSelected ? '4px solid #0f766e' : '4px solid transparent',
                       background: isSelected ? '#f0fdfa' : '#ffffff',
+                      borderRadius: 0,
                       cursor: 'pointer',
                       transition: 'background 0.1s ease'
                     }}
@@ -423,7 +442,7 @@ export const MasterBatchSearchSelect = ({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        marginBottom: 2
+                        marginBottom: 3
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -445,6 +464,7 @@ export const MasterBatchSearchSelect = ({
                               background: '#ecfdf5',
                               border: '1px solid #a7f3d0',
                               padding: '1px 4px',
+                              borderRadius: 0,
                               lineHeight: 1
                             }}
                           >
@@ -454,16 +474,18 @@ export const MasterBatchSearchSelect = ({
                         <span
                           style={{
                             fontSize: 10,
+                            fontWeight: 600,
                             color: '#0369a1',
                             background: '#f0f9ff',
                             padding: '1px 4px',
+                            borderRadius: 0,
                             border: '1px solid #bae6fd'
                           }}
                         >
                           {typeName}
                         </span>
                       </div>
-                      {isSelected && <Check size={13} color="#0f766e" />}
+                      {isSelected && <Check size={14} color="#0f766e" strokeWidth={2.5} />}
                     </div>
 
                     <div
@@ -471,7 +493,7 @@ export const MasterBatchSearchSelect = ({
                         fontSize: 11,
                         color: '#64748b',
                         display: 'flex',
-                        gap: 10,
+                        gap: 12,
                         flexWrap: 'wrap'
                       }}
                     >
@@ -642,7 +664,7 @@ export const PureSelect = ({
             background: '#ffffff',
             border: '1px solid #94a3b8',
             boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-            borderRadius: 3,
+            borderRadius: 0,
             overflow: 'hidden',
             ...dropdownStyle
           }}
@@ -770,7 +792,7 @@ export const PureDateRangePicker = ({ value, onChange }) => {
     value && value[1]
       ? typeof value[1].format === 'function'
         ? value[1].format('YYYY-MM-DD')
-      : String(value[1]).slice(0, 10)
+        : String(value[1]).slice(0, 10)
       : ''
 
   return (

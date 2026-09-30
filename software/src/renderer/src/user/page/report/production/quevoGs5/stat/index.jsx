@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import ProductionStatisticsReport from './components/ProductionStatisticsReport'
-import { initialQuevoGs5Stats } from '../../../common/reportUtils'
+import { getCleanDate } from '../../../common/reportUtils'
 import {
   queryPlanMaster,
   queryProdStatsDetail,
@@ -144,19 +144,66 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
 
   const runtimeHours = Number((finalDurationMinutes / 60).toFixed(2))
 
-  const prodDate =
+  const rawDate =
     item.StatDate ||
+    item.statDate ||
     item.StartDate ||
+    item.startDate ||
     item.OpDate ||
+    item.opDate ||
+    item.TicketCreatedDate ||
+    item.ticketCreatedDate ||
     masterInfo?.ApplyDate ||
     new Date().toISOString().slice(0, 10)
 
-  const machineCode =
+  const prodDate = getCleanDate(rawDate) || new Date().toISOString().slice(0, 10)
+
+  const rawMachineCode =
     item.MachineCode ||
-    (item.MachineName
-      ? String(item.MachineName).toUpperCase().replace(/\s+/g, '_').slice(0, 15)
-      : `MC-GS5-${String((idx % 32) + 1).padStart(2, '0')}`)
-  const machineName = item.MachineName || `Máy ${machineCode}`
+    item.machineCode ||
+    item.MachineId ||
+    item.machineId ||
+    item.RawLineCode ||
+    item.rawLineCode ||
+    ''
+
+  const rawMachineName =
+    item.MachineName ||
+    item.machineName ||
+    item.RawLineName ||
+    item.rawLineName ||
+    item.WorkCenter ||
+    item.workCenter ||
+    ''
+
+  let machineCode = rawMachineCode ? String(rawMachineCode).trim() : ''
+  let machineName = rawMachineName ? String(rawMachineName).trim() : ''
+
+  if (!machineCode && machineName) {
+    machineCode = machineName.toUpperCase().replace(/\s+/g, '_').slice(0, 15)
+  } else if (!machineCode && !machineName) {
+    machineCode = `MC-GS5-${String((idx % 32) + 1).padStart(2, '0')}`
+    machineName = `Máy ${machineCode}`
+  } else if (machineCode && !machineName) {
+    machineName = `Máy ${machineCode}`
+  }
+
+  const rawTeam =
+    item.TeamName ||
+    item.teamName ||
+    item.team ||
+    item.OpTypeName ||
+    item.opTypeName ||
+    item.OperationName ||
+    item.operationName ||
+    item.ProcessName ||
+    item.processName ||
+    item.SectionName ||
+    item.DeptName ||
+    ''
+
+  const team = rawTeam ? String(rawTeam).trim() : 'Tổ Máy Sóng GS5'
+  const teamCode = team.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '')
 
   return {
     id: item.IdSeq ? String(item.IdSeq) : item.StatTicketNo || `GS5-STAT-${idx + 1}`,
@@ -170,8 +217,8 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
       item.OrderNo ||
       item.RoutingDocNo ||
       `LSX-GS5-2026-${String(idx + 1).padStart(4, '0')}`,
-    team: item.TeamName || item.OperationName || 'Tổ Máy Sóng GS5',
-    teamCode: item.TeamName ? item.TeamName.toUpperCase().replace(/\s+/g, '_') : 'TO_MAY_SONG',
+    team,
+    teamCode,
     machineName,
     machineCode,
     isManual: false,
@@ -255,8 +302,8 @@ export default function QuevoGs5StatPage() {
     ? cachedInitialActiveMaster.RegCode || cachedInitialActiveMaster.IdSeq
     : null
   const cachedInitialDataset = initialDetailKey
-    ? getCachedDetail(`quevo_stat_${initialDetailKey}`) || null
-    : null
+    ? getCachedDetail(`quevo_stat_${initialDetailKey}`) || []
+    : []
 
   const [loading, setLoading] = useState(cachedInitialMasters.length === 0)
   const [masterList, setMasterList] = useState(cachedInitialMasters)
@@ -265,12 +312,10 @@ export default function QuevoGs5StatPage() {
   )
   const [currentMaster, setCurrentMaster] = useState(cachedInitialActiveMaster)
   const [statDataset, setStatDataset] = useState(
-    cachedInitialDataset && cachedInitialDataset.length > 0
-      ? cachedInitialDataset
-      : initialQuevoGs5Stats
+    cachedInitialDataset && cachedInitialDataset.length > 0 ? cachedInitialDataset : []
   )
   const [dataSourceType, setDataSourceType] = useState(
-    cachedInitialDataset && cachedInitialDataset.length > 0 ? 'database' : 'sample'
+    cachedInitialDataset && cachedInitialDataset.length > 0 ? 'database' : 'empty'
   )
 
   // Tải chi tiết cho 1 Master cụ thể (sử dụng in-memory cache để chuyển đổi tức thì 0ms)
@@ -324,14 +369,14 @@ export default function QuevoGs5StatPage() {
         setStatDataset(mappedData)
         setDataSourceType('database')
       } else {
-        // Master rỗng dòng detail -> Fallback dữ liệu mẫu GS5
-        setStatDataset(initialQuevoGs5Stats)
-        setDataSourceType('sample')
+        // Master rỗng dòng detail
+        setStatDataset([])
+        setDataSourceType('empty')
       }
     } catch (err) {
       console.error(`Lỗi tải chi tiết đợt GS5 ${regCode}:`, err)
-      setStatDataset(initialQuevoGs5Stats)
-      setDataSourceType('sample')
+      setStatDataset([])
+      setDataSourceType('empty')
     } finally {
       setLoading(false)
     }
@@ -416,16 +461,16 @@ export default function QuevoGs5StatPage() {
         } else {
           setSelectedMasterKey(null)
           setCurrentMaster(null)
-          setStatDataset(initialQuevoGs5Stats)
-          setDataSourceType('sample')
+          setStatDataset([])
+          setDataSourceType('empty')
         }
       } catch (err) {
         console.error('Lỗi khi tải dữ liệu đăng ký TKSX GS5 Quế Võ:', err)
         if (!getCachedMasters(cacheKey)) {
           setSelectedMasterKey(null)
           setCurrentMaster(null)
-          setStatDataset(initialQuevoGs5Stats)
-          setDataSourceType('sample')
+          setStatDataset([])
+          setDataSourceType('empty')
         }
       } finally {
         setLoading(false)

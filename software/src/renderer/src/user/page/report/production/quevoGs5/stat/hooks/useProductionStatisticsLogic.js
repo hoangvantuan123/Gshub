@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { GridCellKind } from '@glideapps/glide-data-grid'
-import { initialHanoiGs1Stats, initialQuevoGs5Stats } from '../../../../common/reportUtils'
+import { getCleanDate } from '../../../../common/reportUtils'
 import { captureReportScreenshot, downloadSingleChart } from '../../../../common/screenshotHelper'
 
 // Helper extractor for Auto-Logistics Status strictly from column AutoIoStatus ("Sinh phiếu xuất/nhập tự động")
@@ -150,10 +150,14 @@ export const useProductionStatisticsLogic = ({
   initialData,
   customData,
   data,
-  dateRange,
-  onDateRangeChange,
+  dateRange: externalDateRange,
+  onDateRangeChange: externalOnDateRangeChange,
   selectedMasterKey
 }) => {
+  const [internalDateRange, setInternalDateRange] = useState(null)
+  const dateRange = externalDateRange !== undefined ? externalDateRange : internalDateRange
+  const onDateRangeChange = externalOnDateRangeChange || setInternalDateRange
+
   const [machineChartMode, setMachineChartMode] = useState('runtime') // 'runtime' | 'composed' | 'tickets'
   const [showManualMachines, setShowManualMachines] = useState(false) // Mặc định ẩn máy thủ công, tích chọn để hiện
   const [selectedTeam, setSelectedTeam] = useState('ALL')
@@ -220,12 +224,7 @@ export const useProductionStatisticsLogic = ({
       String(plantKey).toLowerCase().includes('quevo') ||
       String(plantKey).toLowerCase().includes('gs5')
 
-    const list =
-      inputDataset && inputDataset.length > 0
-        ? inputDataset
-        : isQuevoPlant
-          ? initialQuevoGs5Stats
-          : initialHanoiGs1Stats
+    const list = Array.isArray(inputDataset) ? inputDataset : []
 
     return list.map((item, idx) => {
       const p = Number(item.planQty || item.TargetProdQty || item.StandardMeters) || 0
@@ -234,7 +233,8 @@ export const useProductionStatisticsLogic = ({
       const def = Number(item.defectQty) || Math.max(0, a - pass) || 0
       const pRate = a > 0 ? Number(((pass / a) * 100).toFixed(1)) : 100
 
-      const rawStart = item.startTime || item.StartTime || item.TicketCreatedDate || item.createdTime
+      const rawStart =
+        item.startTime || item.StartTime || item.TicketCreatedDate || item.createdTime
       const rawEnd = item.endTime || item.EndTime || item.MesApprovalTime || item.syncTime
 
       let durMinutes = undefined
@@ -245,8 +245,16 @@ export const useProductionStatisticsLogic = ({
         const eStr = String(rawEnd).trim()
 
         if (sStr.includes(':') && eStr.includes(':')) {
-          const sParts = sStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
-          const eParts = eStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+          const sParts = sStr
+            .split(' ')
+            .pop()
+            .split(':')
+            .map((v) => parseFloat(v) || 0)
+          const eParts = eStr
+            .split(' ')
+            .pop()
+            .split(':')
+            .map((v) => parseFloat(v) || 0)
           const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
           const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
           let diff = eMin - sMin
@@ -276,11 +284,17 @@ export const useProductionStatisticsLogic = ({
 
       if (durMinutes === undefined) {
         const rawRt =
-          item.ActualRunTime !== undefined && item.ActualRunTime !== null && item.ActualRunTime !== ''
+          item.ActualRunTime !== undefined &&
+          item.ActualRunTime !== null &&
+          item.ActualRunTime !== ''
             ? item.ActualRunTime
-            : item.ActualProdTime !== undefined && item.ActualProdTime !== null && item.ActualProdTime !== ''
+            : item.ActualProdTime !== undefined &&
+                item.ActualProdTime !== null &&
+                item.ActualProdTime !== ''
               ? item.ActualProdTime
-              : item.runtimeHours !== undefined && item.runtimeHours !== null && item.runtimeHours !== ''
+              : item.runtimeHours !== undefined &&
+                  item.runtimeHours !== null &&
+                  item.runtimeHours !== ''
                 ? item.runtimeHours
                 : undefined
 
@@ -306,14 +320,72 @@ export const useProductionStatisticsLogic = ({
       let rt = Number((durMinutes / 60).toFixed(2))
 
       const prodDate =
-        item.prodDate ||
-        item.date ||
-        item.StatDate ||
-        item.StartDate ||
-        new Date().toISOString().slice(0, 10)
+        getCleanDate(
+          item.prodDate ||
+            item.StatDate ||
+            item.statDate ||
+            item.date ||
+            item.StartDate ||
+            item.startDate ||
+            item.OpDate ||
+            item.opDate ||
+            item.TicketCreatedDate ||
+            item.ticketCreatedDate
+        ) || new Date().toISOString().slice(0, 10)
 
       const finalStart = rawStart ? formatReportTimeOrDateTime(rawStart) : ''
       const finalEnd = rawEnd ? formatReportTimeOrDateTime(rawEnd) : ''
+
+      const rawTeam =
+        item.teamName ||
+        item.team ||
+        item.TeamName ||
+        item.OpTypeName ||
+        item.opTypeName ||
+        item.OperationName ||
+        item.operationName ||
+        item.ProcessName ||
+        item.processName ||
+        item.SectionName ||
+        item.DeptName ||
+        ''
+
+      const rawMachineCode =
+        item.machineCode ||
+        item.MachineCode ||
+        item.MachineId ||
+        item.machineId ||
+        item.RawLineCode ||
+        item.rawLineCode ||
+        ''
+
+      const rawMachineName =
+        item.machineName ||
+        item.MachineName ||
+        item.RawLineName ||
+        item.rawLineName ||
+        item.WorkCenter ||
+        item.workCenter ||
+        ''
+
+      let finalTeam = rawTeam
+        ? String(rawTeam).trim()
+        : isQuevoPlant
+          ? 'Tổ Máy Sóng GS5'
+          : 'Tổ In Offset'
+      let finalMachineCode = rawMachineCode ? String(rawMachineCode).trim() : ''
+      let finalMachineName = rawMachineName ? String(rawMachineName).trim() : ''
+
+      if (!finalMachineCode && finalMachineName) {
+        finalMachineCode = finalMachineName.toUpperCase().replace(/\s+/g, '_').slice(0, 15)
+      } else if (!finalMachineCode && !finalMachineName) {
+        finalMachineCode = isQuevoPlant
+          ? `SONG-TCY-${String((idx % 24) + 1).padStart(2, '0')}`
+          : `MC-${String((idx % 32) + 1).padStart(2, '0')}`
+        finalMachineName = `Máy ${finalMachineCode}`
+      } else if (finalMachineCode && !finalMachineName) {
+        finalMachineName = `Máy ${finalMachineCode}`
+      }
 
       return {
         ...item,
@@ -337,28 +409,11 @@ export const useProductionStatisticsLogic = ({
           (isQuevoPlant
             ? `LSX-GS5-2026-${String(idx + 1).padStart(4, '0')}`
             : `LSX-HN-2026-${String(idx + 1).padStart(4, '0')}`),
-        teamName:
-          item.teamName ||
-          item.team ||
-          item.TeamName ||
-          item.OperationName ||
-          (isQuevoPlant ? 'Tổ Máy Sóng GS5' : 'Tổ In Offset'),
-        machineName:
-          item.machineName ||
-          item.MachineName ||
-          `Máy ${item.machineCode || item.MachineCode || (isQuevoPlant ? `SONG-TCY-${String((idx % 24) + 1).padStart(2, '0')}` : `MC-${String((idx % 32) + 1).padStart(2, '0')}`)}`,
-        machineCode:
-          item.machineCode ||
-          item.MachineCode ||
-          (isQuevoPlant
-            ? `SONG-TCY-${String((idx % 24) + 1).padStart(2, '0')}`
-            : `MC-${String((idx % 32) + 1).padStart(2, '0')}`),
-        machineGroup:
-          item.machineGroup ||
-          item.teamName ||
-          item.team ||
-          item.TeamName ||
-          (isQuevoPlant ? 'Máy Sóng GS5' : 'In Offset'),
+        teamName: finalTeam,
+        team: finalTeam,
+        machineName: finalMachineName,
+        machineCode: finalMachineCode,
+        machineGroup: item.machineGroup || finalTeam,
         productName:
           item.productName ||
           item.itemName ||
@@ -405,46 +460,49 @@ export const useProductionStatisticsLogic = ({
           item.MainWorker ||
           item.CreatedByName ||
           'Kỹ thuật viên',
-        AuditCategory:
-          durMinutes < 5
-            ? 'UNDER_5MIN'
-            : durMinutes > 720
-              ? 'OVER_12H'
-              : '5MIN_12H',
-        auditCategory:
-          durMinutes < 5
-            ? 'UNDER_5MIN'
-            : durMinutes > 720
-              ? 'OVER_12H'
-              : '5MIN_12H'
+        AuditCategory: durMinutes < 5 ? 'UNDER_5MIN' : durMinutes > 720 ? 'OVER_12H' : '5MIN_12H',
+        auditCategory: durMinutes < 5 ? 'UNDER_5MIN' : durMinutes > 720 ? 'OVER_12H' : '5MIN_12H'
       }
     })
   }, [inputDataset, plantKey])
 
-  // Filter Data (Lọc theo Ngày thống kê, Thời gian thao tác, Tổ sản xuất, Cụm máy)
+  // Tự động đồng bộ dateRange theo min/max của "Ngày thống kê" (prodDate / StatDate) trong dataset
+  useEffect(() => {
+    if (!rawData || rawData.length === 0) return
+    let minD = ''
+    let maxD = ''
+    rawData.forEach((item) => {
+      const d = getCleanDate(item.prodDate || item.StatDate || item.date || item.StartDate)
+      if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        if (!minD || d < minD) minD = d
+        if (!maxD || d > maxD) maxD = d
+      }
+    })
+    if (minD && maxD) {
+      if (externalOnDateRangeChange) {
+        externalOnDateRangeChange([minD, maxD])
+      } else {
+        setInternalDateRange([minD, maxD])
+      }
+    }
+  }, [rawData, externalOnDateRangeChange])
+
+  // Filter Data (Lọc theo Tổ sản xuất, Cụm máy, Thời gian thao tác)
   const filteredData = useMemo(() => {
     return rawData.filter((item) => {
-      // 1. Lọc theo Ngày thống kê (Date Range)
-      if (dateRange && dateRange[0] && dateRange[1]) {
-        const start =
-          typeof dateRange[0].format === 'function'
-            ? dateRange[0].format('YYYY-MM-DD')
-            : String(dateRange[0]).slice(0, 10)
-        const end =
-          typeof dateRange[1].format === 'function'
-            ? dateRange[1].format('YYYY-MM-DD')
-            : String(dateRange[1]).slice(0, 10)
-        const rowDate = String(item.prodDate || item.date || item.StatDate || '').slice(0, 10)
-        if (rowDate && (rowDate < start || rowDate > end)) return false
-      }
+      // 1. Lọc theo Tổ sản xuất
+      if (selectedTeam !== 'ALL' && item.teamName !== selectedTeam && item.team !== selectedTeam)
+        return false
 
-      // 2. Lọc theo Tổ sản xuất
-      if (selectedTeam !== 'ALL' && item.teamName !== selectedTeam) return false
+      // 2. Lọc theo Cụm máy
+      if (
+        selectedMachine !== 'ALL' &&
+        item.machineCode !== selectedMachine &&
+        item.machineName !== selectedMachine
+      )
+        return false
 
-      // 3. Lọc theo Cụm máy
-      if (selectedMachine !== 'ALL' && item.machineCode !== selectedMachine) return false
-
-      // 4. Lọc theo Thời gian thao tác
+      // 3. Lọc theo Thời gian thao tác
       if (selectedDurationAudit !== 'ALL') {
         const durMin = Number(item.durationMinutes ?? item.ActualRunTime ?? 0)
 
@@ -452,14 +510,18 @@ export const useProductionStatisticsLogic = ({
           if (!(durMin < 5 && durMin >= 0)) return false
         } else if (selectedDurationAudit === '5MIN_12H') {
           if (!(durMin >= 5 && durMin <= 720)) return false
-        } else if (selectedDurationAudit === 'OVER_12H' || selectedDurationAudit === 'OVER_12H_CHECK' || selectedDurationAudit === 'OVER_12H_VALID') {
+        } else if (
+          selectedDurationAudit === 'OVER_12H' ||
+          selectedDurationAudit === 'OVER_12H_CHECK' ||
+          selectedDurationAudit === 'OVER_12H_VALID'
+        ) {
           if (!(durMin > 720)) return false
         }
       }
 
       return true
     })
-  }, [rawData, dateRange, selectedTeam, selectedMachine, selectedDurationAudit])
+  }, [rawData, selectedTeam, selectedMachine, selectedDurationAudit])
 
   // Filter Dropdown Options
   const filterOptions = useMemo(() => {
@@ -471,14 +533,17 @@ export const useProductionStatisticsLogic = ({
       if (item.shift) shifts.add(item.shift)
       if (item.teamName) teams.add(item.teamName)
       if (item.machineCode) {
-        machines.set(item.machineCode, item.machineName || item.machineCode)
+        const mName = item.machineName || item.machineCode
+        machines.set(item.machineCode, mName)
       }
     })
 
     return {
       shifts: Array.from(shifts).sort(),
-      teams: Array.from(teams),
-      machines: Array.from(machines.entries()).map(([code, name]) => ({ code, name }))
+      teams: Array.from(teams).filter(Boolean).sort(),
+      machines: Array.from(machines.entries())
+        .map(([code, name]) => ({ code, name }))
+        .sort((a, b) => a.code.localeCompare(b.code))
     }
   }, [rawData])
 
@@ -487,10 +552,9 @@ export const useProductionStatisticsLogic = ({
     return (
       selectedTeam !== 'ALL' ||
       selectedMachine !== 'ALL' ||
-      selectedDurationAudit !== 'ALL' ||
-      Boolean(dateRange && dateRange[0] && dateRange[1])
+      selectedDurationAudit !== 'ALL'
     )
-  }, [selectedTeam, selectedMachine, selectedDurationAudit, dateRange])
+  }, [selectedTeam, selectedMachine, selectedDurationAudit])
 
   const handleResetFilters = useCallback(() => {
     setSelectedTeam('ALL')
@@ -499,10 +563,7 @@ export const useProductionStatisticsLogic = ({
     setMachineSearchText('')
     setTeamSearchText('')
     setDetailSearchText('')
-    if (onDateRangeChange) {
-      onDateRangeChange(null)
-    }
-  }, [onDateRangeChange])
+  }, [])
 
   // Reset bộ lọc khi chuyển đổi đợt nạp master
   useEffect(() => {
@@ -1762,7 +1823,7 @@ export const useProductionStatisticsLogic = ({
             displayData: item.startTime || item.StartTime || item.prodDate || '',
             allowOverlay: false,
             contentAlign: 'center',
-            themeOverride: { textDark: '#475569', baseFontStyle: '500 11.5px' }
+            themeOverride: { textDark: '#475569', baseFontStyle: '500 12px' }
           }
         case 'endTime':
           return {
@@ -1771,7 +1832,7 @@ export const useProductionStatisticsLogic = ({
             displayData: item.endTime || item.EndTime || item.prodDate || '',
             allowOverlay: false,
             contentAlign: 'center',
-            themeOverride: { textDark: '#475569', baseFontStyle: '500 11.5px' }
+            themeOverride: { textDark: '#475569', baseFontStyle: '500 12px' }
           }
         case 'actualQty':
           return {
@@ -1929,6 +1990,9 @@ export const useProductionStatisticsLogic = ({
 
   return {
     // State
+    dateRange,
+    onDateRangeChange,
+    setDateRange: onDateRangeChange,
     machineChartMode,
     setMachineChartMode,
     showManualMachines,

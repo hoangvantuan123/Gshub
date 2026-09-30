@@ -14,7 +14,7 @@ export const useProductionPlanColumns = ({ isFieldVisible, isFieldReadOnly } = {
         width: 50,
         hasMenu: true,
         visible: true,
-        themeOverride: { textDark: '#225588', baseFontStyle: '600 13px' }
+        themeOverride: { textDark: '#225588', baseFontStyle: '600 12px' }
       },
       {
         title: t('report.regCode', 'Mã đăng ký *'),

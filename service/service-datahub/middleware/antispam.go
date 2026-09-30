@@ -105,7 +105,7 @@ func AntiSpamMiddleware(logger *zap.Logger) gin.HandlerFunc {
 			return
 		}
 		path := c.Request.URL.Path
-		if path == "/health" || path == "/ping" || path == "/" {
+		if path == "/health" || path == "/ping" || path == "/" || strings.HasPrefix(path, "/api/v2/report/") || strings.HasPrefix(path, "/report/") {
 			c.Next()
 			return
 		}

@@ -124,7 +124,6 @@ export default function DynamicQueryBar({
 
   return (
     <div className={`w-full bg-white select-none relative ${className}`}>
-      {/* CSS tùy chỉnh màu nổi bật cho DatePicker & ERP Components */}
       <style>{`
         .query-date-has-value .ant-picker-input > input {
           color: #1d4ed8 !important;
@@ -143,7 +142,6 @@ export default function DynamicQueryBar({
         }
       `}</style>
 
-      {/* Grid điều kiện tìm kiếm ERP - Chuẩn tối đa 4 cột / 1 hàng, hết 4 cột tự động xuống dòng */}
       <div
         className={`grid ${gridColsClass} w-full border-t border-l border-slate-200 bg-slate-50/20`}
       >
@@ -169,7 +167,6 @@ export default function DynamicQueryBar({
         ))}
       </div>
 
-      {/* Cụm điều khiển Bộ lọc & Trạng thái lọc */}
       <div className="absolute -top-[23px] right-2 z-10 flex items-center gap-1.5">
         {/* Nút Mở cài đặt bộ lọc */}
         {showSettings && (

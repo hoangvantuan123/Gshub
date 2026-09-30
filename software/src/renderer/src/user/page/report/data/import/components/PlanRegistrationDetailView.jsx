@@ -302,103 +302,10 @@ export default function PlanRegistrationDetailView({ permissions, ...restProps }
     onSearch: handleSearchData
   })
 
-  // Định nghĩa các trường QueryBar: Tích hợp đầy đủ thông tin Master và bộ lọc chi tiết
+  // Định nghĩa các trường QueryBar
   const queryFieldDefinitions = useMemo(() => {
-    const fields = [
-      {
-        key: 'FactoryName',
-        label: t('report.factoryName', 'Nhà máy'),
-        type: 'select',
-        options: [
-          { value: 'GS1 Hà Nội', label: 'GS1 Hà Nội' },
-          { value: 'GS5 Quế Võ 1B', label: 'GS5 Quế Võ 1B' }
-        ],
-        disabled: true
-      },
-      {
-        key: 'ReportType',
-        label: t('report.reportType', 'Loại báo cáo'),
-        type: 'select',
-        options: [
-          { value: 'plan', label: 'Kế hoạch sản xuất (KHSX)' },
-          { value: 'statistics', label: 'Thống kê sản xuất (TKSX)' }
-        ],
-        disabled: true
-      },
-      {
-        key: 'RegCode',
-        label: t('report.regCode', 'Mã đợt đăng ký'),
-        type: 'input',
-        placeholder: 'Mã đăng ký...',
-        disabled: true
-      },
-      {
-        key: 'ApplyDate',
-        label: t('report.applyDate', 'Ngày áp dụng'),
-        type: 'date',
-        disabled: true
-      },
-      {
-        key: 'ItemCode',
-        label: t('Mã sản phẩm / Mã hàng'),
-        type: 'input',
-        placeholder: 'Lọc mã sản phẩm...',
-        defaultValue: ''
-      },
-      {
-        key: 'MachineName',
-        label: t('Máy sản xuất'),
-        type: 'input',
-        placeholder: 'Lọc tên / mã máy...',
-        defaultValue: ''
-      },
-      {
-        key: 'OperationNo',
-        label: t('Số lệnh / Số CT'),
-        type: 'input',
-        placeholder: 'Lọc số lệnh...',
-        defaultValue: ''
-      }
-    ]
-
-    if (isStat) {
-      fields.push(
-        {
-          key: 'Shift',
-          label: t('Ca sản xuất'),
-          type: 'input',
-          placeholder: 'Nhập ca...',
-          defaultValue: ''
-        },
-        {
-          key: 'TeamName',
-          label: t('Tổ sản xuất'),
-          type: 'input',
-          placeholder: 'Nhập tổ...',
-          defaultValue: ''
-        }
-      )
-    } else {
-      fields.push(
-        {
-          key: 'OpDate',
-          label: t('Ngày công đoạn'),
-          type: 'input',
-          placeholder: 'YYYY-MM-DD...',
-          defaultValue: ''
-        },
-        {
-          key: 'RoutingDocNo',
-          label: t('Số chỉ thị (Routing)'),
-          type: 'input',
-          placeholder: 'Nhập số chỉ thị...',
-          defaultValue: ''
-        }
-      )
-    }
-
-    return fields
-  }, [isStat, t])
+    return []
+  }, [])
 
   const reportTitle = isStat
     ? `Chi tiết Thống kê Sản xuất (TKSX) - ${masterInfo?.RegCode || regCode}`

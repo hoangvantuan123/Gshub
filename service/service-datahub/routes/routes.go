@@ -26,7 +26,7 @@ func SetupRouter(
 	// Global Middlewares
 	r.Use(gin.Recovery())
 	r.Use(middleware.SecurityHeaders())
-	r.Use(middleware.BodyLimit(50<<20, logger)) // 50MB Payload limit
+	r.Use(middleware.BodyLimit(100<<20, logger)) // 100MB Payload limit
 	r.Use(middleware.CorsMiddleware())
 	r.Use(middleware.LoggerMiddleware(logger))
 	r.Use(middleware.BotFilter(logger))

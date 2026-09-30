@@ -53,8 +53,8 @@ import { useProductionStatisticsLogic } from '../hooks/useProductionStatisticsLo
 export default function ProductionStatisticsReport(props) {
   const {
     plantName = 'Nhà máy GS Hà Nội',
-    dateRange,
-    onDateRangeChange,
+    dateRange: _propDateRange,
+    onDateRangeChange: _propOnDateRangeChange,
     masterList = [],
     selectedMasterKey,
     onSelectMaster,
@@ -123,6 +123,8 @@ export default function ProductionStatisticsReport(props) {
     filteredData,
     filterOptions,
     hasActiveFilters,
+    dateRange,
+    onDateRangeChange,
     kpiMetrics,
     machineAggregates,
     displayMachineList,
@@ -305,161 +307,6 @@ export default function ProductionStatisticsReport(props) {
             </PureButton>
           </div>
         </div>
-
-        {/* Hàng 2: Khung Bộ Lọc Dữ Liệu Chi Tiết Với Tiêu Đề Rõ Ràng Từng Hạng Mục */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 10,
-            paddingTop: 10,
-            borderTop: '1px dashed #e2e8f0'
-          }}
-        >
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: 28,
-              border: '1px solid #cbd5e1',
-              borderRadius: 3,
-              background: '#ffffff',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              verticalAlign: 'middle'
-            }}
-          >
-            <span
-              style={{
-                height: '100%',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#334155',
-                background: '#f8fafc',
-                padding: '0 8px',
-                borderRight: '1px solid #cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                boxSizing: 'border-box'
-              }}
-            >
-              <Calendar size={12} color="#245d6c" />
-              <span>Ngày thống kê:</span>
-            </span>
-            <PureDateRangePicker value={dateRange} onChange={onDateRangeChange} />
-          </div>
-
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: 28,
-              border: '1px solid #cbd5e1',
-              borderRadius: 3,
-              background: '#ffffff',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              verticalAlign: 'middle'
-            }}
-          >
-            <span
-              style={{
-                height: '100%',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#334155',
-                background: '#f8fafc',
-                padding: '0 8px',
-                borderRight: '1px solid #cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                boxSizing: 'border-box'
-              }}
-            >
-              <Users size={12} color="#245d6c" />
-              <span>Tổ sản xuất:</span>
-            </span>
-            <PureSelect
-              value={selectedTeam}
-              onChange={setSelectedTeam}
-              style={{ width: 145 }}
-              options={[
-                { value: 'ALL', label: 'Tất cả tổ SX' },
-                ...filterOptions.teams.map((t) => ({ value: t, label: t }))
-              ]}
-            />
-          </div>
-
-          {/* 4. Lọc Cụm máy */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: 28,
-              border: '1px solid #cbd5e1',
-              borderRadius: 3,
-              background: '#ffffff',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              verticalAlign: 'middle'
-            }}
-          >
-            <span
-              style={{
-                height: '100%',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#334155',
-                background: '#f8fafc',
-                padding: '0 8px',
-                borderRight: '1px solid #cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                boxSizing: 'border-box'
-              }}
-            >
-              <Cpu size={12} color="#245d6c" />
-              <span>Cụm máy:</span>
-            </span>
-            <PureSelect
-              value={selectedMachine}
-              onChange={setSelectedMachine}
-              style={{ width: 180 }}
-              options={[
-                { value: 'ALL', label: 'Tất cả cụm máy' },
-                ...filterOptions.machines.map((m) => ({
-                  value: m.code,
-                  label: `${m.code} - ${m.name}`
-                }))
-              ]}
-            />
-          </div>
-
-          {/* Nút Đặt lại lọc */}
-          {hasActiveFilters && (
-            <PureButton
-              icon={<RotateCcw size={11} />}
-              onClick={handleResetFilters}
-              style={{
-                borderColor: '#fca5a5',
-                color: '#be123c',
-                background: '#fff1f2'
-              }}
-            >
-              Đặt lại lọc
-            </PureButton>
-          )}
-        </div>
       </div>
 
       {/* 2. MAIN REPORT HEADER */}
@@ -513,6 +360,14 @@ export default function ProductionStatisticsReport(props) {
               currentMaster?.RegDate ||
               (selectedMasterKey ? selectedMasterKey : 'Đợt nạp hiện hành')}
           </span>
+          {dateRange && dateRange[0] && dateRange[1] && (
+            <>
+              <span>•</span>
+              <span>
+                <b>Phạm vi thống kê:</b> {dateRange[0]} đến {dateRange[1]}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -1205,7 +1060,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
                     }}
@@ -1217,7 +1072,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
                     }}
@@ -1229,7 +1084,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1242,7 +1097,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1255,7 +1110,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1268,7 +1123,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1281,7 +1136,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1294,7 +1149,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1340,7 +1195,7 @@ export default function ProductionStatisticsReport(props) {
                           {row.machineName}
                         </span>
                       </td>
-                      <td style={{ padding: '9px 12px', color: '#475569', fontSize: 11.5 }}>
+                      <td style={{ padding: '9px 12px', color: '#475569', fontSize: 12 }}>
                         {row.teamName || 'Tổ SX'}
                       </td>
                       <td
@@ -1686,7 +1541,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
                     }}
@@ -1698,7 +1553,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1711,7 +1566,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1724,7 +1579,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1737,7 +1592,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1750,7 +1605,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1763,7 +1618,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1776,7 +1631,7 @@ export default function ProductionStatisticsReport(props) {
                       padding: '10px 12px',
                       fontWeight: 700,
                       color: '#0f172a',
-                      fontSize: 11.5,
+                      fontSize: 12,
                       textAlign: 'right',
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em'
@@ -1877,7 +1732,7 @@ export default function ProductionStatisticsReport(props) {
                       >
                         {row.mesRate}%
                       </td>
-                      <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: 11.5 }}>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: 12 }}>
                         {row.under5Min > 0 && (
                           <span
                             style={{ color: '#dc2626', fontWeight: 700, marginRight: 6 }}
@@ -2157,7 +2012,7 @@ export default function ProductionStatisticsReport(props) {
                   borderCollapse: 'collapse',
                   borderTop: '2px solid #0f172a',
                   borderBottom: '2px solid #0f172a',
-                  fontSize: 11.5,
+                  fontSize: 12,
                   textAlign: 'left',
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   fontVariantNumeric: 'tabular-nums'
@@ -2405,7 +2260,7 @@ export default function ProductionStatisticsReport(props) {
                   borderCollapse: 'collapse',
                   borderTop: '2px solid #0f172a',
                   borderBottom: '2px solid #0f172a',
-                  fontSize: 11.5,
+                  fontSize: 12,
                   textAlign: 'left',
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   fontVariantNumeric: 'tabular-nums'

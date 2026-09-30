@@ -82,30 +82,28 @@ export function normalizeDateString(dateStr) {
  */
 function mapDBRowToPlanItem(item, idx, master) {
   const planQty = parseCleanNumber(
-    item.TargetProdQty ??
-    item.TargetPassQty ??
-    item.PlanQty ??
-    item.planQty ??
-    item.RequiredQty,
+    item.TargetProdQty ?? item.TargetPassQty ?? item.PlanQty ?? item.planQty ?? item.RequiredQty,
     0
   )
   const actualQty = parseCleanNumber(
-    item.StatPassQty ??
-    item.ActualQty ??
-    item.actualQty ??
-    item.CompletedQty ??
-    item.TargetPassQty,
+    item.StatPassQty ?? item.ActualQty ?? item.actualQty ?? item.CompletedQty ?? item.TargetPassQty,
     planQty
   )
 
   const rawPlanDate = item.RoutingDocDate || item.PlanDate || item.planDate || item.StartDate || ''
-  const rawActualDate = item.OpDate || item.ActualDate || item.actualDate || item.ProdDate || item.EndDate || ''
+  const rawActualDate =
+    item.OpDate || item.ActualDate || item.actualDate || item.ProdDate || item.EndDate || ''
 
-  const planDate = normalizeDateString(rawPlanDate) || normalizeDateString(rawActualDate) || (master?.ApplyDate ? String(master.ApplyDate).slice(0, 10) : '2026-09-29')
+  const planDate =
+    normalizeDateString(rawPlanDate) ||
+    normalizeDateString(rawActualDate) ||
+    (master?.ApplyDate ? String(master.ApplyDate).slice(0, 10) : '2026-09-29')
   const actualDate = normalizeDateString(rawActualDate) || planDate
 
   // Trạng thái ĐP - SX
-  let dpStatusText = String(item.StatusDpSx || item.DpStatusText || item.dpStatusText || item.Status || '').trim()
+  let dpStatusText = String(
+    item.StatusDpSx || item.DpStatusText || item.dpStatusText || item.Status || ''
+  ).trim()
   let dpStatusCode = 'KHOP_SL'
 
   const lowerDp = dpStatusText.toLowerCase()
@@ -142,10 +140,21 @@ function mapDBRowToPlanItem(item, idx, master) {
   let capaStatus = String(item.CapaStatus || item.capaStatus || 'Trống / Đúng capa').trim()
   let capaStatusText = capaStatus
 
-  const docNo = item.OperationNo || item.RoutingDocNo || item.DocNo || item.docNo || item.PlanNo || `LSX-HN-${String(idx + 1).padStart(4, '0')}`
+  const docNo =
+    item.OperationNo ||
+    item.RoutingDocNo ||
+    item.DocNo ||
+    item.docNo ||
+    item.PlanNo ||
+    `LSX-HN-${String(idx + 1).padStart(4, '0')}`
   const orderNo = item.RoutingDocNo || item.OrderNo || item.orderNo || item.SoNo || 'SO-2026-0000'
-  const planNo = item.OperationNo || item.PlanNo || item.planNo || `KH-HN-W39-${String(idx + 1).padStart(3, '0')}`
-  const pic = item.PicDp || item.pic || item.Pic || item.Dispatcher || item.Planner || 'Chưa phân công'
+  const planNo =
+    item.OperationNo ||
+    item.PlanNo ||
+    item.planNo ||
+    `KH-HN-W39-${String(idx + 1).padStart(3, '0')}`
+  const pic =
+    item.PicDp || item.pic || item.Pic || item.Dispatcher || item.Planner || 'Chưa phân công'
 
   return {
     id: item.IdSeq || item.id || `HN-PL-${String(idx + 1).padStart(4, '0')}`,
@@ -155,7 +164,8 @@ function mapDBRowToPlanItem(item, idx, master) {
     pic,
     machineCode: item.MachineCode || item.machineCode || item.MachineName || 'CHUNG',
     machineName: item.MachineName || item.machineName || 'Thiết bị sản xuất',
-    teamName: item.OpTypeName || item.OperationName || item.TeamName || item.teamName || 'Tổ sản xuất',
+    teamName:
+      item.OpTypeName || item.OperationName || item.TeamName || item.teamName || 'Tổ sản xuất',
     itemCode: item.ItemCode || item.itemCode || 'CAN-FSB-00360',
     itemName: item.ItemName || item.itemName || 'Sản phẩm GS1',
     operationNo: item.OperationNo || '',
@@ -202,7 +212,8 @@ export default function HanoiGs1PlanPage() {
   const cacheKey = 'hanoi_plan'
   const cachedInitialMasters = getCachedMasters(cacheKey) || []
   const cachedInitialActiveMaster =
-    getCachedActiveMaster(cacheKey) || (cachedInitialMasters.length > 0 ? cachedInitialMasters[0] : null)
+    getCachedActiveMaster(cacheKey) ||
+    (cachedInitialMasters.length > 0 ? cachedInitialMasters[0] : null)
   const initialDetailKey = cachedInitialActiveMaster
     ? cachedInitialActiveMaster.RegCode || cachedInitialActiveMaster.IdSeq
     : null
@@ -308,8 +319,12 @@ export default function HanoiGs1PlanPage() {
             m.ReportType === 'plan' ||
             m.ReportType === 'khsx' ||
             m.ReportType === 'Kế hoạch sản xuất' ||
-            String(m.ReportType || '').toLowerCase().includes('kế hoạch') ||
-            String(m.ReportType || '').toLowerCase().includes('plan')
+            String(m.ReportType || '')
+              .toLowerCase()
+              .includes('kế hoạch') ||
+            String(m.ReportType || '')
+              .toLowerCase()
+              .includes('plan')
           return isHanoi && isPlan
         })
 
@@ -333,8 +348,7 @@ export default function HanoiGs1PlanPage() {
           }
           if (!activeMaster) {
             activeMaster =
-              masters.find((m) => m.ReportType === 'plan' || m.ReportType === 'khsx') ||
-              masters[0]
+              masters.find((m) => m.ReportType === 'plan' || m.ReportType === 'khsx') || masters[0]
           }
 
           const activeKey =
@@ -405,4 +419,3 @@ export default function HanoiGs1PlanPage() {
     </div>
   )
 }
-

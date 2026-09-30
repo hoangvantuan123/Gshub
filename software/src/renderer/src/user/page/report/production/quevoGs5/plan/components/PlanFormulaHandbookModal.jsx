@@ -13,7 +13,8 @@ export const PLAN_FORMULA_DATABASE = [
     scope: 'Thẻ KPI 1 & Toàn bộ báo cáo',
     formula: 'COUNT(IdSeq) trong phạm vi bộ lọc',
     source: 'Bảng _ERPPlanDetail (OperationNo / DocNo)',
-    description: 'Tổng số lệnh điều phối sản xuất nằm trong phạm vi ngày và các điều kiện lọc được chọn.'
+    description:
+      'Tổng số lệnh điều phối sản xuất nằm trong phạm vi ngày và các điều kiện lọc được chọn.'
   },
   {
     id: 'kpi_sx_sai_ngay',
@@ -24,7 +25,8 @@ export const PLAN_FORMULA_DATABASE = [
     scope: 'Thẻ KPI 2 & Mục 3 & Mục 5',
     formula: 'COUNT IF (StatusDpSx = "SX sai ngày KH" HOẶC OpDate != RoutingDocDate)',
     source: 'So khớp ngày thực hiện (OpDate) với ngày điều phối (RoutingDocDate)',
-    description: 'Số lượng và tỷ lệ lệnh có ngày sản xuất thực tế lệch so với ngày kế hoạch ban đầu.'
+    description:
+      'Số lượng và tỷ lệ lệnh có ngày sản xuất thực tế lệch so với ngày kế hoạch ban đầu.'
   },
   {
     id: 'kpi_truot_kh',
@@ -35,7 +37,8 @@ export const PLAN_FORMULA_DATABASE = [
     scope: 'Thẻ KPI 3 & Mục 3 & Mục 5',
     formula: 'COUNT IF (StatusDpSx = "Trượt KH" HOẶC StatPassQty < TargetProdQty * 0.9)',
     source: 'Cột StatusDpSx hoặc tỷ lệ sản lượng đạt so với kế hoạch',
-    description: 'Các lệnh không hoàn thành đúng tiến độ hoặc bị thiếu hụt sản lượng so với chỉ tiêu kế hoạch.'
+    description:
+      'Các lệnh không hoàn thành đúng tiến độ hoặc bị thiếu hụt sản lượng so với chỉ tiêu kế hoạch.'
   },
   {
     id: 'kpi_khop_sl',
@@ -79,7 +82,8 @@ export const PLAN_FORMULA_DATABASE = [
     scope: 'Mục 4 (Biểu đồ ngang)',
     formula: 'So sánh StandardCapa vs ActualCapa',
     source: 'Cột CapaStatus trong _ERPPlanDetail',
-    description: 'Phân loại mức độ đáp ứng năng suất máy: Nhanh hơn ĐM, Chậm hơn ĐM, Trống / Đúng capa.'
+    description:
+      'Phân loại mức độ đáp ứng năng suất máy: Nhanh hơn ĐM, Chậm hơn ĐM, Trống / Đúng capa.'
   },
   {
     id: 'chart_pic_breakdown',
@@ -88,7 +92,8 @@ export const PLAN_FORMULA_DATABASE = [
     columnId: 'PicDp',
     columnName: 'PIC ĐP',
     scope: 'Mục 5 (Bảng & Biểu đồ Xếp hạng)',
-    formula: 'Gom nhóm theo PicDp: Tổng lệnh, Tỷ lệ sai ngày, Trượt KH, Khớp SL, Khớp job, Tỷ lệ đạt chuẩn',
+    formula:
+      'Gom nhóm theo PicDp: Tổng lệnh, Tỷ lệ sai ngày, Trượt KH, Khớp SL, Khớp job, Tỷ lệ đạt chuẩn',
     source: 'Cột PicDp trong _ERPPlanDetail',
     description: 'Tổng hợp phân tích hiệu quả điều phối theo từng nhân sự phụ trách.'
   },
@@ -193,7 +198,8 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
                 SỔ TAY CÔNG THỨC & TỪ ĐIỂN CHỈ SỐ ĐIỀU PHỐI KHSX
               </div>
               <div style={{ fontSize: 11.5, color: '#e0f2fe', marginTop: 2, fontWeight: 500 }}>
-                Quy chuẩn phương pháp tính toán, nguồn dữ liệu và vị trí áp dụng báo cáo KHSX GS5 Quế Võ
+                Quy chuẩn phương pháp tính toán, nguồn dữ liệu và vị trí áp dụng báo cáo KHSX GS5
+                Quế Võ
               </div>
             </div>
           </div>
@@ -323,7 +329,13 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
 
         {/* Content Table */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+              gap: 14
+            }}
+          >
             {filteredFormulas.map((item) => (
               <div
                 key={item.id}
@@ -338,7 +350,14 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 6
+                    }}
+                  >
                     <span
                       style={{
                         fontSize: 10,
@@ -349,27 +368,33 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
                           item.category === 'KPI'
                             ? '#e0f2fe'
                             : item.category === 'CHARTS'
-                            ? '#fef3c7'
-                            : '#f1f5f9',
+                              ? '#fef3c7'
+                              : '#f1f5f9',
                         color:
                           item.category === 'KPI'
                             ? '#0369a1'
                             : item.category === 'CHARTS'
-                            ? '#b45309'
-                            : '#475569',
+                              ? '#b45309'
+                              : '#475569',
                         borderRadius: 2
                       }}
                     >
                       {item.category}
                     </span>
-                    <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{item.scope}</span>
+                    <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                      {item.scope}
+                    </span>
                   </div>
 
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
+                  <div
+                    style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}
+                  >
                     {item.title}
                   </div>
 
-                  <div style={{ fontSize: 11.5, color: '#334155', marginBottom: 8, lineHeight: 1.4 }}>
+                  <div
+                    style={{ fontSize: 11.5, color: '#334155', marginBottom: 8, lineHeight: 1.4 }}
+                  >
                     {item.description}
                   </div>
                 </div>
@@ -383,7 +408,10 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
                   }}
                 >
                   <div style={{ color: '#0f172a', fontWeight: 700, marginBottom: 2 }}>
-                    Công thức: <code style={{ color: '#0369a1', fontFamily: 'monospace' }}>{item.formula}</code>
+                    Công thức:{' '}
+                    <code style={{ color: '#0369a1', fontFamily: 'monospace' }}>
+                      {item.formula}
+                    </code>
                   </div>
                   <div style={{ color: '#64748b' }}>
                     Nguồn: <strong>{item.source}</strong>

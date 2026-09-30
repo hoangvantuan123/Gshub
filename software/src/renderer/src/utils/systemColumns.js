@@ -77,7 +77,7 @@ export const ensureWorkingTagFirstColumn = (cols = [], defaultCols = []) => {
       width: 45,
       hasMenu: true,
       visible: true,
-      themeOverride: { textDark: '#225588', baseFontStyle: '600 13px' }
+      themeOverride: { textDark: '#225588', baseFontStyle: '600 12px' }
     }
 
   return [workingTagCol, ...cleanCols]

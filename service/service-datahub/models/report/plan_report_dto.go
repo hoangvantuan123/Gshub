@@ -10,6 +10,7 @@ type PlanRegistrationSaveRequest struct {
 	Remark      string               `json:"remark"`
 	Status      string               `json:"status"`
 	IsDraft     bool                 `json:"isDraft"`
+	TotalRows   int                  `json:"totalRows"` // Tổng số dòng nếu gửi theo chunk
 	PlanData    []ERPPlanDetail      `json:"planData"`  // Data KHSX
 	StatsData   []ERPProdStatsDetail `json:"statsData"` // Data TKSX
 	Data        []map[string]any     `json:"data"`      // Raw fallback

@@ -553,8 +553,7 @@ export const RuntimeAuditDetailModal = ({
                 fontSize: 11,
                 padding: '1px 6px',
                 borderRadius: 10,
-                background:
-                  activeCategory === 'OVER_12H' ? 'rgba(255,255,255,0.25)' : '#fef3c7',
+                background: activeCategory === 'OVER_12H' ? 'rgba(255,255,255,0.25)' : '#fef3c7',
                 color: activeCategory === 'OVER_12H' ? '#ffffff' : '#b45309'
               }}
             >

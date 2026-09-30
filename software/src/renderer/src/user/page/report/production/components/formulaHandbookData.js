@@ -110,19 +110,19 @@ export const FORMULA_DATABASE = [
     notes: 'Đơn vị tính: Phiếu.'
   },
   {
-    id: 'chart_runtime_audit',
+    id: 'chart_team_quality_rate',
     category: 'CHART',
     categoryName: 'II. Biểu đồ Phân tích & Ma trận',
     badgeColor: 'orange',
-    title: '9. Kiểm toán kỷ luật thời gian vận hành (Runtime Discipline Audit)',
-    scope: 'Mục II: Biểu đồ 2 & Ma trận 4 Thẻ Quyết Định QLSX',
+    title: '9. Tỷ lệ đạt chuẩn chất lượng KCS theo tổ sản xuất (Team Quality Rate)',
+    scope: 'Mục II: Biểu đồ Tỷ lệ đạt chuẩn kỹ thuật theo tổ & Mục 3.2',
     formula:
-      'Phân nhóm thời gian: Thao tác < 5p (Cảnh báo), Chuẩn (5p - 12h), Đơn lớn > 12h (SL ≥ 50k - Chuẩn), Đơn nhỏ > 12h (Cảnh báo)',
-    source: 'Khoảng chênh lệch: Thời gian bắt đầu (startTime) - Thời gian kết thúc (endTime)',
+      'Tỷ lệ Đạt KCS (%) = (Tổng SL Đạt KCS của tổ / Tổng SL Thực tế của tổ) × 100%',
+    source: 'Tổng hợp từ các trường passQty, actualQty (passQty + defectQty) theo từng teamName',
     description:
-      'Ngăn chặn gian lận thao tác, nhập vội hoặc quên kết thúc ca máy, nâng cao kỷ luật quản trị nhà máy chuẩn MES.',
+      'Đánh giá tỷ lệ sản phẩm đạt chuẩn chất lượng KCS (%) của các tổ sản xuất ghi nhận trong kỳ. Phản ánh hiệu quả kiểm soát kỹ thuật và mức độ giảm thiểu phế liệu của từng tổ theo dữ liệu vận hành thực tế.',
     notes:
-      'Hệ thống tự động kích hoạt cảnh báo trực tiếp gửi Phân xưởng trưởng đối với các đơn hàng bất thường.'
+      'Tiêu chuẩn hiển thị: ≥ 95% màu xanh chuẩn (#245d6c), < 95% đổi màu hổ phách cảnh báo (#d97706) để kiểm tra nguyên nhân phế liệu.'
   },
   {
     id: 'table_machine_ratio24h',
@@ -130,7 +130,7 @@ export const FORMULA_DATABASE = [
     categoryName: 'III. Bảng biểu Chi tiết (Glide Data Grid)',
     badgeColor: 'green',
     title: '10. Hệ số khai thác máy so với 24 giờ (Machine Utilization vs 24h)',
-    scope: 'Mục IV: 4.1. Ma trận năng lực cụm máy (Cột: So với 24 giờ)',
+    scope: 'Mục III: 3.1. Ma trận năng lực cụm máy (Cột: So với 24 giờ)',
     formula: 'Hệ số 24h (%) = (Tổng giờ chạy của máy / 24 giờ) × 100%',
     source: 'Trường runtimeHours trên mỗi máy',
     description:
@@ -143,7 +143,7 @@ export const FORMULA_DATABASE = [
     categoryName: 'III. Bảng biểu Chi tiết (Glide Data Grid)',
     badgeColor: 'green',
     title: '11. Tỷ lệ hoàn thành kế hoạch theo tổ (Team Plan Completion Rate)',
-    scope: 'Mục IV: 4.2. Phân tích đối chiếu theo tổ (Cột: Đạt KH)',
+    scope: 'Mục III: 3.2. Phân tích đối chiếu theo tổ (Cột: Đạt KH & Đạt KCS)',
     formula: 'Đạt KH (%) = (Tổng SL Thực tế của tổ / Tổng SL Kế hoạch của tổ) × 100%',
     source: 'Tổng hợp sản lượng thực tế và kế hoạch giao cho từng tổ sản xuất',
     description:
@@ -156,7 +156,7 @@ export const FORMULA_DATABASE = [
     categoryName: 'III. Bảng biểu Chi tiết (Glide Data Grid)',
     badgeColor: 'green',
     title: '12. Phân loại kiểm toán tác nghiệp (QLSX Audit Status)',
-    scope: 'Mục IV: 4.3. Nhật trình chi tiết phiếu (Cột: Kiểm toán QLSX)',
+    scope: 'Mục III: 3.3. Nhật trình chi tiết phiếu (Cột: Kiểm toán QLSX)',
     formula:
       'IF(duration < 5p, "< 5p Nhập nhanh", IF(duration > 720p AND actual >= 50k, "> 12h Đơn lớn (Chuẩn)", IF(duration > 720p, "> 12h Cần kiểm tra", "Chuẩn tiến độ")))',
     source: 'Tính toán trực tiếp từ thời gian chạy và sản lượng thực tế của từng phiếu',

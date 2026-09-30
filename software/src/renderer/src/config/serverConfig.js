@@ -8,7 +8,7 @@ export const STORAGE_KEY_ENV = 'envSelection'
 export const STORAGE_KEY_SAVED_USERS = 'datahub_saved_user_logs'
 export const STORAGE_KEY_REMEMBER_USER = 'datahub_remember_username'
 
-export const getDefaultDataHubUrl = () => {
+export const getDefaultDataHubUrl = (envKey = null) => {
   try {
     if (typeof window !== 'undefined') {
       const customUrl =
@@ -23,6 +23,11 @@ export const getDefaultDataHubUrl = () => {
     }
   } catch (e) {
     console.warn('Error resolving default DataHub URL:', e)
+  }
+
+  const current = envKey || getCurrentEnv()
+  if (current === 'official') {
+    return 'https://gshub.erpsheet.vn'
   }
   return (
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
@@ -39,8 +44,8 @@ export const SERVER_ENVIRONMENTS = [
     shortLabel: 'Dev / UAT',
     endpoint: 'https://bravo.goldsunpackaging.vn:5051',
     configKey: 'BravoDefault',
-    backendUrl: getDefaultDataHubUrl(),
-    gatewayUrl: `${getDefaultDataHubUrl()}/api/v2`,
+    backendUrl: 'http://localhost:8080',
+    gatewayUrl: 'http://localhost:8080/api/v2',
     tag: 'Goldsun DEV'
   },
   {
@@ -49,8 +54,8 @@ export const SERVER_ENVIRONMENTS = [
     shortLabel: 'Production',
     endpoint: 'https://bravo.goldsunpackaging.vn:5052',
     configKey: 'Bravo_PROD',
-    backendUrl: 'https://platx.erpsheet.vn',
-    gatewayUrl: 'https://platx.erpsheet.vn/a1/api/v2',
+    backendUrl: 'https://gshub.erpsheet.vn',
+    gatewayUrl: 'https://gshub.erpsheet.vn/api/v2',
     tag: 'Goldsun PROD'
   }
 ]
@@ -79,9 +84,11 @@ export function setCurrentEnv(envKey) {
 export function getEnvConfig(envKey = null) {
   const current = envKey || getCurrentEnv()
   const found = SERVER_ENVIRONMENTS.find((e) => e.value === current) || SERVER_ENVIRONMENTS[0]
+  const activeUrl = getDefaultDataHubUrl(current)
   return {
     ...found,
-    backendUrl: found.value === 'official' ? 'https://platx.erpsheet.vn' : getDefaultDataHubUrl()
+    backendUrl: activeUrl,
+    gatewayUrl: `${activeUrl}/api/v2`
   }
 }
 

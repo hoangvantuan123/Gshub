@@ -87,8 +87,8 @@ module.exports = {
       },
 
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      error_file: './service-datahub/logs/pm2-error.log',
-      out_file: './service-datahub/logs/pm2-out.log',
+      error_file: './logs/pm2-error.log',
+      out_file: './logs/pm2-out.log',
       merge_logs: true,
       time: true
     }

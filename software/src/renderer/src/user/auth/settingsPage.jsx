@@ -514,7 +514,7 @@ export default function SettingsPage() {
                           label: (
                             <div className="flex items-center gap-2 text-xs font-semibold whitespace-nowrap">
                               <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                              {t.server.dev} (http://localhost:8080)
+                              {t.server.dev} (http://localhost:9643)
                             </div>
                           )
                         },
@@ -577,7 +577,7 @@ export default function SettingsPage() {
                         placeholder={
                           envSelection === 'official'
                             ? 'https://gshub.erpsheet.vn'
-                            : 'http://localhost:8080'
+                            : 'http://localhost:9643'
                         }
                         defaultValue={localStorage.getItem('gshub_api_url') || ''}
                         id="custom_server_url_input"

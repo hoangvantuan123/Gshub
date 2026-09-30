@@ -18,15 +18,14 @@ module.exports = {
       // =========================================================================
       env: {
         APP_ENV: 'production',
-        PORT: 8080,
-        GRPC_PORT: 50057,
+        PORT: 9643,
+        GRPC_PORT: 9644,
 
-        // 1. Cấu hình kết nối PostgreSQL Database (Chuyển sang Gshub)
         DB_HOST: '127.0.0.1',
         DB_PORT: '5432',
         DB_USER: 'postgres',
         DB_PASSWORD: 'AdminErp#',
-        DB_NAME: 'Gshub', // Đã chuyển kết nối CSDL từ DATAHUB sang Gshub
+        DB_NAME: 'GsHub', // Đã chuyển kết nối CSDL từ DATAHUB sang GsHub
         DB_SSLMODE: 'disable',
         DB_MAX_OPEN_CONNS: '50',
         DB_MAX_IDLE_CONNS: '10',
@@ -56,8 +55,8 @@ module.exports = {
       // =========================================================================
       env_development: {
         APP_ENV: 'development',
-        PORT: 8080,
-        GRPC_PORT: 50057,
+        PORT: 9643,
+        GRPC_PORT: 9644,
 
         // CSDL Development
         DB_HOST: '127.0.0.1',

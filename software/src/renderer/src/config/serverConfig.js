@@ -31,7 +31,7 @@ export const getDefaultDataHubUrl = (envKey = null) => {
   }
   return (
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-    'http://localhost:8080'
+    'http://localhost:9643'
   )
 }
 
@@ -44,8 +44,8 @@ export const SERVER_ENVIRONMENTS = [
     shortLabel: 'Dev / UAT',
     endpoint: 'https://bravo.goldsunpackaging.vn:5051',
     configKey: 'BravoDefault',
-    backendUrl: 'http://localhost:8080',
-    gatewayUrl: 'http://localhost:8080/api/v2',
+    backendUrl: 'http://localhost:9643',
+    gatewayUrl: 'http://localhost:9643/api/v2',
     tag: 'Goldsun DEV'
   },
   {

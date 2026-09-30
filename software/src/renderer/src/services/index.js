@@ -3,7 +3,7 @@ const currentPort = typeof window !== 'undefined' ? window.location.port : ''
 
 const devBaseUrl =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-  'http://localhost:8080'
+  'http://localhost:9643'
 
 export let HOST_API_SERVER_1 = `${devBaseUrl}/api/v1`
 export let HOST_API_SERVER_2 = `${devBaseUrl}/api/v2`

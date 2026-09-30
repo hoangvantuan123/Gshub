@@ -1,0 +1,1027 @@
+/* eslint-disable react/prop-types */
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { RotateCw, Search, ChevronDown, Check, X } from 'lucide-react'
+
+// 1. Pure Sharp Button
+export const PureButton = ({
+  children,
+  icon,
+  onClick,
+  type = 'default',
+  size = 'small',
+  loading,
+  style,
+  title,
+  disabled
+}) => {
+  const isPrimary = type === 'primary'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || loading}
+      title={title}
+      className="pure-button"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        padding: size === 'small' ? '4px 10px' : '6px 14px',
+        fontSize: size === 'small' ? 11.5 : 12,
+        fontWeight: isPrimary ? 700 : 600,
+        color: isPrimary ? '#ffffff' : '#334155',
+        background: isPrimary ? '#245d6c' : '#ffffff',
+        border: isPrimary ? '1px solid #245d6c' : '1px solid #cbd5e1',
+        borderRadius: 0,
+        cursor: disabled || loading ? 'not-allowed' : 'pointer',
+        opacity: disabled || loading ? 0.6 : 1,
+        fontFamily: 'inherit',
+        lineHeight: 1,
+        boxSizing: 'border-box',
+        verticalAlign: 'middle',
+        transition: 'all 0.15s ease',
+        ...style
+      }}
+    >
+      {loading ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+          <RotateCw size={12} style={{ animation: 'spin 1s linear infinite' }} />
+        </span>
+      ) : icon ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>{icon}</span>
+      ) : null}
+      <span style={{ display: 'inline-block', lineHeight: 1 }}>{children}</span>
+    </button>
+  )
+}
+
+// 2. Custom Sharp Searchable Dropdown for Master Batch Selection (Đợt nạp dữ liệu chuẩn kỹ thuật)
+export const MasterBatchSearchSelect = ({
+  masterList = [],
+  selectedMasterKey,
+  onSelectMaster,
+  onRefreshMaster,
+  loading = false,
+  style
+}) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const containerRef = useRef(null)
+  const searchInputRef = useRef(null)
+
+  // Sắp xếp master mới nhất lên đầu
+  const sortedMasters = useMemo(() => {
+    if (!masterList || masterList.length === 0) return []
+    const list = [...masterList]
+    return list.sort((a, b) => {
+      const dateA = new Date(a.CreatedAt || a.ApplyDate || a.Date || 0).getTime()
+      const dateB = new Date(b.CreatedAt || b.ApplyDate || b.Date || 0).getTime()
+      return dateB - dateA || (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
+    })
+  }, [masterList])
+
+  // Luôn tự động chọn đợt nạp mới nhất nếu chưa có đợt nào được chọn
+  useEffect(() => {
+    if (sortedMasters.length > 0 && !selectedMasterKey && onSelectMaster) {
+      const newest = sortedMasters[0]
+      const newestKey =
+        newest.RegCode || newest.regCode || String(newest.IdSeq || newest.MasterSeq || '')
+      if (newestKey) {
+        onSelectMaster(newestKey, newest)
+      }
+    }
+  }, [sortedMasters, selectedMasterKey, onSelectMaster])
+
+  // Đóng khi click ngoài hoặc ấn ESC
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleKeyDown)
+      setTimeout(() => {
+        if (searchInputRef.current) searchInputRef.current.focus()
+      }, 50)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
+  // Tìm master hiện tại
+  const currentMaster = useMemo(() => {
+    if (!selectedMasterKey) return sortedMasters[0] || null
+    return (
+      sortedMasters.find(
+        (m) =>
+          (m.RegCode || m.regCode) === selectedMasterKey ||
+          String(m.IdSeq || m.MasterSeq) === String(selectedMasterKey)
+      ) ||
+      sortedMasters[0] ||
+      null
+    )
+  }, [sortedMasters, selectedMasterKey])
+
+  // Lọc theo từ khóa tìm kiếm
+  const filteredMasters = useMemo(() => {
+    if (!searchKeyword.trim()) return sortedMasters
+    const q = searchKeyword.toLowerCase().trim()
+    return sortedMasters.filter((m) => {
+      const code = String(m.RegCode || m.regCode || m.IdSeq || m.MasterSeq || '').toLowerCase()
+      const date = String(m.ApplyDate || m.CreatedAt || m.Date || '').toLowerCase()
+      const type = String(m.ReportType || m.reportType || '').toLowerCase()
+      const creator = String(m.CreatedByName || m.CreatedBy || '').toLowerCase()
+      const note = String(m.Note || m.Description || '').toLowerCase()
+      return (
+        code.includes(q) ||
+        date.includes(q) ||
+        type.includes(q) ||
+        creator.includes(q) ||
+        note.includes(q)
+      )
+    })
+  }, [sortedMasters, searchKeyword])
+
+  const currentCode = currentMaster
+    ? currentMaster.RegCode ||
+      currentMaster.regCode ||
+      String(currentMaster.IdSeq || currentMaster.MasterSeq || '')
+    : 'Chưa có đợt nạp'
+  const currentDate = currentMaster
+    ? currentMaster.ApplyDate || currentMaster.CreatedAt?.slice(0, 10) || ''
+    : ''
+  const isCurrentNewest =
+    sortedMasters.length > 0 &&
+    currentMaster &&
+    (currentMaster.RegCode || currentMaster.regCode || currentMaster.IdSeq) ===
+      (sortedMasters[0].RegCode || sortedMasters[0].regCode || sortedMasters[0].IdSeq)
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'relative',
+        display: 'inline-flex',
+        alignItems: 'stretch',
+        border: '1px solid #cbd5e1',
+        background: '#ffffff',
+        boxSizing: 'border-box',
+        ...style
+      }}
+    >
+      {/* Label Prefix */}
+      <div
+        style={{
+          fontSize: 11.5,
+          fontWeight: 700,
+          color: '#475569',
+          background: '#f1f5f9',
+          padding: '4px 8px',
+          borderRight: '1px solid #cbd5e1',
+          display: 'flex',
+          alignItems: 'center',
+          userSelect: 'none',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        Đợt nạp:
+      </div>
+
+      {/* Main Trigger Button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          border: 'none',
+          background: isOpen ? '#f8fafc' : '#ffffff',
+          padding: '4px 10px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          cursor: 'pointer',
+          outline: 'none',
+          fontFamily: 'inherit',
+          minWidth: 260,
+          justifyContent: 'space-between',
+          textAlign: 'left'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{currentCode}</span>
+          {isCurrentNewest && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: '#047857',
+                background: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                padding: '1px 4px',
+                borderRadius: 0,
+                lineHeight: 1
+              }}
+            >
+              MỚI NHẤT
+            </span>
+          )}
+          {currentDate && <span style={{ fontSize: 11, color: '#64748b' }}>({currentDate})</span>}
+        </div>
+        <ChevronDown
+          size={14}
+          color="#64748b"
+          style={{
+            transform: isOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.15s ease',
+            flexShrink: 0
+          }}
+        />
+      </button>
+
+      {/* Refresh Button */}
+      {onRefreshMaster && (
+        <button
+          type="button"
+          onClick={() => onRefreshMaster(selectedMasterKey)}
+          title="Làm mới danh sách đợt nạp CSDL"
+          style={{
+            border: 'none',
+            borderLeft: '1px solid #cbd5e1',
+            background: 'transparent',
+            padding: '4px 8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            color: '#475569'
+          }}
+        >
+          <RotateCw size={12} className={loading ? 'animate-spin' : ''} />
+        </button>
+      )}
+
+      {/* Dropdown Popover */}
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 2px)',
+            left: 0,
+            zIndex: 1100,
+            width: 360,
+            background: '#ffffff',
+            border: '1px solid #94a3b8',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            borderRadius: 0,
+            overflow: 'hidden'
+          }}
+        >
+          {/* Search Header */}
+          <div
+            style={{
+              padding: '6px 8px',
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
+            }}
+          >
+            <Search size={13} color="#64748b" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Tìm kiếm đợt nạp (mã, ngày, loại, người nạp)..."
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              style={{
+                flex: 1,
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                fontSize: 11.5,
+                color: '#0f172a',
+                fontFamily: 'inherit'
+              }}
+            />
+            {searchKeyword && (
+              <button
+                type="button"
+                onClick={() => setSearchKeyword('')}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  padding: 2,
+                  cursor: 'pointer',
+                  color: '#94a3b8'
+                }}
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Header Subtitle */}
+          <div
+            style={{
+              padding: '4px 10px',
+              fontSize: 10.5,
+              fontWeight: 700,
+              color: '#64748b',
+              background: '#f1f5f9',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between'
+            }}
+          >
+            <span>DANH SÁCH ĐỢT NẠP ({filteredMasters.length})</span>
+            <span>MỚI NHẤT Ở TRÊN CÙNG</span>
+          </div>
+
+          {/* List of Batches */}
+          <div
+            style={{
+              maxHeight: 260,
+              overflowY: 'auto',
+              background: '#ffffff'
+            }}
+          >
+            {filteredMasters.length === 0 ? (
+              <div
+                style={{
+                  padding: '16px 12px',
+                  textAlign: 'center',
+                  fontSize: 11.5,
+                  color: '#94a3b8'
+                }}
+              >
+                Không tìm thấy đợt nạp phù hợp với từ khóa
+              </div>
+            ) : (
+              filteredMasters.map((m, idx) => {
+                const code = m.RegCode || m.regCode || String(m.IdSeq || m.MasterSeq || '')
+                const isSelected =
+                  code === selectedMasterKey ||
+                  String(m.IdSeq || m.MasterSeq) === String(selectedMasterKey)
+                const isNewest = idx === 0 && !searchKeyword
+                const dateStr = m.ApplyDate || m.CreatedAt?.slice(0, 10) || 'N/A'
+                const creator = m.CreatedByName || m.CreatedBy || 'MES/Bravo'
+                const typeName =
+                  m.ReportType === 'statistics' || m.ReportType === 'tksx'
+                    ? 'Thống kê SX'
+                    : m.ReportType === 'plan' || m.ReportType === 'khsx'
+                      ? 'Kế hoạch SX'
+                      : m.ReportType || 'Báo cáo'
+
+                return (
+                  <div
+                    key={code + idx}
+                    onClick={() => {
+                      if (onSelectMaster) onSelectMaster(code, m)
+                      setIsOpen(false)
+                    }}
+                    style={{
+                      padding: '7px 10px',
+                      borderBottom: '1px solid #f1f5f9',
+                      borderLeft: isSelected ? '3px solid #245d6c' : '3px solid transparent',
+                      background: isSelected ? '#f0fdfa' : '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'background 0.1s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = '#f8fafc'
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = '#ffffff'
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: 2
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: isSelected ? '#0f766e' : '#0f172a'
+                          }}
+                        >
+                          {code}
+                        </span>
+                        {isNewest && (
+                          <span
+                            style={{
+                              fontSize: 9.5,
+                              fontWeight: 800,
+                              color: '#047857',
+                              background: '#ecfdf5',
+                              border: '1px solid #a7f3d0',
+                              padding: '1px 4px',
+                              lineHeight: 1
+                            }}
+                          >
+                            MỚI NHẤT
+                          </span>
+                        )}
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: '#0369a1',
+                            background: '#f0f9ff',
+                            padding: '1px 4px',
+                            border: '1px solid #bae6fd'
+                          }}
+                        >
+                          {typeName}
+                        </span>
+                      </div>
+                      {isSelected && <Check size={13} color="#0f766e" />}
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: '#64748b',
+                        display: 'flex',
+                        gap: 10,
+                        flexWrap: 'wrap'
+                      }}
+                    >
+                      <span>
+                        Ngày: <b style={{ color: '#334155' }}>{dateStr}</b>
+                      </span>
+                      <span>
+                        Người nạp: <b style={{ color: '#334155' }}>{creator}</b>
+                      </span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 2. Pure Sharp Custom Select (Custom popover dropdown chuẩn kỹ thuật)
+export const PureSelect = ({
+  value,
+  onChange,
+  options = [],
+  style,
+  dropdownStyle,
+  placeholder,
+  disabled,
+  searchable,
+  title
+}) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const containerRef = useRef(null)
+  const searchInputRef = useRef(null)
+
+  // Normalize options
+  const normalizedOptions = useMemo(() => {
+    return options.map((opt) => {
+      if (typeof opt === 'object' && opt !== null) {
+        return {
+          value: opt.value,
+          label: opt.label !== undefined ? String(opt.label) : String(opt.value),
+          subLabel: opt.subLabel,
+          badge: opt.badge
+        }
+      }
+      return { value: opt, label: String(opt) }
+    })
+  }, [options])
+
+  const shouldSearch = searchable !== undefined ? searchable : normalizedOptions.length >= 6
+
+  // Selected Option
+  const selectedOpt = useMemo(() => {
+    return normalizedOptions.find((o) => String(o.value) === String(value)) || null
+  }, [normalizedOptions, value])
+
+  // Filtered Options
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return normalizedOptions
+    const q = searchQuery.toLowerCase().trim()
+    return normalizedOptions.filter(
+      (o) =>
+        o.label.toLowerCase().includes(q) || (o.subLabel && o.subLabel.toLowerCase().includes(q))
+    )
+  }, [normalizedOptions, searchQuery])
+
+  // Click outside to close
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleKeyDown)
+      if (shouldSearch) {
+        setTimeout(() => {
+          if (searchInputRef.current) searchInputRef.current.focus()
+        }, 50)
+      }
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, shouldSearch])
+
+  return (
+    <div
+      ref={containerRef}
+      title={title}
+      style={{
+        position: 'relative',
+        display: 'inline-block',
+        boxSizing: 'border-box',
+        verticalAlign: 'middle',
+        ...style
+      }}
+    >
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        style={{
+          width: '100%',
+          height: 26,
+          padding: '2px 8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 6,
+          fontSize: 11.5,
+          fontWeight: 600,
+          color: selectedOpt ? '#0f172a' : '#94a3b8',
+          background: '#ffffff',
+          border: 'none',
+          outline: 'none',
+          fontFamily: 'inherit',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          textAlign: 'left',
+          userSelect: 'none',
+          boxSizing: 'border-box'
+        }}
+      >
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flex: 1
+          }}
+        >
+          {selectedOpt ? selectedOpt.label : placeholder || 'Chọn giá trị...'}
+        </span>
+        <ChevronDown
+          size={12}
+          color="#64748b"
+          style={{
+            transform: isOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.12s ease',
+            flexShrink: 0
+          }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 2px)',
+            left: 0,
+            zIndex: 1200,
+            minWidth: Math.max(160, style?.width ? Number(style.width) || 160 : 160),
+            width: 'max-content',
+            maxWidth: 340,
+            background: '#ffffff',
+            border: '1px solid #94a3b8',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            borderRadius: 0,
+            overflow: 'hidden',
+            ...dropdownStyle
+          }}
+        >
+          {shouldSearch && (
+            <div
+              style={{
+                padding: '4px 6px',
+                background: '#f8fafc',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+            >
+              <Search size={11} color="#64748b" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Tìm kiếm..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  fontSize: 11,
+                  color: '#0f172a',
+                  fontFamily: 'inherit'
+                }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    padding: 0,
+                    cursor: 'pointer',
+                    color: '#94a3b8'
+                  }}
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          )}
+
+          <div style={{ maxHeight: 220, overflowY: 'auto', background: '#ffffff' }}>
+            {filteredOptions.length === 0 ? (
+              <div
+                style={{
+                  padding: '8px 10px',
+                  fontSize: 11,
+                  color: '#94a3b8',
+                  textAlign: 'center'
+                }}
+              >
+                Không có dữ liệu
+              </div>
+            ) : (
+              filteredOptions.map((opt, idx) => {
+                const isSelected = selectedOpt && String(selectedOpt.value) === String(opt.value)
+                return (
+                  <div
+                    key={String(opt.value) + idx}
+                    onClick={() => {
+                      onChange && onChange(opt.value, opt)
+                      setIsOpen(false)
+                    }}
+                    style={{
+                      padding: '5px 8px',
+                      fontSize: 11.5,
+                      fontWeight: isSelected ? 700 : 500,
+                      color: isSelected ? '#0f766e' : '#334155',
+                      background: isSelected ? '#f0fdfa' : '#ffffff',
+                      borderLeft: isSelected ? '3px solid #245d6c' : '3px solid transparent',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      borderBottom: '1px solid #f8fafc',
+                      transition: 'background 0.1s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = '#f1f5f9'
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = '#ffffff'
+                    }}
+                  >
+                    <span
+                      style={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {opt.label}
+                    </span>
+                    {isSelected && <Check size={12} color="#0f766e" style={{ flexShrink: 0 }} />}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 3. Pure Sharp Date Range Picker
+export const PureDateRangePicker = ({ value, onChange }) => {
+  const startDate =
+    value && value[0]
+      ? typeof value[0].format === 'function'
+        ? value[0].format('YYYY-MM-DD')
+        : String(value[0]).slice(0, 10)
+      : ''
+  const endDate =
+    value && value[1]
+      ? typeof value[1].format === 'function'
+        ? value[1].format('YYYY-MM-DD')
+        : String(value[1]).slice(0, 10)
+      : ''
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 6px' }}>
+      <input
+        type="date"
+        value={startDate}
+        onChange={(e) => {
+          const v = e.target.value
+          onChange && onChange(v ? [v, endDate] : null)
+        }}
+        style={{
+          border: 'none',
+          outline: 'none',
+          background: 'transparent',
+          fontSize: 11.5,
+          color: '#0f172a',
+          fontFamily: 'inherit',
+          cursor: 'pointer'
+        }}
+      />
+      <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700 }}>→</span>
+      <input
+        type="date"
+        value={endDate}
+        onChange={(e) => {
+          const v = e.target.value
+          onChange && onChange(v ? [startDate, v] : null)
+        }}
+        style={{
+          border: 'none',
+          outline: 'none',
+          background: 'transparent',
+          fontSize: 11.5,
+          color: '#0f172a',
+          fontFamily: 'inherit',
+          cursor: 'pointer'
+        }}
+      />
+    </div>
+  )
+}
+
+// 4. Tooltip Doanh Nghiệp Cấp Cao
+export const ExecutiveChartTooltip = ({ active, payload, label, unit = '' }) => {
+  if (active && payload && payload.length) {
+    const pData = payload[0]?.payload || {}
+    return (
+      <div
+        style={{
+          background: '#0f172a',
+          border: '1px solid #cbd5e1',
+          padding: '10px 14px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4)',
+          color: '#ffffff',
+          fontSize: 12,
+          minWidth: 200,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 800,
+            color: '#38bdf8',
+            marginBottom: 4,
+            borderBottom: '1px solid #334155',
+            paddingBottom: 4
+          }}
+        >
+          {pData.fullName || pData.name || pData.category || label || 'Chỉ số'}
+          {pData.fullCode && pData.fullCode !== (pData.fullName || pData.name) && (
+            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500, marginLeft: 6 }}>
+              ({pData.fullCode})
+            </span>
+          )}
+        </div>
+        {payload.map((item, index) => (
+          <div
+            key={index}
+            style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 3 }}
+          >
+            <span style={{ color: '#cbd5e1' }}>{item.name || 'Chỉ số'}:</span>
+            <span style={{ fontWeight: 700, color: '#ffffff' }}>
+              {typeof item.value === 'number' ? item.value.toLocaleString('vi-VN') : item.value}
+              {unit || item.unit || ''}
+            </span>
+          </div>
+        ))}
+        {pData.ticketCount !== undefined && payload.every((p) => p.dataKey !== 'ticketCount') && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 3 }}>
+            <span style={{ color: '#94a3b8' }}>Số phiếu thống kê:</span>
+            <span style={{ fontWeight: 700, color: '#cbd5e1' }}>
+              {pData.ticketCount.toLocaleString('vi-VN')} phiếu
+            </span>
+          </div>
+        )}
+        {pData.avgHoursPerTicket !== undefined && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 3 }}>
+            <span style={{ color: '#94a3b8' }}>Bình quân / phiếu:</span>
+            <span style={{ fontWeight: 700, color: '#cbd5e1' }}>
+              {pData.avgHoursPerTicket} h/phiếu
+            </span>
+          </div>
+        )}
+        {pData.desc && (
+          <div style={{ marginTop: 6, fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
+            {pData.desc}
+          </div>
+        )}
+      </div>
+    )
+  }
+  return null
+}
+
+// 4.1. Custom Machine Runtime Vertical Bar Component
+export const MachineRuntimeVerticalBar = (props) => {
+  const { x, y, width, height, fill, value, isOver24h } = props
+  if (height === 0 || isNaN(y)) return null
+
+  const isWarning = isOver24h || Number(value) > 24
+  const barColor = isWarning ? '#dc2626' : fill || '#245d6c'
+  const centerX = x + width / 2
+
+  return (
+    <g>
+      <rect x={x} y={y} width={width} height={height} fill={barColor} />
+      <text
+        x={centerX}
+        y={Math.max(12, y - 6)}
+        fill={isWarning ? '#dc2626' : '#0f172a'}
+        textAnchor="middle"
+        fontSize={10.5}
+        fontWeight={700}
+        fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      >
+        {value}h
+      </text>
+    </g>
+  )
+}
+
+// 4.2. Custom Clean Technical Vertical Bar Component
+export const CleanTechnicalVerticalBar = (props) => {
+  const { x, y, width, height, fill, value } = props
+  if (height === 0 || isNaN(y)) return null
+
+  const isWarning = value < 95
+  const barColor = isWarning ? '#d97706' : fill || '#245d6c'
+  const centerX = x + width / 2
+
+  return (
+    <g>
+      <rect x={x} y={y} width={width} height={height} fill={barColor} />
+      <text
+        x={centerX}
+        y={Math.max(12, y - 6)}
+        fill={isWarning ? '#d97706' : '#0f172a'}
+        textAnchor="middle"
+        fontSize={11}
+        fontWeight={700}
+        fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      >
+        {value}%
+      </text>
+    </g>
+  )
+}
+
+// 5. Custom Clean Technical Horizontal Bar Component
+export const CleanTechnicalHorizontalBar = (props) => {
+  const { x, y, width, height, fill, value } = props
+  if (width === 0 || isNaN(x)) return null
+
+  const isWarning = value < 95
+  const barColor = isWarning ? '#d97706' : fill || '#245d6c'
+  const centerY = y + height / 2
+
+  return (
+    <g>
+      <rect x={x} y={y} width={Math.max(2, width)} height={height} fill={barColor} />
+      <text
+        x={x + Math.max(2, width) + 8}
+        y={centerY + 4}
+        fill={isWarning ? '#d97706' : '#0f172a'}
+        textAnchor="start"
+        fontSize={11}
+        fontWeight={700}
+        fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      >
+        {value}%
+      </text>
+    </g>
+  )
+}
+
+// 6. Glide Data Grid Theme - EXACT EXECUTIVE TEAL HEADER THEME
+export const executiveGridTheme = {
+  accentColor: '#245d6c',
+  accentLight: 'rgba(36, 93, 108, 0.08)',
+  accentFg: '#ffffff',
+  bgHeader: '#2b6b79',
+  bgHeaderHasFocus: '#2b6b79',
+  bgHeaderHovered: '#2b6b79',
+  textHeader: '#ffffff',
+  textHeaderSelected: '#ffffff',
+  headerFontStyle: '700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  baseFontStyle: '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+  editorFontSize: '12px',
+  lineHeight: 1.4,
+  bgCell: '#ffffff',
+  bgCellMedium: '#f8fafc',
+  textDark: '#0f172a',
+  textMedium: '#334155',
+  textLight: '#64748b',
+  borderColor: '#e2e8f0',
+  drilldownBorder: 'transparent',
+  linkColor: '#245d6c',
+  cellHorizontalPadding: 12,
+  cellVerticalPadding: 8,
+  headerIconSize: 14
+}
+
+// 7. Global CSS overrides for outline suppression & clean report capture/print
+export const gridCustomCss = `
+  .production-statistics-report *:focus,
+  .production-statistics-report *:focus-visible,
+  .production-statistics-report .dvn-scroller:focus,
+  .production-statistics-report .dvn-scroller:focus-visible,
+  .production-statistics-report canvas:focus,
+  .production-statistics-report canvas:focus-visible,
+  .production-statistics-report div:focus,
+  .production-statistics-report div:focus-visible,
+  .production-statistics-report .gdg-dvn-underlay:focus,
+  .production-statistics-report .recharts-wrapper,
+  .production-statistics-report .recharts-surface,
+  .production-statistics-report .recharts-surface:focus,
+  .production-statistics-report .recharts-surface:focus-visible,
+  .production-statistics-report .recharts-wrapper:focus,
+  .production-statistics-report .recharts-wrapper:focus-visible,
+  .production-statistics-report .recharts-layer:focus,
+  .production-statistics-report svg:focus,
+  .production-statistics-report svg:focus-visible,
+  .production-statistics-report path:focus,
+  .production-statistics-report rect:focus,
+  .production-statistics-report g:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: inherit;
+  }
+  .production-statistics-report svg {
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+  .production-statistics-report .pure-button {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+  }
+  @media print {
+    .screenshot-hide {
+      display: none !important;
+    }
+    .production-statistics-report {
+      padding: 10px !important;
+      background: #ffffff !important;
+    }
+  }
+`

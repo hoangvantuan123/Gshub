@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import ProductionStatisticsReport from '../../components/ProductionStatisticsReport'
+import ProductionStatisticsReport from './components/ProductionStatisticsReport'
 import { initialQuevoGs5Stats } from '../../../common/reportUtils'
 import {
   queryPlanMaster,

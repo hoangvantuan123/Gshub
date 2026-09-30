@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import html2canvas from 'html2canvas'
 import { GridCellKind } from '@glideapps/glide-data-grid'
-import { initialHanoiGs1Stats, initialQuevoGs5Stats } from '../../common/reportUtils'
+import { initialHanoiGs1Stats, initialQuevoGs5Stats } from '../../../../common/reportUtils'
 
 // Helper extractor for Auto-Logistics Status strictly from column AutoIoStatus ("Sinh phiếu xuất/nhập tự động")
 export function getAutoExportType(item) {

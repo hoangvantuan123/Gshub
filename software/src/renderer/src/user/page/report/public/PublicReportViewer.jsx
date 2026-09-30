@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { Button, Select, Tooltip, message } from 'antd'
 import { BarChart3, Calendar, Copy, LogIn, Globe, Building2, Check } from 'lucide-react'
-import ProductionStatisticsReport from '../production/components/ProductionStatisticsReport'
+import ProductionStatisticsReport from '../production/hanoiGs1/stat/components/ProductionStatisticsReport'
 import {
   initialHanoiGs1Stats,
   initialHanoiGs1Plans,

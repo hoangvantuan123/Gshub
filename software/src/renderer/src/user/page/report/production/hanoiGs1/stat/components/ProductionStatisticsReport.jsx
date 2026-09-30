@@ -46,7 +46,7 @@ import {
 } from './reportUIComponents'
 import { FormulaHandbookModal } from './FormulaHandbookModal'
 import { RuntimeAuditDetailModal } from './RuntimeAuditDetailModal'
-import { useProductionStatisticsLogic } from './useProductionStatisticsLogic'
+import { useProductionStatisticsLogic } from '../hooks/useProductionStatisticsLogic'
 
 export default function ProductionStatisticsReport(props) {
   const {
@@ -478,7 +478,9 @@ export default function ProductionStatisticsReport(props) {
           style={{
             padding: '16px 18px',
             background: '#ffffff',
-            border: '1px solid #cbd5e1',
+            borderLeft: '1px solid #cbd5e1',
+            borderRight: '1px solid #cbd5e1',
+            borderBottom: '1px solid #cbd5e1',
             borderTop: '3.5px solid #245d6c',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',
@@ -528,7 +530,11 @@ export default function ProductionStatisticsReport(props) {
           style={{
             padding: '16px 18px',
             background: (kpiMetrics.runtimeOver12hCheck || 0) > 0 ? '#fffdf7' : '#ffffff',
-            border:
+            borderLeft:
+              (kpiMetrics.runtimeOver12hCheck || 0) > 0 ? '1px solid #fde68a' : '1px solid #cbd5e1',
+            borderRight:
+              (kpiMetrics.runtimeOver12hCheck || 0) > 0 ? '1px solid #fde68a' : '1px solid #cbd5e1',
+            borderBottom:
               (kpiMetrics.runtimeOver12hCheck || 0) > 0 ? '1px solid #fde68a' : '1px solid #cbd5e1',
             borderTop: '3.5px solid #d97706',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
@@ -586,7 +592,11 @@ export default function ProductionStatisticsReport(props) {
           style={{
             padding: '16px 18px',
             background: (kpiMetrics.runtimeUnder5Min || 0) > 0 ? '#fff5f5' : '#ffffff',
-            border:
+            borderLeft:
+              (kpiMetrics.runtimeUnder5Min || 0) > 0 ? '1px solid #fecdd3' : '1px solid #cbd5e1',
+            borderRight:
+              (kpiMetrics.runtimeUnder5Min || 0) > 0 ? '1px solid #fecdd3' : '1px solid #cbd5e1',
+            borderBottom:
               (kpiMetrics.runtimeUnder5Min || 0) > 0 ? '1px solid #fecdd3' : '1px solid #cbd5e1',
             borderTop: '3.5px solid #be123c',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
@@ -640,7 +650,9 @@ export default function ProductionStatisticsReport(props) {
           style={{
             padding: '16px 18px',
             background: '#ffffff',
-            border: '1px solid #cbd5e1',
+            borderLeft: '1px solid #cbd5e1',
+            borderRight: '1px solid #cbd5e1',
+            borderBottom: '1px solid #cbd5e1',
             borderTop: '3.5px solid #0d9488',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',

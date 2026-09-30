@@ -1,432 +1,354 @@
 /* eslint-disable react/prop-types */
-import { useState, useMemo, useRef } from 'react'
-import { Table, Button, Input, Select, Tag, Progress, Badge, message } from 'antd'
+import { useState, useEffect, useCallback } from 'react'
+import HanoiGs1PlanReport from './components/HanoiGs1PlanReport'
+import { generateDefaultHanoiGs1PlanData } from './hooks/useHanoiGs1PlanLogic'
 import {
-  Search,
-  RotateCcw,
-  FileSpreadsheet,
-  Printer,
-  Calendar,
-  Building2,
-  Clock,
-  CheckCircle2,
-  AlertCircle
-} from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import DataPageContainer from '../../../../../components/layout/DataPageContainer'
-import { initialHanoiGs1Plans, exportToExcel } from '../../../common/reportUtils'
+  queryPlanMaster,
+  queryPlanDetail
+} from '../../../data/import/services/planRegistrationService'
+
+export function parseCleanNumber(val, defaultVal = 0) {
+  if (val === undefined || val === null || val === '') return defaultVal
+  if (typeof val === 'number') return isNaN(val) ? defaultVal : val
+
+  let s = String(val).trim().replace(/\s+/g, '')
+  if (!s) return defaultVal
+
+  if (s.includes('.') && s.includes(',')) {
+    const lastDot = s.lastIndexOf('.')
+    const lastComma = s.lastIndexOf(',')
+    if (lastComma > lastDot) {
+      s = s.replace(/\./g, '').replace(',', '.')
+    } else {
+      s = s.replace(/,/g, '')
+    }
+  } else if (s.includes('.')) {
+    const parts = s.split('.')
+    if (parts.length > 2) {
+      s = parts.join('')
+    } else if (parts.length === 2 && parts[1].length === 3 && parts[0].length >= 1) {
+      s = parts[0] + parts[1]
+    }
+  } else if (s.includes(',')) {
+    const parts = s.split(',')
+    if (parts.length > 2) {
+      s = parts.join('')
+    } else if (parts.length === 2) {
+      if (parts[1].length === 3 && parts[0].length >= 1) {
+        s = parts[0] + parts[1]
+      } else {
+        s = parts[0] + '.' + parts[1]
+      }
+    }
+  }
+
+  const num = Number(s)
+  return isNaN(num) ? defaultVal : num
+}
+
+export function normalizeDateString(dateStr) {
+  if (!dateStr) return ''
+  const s = String(dateStr).trim()
+  if (!s) return ''
+
+  // Format YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    return s.slice(0, 10)
+  }
+
+  // Format M/D/YY or M/D/YYYY (e.g. 9/29/26 or 09/29/2026)
+  if (s.includes('/')) {
+    const parts = s.split(' ')[0].split('/')
+    if (parts.length === 3) {
+      let [m, d, y] = parts
+      if (y.length === 2) y = `20${y}`
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
+  }
+
+  // Format DD-MM-YYYY
+  if (s.includes('-')) {
+    const parts = s.split(' ')[0].split('-')
+    if (parts.length === 3 && parts[0].length <= 2 && parts[2].length === 4) {
+      const [d, m, y] = parts
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
+  }
+
+  return s
+}
+
+/**
+ * Mapper chuyển đổi bản ghi DB _ERPPlanDetail sang đối tượng hiển thị KHSX chuẩn hóa
+ */
+function mapDBRowToPlanItem(item, idx, master) {
+  const planQty = parseCleanNumber(
+    item.TargetProdQty ??
+    item.TargetPassQty ??
+    item.PlanQty ??
+    item.planQty ??
+    item.RequiredQty,
+    0
+  )
+  const actualQty = parseCleanNumber(
+    item.StatPassQty ??
+    item.ActualQty ??
+    item.actualQty ??
+    item.CompletedQty ??
+    item.TargetPassQty,
+    planQty
+  )
+
+  const rawPlanDate = item.RoutingDocDate || item.PlanDate || item.planDate || item.StartDate || ''
+  const rawActualDate = item.OpDate || item.ActualDate || item.actualDate || item.ProdDate || item.EndDate || ''
+
+  const planDate = normalizeDateString(rawPlanDate) || normalizeDateString(rawActualDate) || (master?.ApplyDate ? String(master.ApplyDate).slice(0, 10) : '2026-09-29')
+  const actualDate = normalizeDateString(rawActualDate) || planDate
+
+  // Trạng thái ĐP - SX
+  let dpStatusText = String(item.StatusDpSx || item.DpStatusText || item.dpStatusText || item.Status || '').trim()
+  let dpStatusCode = 'KHOP_SL'
+
+  const lowerDp = dpStatusText.toLowerCase()
+  if (lowerDp.includes('sai ngày')) {
+    dpStatusCode = 'SX_SAI_NGAY'
+    dpStatusText = 'SX sai ngày KH'
+  } else if (lowerDp.includes('trượt')) {
+    dpStatusCode = 'TRUOT_KH'
+    dpStatusText = 'Trượt KH'
+  } else if (lowerDp.includes('khớp số lượng') || lowerDp.includes('khớp sl')) {
+    dpStatusCode = 'KHOP_SL'
+    dpStatusText = 'Khớp số lượng'
+  } else if (lowerDp.includes('khớp job') || lowerDp.includes('job')) {
+    dpStatusCode = 'KHOP_JOB'
+    dpStatusText = 'Khớp job'
+  } else {
+    if (planDate && actualDate && planDate !== actualDate) {
+      dpStatusCode = 'SX_SAI_NGAY'
+      dpStatusText = 'SX sai ngày KH'
+    } else if (planQty > 0 && actualQty < planQty * 0.9) {
+      dpStatusCode = 'TRUOT_KH'
+      dpStatusText = 'Trượt KH'
+    } else {
+      dpStatusCode = 'KHOP_SL'
+      dpStatusText = 'Khớp số lượng'
+    }
+  }
+
+  // Trạng thái Thời gian
+  let timeStatus = String(item.TimeStatus || item.timeStatus || 'Đúng ĐM').trim()
+  let timeStatusText = timeStatus
+
+  // Trạng thái Capa
+  let capaStatus = String(item.CapaStatus || item.capaStatus || 'Trống / Đúng capa').trim()
+  let capaStatusText = capaStatus
+
+  const docNo = item.OperationNo || item.RoutingDocNo || item.DocNo || item.docNo || item.PlanNo || `LSX-HN-${String(idx + 1).padStart(4, '0')}`
+  const orderNo = item.RoutingDocNo || item.OrderNo || item.orderNo || item.SoNo || 'SO-2026-0000'
+  const planNo = item.OperationNo || item.PlanNo || item.planNo || `KH-HN-W39-${String(idx + 1).padStart(3, '0')}`
+  const pic = item.PicDp || item.pic || item.Pic || item.Dispatcher || item.Planner || 'Chưa phân công'
+
+  return {
+    id: item.IdSeq || item.id || `HN-PL-${String(idx + 1).padStart(4, '0')}`,
+    docNo,
+    orderNo,
+    planNo,
+    pic,
+    machineCode: item.MachineCode || item.machineCode || item.MachineName || 'CHUNG',
+    machineName: item.MachineName || item.machineName || 'Thiết bị sản xuất',
+    teamName: item.OpTypeName || item.OperationName || item.TeamName || item.teamName || 'Tổ sản xuất',
+    itemCode: item.ItemCode || item.itemCode || 'CAN-FSB-00360',
+    itemName: item.ItemName || item.itemName || 'Sản phẩm GS1',
+    operationNo: item.OperationNo || '',
+    operationName: item.OperationName || '',
+    opTypeName: item.OpTypeName || '',
+    unit: item.Unit || item.unit || 'Pcs',
+    customer: item.CustomerName || item.customer || 'Khách hàng Goldsun',
+    planDate,
+    actualDate,
+    rawPlanDate,
+    rawActualDate,
+    planQty,
+    actualQty,
+    targetPassQty: parseCleanNumber(item.TargetPassQty, planQty),
+    targetProdQty: parseCleanNumber(item.TargetProdQty, planQty),
+    statPassQty: parseCleanNumber(item.StatPassQty, actualQty),
+    startTime: item.StartTime || '',
+    endTime: item.EndTime || '',
+    standardProdTime: parseCleanNumber(item.StandardProdTime, 0),
+    actualProdTime: parseCleanNumber(item.ActualProdTime, 0),
+    standardCapa: parseCleanNumber(item.StandardCapa, 0),
+    actualCapa: parseCleanNumber(item.ActualCapa, 0),
+    dpStatusCode,
+    dpStatusText,
+    timeStatus,
+    timeStatusText,
+    capaStatus,
+    capaStatusText,
+    note: item.UserMemo || item.note || item.Remark || ''
+  }
+}
 
 export default function HanoiGs1PlanPage() {
-  const { t } = useTranslation()
-  const loadingBarRef = useRef(null)
-
-  const [dataSource, setDataSource] = useState(initialHanoiGs1Plans)
   const [loading, setLoading] = useState(false)
-  const [searchText, setSearchText] = useState('')
-  const [selectedPriority, setSelectedPriority] = useState('ALL')
-  const [selectedStatus, setSelectedStatus] = useState('ALL')
+  const [masterList, setMasterList] = useState([])
+  const [selectedMasterKey, setSelectedMasterKey] = useState(null)
+  const [currentMaster, setCurrentMaster] = useState(null)
+  const [planDataset, setPlanDataset] = useState(generateDefaultHanoiGs1PlanData())
+  const [dataSourceType, setDataSourceType] = useState('sample')
 
-  // Filter logic
-  const filteredData = useMemo(() => {
-    return dataSource.filter((item) => {
-      const matchSearch =
-        !searchText ||
-        item.planNo.toLowerCase().includes(searchText.toLowerCase()) ||
-        item.orderNo.toLowerCase().includes(searchText.toLowerCase()) ||
-        item.customer.toLowerCase().includes(searchText.toLowerCase()) ||
-        item.itemName.toLowerCase().includes(searchText.toLowerCase())
-
-      const matchPriority = selectedPriority === 'ALL' || item.priority === selectedPriority
-      const matchStatus = selectedStatus === 'ALL' || item.status === selectedStatus
-
-      return matchSearch && matchPriority && matchStatus
-    })
-  }, [dataSource, searchText, selectedPriority, selectedStatus])
-
-  // Summary Metrics
-  const metrics = useMemo(() => {
-    const totalRequired = filteredData.reduce((acc, curr) => acc + (curr.requiredQty || 0), 0)
-    const totalCompleted = filteredData.reduce((acc, curr) => acc + (curr.completedQty || 0), 0)
-    const totalOrders = filteredData.length
-    const urgentOrders = filteredData.filter((i) => i.priority === 'Khẩn cấp').length
-    const avgProgress = totalRequired > 0 ? ((totalCompleted / totalRequired) * 100).toFixed(1) : 0
-
-    return {
-      totalRequired,
-      totalCompleted,
-      totalOrders,
-      urgentOrders,
-      avgProgress
-    }
-  }, [filteredData])
-
-  const handleSearch = () => {
+  // Fetch danh sách Master các đợt đăng ký từ CSDL
+  const fetchMastersAndLatestData = useCallback(async (targetRegCode = null) => {
     setLoading(true)
-    loadingBarRef.current?.continuousStart()
-    setTimeout(() => {
+    try {
+      const resAll = await queryPlanMaster({})
+      const allMasters = resAll?.data || []
+
+      const masters = allMasters.filter((m) => {
+        const code = String(m.FactoryCode || m.factoryCode || '')
+          .toUpperCase()
+          .trim()
+        const f = String(m.FactoryName || m.factoryName || '')
+          .toLowerCase()
+          .trim()
+        const isHanoi =
+          !code ||
+          code === 'GS1' ||
+          code === 'ALL' ||
+          f.includes('hà nội') ||
+          f.includes('gs1') ||
+          f.includes('hanoi') ||
+          (!f.includes('quế võ') && !f.includes('gs5') && !f.includes('quevo'))
+        const isPlan =
+          !m.ReportType ||
+          m.ReportType === 'plan' ||
+          m.ReportType === 'khsx' ||
+          m.ReportType === 'Kế hoạch sản xuất' ||
+          String(m.ReportType).toLowerCase().includes('kế hoạch') ||
+          String(m.ReportType).toLowerCase().includes('plan')
+        return isHanoi && isPlan
+      })
+
+      const finalMasters = masters.length > 0 ? masters : allMasters
+
+      finalMasters.sort((a, b) => {
+        const dateA = new Date(a.CreatedAt || a.ApplyDate || 0).getTime()
+        const dateB = new Date(b.CreatedAt || b.ApplyDate || 0).getTime()
+        return dateB - dateA || (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
+      })
+
+      setMasterList(finalMasters)
+
+      if (finalMasters.length > 0) {
+        let activeMaster = null
+        if (targetRegCode) {
+          activeMaster = finalMasters.find(
+            (m) =>
+              (m.RegCode || m.regCode) === targetRegCode ||
+              String(m.IdSeq || m.MasterSeq) === String(targetRegCode)
+          )
+        }
+        if (!activeMaster) {
+          activeMaster =
+            finalMasters.find((m) => m.ReportType === 'plan' || m.ReportType === 'khsx') ||
+            finalMasters[0]
+        }
+
+        const activeKey =
+          activeMaster.RegCode ||
+          activeMaster.regCode ||
+          String(activeMaster.IdSeq || activeMaster.MasterSeq)
+        setSelectedMasterKey(activeKey)
+        setCurrentMaster(activeMaster)
+
+        await loadDetailForMaster(activeMaster)
+      } else {
+        setPlanDataset(generateDefaultHanoiGs1PlanData())
+        setDataSourceType('sample')
+      }
+    } catch (err) {
+      console.error('Lỗi khi tải dữ liệu đăng ký KHSX GS1 Hà Nội:', err)
+      setPlanDataset(generateDefaultHanoiGs1PlanData())
+      setDataSourceType('sample')
+    } finally {
       setLoading(false)
-      loadingBarRef.current?.complete()
-      message.success('Đã tải kế hoạch sản xuất GS1 Hà Nội')
-    }, 400)
-  }
-
-  const handleReload = () => {
-    setSearchText('')
-    setSelectedPriority('ALL')
-    setSelectedStatus('ALL')
-    setDataSource(initialHanoiGs1Plans)
-    message.info('Đã làm mới dữ liệu')
-  }
-
-  const handleExport = () => {
-    exportToExcel(filteredData, 'BaoCao_KeHoach_SanXuat_GS1_HaNoi')
-    message.success('Xuất file Excel thành công')
-  }
-
-  const handlePrint = () => {
-    window.print()
-  }
-
-  // Table Columns
-  const columns = [
-    {
-      title: 'STT',
-      key: 'index',
-      width: 55,
-      align: 'center',
-      render: (_, __, index) => <span className="text-slate-500 text-xs">{index + 1}</span>
-    },
-    {
-      title: 'Mã Kế Hoạch',
-      dataIndex: 'planNo',
-      key: 'planNo',
-      width: 155,
-      render: (text) => (
-        <span className="font-semibold text-blue-600 font-mono text-xs hover:underline cursor-pointer">
-          {text}
-        </span>
-      )
-    },
-    {
-      title: 'Số Đơn Hàng (SO)',
-      dataIndex: 'orderNo',
-      key: 'orderNo',
-      width: 130,
-      render: (text) => <span className="font-mono text-slate-700 text-xs">{text}</span>
-    },
-    {
-      title: 'Khách Hàng',
-      dataIndex: 'customer',
-      key: 'customer',
-      width: 220,
-      render: (text) => (
-        <span className="inline-flex items-center gap-1 text-xs text-slate-800 font-medium truncate">
-          <Building2 size={13} className="text-slate-400 shrink-0" />
-          {text}
-        </span>
-      )
-    },
-    {
-      title: 'Mặt Hàng / Sản Phẩm',
-      dataIndex: 'itemName',
-      key: 'itemName',
-      render: (text, record) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-slate-800 text-xs">{text}</span>
-          <span className="text-[11px] text-slate-400 font-mono">{record.itemCode}</span>
-        </div>
-      )
-    },
-    {
-      title: 'ĐVT',
-      dataIndex: 'unit',
-      key: 'unit',
-      width: 65,
-      align: 'center',
-      render: (text) => <span className="text-slate-600 text-xs">{text}</span>
-    },
-    {
-      title: 'SL Kế Hoạch',
-      dataIndex: 'requiredQty',
-      key: 'requiredQty',
-      width: 105,
-      align: 'right',
-      render: (val) => (
-        <span className="font-mono font-medium text-xs text-slate-800">
-          {val?.toLocaleString('vi-VN')}
-        </span>
-      )
-    },
-    {
-      title: 'Đã Sản Xuất',
-      dataIndex: 'completedQty',
-      key: 'completedQty',
-      width: 105,
-      align: 'right',
-      render: (val) => (
-        <span className="font-mono font-bold text-xs text-blue-600">
-          {val?.toLocaleString('vi-VN')}
-        </span>
-      )
-    },
-    {
-      title: 'Tiến Độ SX',
-      dataIndex: 'progressRate',
-      key: 'progressRate',
-      width: 140,
-      render: (rate) => (
-        <div className="flex items-center gap-2">
-          <Progress
-            percent={rate}
-            size="small"
-            status={rate >= 100 ? 'success' : 'active'}
-            showInfo={false}
-            strokeWidth={6}
-            className="flex-1 m-0"
-          />
-          <span className="text-[11px] font-bold text-slate-700 font-mono">{rate}%</span>
-        </div>
-      )
-    },
-    {
-      title: 'Ngày Bắt Đầu',
-      dataIndex: 'startDate',
-      key: 'startDate',
-      width: 95,
-      align: 'center',
-      render: (text) => <span className="text-slate-600 text-xs">{text}</span>
-    },
-    {
-      title: 'Hạn Giao (Due Date)',
-      dataIndex: 'dueDate',
-      key: 'dueDate',
-      width: 105,
-      align: 'center',
-      render: (text) => (
-        <span className="text-rose-600 font-medium text-xs flex items-center justify-center gap-1">
-          <Clock size={12} />
-          {text}
-        </span>
-      )
-    },
-    {
-      title: 'Tình Trạng Vật Tư',
-      dataIndex: 'materialStatus',
-      key: 'materialStatus',
-      width: 180,
-      render: (text) => (
-        <span
-          className={`text-xs ${
-            text.includes('Chờ') || text.includes('Thiếu')
-              ? 'text-amber-600 font-medium'
-              : 'text-emerald-700'
-          }`}
-        >
-          {text}
-        </span>
-      )
-    },
-    {
-      title: 'Ưu Tiên',
-      dataIndex: 'priority',
-      key: 'priority',
-      width: 95,
-      align: 'center',
-      render: (priority) => (
-        <Tag color={priority === 'Khẩn cấp' ? 'error' : priority === 'Cao' ? 'warning' : 'default'}>
-          {priority}
-        </Tag>
-      )
-    },
-    {
-      title: 'Trạng Thái',
-      dataIndex: 'status',
-      key: 'status',
-      width: 110,
-      align: 'center',
-      render: (status) => (
-        <Tag color={status === 'Đang sản xuất' ? 'processing' : 'default'}>{status}</Tag>
-      )
     }
-  ]
+  }, [])
 
-  const actionsNode = (
-    <div className="flex items-center justify-between w-full py-0.5">
-      <div className="flex items-center gap-2">
-        <Button
-          icon={<Search size={14} className="text-blue-500" />}
-          size="small"
-          onClick={handleSearch}
-          className="uppercase text-[11px] font-medium flex items-center gap-1.5"
-          color="default"
-          variant="link"
-        >
-          {t('TÌM KIẾM (F2)')}
-        </Button>
-        <Button
-          icon={<FileSpreadsheet size={14} className="text-emerald-500" />}
-          size="small"
-          onClick={handleExport}
-          className="uppercase text-[11px] font-medium flex items-center gap-1.5"
-          color="default"
-          variant="link"
-        >
-          {t('XUẤT EXCEL')}
-        </Button>
-        <Button
-          icon={<Printer size={14} className="text-indigo-500" />}
-          size="small"
-          onClick={handlePrint}
-          className="uppercase text-[11px] font-medium flex items-center gap-1.5"
-          color="default"
-          variant="link"
-        >
-          {t('IN KẾ HOẠCH')}
-        </Button>
-        <Button
-          icon={<RotateCcw size={14} className="text-amber-500" />}
-          size="small"
-          onClick={handleReload}
-          className="uppercase text-[11px] font-medium flex items-center gap-1.5"
-          color="default"
-          variant="link"
-        >
-          {t('LÀM MỚI')}
-        </Button>
-      </div>
-      <div className="flex items-center gap-2 text-xs text-slate-500 pr-2">
-        <Badge status="success" text="Kế hoạch sản xuất GS1 Hà Nội" />
-      </div>
-    </div>
-  )
+  const loadDetailForMaster = async (master) => {
+    if (!master) return
+    const regCode = master.RegCode || master.regCode
+    const masterSeq = master.MasterSeq || master.IdSeq
 
-  const queryNode = (
-    <div className="p-3 bg-white flex flex-col gap-3">
-      {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
-        <div className="bg-slate-50 border border-slate-200/80 rounded p-2 flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] text-slate-500 uppercase font-semibold">
-            Tổng Đơn Kế Hoạch
-          </span>
-          <span className="text-base font-bold text-slate-800 font-mono">
-            {metrics.totalOrders}{' '}
-            <span className="text-xs font-normal text-slate-500">lệnh KH</span>
-          </span>
-        </div>
-        <div className="bg-blue-50/60 border border-blue-200/80 rounded p-2 flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] text-blue-600 uppercase font-semibold">Tổng SL Nhu Cầu</span>
-          <span className="text-base font-bold text-blue-700 font-mono">
-            {metrics.totalRequired.toLocaleString('vi-VN')}
-          </span>
-        </div>
-        <div className="bg-emerald-50/60 border border-emerald-200/80 rounded p-2 flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] text-emerald-600 uppercase font-semibold">
-            Đã Đáp Ứng / Sản Xuất
-          </span>
-          <span className="text-base font-bold text-emerald-700 font-mono">
-            {metrics.totalCompleted.toLocaleString('vi-VN')}
-          </span>
-        </div>
-        <div className="bg-rose-50/60 border border-rose-200/80 rounded p-2 flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] text-rose-600 uppercase font-semibold">Đơn Khẩn Cấp</span>
-          <span className="text-base font-bold text-rose-700 font-mono">
-            {metrics.urgentOrders} <span className="text-xs font-normal text-rose-500">đơn</span>
-          </span>
-        </div>
-        <div className="bg-purple-50/60 border border-purple-200/80 rounded p-2 flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] text-purple-700 uppercase font-semibold">
-            Tiến Độ Kế Hoạch Tổng
-          </span>
-          <span className="text-base font-bold text-purple-700 font-mono">
-            {metrics.avgProgress}%
-          </span>
-        </div>
-      </div>
+    setLoading(true)
+    try {
+      let rows = []
+      if (regCode || masterSeq) {
+        try {
+          const resPlan = await queryPlanDetail({
+            RegCode: regCode,
+            MasterSeq: masterSeq,
+            pageSize: '10000'
+          })
+          if (resPlan?.data && resPlan.data.length > 0) {
+            rows = resPlan.data
+          }
+        } catch (errPlan) {
+          console.warn('Không tìm thấy trong PlanDetail:', errPlan)
+        }
+      }
 
-      {/* Filter Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1 border-t border-slate-100">
-        <div>
-          <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-            Tìm kiếm kế hoạch (Mã KH / Khách hàng / Tên sản phẩm)
-          </label>
-          <Input
-            size="small"
-            placeholder="Nhập thông tin tìm kiếm..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            allowClear
-          />
-        </div>
+      if (rows.length > 0) {
+        const mappedData = rows.map((item, idx) => mapDBRowToPlanItem(item, idx, master))
+        setPlanDataset(mappedData)
+        setDataSourceType('database')
+      } else {
+        setPlanDataset(generateDefaultHanoiGs1PlanData())
+        setDataSourceType('sample')
+      }
+    } catch (err) {
+      console.error(`Lỗi tải chi tiết đợt ${regCode}:`, err)
+      setPlanDataset(generateDefaultHanoiGs1PlanData())
+      setDataSourceType('sample')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-        <div>
-          <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-            Mức độ ưu tiên
-          </label>
-          <Select
-            size="small"
-            className="w-full"
-            value={selectedPriority}
-            onChange={setSelectedPriority}
-            options={[
-              { label: '--- Tất cả mức ưu tiên ---', value: 'ALL' },
-              { label: 'Khẩn cấp', value: 'Khẩn cấp' },
-              { label: 'Cao', value: 'Cao' },
-              { label: 'Bình thường', value: 'Bình thường' }
-            ]}
-          />
-        </div>
+  useEffect(() => {
+    fetchMastersAndLatestData()
+  }, [fetchMastersAndLatestData])
 
-        <div>
-          <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-            Trạng thái tiến độ
-          </label>
-          <Select
-            size="small"
-            className="w-full"
-            value={selectedStatus}
-            onChange={setSelectedStatus}
-            options={[
-              { label: '--- Tất cả trạng thái ---', value: 'ALL' },
-              { label: 'Đang sản xuất', value: 'Đang sản xuất' },
-              { label: 'Chưa bắt đầu', value: 'Chưa bắt đầu' },
-              { label: 'Hoàn thành', value: 'Hoàn thành' }
-            ]}
-          />
-        </div>
-      </div>
-    </div>
-  )
+  const handleSelectMaster = (regCode) => {
+    if (!regCode) return
+    setSelectedMasterKey(regCode)
+    const found = masterList.find(
+      (m) =>
+        (m.RegCode || m.regCode) === regCode || String(m.IdSeq || m.MasterSeq) === String(regCode)
+    )
+    if (found) {
+      setCurrentMaster(found)
+      loadDetailForMaster(found)
+    }
+  }
 
-  const tableNode = (
-    <div className="h-full flex flex-col p-2 bg-slate-50">
-      <div className="bg-white rounded border border-slate-200 flex-1 overflow-hidden flex flex-col shadow-2xs">
-        <Table
-          dataSource={filteredData}
-          columns={columns}
-          rowKey="id"
-          size="small"
-          loading={loading}
-          pagination={{
-            pageSize: 15,
-            showSizeChanger: true,
-            pageSizeOptions: ['15', '30', '50', '100'],
-            size: 'small',
-            showTotal: (total) => `Tổng cộng: ${total} dòng kế hoạch SX`
-          }}
-          scroll={{ x: 1450, y: 'calc(100vh - 350px)' }}
-          className="erp-report-table"
+  return (
+    <div className="w-full h-full flex flex-col overflow-hidden bg-[#f8fafc]">
+      <div className="flex-1 w-full overflow-y-auto">
+        <HanoiGs1PlanReport
+          plantKey="hanoi_gs1"
+          plantName="Nhà máy GS1 Hà Nội"
+          dataset={planDataset}
+          initialData={planDataset}
+          masterList={masterList}
+          selectedMasterKey={selectedMasterKey}
+          onSelectMaster={handleSelectMaster}
+          onRefreshMaster={fetchMastersAndLatestData}
+          currentMaster={currentMaster}
+          dataSourceType={dataSourceType}
+          loadingMaster={loading}
         />
       </div>
     </div>
-  )
-
-  return (
-    <DataPageContainer
-      loadingBarRef={loadingBarRef}
-      queryTitle="Báo Cáo Kế Hoạch Sản Xuất - Nhà Máy GS1 Hà Nội"
-      actions={actionsNode}
-      query={queryNode}
-      table={tableNode}
-    />
   )
 }

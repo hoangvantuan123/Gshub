@@ -4,28 +4,27 @@ import * as XLSX from 'xlsx'
 import html2canvas from 'html2canvas'
 import { GridCellKind } from '@glideapps/glide-data-grid'
 
-// Helper tạo dữ liệu mẫu chuẩn 276 lệnh điều phối GS1 Hà Nội
-export function generateDefaultHanoiGs1PlanData() {
-  const pics = ['Đỗ Đức Huy', 'Nguyễn Thị Lan', 'Trần Văn Minh', 'Lê Thị Thu', 'Hoàng Đình Nam']
+// Helper tạo dữ liệu mẫu chuẩn 276 lệnh điều phối GS5 Quế Võ
+export function generateDefaultQuevoGs5PlanData() {
+  const pics = ['Vũ Đình Trọng', 'Phạm Quỳnh Nga', 'Hoàng Minh Tuấn', 'Ngô Quốc Bảo', 'Đặng Thúy Hằng']
   const machines = [
-    { code: 'OFFSET-01', name: 'Máy In Offset Heidelberg XL-106', team: 'Tổ In Offset' },
-    { code: 'OFFSET-02', name: 'Máy In Komori Lithrone G40', team: 'Tổ In Offset' },
-    { code: 'BOI-01', name: 'Máy Bồi Tự Động Sakurai 1450', team: 'Tổ Bồi/Bế' },
-    { code: 'BE-01', name: 'Máy Bế Tự Động Bobst Novacut 106', team: 'Tổ Bồi/Bế' },
-    { code: 'BE-02', name: 'Máy Bế Tự Động Sanwa TRP-1060', team: 'Tổ Bồi/Bế' },
-    { code: 'DAN-01', name: 'Máy Dán Hộp MegaFold 1050', team: 'Tổ Dán & Đóng Gói' },
-    { code: 'DAN-02', name: 'Máy Dán Hộp SBL-1050', team: 'Tổ Dán & Đóng Gói' },
-    { code: 'SONG-01', name: 'Dây Chuyền Tạo Sóng Carton 2.5m', team: 'Tổ Máy Sóng' }
+    { code: 'QV-OFFSET-01', name: 'Máy In Offset Manroland 700', team: 'Tổ In Offset GS5' },
+    { code: 'QV-OFFSET-02', name: 'Máy In Offset Heidelberg CX-104', team: 'Tổ In Offset GS5' },
+    { code: 'QV-FLEXO-01', name: 'Máy In Flexo 4 Màu Taiyo', team: 'Tổ In Flexo GS5' },
+    { code: 'QV-BOI-01', name: 'Máy Bồi Tự Động Sakurai 1450', team: 'Tổ Bồi/Bế GS5' },
+    { code: 'QV-BE-01', name: 'Máy Bế Tự Động Bobst 106 E', team: 'Tổ Bồi/Bế GS5' },
+    { code: 'QV-BE-02', name: 'Máy Bế Tự Động Sanwa TRP-1060', team: 'Tổ Bồi/Bế GS5' },
+    { code: 'QV-DAN-01', name: 'Máy Dán Hộp Tự Động MegaFold 1050', team: 'Tổ Dán & Đóng Gói GS5' },
+    { code: 'QV-SONG-01', name: 'Dây Chuyền Tạo Sóng Carton 2.8m', team: 'Tổ Máy Sóng GS5' }
   ]
 
   const items = [
-    { code: 'BOX-IP16-PRO', name: 'Hộp cứng điện thoại IP16 Pro', customer: 'Foxconn Việt Nam Group' },
-    { code: 'PK-SAMSUNG-A55', name: 'Bao bì phụ kiện Samsung Galaxy A55', customer: 'Samsung Electronics VN' },
-    { code: 'LBL-VINAMILK-100', name: 'Nhãn hộp sữa Vinamilk 100% 180ml', customer: 'Vinamilk CP Sữa VN' },
-    { code: 'BOX-PHARMA-B12', name: 'Vỏ hộp thuốc B-Complex 100ml', customer: 'Dược phẩm Nam Hà' },
-    { code: 'CTN-CANON-PRT', name: 'Thùng carton 5 lớp máy in Canon', customer: 'Canon Electronics VN' },
-    { code: 'BOX-COFFEE-TRUNGO', name: 'Hộp cà phê hòa tan Trung Nguyên Legend', customer: 'Tập đoàn Trung Nguyên' },
-    { code: 'BAG-GIFT-KRAFT', name: 'Túi quà tặng giấy Kraft quai xoắn', customer: 'Unilever Việt Nam' }
+    { code: 'QV-BOX-SAMSUNG-OLED', name: 'Hộp cao cấp TV Samsung OLED 65 inch', customer: 'Samsung Electronics VN (SEVT)' },
+    { code: 'QV-PK-CANON-LBP', name: 'Vỏ hộp máy in Canon Laser LBP2900', customer: 'Canon Electronics Vietnam' },
+    { code: 'QV-CTN-AMKOR-SEMI', name: 'Thùng carton phòng sạch đóng chip Amkor', customer: 'Amkor Technology Vietnam' },
+    { code: 'QV-LBL-HONDA-PARTS', name: 'Nhãn phụ tùng xe máy Honda VN', customer: 'Honda Vietnam Co., Ltd' },
+    { code: 'QV-BOX-VINFAST-EV', name: 'Hộp phụ tùng pin sạc xe điện VinFast', customer: 'VinFast Auto Manufacturing' },
+    { code: 'QV-BAG-EXPORT-KRAFT', name: 'Túi Kraft xuất khẩu thị trường EU', customer: 'IKEA Supply AG Vietnam' }
   ]
 
   const list = []
@@ -64,10 +63,10 @@ export function generateDefaultHanoiGs1PlanData() {
       else capaStatus = 'Trống / Đúng capa'
 
       list.push({
-        id: `HN-PL-${String(idCounter).padStart(4, '0')}`,
-        docNo: `TT2609-${String(2000 + idCounter)}(${String(100 + (idCounter % 900))})`,
-        orderNo: `CD05-0926-${String(900 + (idCounter % 200))}`,
-        planNo: `KH-HN-2026-W39-${String(idCounter).padStart(3, '0')}`,
+        id: `QV-PL-${String(idCounter).padStart(4, '0')}`,
+        docNo: `QV2609-${String(3000 + idCounter)}(${String(100 + (idCounter % 900))})`,
+        orderNo: `SO-QV05-${String(900 + (idCounter % 200))}`,
+        planNo: `KH-QV-2026-W39-${String(idCounter).padStart(3, '0')}`,
         pic,
         machineCode: machine.code,
         machineName: machine.name,
@@ -99,10 +98,10 @@ export function generateDefaultHanoiGs1PlanData() {
   return list
 }
 
-export function useHanoiGs1PlanLogic({
+export function useQuevoGs5PlanLogic({
   dataset = [],
-  plantKey = 'hanoi_gs1',
-  plantName = 'Nhà máy GS1 Hà Nội',
+  plantKey = 'quevo_gs5',
+  plantName = 'Nhà máy GS5 Quế Võ',
   maskText = (t) => t
 }) {
   // Bộ lọc dữ liệu
@@ -142,7 +141,7 @@ export function useHanoiGs1PlanLogic({
   // Danh sách rawData từ prop hoặc fallback mock 276 items
   const rawData = useMemo(() => {
     if (dataset && dataset.length > 0) return dataset
-    return generateDefaultHanoiGs1PlanData()
+    return generateDefaultQuevoGs5PlanData()
   }, [dataset])
 
   // Filter options

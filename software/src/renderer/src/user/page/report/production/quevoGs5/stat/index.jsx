@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import ProductionStatisticsReport from './components/ProductionStatisticsReport'
 import { initialQuevoGs5Stats } from '../../../common/reportUtils'
 import {
@@ -57,38 +57,49 @@ export function parseCleanNumber(val, defaultVal = 0) {
   if (val === undefined || val === null || val === '') return defaultVal
   if (typeof val === 'number') return isNaN(val) ? defaultVal : val
 
-  let s = String(val).trim().replace(/\s+/g, '')
-  if (!s) return defaultVal
+  if (typeof val === 'string') {
+    const trimmed = val.trim()
+    if (!trimmed) return defaultVal
+    // Fast path for plain integers or decimals without comma separators
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      const n = Number(trimmed)
+      return isNaN(n) ? defaultVal : n
+    }
 
-  if (s.includes('.') && s.includes(',')) {
-    const lastDot = s.lastIndexOf('.')
-    const lastComma = s.lastIndexOf(',')
-    if (lastComma > lastDot) {
-      s = s.replace(/\./g, '').replace(',', '.')
-    } else {
-      s = s.replace(/,/g, '')
-    }
-  } else if (s.includes('.')) {
-    const parts = s.split('.')
-    if (parts.length > 2) {
-      s = parts.join('')
-    } else if (parts.length === 2 && parts[1].length === 3 && parts[0].length >= 1) {
-      s = parts[0] + parts[1]
-    }
-  } else if (s.includes(',')) {
-    const parts = s.split(',')
-    if (parts.length > 2) {
-      s = parts.join('')
-    } else if (parts.length === 2) {
-      if (parts[1].length === 3 && parts[0].length >= 1) {
-        s = parts[0] + parts[1]
+    let s = trimmed.replace(/\s+/g, '')
+    if (s.includes('.') && s.includes(',')) {
+      const lastDot = s.lastIndexOf('.')
+      const lastComma = s.lastIndexOf(',')
+      if (lastComma > lastDot) {
+        s = s.replace(/\./g, '').replace(',', '.')
       } else {
-        s = parts[0] + '.' + parts[1]
+        s = s.replace(/,/g, '')
+      }
+    } else if (s.includes('.')) {
+      const parts = s.split('.')
+      if (parts.length > 2) {
+        s = parts.join('')
+      } else if (parts.length === 2 && parts[1].length === 3 && parts[0].length >= 1) {
+        s = parts[0] + parts[1]
+      }
+    } else if (s.includes(',')) {
+      const parts = s.split(',')
+      if (parts.length > 2) {
+        s = parts.join('')
+      } else if (parts.length === 2) {
+        if (parts[1].length === 3 && parts[0].length >= 1) {
+          s = parts[0] + parts[1]
+        } else {
+          s = parts[0] + '.' + parts[1]
+        }
       }
     }
+
+    const num = parseFloat(s)
+    return isNaN(num) ? defaultVal : num
   }
 
-  const num = parseFloat(s)
+  const num = parseFloat(val)
   return isNaN(num) ? defaultVal : num
 }
 
@@ -259,9 +270,72 @@ export default function QuevoGs5StatPage() {
   const [currentMaster, setCurrentMaster] = useState(null)
   const [statDataset, setStatDataset] = useState(initialQuevoGs5Stats)
   const [dataSourceType, setDataSourceType] = useState('sample') // 'database' | 'sample'
+  const cachedStatDataRef = useRef({})
+
+  // Tải chi tiết cho 1 Master cụ thể (sử dụng in-memory cache để chuyển đổi tức thì 0ms)
+  const loadDetailForMaster = async (master, forceRefresh = false) => {
+    if (!master) return
+    const regCode = master.RegCode || master.regCode || String(master.IdSeq || master.MasterSeq)
+
+    if (!forceRefresh && cachedStatDataRef.current[regCode]) {
+      setStatDataset(cachedStatDataRef.current[regCode])
+      setDataSourceType('database')
+      return
+    }
+
+    setLoading(true)
+    try {
+      let rows = []
+      const apiRegCode = master.RegCode || master.regCode
+
+      // 1. Ưu tiên thử lấy từ _ERPProdStatsDetail (Chi tiết TKSX) theo RegCode
+      if (apiRegCode) {
+        try {
+          const resStats = await queryProdStatsDetail({ RegCode: apiRegCode, pageSize: '10000' })
+          if (resStats?.data && resStats.data.length > 0) {
+            rows = resStats.data
+          }
+        } catch (errStats) {
+          console.warn('Không tìm thấy trong ProdStatsDetail GS5:', errStats)
+        }
+
+        // 2. Nếu không có ở bảng TKSX, lấy từ _ERPPlanDetail (Chi tiết KHSX)
+        if (rows.length === 0) {
+          try {
+            const resPlan = await queryPlanDetail({ RegCode: apiRegCode, pageSize: '10000' })
+            if (resPlan?.data && resPlan.data.length > 0) {
+              rows = resPlan.data
+            }
+          } catch (errPlan) {
+            console.warn('Không tìm thấy trong PlanDetail GS5:', errPlan)
+          }
+        }
+      }
+
+      if (rows.length > 0) {
+        const mappedData = rows.map((item, idx) => mapDBRowToStatItem(item, idx, master))
+        cachedStatDataRef.current[regCode] = mappedData
+        setStatDataset(mappedData)
+        setDataSourceType('database')
+      } else {
+        // Master rỗng dòng detail -> Fallback dữ liệu mẫu GS5
+        setStatDataset(initialQuevoGs5Stats)
+        setDataSourceType('sample')
+      }
+    } catch (err) {
+      console.error(`Lỗi tải chi tiết đợt GS5 ${regCode}:`, err)
+      setStatDataset(initialQuevoGs5Stats)
+      setDataSourceType('sample')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Fetch danh sách Master các đợt đăng ký từ CSDL cho GS5 Quế Võ
-  const fetchMastersAndLatestData = useCallback(async (targetRegCode = null) => {
+  const fetchMastersAndLatestData = useCallback(async (targetRegCode = null, clearCache = false) => {
+    if (clearCache) {
+      cachedStatDataRef.current = {}
+    }
     setLoading(true)
     try {
       // 1. Lấy danh sách master đăng ký từ DB và lọc theo mã nhà máy GS5 (Quế Võ)
@@ -322,7 +396,7 @@ export default function QuevoGs5StatPage() {
         setCurrentMaster(activeMaster)
 
         // 2. Tải dữ liệu chi tiết của master này
-        await loadDetailForMaster(activeMaster)
+        await loadDetailForMaster(activeMaster, clearCache)
       } else {
         // Không có dữ liệu đăng ký trong DB -> Dùng dữ liệu mẫu GS5
         setStatDataset(initialQuevoGs5Stats)
@@ -336,57 +410,6 @@ export default function QuevoGs5StatPage() {
       setLoading(false)
     }
   }, [])
-
-  // Tải chi tiết cho 1 Master cụ thể
-  const loadDetailForMaster = async (master) => {
-    if (!master) return
-    const regCode = master.RegCode || master.regCode
-
-    setLoading(true)
-    try {
-      let rows = []
-
-      // 1. Ưu tiên thử lấy từ _ERPProdStatsDetail (Chi tiết TKSX) theo RegCode
-      if (regCode) {
-        try {
-          const resStats = await queryProdStatsDetail({ RegCode: regCode, pageSize: '10000' })
-          if (resStats?.data && resStats.data.length > 0) {
-            rows = resStats.data
-          }
-        } catch (errStats) {
-          console.warn('Không tìm thấy trong ProdStatsDetail GS5:', errStats)
-        }
-
-        // 2. Nếu không có ở bảng TKSX, lấy từ _ERPPlanDetail (Chi tiết KHSX)
-        if (rows.length === 0) {
-          try {
-            const resPlan = await queryPlanDetail({ RegCode: regCode, pageSize: '10000' })
-            if (resPlan?.data && resPlan.data.length > 0) {
-              rows = resPlan.data
-            }
-          } catch (errPlan) {
-            console.warn('Không tìm thấy trong PlanDetail GS5:', errPlan)
-          }
-        }
-      }
-
-      if (rows.length > 0) {
-        const mappedData = rows.map((item, idx) => mapDBRowToStatItem(item, idx, master))
-        setStatDataset(mappedData)
-        setDataSourceType('database')
-      } else {
-        // Master rỗng dòng detail -> Fallback dữ liệu mẫu GS5
-        setStatDataset(initialQuevoGs5Stats)
-        setDataSourceType('sample')
-      }
-    } catch (err) {
-      console.error(`Lỗi tải chi tiết đợt GS5 ${regCode}:`, err)
-      setStatDataset(initialQuevoGs5Stats)
-      setDataSourceType('sample')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // Tự động tải dữ liệu khi trang mở
   useEffect(() => {
@@ -407,6 +430,10 @@ export default function QuevoGs5StatPage() {
     }
   }
 
+  const handleRefresh = () => {
+    fetchMastersAndLatestData(null, true)
+  }
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-[#f0fdf4]/50">
       <div className="flex-1 w-full overflow-y-auto">
@@ -418,7 +445,7 @@ export default function QuevoGs5StatPage() {
           masterList={masterList}
           selectedMasterKey={selectedMasterKey}
           onSelectMaster={handleSelectMaster}
-          onRefreshMaster={fetchMastersAndLatestData}
+          onRefreshMaster={handleRefresh}
           currentMaster={currentMaster}
           dataSourceType={dataSourceType}
           loadingMaster={loading}

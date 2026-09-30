@@ -1,5 +1,4 @@
 /* eslint-disable react/prop-types */
-import { useState } from 'react'
 import {
   RotateCcw,
   FileSpreadsheet,
@@ -11,25 +10,12 @@ import {
   Activity,
   Calendar,
   Download,
-  Search,
-  PieChart as PieIcon,
-  BarChart3,
-  TrendingUp,
-  SlidersHorizontal,
-  CheckCircle2,
-  AlertTriangle,
-  ShieldAlert
+  Search
 } from 'lucide-react'
 import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  ComposedChart,
-  Line,
-  AreaChart,
-  Area,
-  PieChart,
-  Pie,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -52,11 +38,11 @@ import {
   gridCustomCss
 } from './reportUIComponents'
 import { PlanFormulaHandbookModal } from './PlanFormulaHandbookModal'
-import { useHanoiGs1PlanLogic } from '../hooks/useHanoiGs1PlanLogic'
+import { useQuevoGs5PlanLogic } from '../hooks/useQuevoGs5PlanLogic'
 
-export default function HanoiGs1PlanReport(props) {
+export default function QuevoGs5PlanReport(props) {
   const {
-    plantName = 'Nhà máy GS1 Hà Nội',
+    plantName = 'Nhà máy GS5 Quế Võ',
     masterList = [],
     selectedMasterKey,
     onSelectMaster,
@@ -65,9 +51,9 @@ export default function HanoiGs1PlanReport(props) {
     dataset = []
   } = props
 
-  const logic = useHanoiGs1PlanLogic({
+  const logic = useQuevoGs5PlanLogic({
     dataset,
-    plantKey: 'hanoi_gs1',
+    plantKey: 'quevo_gs5',
     plantName,
     maskText: (t) => t
   })
@@ -96,34 +82,22 @@ export default function HanoiGs1PlanReport(props) {
     showFormulaModal,
     setShowFormulaModal,
 
-    // Chart Modes & View Controls
-    dpChartMode,
-    setDpChartMode,
-    timeCapaMode,
-    setTimeCapaMode,
-    picChartMode,
-    setPicChartMode,
-
     // Data & Metrics
     filteredData,
     sortedData,
     kpiMetrics,
-    dpStatusBreakdown,
     timeStatusBreakdown,
     capaStatusBreakdown,
     picBreakdown,
-    dailyTrendData,
     teamBreakdown,
     advancedPlanMetrics,
 
     // Grid & Refs
     gridRef,
     reportRootRef,
-    chart1Ref,
     chart2Ref,
     chart3Ref,
     chart4Ref,
-    chart5Ref,
     isCapturing,
     columns,
     getCellContent,
@@ -179,7 +153,7 @@ export default function HanoiGs1PlanReport(props) {
               BÁO CÁO ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT (KHSX)
             </div>
             <div style={{ fontSize: 12.5, color: '#334155', marginTop: 4 }}>
-              <b>Đơn vị:</b> {plantName || 'Nhà máy GS1 Hà Nội'} • <b>Hệ thống:</b> MES Engine &
+              <b>Đơn vị:</b> {plantName || 'Nhà máy GS5 Quế Võ'} • <b>Hệ thống:</b> MES Engine &
               Bravo ERP • <b>Đợt nạp:</b> {selectedMasterKey || 'Hiện hành'}
             </div>
           </div>
@@ -601,7 +575,7 @@ export default function HanoiGs1PlanReport(props) {
           }}
         >
           <div>
-            <b>Đơn vị:</b> {plantName || 'Nhà máy GS1 Hà Nội'}
+            <b>Đơn vị:</b> {plantName || 'Nhà máy GS5 Quế Võ'}
           </div>
           <span style={{ color: '#cbd5e1' }}>•</span>
           <div>
@@ -882,8 +856,7 @@ export default function HanoiGs1PlanReport(props) {
         </div>
       </div>
 
-
-      {/* 4 & 5. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
+      {/* 3 & 4. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
       <div
         style={{
           display: 'grid',
@@ -892,7 +865,7 @@ export default function HanoiGs1PlanReport(props) {
           marginBottom: 44
         }}
       >
-        {/* SECTION 4: TRẠNG THÁI THỜI GIAN (SO VỚI ĐM) */}
+        {/* SECTION 3: TRẠNG THÁI THỜI GIAN (SO VỚI ĐM) */}
         <div
           ref={chart2Ref}
           style={{
@@ -980,7 +953,7 @@ export default function HanoiGs1PlanReport(props) {
           </div>
         </div>
 
-        {/* SECTION 5: TRẠNG THÁI CAPA (ĐÁNH GIÁ THEO NĂNG LỰC) */}
+        {/* SECTION 4: TRẠNG THÁI CAPA (ĐÁNH GIÁ THEO NĂNG LỰC) */}
         <div
           ref={chart3Ref}
           style={{
@@ -1069,8 +1042,7 @@ export default function HanoiGs1PlanReport(props) {
         </div>
       </div>
 
-
-      {/* 6. THEO PIC ĐIỀU PHỐI (Biểu đồ ComposedChart kết hợp Cột Khối lượng + Đường Tỷ Lệ Đạt %) */}
+      {/* 5. THEO PIC ĐIỀU PHỐI (BẢNG OPENAI & BIỂU ĐỒ CỘT NGANG XẾP HẠNG TỶ LỆ ĐẠT CHUẨN) */}
       <div
         ref={chart4Ref}
         style={{
@@ -1549,7 +1521,7 @@ export default function HanoiGs1PlanReport(props) {
         </div>
       </div>
 
-      {/* 7. PHÂN TÍCH CHUYÊN SÂU HIỆU QUẢ ĐIỀU HÀNH & ĐIỂM NGHẼN TỔ SẢN XUẤT */}
+      {/* 6. PHÂN TÍCH CHUYÊN SÂU HIỆU QUẢ ĐIỀU HÀNH & ĐIỂM NGHẼN TỔ SẢN XUẤT */}
       <div
         style={{
           marginBottom: 44,

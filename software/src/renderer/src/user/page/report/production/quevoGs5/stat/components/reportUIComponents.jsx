@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { RotateCw, Search, ChevronDown, Check, X } from 'lucide-react'
 
-// 1. Pure Sharp Button
+// 1. Pure Sharp Button - Standardized 28px height
 export const PureButton = ({
   children,
   icon,
@@ -15,6 +15,7 @@ export const PureButton = ({
   disabled
 }) => {
   const isPrimary = type === 'primary'
+  const btnHeight = size === 'small' ? 28 : 32
   return (
     <button
       type="button"
@@ -27,13 +28,14 @@ export const PureButton = ({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
-        padding: size === 'small' ? '4px 10px' : '6px 14px',
+        height: btnHeight,
+        padding: '0 10px',
         fontSize: size === 'small' ? 11.5 : 12,
         fontWeight: isPrimary ? 700 : 600,
         color: isPrimary ? '#ffffff' : '#334155',
         background: isPrimary ? '#245d6c' : '#ffffff',
         border: isPrimary ? '1px solid #245d6c' : '1px solid #cbd5e1',
-        borderRadius: 0,
+        borderRadius: 3,
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
         opacity: disabled || loading ? 0.6 : 1,
         fontFamily: 'inherit',
@@ -41,6 +43,8 @@ export const PureButton = ({
         boxSizing: 'border-box',
         verticalAlign: 'middle',
         transition: 'all 0.15s ease',
+        userSelect: 'none',
+        whiteSpace: 'nowrap',
         ...style
       }}
     >
@@ -56,7 +60,7 @@ export const PureButton = ({
   )
 }
 
-// 2. Custom Sharp Searchable Dropdown for Master Batch Selection (Đợt nạp dữ liệu chuẩn kỹ thuật)
+// 2. Custom Sharp Searchable Dropdown for Master Batch Selection (Đợt nạp dữ liệu chuẩn kỹ thuật) - Standardized 28px height
 export const MasterBatchSearchSelect = ({
   masterList = [],
   selectedMasterKey,
@@ -172,26 +176,32 @@ export const MasterBatchSearchSelect = ({
       style={{
         position: 'relative',
         display: 'inline-flex',
-        alignItems: 'stretch',
+        alignItems: 'center',
+        height: 28,
         border: '1px solid #cbd5e1',
+        borderRadius: 3,
         background: '#ffffff',
         boxSizing: 'border-box',
+        overflow: 'hidden',
+        verticalAlign: 'middle',
         ...style
       }}
     >
       {/* Label Prefix */}
       <div
         style={{
+          height: '100%',
           fontSize: 11.5,
           fontWeight: 700,
-          color: '#475569',
-          background: '#f1f5f9',
-          padding: '4px 8px',
+          color: '#334155',
+          background: '#f8fafc',
+          padding: '0 8px',
           borderRight: '1px solid #cbd5e1',
-          display: 'flex',
+          display: 'inline-flex',
           alignItems: 'center',
           userSelect: 'none',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          boxSizing: 'border-box'
         }}
       >
         Đợt nạp:
@@ -202,10 +212,11 @@ export const MasterBatchSearchSelect = ({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         style={{
+          height: '100%',
           border: 'none',
           background: isOpen ? '#f8fafc' : '#ffffff',
-          padding: '4px 10px',
-          display: 'flex',
+          padding: '0 10px',
+          display: 'inline-flex',
           alignItems: 'center',
           gap: 8,
           cursor: 'pointer',
@@ -213,7 +224,8 @@ export const MasterBatchSearchSelect = ({
           fontFamily: 'inherit',
           minWidth: 260,
           justifyContent: 'space-between',
-          textAlign: 'left'
+          textAlign: 'left',
+          boxSizing: 'border-box'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
@@ -221,13 +233,13 @@ export const MasterBatchSearchSelect = ({
           {isCurrentNewest && (
             <span
               style={{
-                fontSize: 10,
+                fontSize: 9.5,
                 fontWeight: 800,
                 color: '#047857',
                 background: '#ecfdf5',
                 border: '1px solid #a7f3d0',
                 padding: '1px 4px',
-                borderRadius: 0,
+                borderRadius: 2,
                 lineHeight: 1
               }}
             >
@@ -237,7 +249,7 @@ export const MasterBatchSearchSelect = ({
           {currentDate && <span style={{ fontSize: 11, color: '#64748b' }}>({currentDate})</span>}
         </div>
         <ChevronDown
-          size={14}
+          size={13}
           color="#64748b"
           style={{
             transform: isOpen ? 'rotate(180deg)' : 'none',
@@ -254,14 +266,17 @@ export const MasterBatchSearchSelect = ({
           onClick={() => onRefreshMaster(selectedMasterKey)}
           title="Làm mới danh sách đợt nạp CSDL"
           style={{
+            height: '100%',
             border: 'none',
             borderLeft: '1px solid #cbd5e1',
             background: 'transparent',
-            padding: '4px 8px',
+            padding: '0 8px',
             cursor: 'pointer',
-            display: 'flex',
+            display: 'inline-flex',
             alignItems: 'center',
-            color: '#475569'
+            justifyContent: 'center',
+            color: '#475569',
+            boxSizing: 'border-box'
           }}
         >
           <RotateCw size={12} className={loading ? 'animate-spin' : ''} />
@@ -478,7 +493,7 @@ export const MasterBatchSearchSelect = ({
   )
 }
 
-// 2. Pure Sharp Custom Select (Custom popover dropdown chuẩn kỹ thuật)
+// 2. Pure Sharp Custom Select (Custom popover dropdown chuẩn kỹ thuật) - Standardized 28px height
 export const PureSelect = ({
   value,
   onChange,
@@ -560,7 +575,9 @@ export const PureSelect = ({
       title={title}
       style={{
         position: 'relative',
-        display: 'inline-block',
+        display: 'inline-flex',
+        alignItems: 'center',
+        height: 28,
         boxSizing: 'border-box',
         verticalAlign: 'middle',
         ...style
@@ -572,8 +589,8 @@ export const PureSelect = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         style={{
           width: '100%',
-          height: 26,
-          padding: '2px 8px',
+          height: '100%',
+          padding: '0 8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -625,7 +642,7 @@ export const PureSelect = ({
             background: '#ffffff',
             border: '1px solid #94a3b8',
             boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-            borderRadius: 0,
+            borderRadius: 3,
             overflow: 'hidden',
             ...dropdownStyle
           }}
@@ -741,7 +758,7 @@ export const PureSelect = ({
   )
 }
 
-// 3. Pure Sharp Date Range Picker
+// 3. Pure Sharp Date Range Picker - Standardized 28px height
 export const PureDateRangePicker = ({ value, onChange }) => {
   const startDate =
     value && value[0]
@@ -753,11 +770,20 @@ export const PureDateRangePicker = ({ value, onChange }) => {
     value && value[1]
       ? typeof value[1].format === 'function'
         ? value[1].format('YYYY-MM-DD')
-        : String(value[1]).slice(0, 10)
+      : String(value[1]).slice(0, 10)
       : ''
 
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 6px' }}>
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        height: '100%',
+        gap: 4,
+        padding: '0 8px',
+        boxSizing: 'border-box'
+      }}
+    >
       <input
         type="date"
         value={startDate}
@@ -772,7 +798,9 @@ export const PureDateRangePicker = ({ value, onChange }) => {
           fontSize: 11.5,
           color: '#0f172a',
           fontFamily: 'inherit',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          height: '100%',
+          boxSizing: 'border-box'
         }}
       />
       <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700 }}>→</span>
@@ -790,7 +818,9 @@ export const PureDateRangePicker = ({ value, onChange }) => {
           fontSize: 11.5,
           color: '#0f172a',
           fontFamily: 'inherit',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          height: '100%',
+          boxSizing: 'border-box'
         }}
       />
     </div>
@@ -1000,17 +1030,40 @@ export const gridCustomCss = `
   .production-statistics-report svg:focus-visible,
   .production-statistics-report path:focus,
   .production-statistics-report rect:focus,
-  .production-statistics-report g:focus {
+  .production-statistics-report g:focus,
+  .production-plan-report *:focus,
+  .production-plan-report *:focus-visible,
+  .production-plan-report .dvn-scroller:focus,
+  .production-plan-report .dvn-scroller:focus-visible,
+  .production-plan-report canvas:focus,
+  .production-plan-report canvas:focus-visible,
+  .production-plan-report div:focus,
+  .production-plan-report div:focus-visible,
+  .production-plan-report .gdg-dvn-underlay:focus,
+  .production-plan-report .recharts-wrapper,
+  .production-plan-report .recharts-surface,
+  .production-plan-report .recharts-surface:focus,
+  .production-plan-report .recharts-surface:focus-visible,
+  .production-plan-report .recharts-wrapper:focus,
+  .production-plan-report .recharts-wrapper:focus-visible,
+  .production-plan-report .recharts-layer:focus,
+  .production-plan-report svg:focus,
+  .production-plan-report svg:focus-visible,
+  .production-plan-report path:focus,
+  .production-plan-report rect:focus,
+  .production-plan-report g:focus {
     outline: none !important;
     box-shadow: none !important;
     border-color: inherit;
   }
-  .production-statistics-report svg {
+  .production-statistics-report svg,
+  .production-plan-report svg {
     display: inline-block;
     vertical-align: middle;
     flex-shrink: 0;
   }
-  .production-statistics-report .pure-button {
+  .production-statistics-report .pure-button,
+  .production-plan-report .pure-button {
     box-sizing: border-box;
     display: inline-flex;
     align-items: center;
@@ -1019,7 +1072,8 @@ export const gridCustomCss = `
     .screenshot-hide {
       display: none !important;
     }
-    .production-statistics-report {
+    .production-statistics-report,
+    .production-plan-report {
       padding: 10px !important;
       background: #ffffff !important;
     }

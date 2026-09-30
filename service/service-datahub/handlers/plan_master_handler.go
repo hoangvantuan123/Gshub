@@ -98,8 +98,19 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 	if reportType == "" {
 		reportType = "plan"
 	}
+	if req.FactoryCode == "" {
+		if strings.Contains(strings.ToUpper(req.FactoryName), "GS5") || strings.Contains(strings.ToLower(req.FactoryName), "quế võ") {
+			req.FactoryCode = "GS5"
+		} else {
+			req.FactoryCode = "GS1"
+		}
+	}
 	if req.FactoryName == "" {
-		req.FactoryName = "GS1 Hà Nội"
+		if req.FactoryCode == "GS5" {
+			req.FactoryName = "GS5 Quế Võ 1B"
+		} else {
+			req.FactoryName = "GS1 Hà Nội"
+		}
 	}
 	if req.ApplyDate == "" {
 		req.ApplyDate = time.Now().Format("2006-01-02")
@@ -134,6 +145,7 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 		createdMaster = models.ERPPlanMaster{
 			RegCode:     regCode,
 			ReportType:  reportType,
+			FactoryCode: &req.FactoryCode,
 			FactoryName: &req.FactoryName,
 			ApplyDate:   &req.ApplyDate,
 			Remark:      &req.Remark,

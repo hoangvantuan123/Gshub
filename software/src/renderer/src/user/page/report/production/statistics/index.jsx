@@ -46,13 +46,22 @@ export default function ProductionStatisticsView({
     isFieldReadOnly: pagePerms.isFieldReadOnly
   })
 
-  const { gridData, setGridData, setNumRows, numRows, resetTable, getSelectedRows, tableProps, setCols, cols } =
-    useDataGridSheet({
-      storageKey: `cols_prod_stats_${plantKey}`,
-      defaultCols,
-      canCreate: pagePerms.canCreate,
-      canView: pagePerms.canView
-    })
+  const {
+    gridData,
+    setGridData,
+    setNumRows,
+    numRows,
+    resetTable,
+    getSelectedRows,
+    tableProps,
+    setCols,
+    cols
+  } = useDataGridSheet({
+    storageKey: `cols_prod_stats_${plantKey}`,
+    defaultCols,
+    canCreate: pagePerms.canCreate,
+    canView: pagePerms.canView
+  })
 
   const {
     searchValues,

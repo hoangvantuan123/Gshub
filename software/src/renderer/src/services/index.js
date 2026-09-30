@@ -32,7 +32,7 @@ export const getApiServerEndpoint = (envSelection) => {
   const env =
     envSelection ||
     (typeof localStorage !== 'undefined' ? localStorage.getItem('envSelection') : null) ||
-    'official'
+    'dev'
   return env === 'official'
     ? 'https://bravo.goldsunpackaging.vn:5052'
     : 'https://bravo.goldsunpackaging.vn:5051'
@@ -42,7 +42,7 @@ export const updateApiServers = (envSelection) => {
   const env =
     envSelection ||
     (typeof localStorage !== 'undefined' ? localStorage.getItem('envSelection') : null) ||
-    'official'
+    'dev'
 
   if (env === 'official' || (env !== 'dev' && baseUrl === 'platx.erpsheet.vn')) {
     HOST_API_SERVER_1 = 'https://platx.erpsheet.vn/a1/api/v1'
@@ -99,21 +99,21 @@ export const updateApiServers = (envSelection) => {
 }
 
 const initialEnv =
-  (typeof localStorage !== 'undefined' ? localStorage.getItem('envSelection') : null) || 'official'
+  (typeof localStorage !== 'undefined' ? localStorage.getItem('envSelection') : null) || 'dev'
 updateApiServers(initialEnv)
 
 if (typeof window !== 'undefined') {
   // Listen for storage events (fired across windows/tabs)
   window.addEventListener('storage', (e) => {
     if (!e.key || e.key === 'envSelection') {
-      const currentEnv = localStorage.getItem('envSelection') || 'official'
+      const currentEnv = localStorage.getItem('envSelection') || 'dev'
       updateApiServers(currentEnv)
     }
   })
 
   // Listen for custom environment change event
   window.addEventListener('env-changed', (e) => {
-    const currentEnv = e.detail || localStorage.getItem('envSelection') || 'official'
+    const currentEnv = e.detail || localStorage.getItem('envSelection') || 'dev'
     updateApiServers(currentEnv)
   })
 

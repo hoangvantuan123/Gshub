@@ -40,6 +40,7 @@ export const SERVER_ENVIRONMENTS = [
     endpoint: 'https://bravo.goldsunpackaging.vn:5051',
     configKey: 'BravoDefault',
     backendUrl: getDefaultDataHubUrl(),
+    gatewayUrl: `${getDefaultDataHubUrl()}/api/v2`,
     tag: 'Goldsun DEV'
   },
   {
@@ -48,7 +49,8 @@ export const SERVER_ENVIRONMENTS = [
     shortLabel: 'Production',
     endpoint: 'https://bravo.goldsunpackaging.vn:5052',
     configKey: 'Bravo_PROD',
-    backendUrl: getDefaultDataHubUrl(),
+    backendUrl: 'https://platx.erpsheet.vn',
+    gatewayUrl: 'https://platx.erpsheet.vn/a1/api/v2',
     tag: 'Goldsun PROD'
   }
 ]
@@ -79,7 +81,7 @@ export function getEnvConfig(envKey = null) {
   const found = SERVER_ENVIRONMENTS.find((e) => e.value === current) || SERVER_ENVIRONMENTS[0]
   return {
     ...found,
-    backendUrl: getDefaultDataHubUrl()
+    backendUrl: found.value === 'official' ? 'https://platx.erpsheet.vn' : getDefaultDataHubUrl()
   }
 }
 

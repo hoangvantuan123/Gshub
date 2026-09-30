@@ -16,6 +16,7 @@ func (s *PlanMasterService) PlanMasterQ(ctx context.Context, filters map[string]
 	// 1. Lọc chuỗi tương đối ILIKE
 	likeFields := map[string]string{
 		"RegCode":     `"RegCode"`,
+		"FactoryCode": `"FactoryCode"`,
 		"FactoryName": `"FactoryName"`,
 		"Remark":      `"Remark"`,
 		"CreatedBy":   `"CreatedBy"`,
@@ -55,6 +56,9 @@ func (s *PlanMasterService) PlanMasterQ(ctx context.Context, filters map[string]
 	}
 	if val, ok := filters["Status"]; ok && val != "" {
 		query = query.Where(`"Status" = ?`, val)
+	}
+	if val, ok := filters["FactoryCodeExact"]; ok && val != "" {
+		query = query.Where(`"FactoryCode" = ?`, val)
 	}
 	if val, ok := filters["FactoryNameExact"]; ok && val != "" {
 		query = query.Where(`"FactoryName" = ?`, val)

@@ -113,7 +113,10 @@ export default function PlanImportTable({
         }
       }
 
-      const value = item[meta.columnKey] ?? item[meta.columnKey.charAt(0).toLowerCase() + meta.columnKey.slice(1)] ?? ''
+      const value =
+        item[meta.columnKey] ??
+        item[meta.columnKey.charAt(0).toLowerCase() + meta.columnKey.slice(1)] ??
+        ''
 
       if (meta.isStatus && meta.columnKey === 'WorkingTag') {
         const strVal = String(value)

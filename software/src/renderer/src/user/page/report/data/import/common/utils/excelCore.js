@@ -159,7 +159,6 @@ export function formatExcelCellValue(val) {
  */
 export const parseExcelDateOrTime = formatExcelCellValue
 
-
 /**
  * Reads binary buffer to 2D matrix with unmerged cells and formatted text
  */
@@ -209,4 +208,3 @@ export function readWorkbookToMatrix(buffer) {
 
   return rawMatrix
 }
-

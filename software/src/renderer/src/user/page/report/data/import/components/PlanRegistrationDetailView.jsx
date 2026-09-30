@@ -6,11 +6,7 @@ import { CompactSelection } from '@glideapps/glide-data-grid'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import { Button } from 'antd'
-import {
-  SearchOutlined,
-  ReloadOutlined,
-  FileExcelOutlined
-} from '@ant-design/icons'
+import { SearchOutlined, ReloadOutlined, FileExcelOutlined } from '@ant-design/icons'
 import { Layers } from 'lucide-react'
 
 import { usePageHotkeys } from '../../../../../hooks/usePageHotkeys'
@@ -98,7 +94,9 @@ export default function PlanRegistrationDetailView({ permissions, ...restProps }
 
     return {
       FactoryName: initialMaster?.FactoryName || 'GS1 Hà Nội',
-      ReportType: initialMaster?.ReportType || (regCode?.toLowerCase()?.includes('tksx') ? 'statistics' : 'plan'),
+      ReportType:
+        initialMaster?.ReportType ||
+        (regCode?.toLowerCase()?.includes('tksx') ? 'statistics' : 'plan'),
       RegCode: initialMaster?.RegCode || regCode || '',
       ApplyDate: initialMaster?.ApplyDate || '',
       Status: initialMaster?.Status || 'published',
@@ -209,7 +207,9 @@ export default function PlanRegistrationDetailView({ permissions, ...restProps }
       if (val && typeof val === 'string' && val.trim() !== '' && !ignoreKeys.has(key)) {
         const searchLower = val.trim().toLowerCase()
         filtered = filtered.filter((row) => {
-          const rowVal = String(row[key] || row[key.charAt(0).toLowerCase() + key.slice(1)] || '').toLowerCase()
+          const rowVal = String(
+            row[key] || row[key.charAt(0).toLowerCase() + key.slice(1)] || ''
+          ).toLowerCase()
           return rowVal.includes(searchLower)
         })
       }
@@ -273,7 +273,7 @@ export default function PlanRegistrationDetailView({ permissions, ...restProps }
     }
 
     const exportRows = gridData.map((row, idx) => {
-      const cleanRow = { 'STT': idx + 1 }
+      const cleanRow = { STT: idx + 1 }
       cols.forEach((c) => {
         if (c.id && c.title && c.id !== 'WorkingTag') {
           cleanRow[c.title] = row[c.id] || ''
@@ -458,8 +458,11 @@ export default function PlanRegistrationDetailView({ permissions, ...restProps }
           <div className="flex items-center gap-2 pr-2">
             <Layers className="w-3.5 h-3.5 text-indigo-600" />
             <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight">
-              {masterInfo?.RegCode || regCode} • {masterInfo?.FactoryName || 'GS1 Hà Nội'} • {masterInfo?.ApplyDate || 'Ngày —'} •{' '}
-              <span className="text-blue-600 font-semibold">{numRows.toLocaleString('vi-VN')} dòng (Chỉ xem)</span>
+              {masterInfo?.RegCode || regCode} • {masterInfo?.FactoryName || 'GS1 Hà Nội'} •{' '}
+              {masterInfo?.ApplyDate || 'Ngày —'} •{' '}
+              <span className="text-blue-600 font-semibold">
+                {numRows.toLocaleString('vi-VN')} dòng (Chỉ xem)
+              </span>
             </span>
           </div>
         </div>

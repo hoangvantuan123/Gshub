@@ -420,6 +420,7 @@ CREATE TABLE IF NOT EXISTS "_ERPPlanMaster" (
     "IdSeq"         BIGSERIAL PRIMARY KEY,
     "RegCode"       VARCHAR(100) NOT NULL UNIQUE,
     "ReportType"    VARCHAR(100) NOT NULL DEFAULT 'plan', -- 'plan' (KHSX) | 'statistics' (TKSX)
+    "FactoryCode"   VARCHAR(50),            -- 'GS1' (Hà Nội) | 'GS5' (Quế Võ)
     "FactoryName"   VARCHAR(255),
     "ApplyDate"     VARCHAR(50),
     "Remark"        TEXT,
@@ -435,6 +436,7 @@ CREATE TABLE IF NOT EXISTS "_ERPPlanMaster" (
 
 CREATE INDEX IF NOT EXISTS "idx_planmaster_regcode" ON "_ERPPlanMaster" ("RegCode");
 CREATE INDEX IF NOT EXISTS "idx_planmaster_reporttype" ON "_ERPPlanMaster" ("ReportType");
+CREATE INDEX IF NOT EXISTS "idx_planmaster_factorycode" ON "_ERPPlanMaster" ("FactoryCode");
 CREATE INDEX IF NOT EXISTS "idx_planmaster_applydate" ON "_ERPPlanMaster" ("ApplyDate");
 CREATE INDEX IF NOT EXISTS "idx_planmaster_factoryname" ON "_ERPPlanMaster" ("FactoryName");
 CREATE INDEX IF NOT EXISTS "idx_planmaster_isactive" ON "_ERPPlanMaster" ("IsActive");
@@ -494,7 +496,7 @@ CREATE INDEX IF NOT EXISTS "idx_plandetail_opdate" ON "_ERPPlanDetail" ("OpDate"
 -- 15. BẢNG 2: CHI TIẾT DỮ LIỆU THỐNG KÊ SẢN XUẤT THỰC TẾ (_ERPProdStatsDetail)
 --     (Lưu trữ toàn bộ cột dữ liệu TKSX, liên kết bằng MasterSeq và RegCode, không dùng FK)
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS "_ERPProdStatsDetail" (
+CREATE TABLE IF NOT EXISTS "L" (
     "IdSeq"                  BIGSERIAL PRIMARY KEY,
     "MasterSeq"              BIGINT NOT NULL,
     "RegCode"                TEXT NOT NULL,

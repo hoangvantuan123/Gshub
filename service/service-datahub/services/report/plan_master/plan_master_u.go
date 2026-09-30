@@ -22,6 +22,7 @@ func (s *PlanMasterService) PlanMasterU(
 	}
 
 	updates := map[string]interface{}{
+		"FactoryCode": master.FactoryCode,
 		"FactoryName": master.FactoryName,
 		"ApplyDate":   master.ApplyDate,
 		"Remark":      master.Remark,

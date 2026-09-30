@@ -10,24 +10,64 @@ import {
 export const STATISTICS_FIELD_ALIASES = {
   // Nhóm 1: Thông tin chung sản phẩm
   ItemCode: [
-    'ma vat tu', 'ma vt', 'ma hang', 'ma sp', 'itemcode', 'item code', 'material code', 'product code', 'ma san pham'
+    'ma vat tu',
+    'ma vt',
+    'ma hang',
+    'ma sp',
+    'itemcode',
+    'item code',
+    'material code',
+    'product code',
+    'ma san pham'
   ],
   ItemName: [
-    'ten vat tu', 'ten vt', 'ten hang', 'ten sp', 'itemname', 'item name', 'material name', 'ten san pham', 'san pham'
+    'ten vat tu',
+    'ten vt',
+    'ten hang',
+    'ten sp',
+    'itemname',
+    'item name',
+    'material name',
+    'ten san pham',
+    'san pham'
   ],
   Version: ['version', 'phien ban', 'ver', 'v'],
   Model: ['model', 'kieu dang', 'mau ma'],
-  DefectMarginWeight: ['trong luong sp le ng', 'tl sp le ng', 'tl ng', 'defect margin weight', 'trong luong ng'],
-  TechMarginWeight: ['trong luong le ky thuat', 'tl le ky thuat', 'tl kt', 'tech margin weight', 'le ky thuat'],
+  DefectMarginWeight: [
+    'trong luong sp le ng',
+    'tl sp le ng',
+    'tl ng',
+    'defect margin weight',
+    'trong luong ng'
+  ],
+  TechMarginWeight: [
+    'trong luong le ky thuat',
+    'tl le ky thuat',
+    'tl kt',
+    'tech margin weight',
+    'le ky thuat'
+  ],
 
   // Nhóm 2: Thông tin lệnh thao tác
   OperationNo: [
-    'so lenh thao tac', 'lenh thao tac', 'so ltt', 'ltt', 'operationno', 'operation no', 'ma lenh thao tac'
+    'so lenh thao tac',
+    'lenh thao tac',
+    'so ltt',
+    'ltt',
+    'operationno',
+    'operation no',
+    'ma lenh thao tac'
   ],
   MainWorker: ['tho chinh', 'nhan vien chinh', 'main worker', 'mainworker', 'tho 1'],
   SubWorker1: ['tho phu 1', 'phu 1', 'sub worker 1', 'subworker1', 'nhan vien phu 1'],
   SubWorker2: ['tho phu 2', 'phu 2', 'sub worker 2', 'subworker2', 'nhan vien phu 2'],
-  BreakdownReason: ['nguyen nhan hong may', 'ly do hong may', 'nguyen nhan su co', 'breakdown reason', 'hong may'],
+  BreakdownReason: [
+    'nguyen nhan hong may',
+    'ly do hong may',
+    'nguyen nhan su co',
+    'breakdown reason',
+    'hong may'
+  ],
   MachineCode: ['ma may san xuat', 'ma may', 'machine code', 'machinecode', 'machine id'],
   MachineName: ['ten may san xuat', 'ten may', 'machine name', 'machinename', 'may san xuat'],
   OpTypeCode: ['ma phan loai thao tac', 'ma pl thao tac', 'op type code', 'optypecode'],
@@ -38,10 +78,25 @@ export const STATISTICS_FIELD_ALIASES = {
   MoldSetQty3: ['sl len khuon 3', 'so luong len khuon 3', 'len khuon 3', 'mold 3'],
 
   // Nhóm 3: Số lượng thực hiện
-  ProdQty: ['so luong san xuat', 'sl san xuat', 'sl sx', 'so luong sx', 'prod qty', 'prodqty', 'tong sl sx'],
+  ProdQty: [
+    'so luong san xuat',
+    'sl san xuat',
+    'sl sx',
+    'so luong sx',
+    'prod qty',
+    'prodqty',
+    'tong sl sx'
+  ],
   PassQty: ['so luong dat', 'sl dat', 'sl dat yeu cau', 'pass qty', 'passqty', 'sl thanh pham'],
   ActualMeters: ['so met thuc te', 'met thuc te', 'so m thuc te', 'actual meters', 'actualmeters'],
-  StandardMeters: ['so met dinh muc', 'met dinh muc', 'so m dinh muc', 'standard meters', 'standardmeters', 'dm met'],
+  StandardMeters: [
+    'so met dinh muc',
+    'met dinh muc',
+    'so m dinh muc',
+    'standard meters',
+    'standardmeters',
+    'dm met'
+  ],
 
   // Nhóm 4: Tổ & Ca sản xuất
   TeamName: ['to san xuat', 'to sx', 'to san xuat sx', 'team name', 'teamname', 'to'],
@@ -49,13 +104,27 @@ export const STATISTICS_FIELD_ALIASES = {
 
   // Nhóm 5: Thời gian thực hiện
   StartDate: ['ngay bat dau', 'ngay bd', 'start date', 'startdate'],
-  StartTime: ['bat dau', 'gio bat dau', 'thoi gian bat dau', 'tg bat dau', 'start time', 'starttime'],
+  StartTime: [
+    'bat dau',
+    'gio bat dau',
+    'thoi gian bat dau',
+    'tg bat dau',
+    'start time',
+    'starttime'
+  ],
   EndDate: ['ngay ket thuc', 'ngay kt', 'end date', 'enddate'],
   EndTime: ['ket thuc', 'gio ket thuc', 'thoi gian ket thuc', 'tg ket thuc', 'end time', 'endtime'],
 
   // Nhóm 6: Thông tin thống kê
   StatDate: ['ngay thong ke', 'ngay tk', 'stat date', 'statdate'],
-  StatTicketNo: ['so phieu thong ke', 'so phieu tk', 'phieu thong ke', 'stat ticket no', 'statticketno', 'ma phieu tk'],
+  StatTicketNo: [
+    'so phieu thong ke',
+    'so phieu tk',
+    'phieu thong ke',
+    'stat ticket no',
+    'statticketno',
+    'ma phieu tk'
+  ],
   StatStaff: ['nhan vien thong ke', 'nv thong ke', 'nguoi thong ke', 'stat staff', 'statstaff'],
 
   // Nhóm 7: Thông tin đơn hàng & Khách hàng
@@ -94,18 +163,46 @@ export const STATISTICS_FIELD_ALIASES = {
   StructureName: ['ten loai ket cau', 'ten ket cau', 'structure name'],
 
   // Nhóm 9: Lệnh công đoạn
-  RoutingDocNo: ['so lenh cong doan', 'lenh cong doan', 'so lcd', 'lcd', 'routing doc no', 'routingdocno'],
+  RoutingDocNo: [
+    'so lenh cong doan',
+    'lenh cong doan',
+    'so lcd',
+    'lcd',
+    'routing doc no',
+    'routingdocno'
+  ],
   RoutingDate: ['ngay lenh cong doan', 'ngay lcd', 'routing date', 'routingdate'],
   ReleaseDate: ['ngay phat hanh lenh', 'ngay phat hanh', 'release date', 'releasedate'],
   TargetPassQty: ['so luong can dat', 'sl can dat', 'target pass qty', 'targetpassqty'],
-  TargetProdQty: ['so luong can san xuat', 'sl can sx', 'sl can san xuat', 'target prod qty', 'targetprodqty'],
+  TargetProdQty: [
+    'so luong can san xuat',
+    'sl can sx',
+    'sl can san xuat',
+    'target prod qty',
+    'targetprodqty'
+  ],
   RoutingUnit: ['dvt cong doan', 'dvt lcd', 'routing unit'],
 
   // Nhóm 10: Thời gian lãng phí
-  BreakdownMinutes: ['tg hong may mat dien phut 01', 'tg hong may', 'tg mat dien', 'breakdown minutes'],
-  WaitingMaterialMinutes: ['tg cho nvl phut 02', 'tg cho nvl', 'cho nvl', 'waiting material minutes'],
+  BreakdownMinutes: [
+    'tg hong may mat dien phut 01',
+    'tg hong may',
+    'tg mat dien',
+    'breakdown minutes'
+  ],
+  WaitingMaterialMinutes: [
+    'tg cho nvl phut 02',
+    'tg cho nvl',
+    'cho nvl',
+    'waiting material minutes'
+  ],
   SetupMinutes: ['tg chuan bi phut 03', 'tg chuan bi', 'chuan bi', 'setup minutes'],
-  RepairMinutes: ['tg sua file khuon ban phut 04', 'tg sua file', 'sua khuon ban', 'repair minutes'],
+  RepairMinutes: [
+    'tg sua file khuon ban phut 04',
+    'tg sua file',
+    'sua khuon ban',
+    'repair minutes'
+  ],
   TotalWasteMinutes: ['tong tg hao phi', 'tong tg lang phi', 'tg hao phi', 'total waste minutes'],
 
   // Nhóm 11: Gia công & Lỗi NG
@@ -137,8 +234,16 @@ export const STATISTICS_FIELD_ALIASES = {
 }
 
 export const STAT_HEADER_KEYWORDS = [
-  'so lenh thao tac', 'ma vat tu', 'ten vat tu', 'tho chinh', 'may san xuat',
-  'so luong san xuat', 'so luong dat', 'ngay thong ke', 'to san xuat', 'so phieu thong ke'
+  'so lenh thao tac',
+  'ma vat tu',
+  'ten vat tu',
+  'tho chinh',
+  'may san xuat',
+  'so luong san xuat',
+  'so luong dat',
+  'ngay thong ke',
+  'to san xuat',
+  'so phieu thong ke'
 ]
 
 const INVERTED_STAT_MAP = createInvertedAliasMap(STATISTICS_FIELD_ALIASES)
@@ -151,7 +256,12 @@ export function parseStatisticsExcelFast(buffer, defaultContext = {}) {
   const todayStr = defaultContext.applyDate || new Date().toISOString().slice(0, 10)
 
   const rawMatrix = readWorkbookToMatrix(buffer)
-  const { rowIndex: headerRowIndex } = scanHeaderRow(rawMatrix, INVERTED_STAT_MAP, STAT_HEADER_KEYWORDS, 25)
+  const { rowIndex: headerRowIndex } = scanHeaderRow(
+    rawMatrix,
+    INVERTED_STAT_MAP,
+    STAT_HEADER_KEYWORDS,
+    25
+  )
 
   const headerRow1 = rawMatrix[headerRowIndex] || []
   const headerRow2 = rawMatrix[headerRowIndex + 1] || []

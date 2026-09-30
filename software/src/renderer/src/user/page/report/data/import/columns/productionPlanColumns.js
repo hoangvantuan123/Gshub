@@ -39,6 +39,17 @@ export const useProductionPlanColumns = ({ isFieldVisible, isFieldReadOnly } = {
         themeOverride: { textHeader: '#DD1144', bgIconHeader: '#DD1144' }
       },
       {
+        title: t('report.factoryCode', 'Mã nhà máy *'),
+        id: 'FactoryCode',
+        kind: 'Text',
+        readonly: true,
+        width: 110,
+        hasMenu: true,
+        visible: true,
+        trailingRowOptions: { disabled: true },
+        themeOverride: { textHeader: '#DD1144', bgIconHeader: '#DD1144' }
+      },
+      {
         title: t('report.factoryName', 'Nhà máy áp dụng *'),
         id: 'FactoryName',
         kind: 'Text',

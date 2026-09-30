@@ -284,7 +284,14 @@ export default function DailyPlanRegistrationPage({
         }
       }
     })
-  }, [pagePerms.canDelete, masterSelection, masterGridData, setStatusMessage, fetchMasterData, searchValues])
+  }, [
+    pagePerms.canDelete,
+    masterSelection,
+    masterGridData,
+    setStatusMessage,
+    fetchMasterData,
+    searchValues
+  ])
 
   // ── 6. Xuất danh sách Master ra Excel ──
   const handleExportExcel = useCallback(() => {

@@ -112,11 +112,15 @@ export default function ProductionPlanReportActions({
         </div>
         <div className="flex items-center gap-1 border-l border-slate-200 pl-3">
           <span className="text-slate-500">{t('Tổng SL cần sản xuất')}:</span>
-          <span className="font-bold text-indigo-600">{(kpiStats.totalTargetProd || 0).toLocaleString('vi-VN')}</span>
+          <span className="font-bold text-indigo-600">
+            {(kpiStats.totalTargetProd || 0).toLocaleString('vi-VN')}
+          </span>
         </div>
         <div className="flex items-center gap-1 border-l border-slate-200 pl-3">
           <span className="text-slate-500">{t('Đã thống kê đạt')}:</span>
-          <span className="font-bold text-emerald-600">{(kpiStats.totalStatPass || 0).toLocaleString('vi-VN')}</span>
+          <span className="font-bold text-emerald-600">
+            {(kpiStats.totalStatPass || 0).toLocaleString('vi-VN')}
+          </span>
         </div>
         <div className="flex items-center gap-1 border-l border-slate-200 pl-3">
           <span className="text-slate-500">{t('Tiến độ trung bình')}:</span>

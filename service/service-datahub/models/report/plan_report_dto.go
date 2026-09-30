@@ -3,6 +3,7 @@ package report
 // PlanRegistrationSaveRequest - Đăng ký báo cáo chung từ UI Modal
 type PlanRegistrationSaveRequest struct {
 	ReportType  string               `json:"reportType"`  // 'plan' | 'statistics'
+	FactoryCode string               `json:"factoryCode"` // 'GS1' | 'GS5'
 	FactoryName string               `json:"factoryName"` // Tên nhà máy
 	ApplyDate   string               `json:"applyDate"`   // Ngày áp dụng
 	RegCode     string               `json:"regCode"`     // Mã đăng ký

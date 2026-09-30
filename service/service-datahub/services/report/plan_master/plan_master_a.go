@@ -45,9 +45,19 @@ func (s *PlanMasterService) PlanMasterA(
 		master.Status = &statusPublished
 	}
 
+	factoryCode := "GS1"
+	if master.FactoryCode != nil && *master.FactoryCode != "" {
+		factoryCode = *master.FactoryCode
+	} else if master.FactoryName != nil {
+		if strings.Contains(strings.ToUpper(*master.FactoryName), "GS5") || strings.Contains(strings.ToLower(*master.FactoryName), "quế võ") {
+			factoryCode = "GS5"
+		}
+	}
+
 	record := models.ERPPlanMaster{
 		RegCode:       regCode,
 		ReportType:    master.ReportType,
+		FactoryCode:   &factoryCode,
 		FactoryName:   master.FactoryName,
 		ApplyDate:     master.ApplyDate,
 		Remark:        master.Remark,

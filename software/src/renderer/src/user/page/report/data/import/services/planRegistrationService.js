@@ -8,16 +8,24 @@ import { request } from '../../../../../../services/apiClient'
 export const savePlanRegistration = async (payload, signal = null) => {
   const isStat = payload.reportType === 'statistics' || payload.reportType === 'tksx'
 
+  const factoryCode =
+    payload.factoryCode ||
+    (String(payload.factoryName || '').includes('GS5') ||
+    String(payload.factoryName || '').includes('Quế Võ')
+      ? 'GS5'
+      : 'GS1')
+
   const formattedPayload = {
     reportType: payload.reportType || 'plan',
-    factoryName: payload.factoryName || 'GS1 Hà Nội',
+    factoryCode,
+    factoryName: payload.factoryName || (factoryCode === 'GS5' ? 'GS5 Quế Võ 1B' : 'GS1 Hà Nội'),
     applyDate: payload.applyDate,
     regCode: payload.regCode,
     remark: payload.remark || '',
     status: payload.status || (payload.isDraft ? 'draft' : 'published'),
     isDraft: Boolean(payload.isDraft),
-    planData: isStat ? [] : (payload.data || payload.planData || []),
-    statsData: isStat ? (payload.data || payload.statsData || []) : []
+    planData: isStat ? [] : payload.data || payload.planData || [],
+    statsData: isStat ? payload.data || payload.statsData || [] : []
   }
 
   return request({

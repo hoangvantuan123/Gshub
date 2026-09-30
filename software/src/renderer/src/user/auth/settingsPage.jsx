@@ -15,7 +15,8 @@ import {
   RefreshCw
 } from 'lucide-react'
 import Logo from '../../assets/logo3.png'
-import { getDefaultDataHubUrl } from '../../config/serverConfig'
+import { getDefaultDataHubUrl, getEnvConfig, SERVER_ENVIRONMENTS } from '../../config/serverConfig'
+import { getApiServerEndpoint } from '../../services'
 
 const settingsTranslations = {
   vi: {
@@ -38,7 +39,8 @@ const settingsTranslations = {
       envLabel: 'Môi trường kết nối (Environment)',
       official: 'Goldsun PROD (Môi trường Chính thức)',
       dev: 'Goldsun DEV (Môi trường Thử nghiệm)',
-      backendLabel: 'Địa chỉ máy chủ kết nối'
+      backendLabel: 'Cổng kết nối API Gateway',
+      erpLabel: 'Máy chủ ERP Core (Bravo Endpoint)'
     },
     accounts: {
       title: 'Tài khoản',
@@ -85,7 +87,8 @@ const settingsTranslations = {
       envLabel: 'Server Environment',
       official: 'Goldsun PROD (Production)',
       dev: 'Goldsun DEV (Testing / UAT)',
-      backendLabel: 'Server Connection Address'
+      backendLabel: 'API Gateway Endpoint',
+      erpLabel: 'ERP Core Server (Bravo Endpoint)'
     },
     accounts: {
       title: 'Accounts',
@@ -132,7 +135,8 @@ const settingsTranslations = {
       envLabel: '服务器环境 (Environment)',
       official: 'Goldsun PROD (正式环境 / Production)',
       dev: 'Goldsun DEV (测试环境 / UAT)',
-      backendLabel: '服务器连接地址'
+      backendLabel: 'API 网关地址',
+      erpLabel: 'ERP Core 核心服务器 (Bravo)'
     },
     accounts: {
       title: '账户',
@@ -165,7 +169,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('display')
   const [lang, setLang] = useState('vi')
   const [envSelection, setEnvSelection] = useState(
-    localStorage.getItem('envSelection') || 'official'
+    () => localStorage.getItem('envSelection') || 'dev'
   )
   const [loggedUsers, setLoggedUsers] = useState([])
   const [clearingCache, setClearingCache] = useState(false)
@@ -195,13 +199,13 @@ export default function SettingsPage() {
   useEffect(() => {
     const savedLang = localStorage.getItem('lang') || 'vi'
     setLang(savedLang)
-    const savedEnv = localStorage.getItem('envSelection') || 'official'
+    const savedEnv = localStorage.getItem('envSelection') || 'dev'
     setEnvSelection(savedEnv)
 
     const handleStorageChange = () => {
       const currentLang = localStorage.getItem('lang') || 'vi'
       setLang(currentLang)
-      const currentEnv = localStorage.getItem('envSelection') || 'official'
+      const currentEnv = localStorage.getItem('envSelection') || 'dev'
       setEnvSelection(currentEnv)
     }
     window.addEventListener('language-changed', handleStorageChange)
@@ -329,28 +333,27 @@ export default function SettingsPage() {
     window.dispatchEvent(new Event('storage'))
   }
 
-  const isLoggedIn = useMemo(() => {
-    return !!(Cookies.get('a_a') && localStorage.getItem('userInfo'))
-  }, [])
-
   const handleEnvChange = (value) => {
-    if (isLoggedIn) {
-      message.warning('🔒 Không thể thay đổi môi trường máy chủ khi đang trong phiên làm việc!')
-      return
-    }
     setEnvSelection(value)
     localStorage.setItem('envSelection', value)
+    localStorage.setItem('datahub_env_selection', value)
     import('../../services').then((m) => {
       if (typeof m.updateApiServers === 'function') {
         m.updateApiServers(value)
       }
     })
     window.dispatchEvent(new CustomEvent('env-changed', { detail: value }))
+    window.dispatchEvent(new CustomEvent('datahub_env_changed', { detail: value }))
     window.dispatchEvent(new Event('storage'))
     window.dispatchEvent(new Event('TITLE_UPDATE'))
     if (window.electron?.notifyEnvChange) {
       window.electron.notifyEnvChange(value)
     }
+    message.success(
+      value === 'dev'
+        ? 'Đã chuyển sang môi trường Goldsun DEV (Testing / UAT)'
+        : 'Đã chuyển sang môi trường Goldsun PROD (Chính thức)'
+    )
   }
 
   const handleCloseWindow = () => {
@@ -366,6 +369,9 @@ export default function SettingsPage() {
       console.warn('Could not close settings window:', e)
     }
   }
+
+  const currentEnvCfg = getEnvConfig(envSelection)
+  const currentErpEndpoint = getApiServerEndpoint(envSelection)
 
   return (
     <>
@@ -497,12 +503,11 @@ export default function SettingsPage() {
                       {t.server.envLabel}
                     </label>
                     <Select
-                      disabled={isLoggedIn}
                       value={envSelection}
                       onChange={handleEnvChange}
                       bordered={false}
                       size="middle"
-                      className="w-full !bg-white hover:!bg-slate-50 !rounded-none border border-slate-300 text-xs font-semibold text-slate-800"
+                      className="w-full !bg-white hover:!bg-slate-50 !rounded-none border border-slate-300 text-xs font-semibold text-slate-800 cursor-pointer"
                       options={[
                         {
                           value: 'dev',
@@ -527,14 +532,16 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="pt-1">
-                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      {t.server.backendLabel || 'Địa chỉ máy chủ kết nối'}:
-                    </div>
-                    <div className="text-xs font-mono font-bold text-emerald-700 p-2 bg-emerald-50/60 border border-emerald-200 rounded-none break-all mt-0.5 flex items-center justify-between">
-                      <span>{getDefaultDataHubUrl()}</span>
-                      <span className="text-[10px] font-sans font-normal text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
-                        Connected
-                      </span>
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        {t.server.backendLabel || 'Cổng kết nối API Gateway'}:
+                      </div>
+                      <div className="text-xs font-mono font-bold text-slate-800 p-2 bg-slate-50 border border-slate-200 rounded-none break-all mt-0.5 flex items-center justify-between">
+                        <span>{currentEnvCfg.gatewayUrl || currentEnvCfg.backendUrl}</span>
+                        <span className="text-[10px] font-sans font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                          {envSelection === 'dev' ? 'DEV Gateway' : 'PROD Gateway'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

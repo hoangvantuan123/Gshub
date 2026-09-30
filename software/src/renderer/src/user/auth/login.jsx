@@ -33,7 +33,8 @@ import { HandleSuccess } from '../page/default/handleSuccess'
 import { getLanguageData } from '../../IndexedDB/loadLanguageData'
 import { clearMenuData } from '../../IndexedDB/loadMenuData'
 import { configApp } from '../../utils/config'
-import { getDefaultDataHubUrl } from '../../config/serverConfig'
+import { getDefaultDataHubUrl, getEnvConfig, SERVER_ENVIRONMENTS } from '../../config/serverConfig'
+import { getApiServerEndpoint } from '../../services'
 import { languages } from '../../i18n/langs'
 
 // --- Assets ---
@@ -79,7 +80,7 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
   const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'vi')
   const [webLoggedUsers, setWebLoggedUsers] = useState([])
   const [envSelection, setEnvSelection] = useState(
-    () => localStorage.getItem('envSelection') || 'official'
+    () => localStorage.getItem('envSelection') || 'dev'
   )
   const [dbTranslations, setDbTranslations] = useState({})
 
@@ -199,7 +200,7 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
     }
     const updateEnv = () => {
       if (mountedRef.current) {
-        const savedEnv = localStorage.getItem('envSelection') || 'official'
+        const savedEnv = localStorage.getItem('envSelection') || 'dev'
         setEnvSelection(savedEnv)
         import('../../services').then((m) => {
           if (typeof m.updateApiServers === 'function') {
@@ -239,6 +240,7 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
   const handleEnvChange = useCallback((value) => {
     setEnvSelection(value)
     localStorage.setItem('envSelection', value)
+    localStorage.setItem('datahub_env_selection', value)
     import('../../services')
       .then((m) => {
         if (typeof m.updateApiServers === 'function') {
@@ -247,6 +249,7 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
       })
       .catch((err) => console.warn('Could not update API server environment:', err))
     window.dispatchEvent(new CustomEvent('env-changed', { detail: value }))
+    window.dispatchEvent(new CustomEvent('datahub_env_changed', { detail: value }))
     window.dispatchEvent(new Event('storage'))
     window.dispatchEvent(new Event('TITLE_UPDATE'))
     if (window.electron?.notifyEnvChange) {
@@ -722,14 +725,14 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
   const loginCardContent = (
     <div className="flex-1 flex overflow-hidden relative z-10 w-full h-full antialiased font-sans bg-white">
       <div
-        className="w-64 bg-slate-100 flex flex-col justify-between items-center text-center shrink-0 relative overflow-hidden select-none"
+        className="w-80 bg-slate-100 flex flex-col justify-between items-center text-center shrink-0 relative overflow-hidden select-none"
         style={{ WebkitAppRegion: isElectron ? 'drag' : 'no-drag' }}
       >
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img
             src={ErpSoftBg}
             alt="ERP Soft"
-            className="w-full h-full object-cover object-center scale-115 pointer-events-none transform transition-transform duration-300"
+            className="w-full h-full object-cover object-center scale-105 pointer-events-none transform transition-transform duration-300"
             loading="eager"
             decoding="async"
           />
@@ -816,13 +819,17 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
           {!status ? (
             /* Login Form View */
             <>
-              <div className="mb-3">
-                <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-                  {t.accountLogin || 'Đăng nhập tài khoản'}
-                </h2>
-                <p className="text-xs text-slate-500 font-normal mt-0.5">
-                  {t.loginSubtitle || 'Đăng nhập tài khoản doanh nghiệp của bạn'}
-                </p>
+              <div className="mb-2.5 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+                    {t.accountLogin || 'Đăng nhập tài khoản'}
+                  </h2>
+                  <p className="text-[11px] text-slate-500 font-normal">
+                    {t.loginSubtitle || 'Đăng nhập tài khoản doanh nghiệp của bạn'}
+                  </p>
+                </div>
+
+                {/* Quick direct environment switcher (DEV vs PROD) */}
               </div>
 
               <Form
@@ -1143,7 +1150,11 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                 >
                   <Server className="w-4 h-4 shrink-0" />
                   <span className="truncate whitespace-nowrap">
-                    {lang === 'zh' ? '服务器与数据库' : lang === 'en' ? 'Server & DB' : 'Máy chủ & CSDL'}
+                    {lang === 'zh'
+                      ? '服务器与数据库'
+                      : lang === 'en'
+                        ? 'Server & DB'
+                        : 'Máy chủ & CSDL'}
                   </span>
                 </button>
 
@@ -1199,7 +1210,11 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-700 block">
-                        {lang === 'zh' ? '应用语言' : lang === 'en' ? 'Application Language' : 'Ngôn ngữ ứng dụng'}
+                        {lang === 'zh'
+                          ? '应用语言'
+                          : lang === 'en'
+                            ? 'Application Language'
+                            : 'Ngôn ngữ ứng dụng'}
                       </label>
                       <Select
                         value={lang}
@@ -1290,27 +1305,25 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                       </div>
 
                       <div className="pt-1">
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                          {lang === 'zh'
-                            ? '服务器连接地址'
-                            : lang === 'en'
-                              ? 'Server Connection Address'
-                              : 'Địa chỉ máy chủ kết nối'}
-                          :
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            {lang === 'zh'
+                              ? 'API 网关地址'
+                              : lang === 'en'
+                                ? 'API Gateway Endpoint'
+                                : 'Cổng kết nối API Gateway'}
+                            :
+                          </div>
+                          <div className="text-xs font-mono font-bold text-slate-800 p-2 bg-slate-50 border border-slate-200 rounded-none break-all mt-0.5 flex items-center justify-between">
+                            <span>
+                              {getEnvConfig(envSelection).gatewayUrl ||
+                                getEnvConfig(envSelection).backendUrl}
+                            </span>
+                            <span className="text-[10px] font-sans font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                              {envSelection === 'dev' ? 'DEV Gateway' : 'PROD Gateway'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-xs font-mono font-bold text-emerald-700 p-2 bg-emerald-50/60 border border-emerald-200 rounded-none break-all mt-1 flex items-center justify-between">
-                          <span>{getDefaultDataHubUrl()}</span>
-                          <span className="text-[10px] font-sans font-normal text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
-                            Connected
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-normal mt-1">
-                          {lang === 'zh'
-                            ? 'Goldsun Hub ERP MES 生产报表与参数分析系统。'
-                            : lang === 'en'
-                              ? 'Goldsun Hub ERP MES Production Report & Parameter Analytics System.'
-                              : 'Hệ thống báo cáo và phân tích thông số sản xuất Goldsun Hub ERP MES.'}
-                        </p>
                       </div>
                     </div>
                   </div>
@@ -1338,7 +1351,13 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                           className="px-2 py-1 text-[10px] font-semibold text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-colors cursor-pointer flex items-center gap-1"
                         >
                           <Trash2 className="w-3 h-3" />
-                          <span>{lang === 'zh' ? '全部清除' : lang === 'en' ? 'Clear All' : 'Xóa tất cả'}</span>
+                          <span>
+                            {lang === 'zh'
+                              ? '全部清除'
+                              : lang === 'en'
+                                ? 'Clear All'
+                                : 'Xóa tất cả'}
+                          </span>
                         </button>
                       )}
                     </div>
@@ -1356,7 +1375,9 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                               </div>
                               <div className="text-[10px] text-slate-500">
                                 {user.LastLoginTime
-                                  ? `${lang === 'zh' ? '最近登录' : lang === 'en' ? 'Last Login' : 'Đăng nhập gần nhất'}: ${new Date(user.LastLoginTime).toLocaleString(
+                                  ? `${lang === 'zh' ? '最近登录' : lang === 'en' ? 'Last Login' : 'Đăng nhập gần nhất'}: ${new Date(
+                                      user.LastLoginTime
+                                    ).toLocaleString(
                                       lang === 'zh' ? 'zh-CN' : lang === 'en' ? 'en-US' : 'vi-VN'
                                     )}`
                                   : ''}
@@ -1389,7 +1410,11 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                   <div className="space-y-3">
                     <div className="pb-2 border-b border-slate-200">
                       <h2 className="text-xs font-bold text-slate-900">
-                        {lang === 'zh' ? '系统信息' : lang === 'en' ? 'System Information' : 'Thông tin hệ thống'}
+                        {lang === 'zh'
+                          ? '系统信息'
+                          : lang === 'en'
+                            ? 'System Information'
+                            : 'Thông tin hệ thống'}
                       </h2>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         Goldsun Hub ERP MES • Goldsun Packaging
@@ -1403,7 +1428,9 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                       </div>
                       <div className="flex justify-between items-center text-slate-700">
                         <span className="font-medium">Mục đích sử dụng:</span>
-                        <span className="font-medium text-slate-900">Báo cáo & Phân tích thông số sản xuất</span>
+                        <span className="font-medium text-slate-900">
+                          Báo cáo & Phân tích thông số sản xuất
+                        </span>
                       </div>
                       <div className="flex justify-between items-center text-slate-700">
                         <span className="font-medium">Phiên bản giao diện:</span>
@@ -1418,8 +1445,12 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                         onClick={handleClearCache}
                         className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-300 transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                       >
-                        <RefreshCw className={`w-3.5 h-3.5 ${clearingCache ? 'animate-spin' : ''}`} />
-                        <span>{clearingCache ? 'Đang dọn dẹp...' : 'Xóa bộ nhớ đệm (Clear Cache)'}</span>
+                        <RefreshCw
+                          className={`w-3.5 h-3.5 ${clearingCache ? 'animate-spin' : ''}`}
+                        />
+                        <span>
+                          {clearingCache ? 'Đang dọn dẹp...' : 'Xóa bộ nhớ đệm (Clear Cache)'}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -1477,7 +1508,7 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
 
       {/* Web version: Desktop landscape card with compact dimensions */}
       <div className="w-screen h-screen m-0 p-0 overflow-hidden text-slate-900 flex items-center justify-center select-none font-sans bg-slate-100">
-        <div className="w-[720px] h-[420px] overflow-hidden relative z-10 bg-white flex flex-row border border-slate-300 shadow-md">
+        <div className="w-[760px] h-[420px] overflow-hidden relative z-10 bg-white flex flex-row border border-slate-300 shadow-md">
           {loginCardContent}
         </div>
       </div>

@@ -122,7 +122,10 @@ export default function StatisticsImportTable({
         }
       }
 
-      const value = item[meta.columnKey] ?? item[meta.columnKey.charAt(0).toLowerCase() + meta.columnKey.slice(1)] ?? ''
+      const value =
+        item[meta.columnKey] ??
+        item[meta.columnKey.charAt(0).toLowerCase() + meta.columnKey.slice(1)] ??
+        ''
 
       if (meta.isStatus && meta.columnKey === 'WorkingTag') {
         const strVal = String(value)
@@ -224,7 +227,11 @@ export default function StatisticsImportTable({
         }
 
         // Tự động tính Tỷ lệ NG %
-        if (meta.columnKey === 'ProdQty' || meta.columnKey === 'PassQty' || meta.columnKey === 'DefectQty') {
+        if (
+          meta.columnKey === 'ProdQty' ||
+          meta.columnKey === 'PassQty' ||
+          meta.columnKey === 'DefectQty'
+        ) {
           const r = updatedData[row]
           const prod = Number(r.ProdQty) || 0
           const defect = Number(r.DefectQty) || 0

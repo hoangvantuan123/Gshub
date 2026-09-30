@@ -30,9 +30,7 @@ export const LoginAuth = async (params = {}) => {
 
   // Mã hóa Base64 password an toàn để gửi qua mạng theo chuẩn Server-Core
   const encodedPassword =
-    typeof password === 'string'
-      ? btoa(unescape(encodeURIComponent(password)))
-      : password
+    typeof password === 'string' ? btoa(unescape(encodeURIComponent(password))) : password
 
   const isDesktop =
     typeof window !== 'undefined' &&
@@ -77,14 +75,22 @@ export const LoginAuth = async (params = {}) => {
     }
   }
 
-  const deviceInfoWeb = typeof navigator !== 'undefined' ? `${navigator.userAgent} [ID:${webDeviceId}]` : webDeviceId
+  const deviceInfoWeb =
+    typeof navigator !== 'undefined' ? `${navigator.userAgent} [ID:${webDeviceId}]` : webDeviceId
   const deviceInfoSoft = isDesktop ? desktopDeviceInfo : 'Web-Browser'
   const deviceInfoApp = desktopDeviceCode || webDeviceId
+
+  const env =
+    params.envSelection ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('envSelection') : null) ||
+    'dev'
+  const configKey = params.config_key || (env === 'official' ? 'Bravo_PROD' : 'BravoDefault')
 
   const payload = {
     result: {
       login: username,
       password: encodedPassword,
+      config_key: configKey,
       deviceInfoWeb,
       deviceInfoSoft,
       deviceInfoApp,

@@ -89,6 +89,27 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 	DECLARE
 	    r RECORD;
 	BEGIN
+	    -- 1. Thêm cột FactoryCode vào _ERPPlanMaster nếu chưa có
+	    IF NOT EXISTS (
+	        SELECT 1 FROM information_schema.columns 
+	        WHERE table_schema = 'public' 
+	          AND table_name = '_ERPPlanMaster' 
+	          AND column_name = 'FactoryCode'
+	    ) THEN
+	        ALTER TABLE "_ERPPlanMaster" ADD COLUMN "FactoryCode" VARCHAR(50) DEFAULT 'GS1';
+	    END IF;
+
+	    -- 2. Tự động chuẩn hóa dữ liệu FactoryCode cho các bản ghi cũ
+	    UPDATE "_ERPPlanMaster" 
+	    SET "FactoryCode" = 'GS5' 
+	    WHERE ("FactoryCode" IS NULL OR "FactoryCode" = '') 
+	      AND ("FactoryName" ILIKE '%GS5%' OR "FactoryName" ILIKE '%Quế Võ%');
+
+	    UPDATE "_ERPPlanMaster" 
+	    SET "FactoryCode" = 'GS1' 
+	    WHERE ("FactoryCode" IS NULL OR "FactoryCode" = '');
+
+	    -- 3. Chuyển đổi các cột detail sang TEXT
 	    FOR r IN (
 	        SELECT table_name, column_name 
 	        FROM information_schema.columns 
@@ -102,9 +123,9 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 	END $$;
 	`
 	if err := db.Exec(upgradeSQL).Error; err != nil {
-		log.Warn("Failed to auto-upgrade detail columns to TEXT", zap.Error(err))
+		log.Warn("Failed to auto-upgrade detail columns to TEXT or add FactoryCode", zap.Error(err))
 	} else {
-		log.Info("Successfully verified all detail report columns as TEXT")
+		log.Info("Successfully verified all report tables schema and FactoryCode column")
 	}
 
 	return nil

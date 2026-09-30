@@ -168,11 +168,19 @@ export function usePlanRegistrationTechnique({
       }
       if (searchValues.ReportKey) {
         const query = searchValues.ReportKey.toLowerCase().trim()
-        filtered = filtered.filter((r) => String(r.ReportKey || '').toLowerCase().includes(query))
+        filtered = filtered.filter((r) =>
+          String(r.ReportKey || '')
+            .toLowerCase()
+            .includes(query)
+        )
       }
       if (searchValues.ReportName) {
         const query = searchValues.ReportName.toLowerCase().trim()
-        filtered = filtered.filter((r) => String(r.ReportName || '').toLowerCase().includes(query))
+        filtered = filtered.filter((r) =>
+          String(r.ReportName || '')
+            .toLowerCase()
+            .includes(query)
+        )
       }
       if (searchValues.Frequency) {
         filtered = filtered.filter((r) => r.Frequency === searchValues.Frequency)
@@ -269,7 +277,9 @@ export function usePlanRegistrationTechnique({
       // Validate
       for (const row of modifiedRows) {
         if (!row.ReportKey || !row.ReportName || !row.ReportType || !row.FactoryName) {
-          message.error('Vui lòng điền đủ: Mã khung mẫu, Tên khung mẫu, Loại báo cáo và Nhà máy áp dụng!')
+          message.error(
+            'Vui lòng điền đủ: Mã khung mẫu, Tên khung mẫu, Loại báo cáo và Nhà máy áp dụng!'
+          )
           loadingBarRef?.current?.complete?.()
           return
         }

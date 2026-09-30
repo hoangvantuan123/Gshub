@@ -31,39 +31,42 @@ export function useStatisticsImport({
   const originalDataRef = useRef([])
 
   // Hàm load dữ liệu thực tế từ Database thông qua DataHub API
-  const fetchStatsData = useCallback(async (filters = {}) => {
-    loadingBarRef?.current?.continuousStart?.()
-    try {
-      const res = await queryProdStatsDetail(filters)
-      const dataList = res?.data || []
-      setGridData(dataList)
-      setNumRows(dataList.length)
-      originalDataRef.current = dataList
-      
-      setPageData?.((prev) => ({
-        ...prev,
-        total: dataList.length,
-        totalAll: res?.pageInfo?.totalAll || dataList.length,
-        loadedCount: dataList.length,
-        totalColumns: 65
-      }))
+  const fetchStatsData = useCallback(
+    async (filters = {}) => {
+      loadingBarRef?.current?.continuousStart?.()
+      try {
+        const res = await queryProdStatsDetail(filters)
+        const dataList = res?.data || []
+        setGridData(dataList)
+        setNumRows(dataList.length)
+        originalDataRef.current = dataList
 
-      return dataList
-    } catch (err) {
-      setGridData([])
-      setNumRows(0)
-      originalDataRef.current = []
-      setPageData?.((prev) => ({
-        ...prev,
-        total: 0,
-        totalAll: 0,
-        loadedCount: 0
-      }))
-      return []
-    } finally {
-      loadingBarRef?.current?.complete?.()
-    }
-  }, [loadingBarRef, setGridData, setNumRows, setPageData])
+        setPageData?.((prev) => ({
+          ...prev,
+          total: dataList.length,
+          totalAll: res?.pageInfo?.totalAll || dataList.length,
+          loadedCount: dataList.length,
+          totalColumns: 65
+        }))
+
+        return dataList
+      } catch (err) {
+        setGridData([])
+        setNumRows(0)
+        originalDataRef.current = []
+        setPageData?.((prev) => ({
+          ...prev,
+          total: 0,
+          totalAll: 0,
+          loadedCount: 0
+        }))
+        return []
+      } finally {
+        loadingBarRef?.current?.complete?.()
+      }
+    },
+    [loadingBarRef, setGridData, setNumRows, setPageData]
+  )
 
   // Tự động truy vấn từ DB khi khởi tạo giao diện
   useEffect(() => {

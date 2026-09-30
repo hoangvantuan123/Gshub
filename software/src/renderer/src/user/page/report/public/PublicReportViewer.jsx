@@ -2,15 +2,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { Button, Select, Tooltip, message } from 'antd'
-import {
-  BarChart3,
-  Calendar,
-  Copy,
-  LogIn,
-  Globe,
-  Building2,
-  Check
-} from 'lucide-react'
+import { BarChart3, Calendar, Copy, LogIn, Globe, Building2, Check } from 'lucide-react'
 import ProductionStatisticsReport from '../production/components/ProductionStatisticsReport'
 import {
   initialHanoiGs1Stats,
@@ -139,7 +131,13 @@ export default function PublicReportViewer() {
           <Tooltip title="Sao chép liên kết chia sẻ công khai">
             <Button
               size="small"
-              icon={copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              icon={
+                copied ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )
+              }
               onClick={handleCopyLink}
               className="text-xs font-medium"
             >

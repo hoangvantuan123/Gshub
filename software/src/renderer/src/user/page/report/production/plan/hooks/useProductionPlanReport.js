@@ -56,9 +56,12 @@ export function useProductionPlanReport({
         RoutingDocDate: r.RoutingDocDate || r.startDate || '2026-09-27',
         ItemCode: r.ItemCode || r.itemCode || `SP-${i + 1}`,
         ItemName: r.ItemName || r.itemName || 'Sản phẩm bao bì chất lượng cao',
-        OperationName: r.OperationName || (i % 2 === 0 ? 'In Offset UV 6 Màu' : 'Bế Tự Động Định Hình'),
+        OperationName:
+          r.OperationName || (i % 2 === 0 ? 'In Offset UV 6 Màu' : 'Bế Tự Động Định Hình'),
         OpTypeName: r.OpTypeName || (i % 2 === 0 ? 'In Offset' : 'Bế Hộp'),
-        MachineName: r.MachineName || (i % 2 === 0 ? 'Máy In Offset Heidelberg XL-106' : 'Máy Bế Bobst Novacut 106'),
+        MachineName:
+          r.MachineName ||
+          (i % 2 === 0 ? 'Máy In Offset Heidelberg XL-106' : 'Máy Bế Bobst Novacut 106'),
         Unit: r.Unit || r.unit || 'Chiếc',
         TargetPassQty: targetPass,
         TargetProdQty: targetProd,
@@ -69,8 +72,10 @@ export function useProductionPlanReport({
         ActualProdTime: actualProdTime,
         StandardCapa: stdCapa,
         ActualCapa: actualCapa,
-        StatusDpSx: r.StatusDpSx || r.status || (statPass >= targetPass ? 'Hoàn thành' : 'Đang sản xuất'),
-        TimeStatus: r.TimeStatus || (actualProdTime <= stdProdTime ? 'Đúng hạn' : 'Vượt giờ định mức'),
+        StatusDpSx:
+          r.StatusDpSx || r.status || (statPass >= targetPass ? 'Hoàn thành' : 'Đang sản xuất'),
+        TimeStatus:
+          r.TimeStatus || (actualProdTime <= stdProdTime ? 'Đúng hạn' : 'Vượt giờ định mức'),
         CapaStatus: r.CapaStatus || (actualCapa >= stdCapa ? 'Đạt capa' : 'Không đạt capa')
       }
     })
@@ -85,7 +90,8 @@ export function useProductionPlanReport({
     const totalRecords = gridData.length
     const totalTargetProd = gridData.reduce((acc, row) => acc + (Number(row.TargetProdQty) || 0), 0)
     const totalStatPass = gridData.reduce((acc, row) => acc + (Number(row.StatPassQty) || 0), 0)
-    const avgProgress = totalTargetProd > 0 ? ((totalStatPass / totalTargetProd) * 100).toFixed(2) : '0.00'
+    const avgProgress =
+      totalTargetProd > 0 ? ((totalStatPass / totalTargetProd) * 100).toFixed(2) : '0.00'
 
     return {
       totalRecords,
@@ -103,22 +109,30 @@ export function useProductionPlanReport({
 
       if (searchValues.PicDp) {
         filtered = filtered.filter((r) =>
-          String(r.PicDp || '').toLowerCase().includes(searchValues.PicDp.toLowerCase())
+          String(r.PicDp || '')
+            .toLowerCase()
+            .includes(searchValues.PicDp.toLowerCase())
         )
       }
       if (searchValues.OperationNo) {
         filtered = filtered.filter((r) =>
-          String(r.OperationNo || '').toLowerCase().includes(searchValues.OperationNo.toLowerCase())
+          String(r.OperationNo || '')
+            .toLowerCase()
+            .includes(searchValues.OperationNo.toLowerCase())
         )
       }
       if (searchValues.ItemCode) {
         filtered = filtered.filter((r) =>
-          String(r.ItemCode || '').toLowerCase().includes(searchValues.ItemCode.toLowerCase())
+          String(r.ItemCode || '')
+            .toLowerCase()
+            .includes(searchValues.ItemCode.toLowerCase())
         )
       }
       if (searchValues.RoutingDocNo) {
         filtered = filtered.filter((r) =>
-          String(r.RoutingDocNo || '').toLowerCase().includes(searchValues.RoutingDocNo.toLowerCase())
+          String(r.RoutingDocNo || '')
+            .toLowerCase()
+            .includes(searchValues.RoutingDocNo.toLowerCase())
         )
       }
       if (searchValues.StatusDpSx) {
@@ -263,7 +277,10 @@ export function useProductionPlanReport({
       const ws = XLSX.utils.json_to_sheet(exportData)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'KeHoachSanXuat')
-      XLSX.writeFile(wb, `BaoCao_KeHoach_SX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      XLSX.writeFile(
+        wb,
+        `BaoCao_KeHoach_SX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`
+      )
       message.success(t('Đã xuất file Excel thành công'))
     } catch (err) {
       console.error(err)

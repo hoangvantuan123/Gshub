@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import DynamicQueryBar from '../../../../../components/query/core/DynamicQueryBar'
@@ -54,8 +55,7 @@ export default function PlanRegistrationQuery({
         type: 'select',
         options: [
           { value: '', label: 'Tất cả trạng thái' },
-          { value: 'published', label: 'Đã phát hành / Đã lưu' },
-          { value: 'draft', label: 'Lưu nháp' }
+          { value: 'published', label: 'Đã phát hành / Đã lưu' }
         ]
       }
     ],

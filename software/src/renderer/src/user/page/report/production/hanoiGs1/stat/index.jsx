@@ -1,7 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Select, Button, Tag, Spin, Tooltip } from 'antd'
-import { RotateCw, Database, Calendar, Layers, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
 import ProductionStatisticsReport from '../../components/ProductionStatisticsReport'
 import { initialHanoiGs1Stats } from '../../../common/reportUtils'
 import {
@@ -66,14 +63,9 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     parseFloat(item.ProdQty || item.ActualMeters || item.StatPassQty || 0) || planQty || 0
   const passQty =
     parseFloat(item.PassQty || item.StatPassQty || item.ProdQty || 0) || actualQty || 0
-  const defectQty =
-    parseFloat(item.DefectQty || 0) ||
-    Math.max(0, actualQty - passQty) ||
-    0
+  const defectQty = parseFloat(item.DefectQty || 0) || Math.max(0, actualQty - passQty) || 0
   const passRate =
-    actualQty > 0
-      ? Number(Math.min(100, Math.max(0, (passQty / actualQty) * 100)).toFixed(2))
-      : 100
+    actualQty > 0 ? Number(Math.min(100, Math.max(0, (passQty / actualQty) * 100)).toFixed(2)) : 100
 
   // Tính toán runtime chính xác
   const runtimeHours = parseRuntimeToHours(
@@ -90,13 +82,25 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     masterInfo?.ApplyDate ||
     new Date().toISOString().slice(0, 10)
 
-  const machineCode = item.MachineCode || (item.MachineName ? String(item.MachineName).toUpperCase().replace(/\s+/g, '_').slice(0, 15) : `MC-${String(idx % 32 + 1).padStart(2, '0')}`)
+  const machineCode =
+    item.MachineCode ||
+    (item.MachineName
+      ? String(item.MachineName).toUpperCase().replace(/\s+/g, '_').slice(0, 15)
+      : `MC-${String((idx % 32) + 1).padStart(2, '0')}`)
   const machineName = item.MachineName || `Máy ${machineCode}`
 
   return {
-    id: item.IdSeq ? String(item.IdSeq) : (item.StatTicketNo || `HN-STAT-${idx + 1}`),
-    ticketNo: item.StatTicketNo || item.OperationNo || item.RegCode || `PTK-HN-${String(idx + 1).padStart(3, '0')}`,
-    docNo: item.OperationNo || item.OrderNo || item.RoutingDocNo || `LSX-HN-2026-${String(idx + 1).padStart(4, '0')}`,
+    id: item.IdSeq ? String(item.IdSeq) : item.StatTicketNo || `HN-STAT-${idx + 1}`,
+    ticketNo:
+      item.StatTicketNo ||
+      item.OperationNo ||
+      item.RegCode ||
+      `PTK-HN-${String(idx + 1).padStart(3, '0')}`,
+    docNo:
+      item.OperationNo ||
+      item.OrderNo ||
+      item.RoutingDocNo ||
+      `LSX-HN-2026-${String(idx + 1).padStart(4, '0')}`,
     team: item.TeamName || item.OperationName || 'Tổ In Offset',
     teamCode: item.TeamName ? item.TeamName.toUpperCase().replace(/\s+/g, '_') : 'TO_IN',
     machineName,
@@ -114,22 +118,55 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     shift: item.Shift || 'Ca 1',
     prodDate,
     createdSource: item.TicketCreationLocation || 'MES',
-    syncDelayMinutes: parseFloat(item.SyncDelayMinutes || 0) || 3.0,
+    syncDelayMinutes:
+      item.SyncDelayMinutes !== undefined && item.SyncDelayMinutes !== null
+        ? item.SyncDelayMinutes
+        : item.syncDelayMinutes !== undefined && item.syncDelayMinutes !== null
+          ? item.syncDelayMinutes
+          : '',
+    SyncDelayMinutes:
+      item.SyncDelayMinutes !== undefined && item.SyncDelayMinutes !== null
+        ? item.SyncDelayMinutes
+        : item.syncDelayMinutes !== undefined && item.syncDelayMinutes !== null
+          ? item.syncDelayMinutes
+          : '',
+    TicketCreatedDate: item.TicketCreatedDate || item.ticketCreatedDate || '',
+    MesApprovalTime: item.MesApprovalTime || item.mesApprovalTime || '',
     isDuplicate: item.IsDuplicateTicket === 'true' || item.IsDuplicateTicket === '1',
-    autoExportNote: item.AutoExport === 'true' || item.AutoExport === '1' || Boolean(item.ExportDocNo),
-    AutoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || (item.AutoExport === 'true' || item.AutoExport === '1' || Boolean(item.ExportDocNo) ? 'Có XKTĐ' : 'Không áp dụng XNTĐ'),
-    autoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || (item.AutoExport === 'true' || item.AutoExport === '1' || Boolean(item.ExportDocNo) ? 'Có XKTĐ' : 'Không áp dụng XNTĐ'),
-    supervisor: item.MainWorker || item.StatStaff || item.PicDp || item.CreatedByName || 'Quản lý sản xuất',
+    autoExportNote:
+      item.AutoExport === 'true' || item.AutoExport === '1' || Boolean(item.ExportDocNo),
+    AutoIoStatus:
+      item.AutoIoStatus ||
+      item.autoIoStatus ||
+      item.AutoIOStatus ||
+      (item.AutoExport === 'true' || item.AutoExport === '1' || Boolean(item.ExportDocNo)
+        ? 'Có XKTĐ'
+        : 'Không áp dụng XNTĐ'),
+    autoIoStatus:
+      item.AutoIoStatus ||
+      item.autoIoStatus ||
+      item.AutoIOStatus ||
+      (item.AutoExport === 'true' || item.AutoExport === '1' || Boolean(item.ExportDocNo)
+        ? 'Có XKTĐ'
+        : 'Không áp dụng XNTĐ'),
+    supervisor:
+      item.MainWorker || item.StatStaff || item.PicDp || item.CreatedByName || 'Quản lý sản xuất',
     status: item.Status || item.StatusDpSx || 'Hoàn thành',
-    createdTime: item.TicketCreatedDate || (item.CreatedAt ? new Date(item.CreatedAt).toLocaleString('vi-VN') : `${prodDate} 08:00:00`),
-    syncTime: item.MesApprovalTime || (item.CreatedAt ? new Date(item.CreatedAt).toLocaleString('vi-VN') : `${prodDate} 08:05:00`),
-    note: item.UserMemo || item.BreakdownReason || (item.ExportDocNo ? `Phiếu xuất ${item.ExportDocNo}` : '') || ''
+    createdTime:
+      item.TicketCreatedDate ||
+      (item.CreatedAt ? new Date(item.CreatedAt).toLocaleString('vi-VN') : `${prodDate} 08:00:00`),
+    syncTime:
+      item.MesApprovalTime ||
+      (item.CreatedAt ? new Date(item.CreatedAt).toLocaleString('vi-VN') : `${prodDate} 08:05:00`),
+    note:
+      item.UserMemo ||
+      item.BreakdownReason ||
+      (item.ExportDocNo ? `Phiếu xuất ${item.ExportDocNo}` : '') ||
+      ''
   }
 }
 
 export default function HanoiGs1StatPage() {
-  const navigate = useNavigate()
-
   const [loading, setLoading] = useState(false)
   const [masterList, setMasterList] = useState([])
   const [selectedMasterKey, setSelectedMasterKey] = useState(null)
@@ -141,19 +178,28 @@ export default function HanoiGs1StatPage() {
   const fetchMastersAndLatestData = useCallback(async (targetRegCode = null) => {
     setLoading(true)
     try {
-      // 1. Lấy danh sách master đăng ký (ưu tiên GS1 Hà Nội, nếu không có lấy tất cả)
-      let masters = []
-      try {
-        const resMaster = await queryPlanMaster({ FactoryName: 'GS1 Hà Nội' })
-        masters = resMaster?.data || []
-      } catch (e) {
-        console.warn('Không lấy được master GS1 Hà Nội, thử lấy tất cả:', e)
-      }
+      // 1. Lấy danh sách master đăng ký từ DB và lọc CHẶT CHẼ theo mã nhà máy GS1 (Hà Nội) ngay từ API
+      const resAll = await queryPlanMaster({ FactoryCode: 'GS1' })
+      const allMasters = resAll?.data || []
 
-      if (masters.length === 0) {
-        const resAll = await queryPlanMaster({})
-        masters = resAll?.data || []
-      }
+      const masters = allMasters.filter((m) => {
+        const code = String(m.FactoryCode || m.factoryCode || '').toUpperCase().trim()
+        const f = String(m.FactoryName || m.factoryName || '')
+          .toLowerCase()
+          .trim()
+        const isHanoi =
+          code === 'GS1' ||
+          f.includes('hà nội') ||
+          f.includes('gs1') ||
+          f.includes('hanoi') ||
+          (!f.includes('quế võ') && !f.includes('gs5') && !f.includes('quevo'))
+        const isStat =
+          !m.ReportType ||
+          m.ReportType === 'statistics' ||
+          m.ReportType === 'tksx' ||
+          m.ReportType === 'Thống kê sản xuất'
+        return isHanoi && isStat
+      })
 
       // Sắp xếp master mới nhất lên đầu
       masters.sort((a, b) => {
@@ -169,7 +215,9 @@ export default function HanoiGs1StatPage() {
         let activeMaster = null
         if (targetRegCode) {
           activeMaster = masters.find(
-            (m) => (m.RegCode || m.regCode) === targetRegCode || String(m.IdSeq || m.MasterSeq) === String(targetRegCode)
+            (m) =>
+              (m.RegCode || m.regCode) === targetRegCode ||
+              String(m.IdSeq || m.MasterSeq) === String(targetRegCode)
           )
         }
         if (!activeMaster) {
@@ -178,7 +226,10 @@ export default function HanoiGs1StatPage() {
             masters[0]
         }
 
-        const activeKey = activeMaster.RegCode || activeMaster.regCode || String(activeMaster.IdSeq || activeMaster.MasterSeq)
+        const activeKey =
+          activeMaster.RegCode ||
+          activeMaster.regCode ||
+          String(activeMaster.IdSeq || activeMaster.MasterSeq)
         setSelectedMasterKey(activeKey)
         setCurrentMaster(activeMaster)
 
@@ -259,7 +310,8 @@ export default function HanoiGs1StatPage() {
     if (!regCode) return
     setSelectedMasterKey(regCode)
     const found = masterList.find(
-      (m) => (m.RegCode || m.regCode) === regCode || String(m.IdSeq || m.MasterSeq) === String(regCode)
+      (m) =>
+        (m.RegCode || m.regCode) === regCode || String(m.IdSeq || m.MasterSeq) === String(regCode)
     )
     if (found) {
       setCurrentMaster(found)

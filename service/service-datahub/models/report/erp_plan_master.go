@@ -10,6 +10,7 @@ type ERPPlanMaster struct {
 	IdSeq         int64      `gorm:"primaryKey;autoIncrement;column:IdSeq" db:"IdSeq" json:"IdSeq"`
 	RegCode       string     `gorm:"column:RegCode;uniqueIndex;size:50;not null" db:"RegCode" json:"RegCode"`
 	ReportType    string     `gorm:"column:ReportType;size:50;not null;default:'plan'" db:"ReportType" json:"ReportType"` // 'plan' (KHSX) | 'statistics' (TKSX)
+	FactoryCode   *string    `gorm:"column:FactoryCode;size:50;default:'GS1'" db:"FactoryCode" json:"FactoryCode"`
 	FactoryName   *string    `gorm:"column:FactoryName;size:100" db:"FactoryName" json:"FactoryName"`
 	ApplyDate     *string    `gorm:"column:ApplyDate;size:20" db:"ApplyDate" json:"ApplyDate"`
 	Remark        *string    `gorm:"column:Remark;type:text" db:"Remark" json:"Remark"`

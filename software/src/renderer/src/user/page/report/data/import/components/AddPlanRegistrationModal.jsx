@@ -1,11 +1,6 @@
+/* eslint-disable react/prop-types */
 import { useState, useMemo, useCallback, useRef } from 'react'
-import {
-  Modal,
-  Select,
-  Button,
-  Upload,
-  Input
-} from 'antd'
+import { Modal, Select, Button, Upload, Input } from 'antd'
 import {
   UploadOutlined,
   SaveOutlined,
@@ -31,17 +26,24 @@ import { usePlanImportColumns } from '../plan/columns/planImportColumns'
 import { parseStatisticsExcelFast } from '../statistics/utils/statisticsExcelParser'
 import { parsePlanExcelFast } from '../plan/utils/planExcelParser'
 
-export default function AddPlanRegistrationModal({
-  isOpen,
-  onClose,
-  onSaveRegistration
-}) {
+export default function AddPlanRegistrationModal({ isOpen, onClose, onSaveRegistration }) {
   // ── Form Header State ──
   const [reportType, setReportType] = useState('statistics') // 'statistics' | 'plan'
+  const [factoryCode, setFactoryCode] = useState('GS1') // 'GS1' | 'GS5'
   const [factoryName, setFactoryName] = useState('GS1 Hà Nội')
   const [applyDate, setApplyDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [regCode, setRegCode] = useState('') // Sinh tự động khi lưu hệ thống
+  const [regCode] = useState('') // Sinh tự động khi lưu hệ thống
   const [remark, setRemark] = useState('')
+
+  const handleFactoryChange = (val) => {
+    if (val === 'GS5' || val === 'GS5 Quế Võ 1B') {
+      setFactoryCode('GS5')
+      setFactoryName('GS5 Quế Võ 1B')
+    } else {
+      setFactoryCode('GS1')
+      setFactoryName('GS1 Hà Nội')
+    }
+  }
 
   // ── Confirm Modal State (Chuẩn WindowsConfirmModal / SystemConfirmModal như Logout) ──
   const [confirmModal, setConfirmModal] = useState({
@@ -154,8 +156,8 @@ export default function AddPlanRegistrationModal({
 
         // Gọi đúng parser chuyên biệt cho từng cấu trúc bảng
         const result = isStat
-          ? parseStatisticsExcelFast(buffer, { applyDate, factoryName })
-          : parsePlanExcelFast(buffer, { applyDate, factoryName })
+          ? parseStatisticsExcelFast(buffer, { applyDate, factoryName, factoryCode })
+          : parsePlanExcelFast(buffer, { applyDate, factoryName, factoryCode })
 
         if (!result.data || result.data.length === 0) {
           setModalStatus({
@@ -188,7 +190,13 @@ export default function AddPlanRegistrationModal({
       const col = currentColumns[colIndex]
       const row = sheetData[rowIndex]
       if (!col || !row) {
-        return { kind: GridCellKind.Text, data: '', displayData: '', readonly: true, allowOverlay: false }
+        return {
+          kind: GridCellKind.Text,
+          data: '',
+          displayData: '',
+          readonly: true,
+          allowOverlay: false
+        }
       }
 
       const val = row[col.id] ?? row[col.id.charAt(0).toLowerCase() + col.id.slice(1)]
@@ -219,50 +227,6 @@ export default function AddPlanRegistrationModal({
   )
 
   const [isSaving, setIsSaving] = useState(false)
-
-  // Lưu nháp đăng ký vào hệ thống
-  const handleSaveDraft = async () => {
-    if (sheetData.length === 0) {
-      setModalStatus({
-        type: 'warning',
-        text: 'Vui lòng nạp dữ liệu từ file Excel trước khi lưu nháp!'
-      })
-      return
-    }
-
-    const finalRegCode = regCode || `DK-BC-${applyDate.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`
-
-    try {
-      setIsSaving(true)
-      setModalStatus({
-        type: 'info',
-        text: `Đang lưu nháp dữ liệu đăng ký (${finalRegCode})...`
-      })
-      if (onSaveRegistration) {
-        await onSaveRegistration({
-          reportType,
-          factoryName,
-          applyDate,
-          regCode: finalRegCode,
-          remark,
-          status: 'draft',
-          isDraft: true,
-          data: sheetData
-        })
-      }
-      setModalStatus({
-        type: 'success',
-        text: `Đã lưu nháp dữ liệu đăng ký báo cáo thành công! (${finalRegCode})`
-      })
-    } catch (err) {
-      setModalStatus({
-        type: 'error',
-        text: 'Lỗi lưu nháp: ' + (err?.message || err)
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   // Đóng an toàn kèm hộp thoại xác nhận WindowsConfirmModal nếu còn dữ liệu chưa lưu
   const handleRequestClose = useCallback(() => {
@@ -298,7 +262,8 @@ export default function AddPlanRegistrationModal({
       return
     }
 
-    const finalRegCode = regCode || `DK-BC-${applyDate.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`
+    const finalRegCode =
+      regCode || `DK-BC-${applyDate.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`
 
     try {
       setIsSaving(true)
@@ -309,6 +274,7 @@ export default function AddPlanRegistrationModal({
       if (onSaveRegistration) {
         await onSaveRegistration({
           reportType,
+          factoryCode,
           factoryName,
           applyDate,
           regCode: finalRegCode,
@@ -391,22 +357,6 @@ export default function AddPlanRegistrationModal({
                 LƯU
               </Button>
 
-              <Button
-                key="SaveDraft"
-                icon={<SaveOutlined className="text-sky-500" style={{ fontSize: '12px' }} />}
-                size="small"
-                loading={isSaving}
-                onClick={handleSaveDraft}
-                className="uppercase text-[10px] whitespace-nowrap font-medium text-sky-700 hover:text-sky-800"
-                style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-                color="default"
-                variant="link"
-                disabled={sheetData.length === 0 || isSaving}
-                title="Lưu nháp dữ liệu đăng ký"
-              >
-                LƯU NHÁP
-              </Button>
-
               <Upload beforeUpload={handleUploadExcel} showUploadList={false}>
                 <Button
                   key="UploadExcel"
@@ -476,8 +426,11 @@ export default function AddPlanRegistrationModal({
 
             <div className="flex items-center gap-2 pr-1">
               <span className="text-[11px] text-slate-500 font-medium">
-                Bảng: <b className={reportType === 'statistics' ? 'text-emerald-600' : 'text-blue-600'}>
-                  {reportType === 'statistics' ? 'Thống kê sản xuất (TKSX)' : 'Kế hoạch sản xuất (KHSX)'}
+                Bảng:{' '}
+                <b className={reportType === 'statistics' ? 'text-emerald-600' : 'text-blue-600'}>
+                  {reportType === 'statistics'
+                    ? 'Thống kê sản xuất (TKSX)'
+                    : 'Kế hoạch sản xuất (KHSX)'}
                 </b>{' '}
                 | Số dòng: <b className="text-slate-800">{sheetData.length}</b>
               </span>
@@ -537,12 +490,12 @@ export default function AddPlanRegistrationModal({
                   <Select
                     size="small"
                     variant="borderless"
-                    value={factoryName}
-                    onChange={setFactoryName}
+                    value={factoryCode}
+                    onChange={handleFactoryChange}
                     className="w-full text-xs font-medium"
                     options={[
-                      { value: 'GS1 Hà Nội', label: 'GS1 Hà Nội' },
-                      { value: 'GS5 Quế Võ 1B', label: 'GS5 Quế Võ 1B' }
+                      { value: 'GS1', label: 'GS1 - GS1 Hà Nội' },
+                      { value: 'GS5', label: 'GS5 - GS5 Quế Võ 1B' }
                     ]}
                   />
                 </div>
@@ -591,7 +544,10 @@ export default function AddPlanRegistrationModal({
               <h2 className="text-[10px] italic text-indigo-600 font-bold uppercase flex items-center gap-1.5 py-0.5">
                 <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />
                 <span>
-                  Bảng dữ liệu chi tiết {reportType === 'statistics' ? '(Thống kê sản xuất TKSX - 13 nhóm cột)' : '(Kế hoạch sản xuất KHSX - 24 cột)'}
+                  Bảng dữ liệu chi tiết{' '}
+                  {reportType === 'statistics'
+                    ? '(Thống kê sản xuất TKSX - 13 nhóm cột)'
+                    : '(Kế hoạch sản xuất KHSX - 24 cột)'}
                 </span>
               </h2>
             </div>
@@ -658,11 +614,13 @@ export default function AddPlanRegistrationModal({
                   </div>
                   <div className="flex items-center gap-1 text-slate-600 font-mono">
                     <span className="text-slate-400 font-sans">Mã:</span>
-                    <span className="font-semibold text-slate-700">{regCode || '[Tự động sinh]'}</span>
+                    <span className="font-semibold text-slate-700">
+                      {regCode || '[Tự động sinh]'}
+                    </span>
                   </div>
                   <div className="hidden sm:flex items-center gap-1 text-slate-500">
                     <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>{factoryName}</span>
+                    <span>[{factoryCode}] {factoryName}</span>
                   </div>
                   <div className="hidden sm:flex items-center gap-1 text-slate-500">
                     <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
@@ -710,9 +668,7 @@ export default function AddPlanRegistrationModal({
                 <span className="font-semibold">{sheetData.length.toLocaleString('en-US')}</span>
                 <span className="text-slate-400 font-normal">Dòng</span>
                 {selectedRowCount > 0 && (
-                  <span className="text-indigo-600 font-bold ml-1">
-                    (Chọn: {selectedRowCount})
-                  </span>
+                  <span className="text-indigo-600 font-bold ml-1">(Chọn: {selectedRowCount})</span>
                 )}
               </div>
 

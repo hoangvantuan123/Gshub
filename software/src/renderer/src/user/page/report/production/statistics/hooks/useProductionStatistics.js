@@ -138,7 +138,8 @@ export function useProductionStatistics({
       MesApprovalTime: r.MesApprovalTime || r.mesApprovalTime || '2026-09-28 08:05',
       SyncDelayMinutes: r.SyncDelayMinutes || r.syncDelayMinutes || 2.5,
       IsDuplicateTicket: r.IsDuplicateTicket ?? r.isDuplicateTicket ?? r.isDuplicate ?? false,
-      TicketCreationLocation: r.TicketCreationLocation || r.ticketCreationLocation || 'MES Client GS1',
+      TicketCreationLocation:
+        r.TicketCreationLocation || r.ticketCreationLocation || 'MES Client GS1',
       AutoIoStatus: r.AutoIoStatus || r.autoIoStatus || 'Đã sinh tự động'
     }))
 
@@ -150,9 +151,18 @@ export function useProductionStatistics({
   // KPIs
   const kpiStats = useMemo(() => {
     const totalRecords = gridData.length
-    const totalProd = gridData.reduce((acc, row) => acc + (Number(row.ProdQty || row.prodQty) || 0), 0)
-    const totalPass = gridData.reduce((acc, row) => acc + (Number(row.PassQty || row.passQty) || 0), 0)
-    const totalDefect = gridData.reduce((acc, row) => acc + (Number(row.DefectQty || row.defectQty) || 0), 0)
+    const totalProd = gridData.reduce(
+      (acc, row) => acc + (Number(row.ProdQty || row.prodQty) || 0),
+      0
+    )
+    const totalPass = gridData.reduce(
+      (acc, row) => acc + (Number(row.PassQty || row.passQty) || 0),
+      0
+    )
+    const totalDefect = gridData.reduce(
+      (acc, row) => acc + (Number(row.DefectQty || row.defectQty) || 0),
+      0
+    )
     const totalWasteTime = gridData.reduce(
       (acc, row) => acc + (Number(row.TotalWasteMinutes || row.totalWasteMinutes) || 0),
       0
@@ -177,12 +187,16 @@ export function useProductionStatistics({
 
       if (searchValues.OperationNo) {
         filtered = filtered.filter((r) =>
-          String(r.OperationNo || r.operationNo || '').toLowerCase().includes(searchValues.OperationNo.toLowerCase())
+          String(r.OperationNo || r.operationNo || '')
+            .toLowerCase()
+            .includes(searchValues.OperationNo.toLowerCase())
         )
       }
       if (searchValues.ItemCode) {
         filtered = filtered.filter((r) =>
-          String(r.ItemCode || r.itemCode || '').toLowerCase().includes(searchValues.ItemCode.toLowerCase())
+          String(r.ItemCode || r.itemCode || '')
+            .toLowerCase()
+            .includes(searchValues.ItemCode.toLowerCase())
         )
       }
       if (searchValues.MachineCode) {
@@ -191,18 +205,24 @@ export function useProductionStatistics({
         )
       }
       if (searchValues.TeamName) {
-        filtered = filtered.filter((r) => String(r.TeamName || r.teamName || '') === searchValues.TeamName)
+        filtered = filtered.filter(
+          (r) => String(r.TeamName || r.teamName || '') === searchValues.TeamName
+        )
       }
       if (searchValues.Shift) {
         filtered = filtered.filter((r) => String(r.Shift || r.shift || '') === searchValues.Shift)
       }
       if (searchValues.Customer) {
         filtered = filtered.filter((r) =>
-          String(r.Customer || r.customer || '').toLowerCase().includes(searchValues.Customer.toLowerCase())
+          String(r.Customer || r.customer || '')
+            .toLowerCase()
+            .includes(searchValues.Customer.toLowerCase())
         )
       }
       if (searchValues.Status) {
-        filtered = filtered.filter((r) => String(r.Status || r.status || '') === searchValues.Status)
+        filtered = filtered.filter(
+          (r) => String(r.Status || r.status || '') === searchValues.Status
+        )
       }
 
       setGridData(filtered)
@@ -408,7 +428,10 @@ export function useProductionStatistics({
       const ws = XLSX.utils.json_to_sheet(exportData)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'ThongKeSanXuat')
-      XLSX.writeFile(wb, `BaoCao_ThongKe_SX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      XLSX.writeFile(
+        wb,
+        `BaoCao_ThongKe_SX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`
+      )
       message.success(t('Đã xuất file Excel thành công'))
     } catch (err) {
       console.error(err)

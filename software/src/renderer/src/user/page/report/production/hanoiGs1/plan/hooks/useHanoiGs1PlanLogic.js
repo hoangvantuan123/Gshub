@@ -1,8 +1,31 @@
 /* eslint-disable react/prop-types */
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
-import html2canvas from 'html2canvas'
 import { GridCellKind } from '@glideapps/glide-data-grid'
+import { captureReportScreenshot, downloadSingleChart } from '../../../../common/screenshotHelper'
+
+// Helper chuẩn hóa định dạng ngày YYYY-MM-DD
+function getCleanDate(dateVal) {
+  if (!dateVal) return ''
+  const s = String(dateVal).trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  if (s.includes('/')) {
+    const parts = s.split(' ')[0].split('/')
+    if (parts.length === 3) {
+      let [m, d, y] = parts
+      if (y.length === 2) y = `20${y}`
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
+  }
+  if (s.includes('-')) {
+    const parts = s.split(' ')[0].split('-')
+    if (parts.length === 3 && parts[0].length <= 2 && parts[2].length === 4) {
+      const [d, m, y] = parts
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
+  }
+  return s.slice(0, 10)
+}
 
 // Helper tạo dữ liệu mẫu chuẩn 276 lệnh điều phối GS1 Hà Nội
 export function generateDefaultHanoiGs1PlanData() {
@@ -105,13 +128,9 @@ export function useHanoiGs1PlanLogic({
   plantName = 'Nhà máy GS1 Hà Nội',
   maskText = (t) => t
 }) {
-  // Bộ lọc dữ liệu
+  // Bộ lọc dữ liệu (Chỉ giữ Ngày lệnh thao tác và PIC Điều phối)
   const [dateRange, setDateRange] = useState(['2026-09-11', '2026-09-30'])
   const [selectedPic, setSelectedPic] = useState('ALL')
-  const [selectedDpStatus, setSelectedDpStatus] = useState('ALL')
-  const [selectedTimeStatus, setSelectedTimeStatus] = useState('ALL')
-  const [selectedCapaStatus, setSelectedCapaStatus] = useState('ALL')
-  const [selectedMachine, setSelectedMachine] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
 
   // Modal State
@@ -139,11 +158,28 @@ export function useHanoiGs1PlanLogic({
   const [sortConfig, setSortConfig] = useState({ key: 'docNo', direction: 'asc' })
   const gridRef = useRef(null)
 
-  // Danh sách rawData từ prop hoặc fallback mock 276 items
+  // Danh sách rawData từ prop
   const rawData = useMemo(() => {
-    if (dataset && dataset.length > 0) return dataset
-    return generateDefaultHanoiGs1PlanData()
+    if (Array.isArray(dataset)) return dataset
+    return []
   }, [dataset])
+
+  // Tự động đồng bộ dateRange theo min/max của "Ngày lệnh thao tác" (actualDate / OpDate) trong dataset
+  useEffect(() => {
+    if (!rawData || rawData.length === 0) return
+    let minD = ''
+    let maxD = ''
+    rawData.forEach((item) => {
+      const d = getCleanDate(item.actualDate || item.opDate || item.OpDate || item.prodDate)
+      if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        if (!minD || d < minD) minD = d
+        if (!maxD || d > maxD) maxD = d
+      }
+    })
+    if (minD && maxD) {
+      setDateRange([minD, maxD])
+    }
+  }, [rawData])
 
   // Filter options
   const filterOptions = useMemo(() => {
@@ -163,12 +199,36 @@ export function useHanoiGs1PlanLogic({
     }
   }, [rawData])
 
-  // Dữ liệu sau khi áp dụng toàn bộ bộ lọc
+  // Trạng thái có đang lọc khác mặc định hay không
+  const hasActiveFilters = useMemo(() => {
+    return selectedPic !== 'ALL'
+  }, [selectedPic])
+
+  // Đặt lại bộ lọc
+  const handleResetFilters = useCallback(() => {
+    setSelectedPic('ALL')
+    if (rawData && rawData.length > 0) {
+      let minD = ''
+      let maxD = ''
+      rawData.forEach((item) => {
+        const d = getCleanDate(item.actualDate || item.opDate || item.OpDate || item.prodDate)
+        if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+          if (!minD || d < minD) minD = d
+          if (!maxD || d > maxD) maxD = d
+        }
+      })
+      if (minD && maxD) {
+        setDateRange([minD, maxD])
+      }
+    }
+  }, [rawData])
+
+  // Dữ liệu sau khi áp dụng toàn bộ bộ lọc trên Client-Side (Lọc theo Ngày lệnh thao tác và PIC ĐP)
   const filteredData = useMemo(() => {
     return rawData.filter((item) => {
-      // 1. Lọc Ngày
+      // 1. Lọc theo "Ngày lệnh thao tác" (OpDate / actualDate)
       if (dateRange && dateRange[0] && dateRange[1]) {
-        const itemDate = item.actualDate || item.planDate || item.prodDate || ''
+        const itemDate = getCleanDate(item.actualDate || item.opDate || item.OpDate || item.prodDate)
         if (itemDate && (itemDate < dateRange[0] || itemDate > dateRange[1])) {
           return false
         }
@@ -177,36 +237,7 @@ export function useHanoiGs1PlanLogic({
       // 2. Lọc PIC Điều phối
       if (selectedPic !== 'ALL' && item.pic !== selectedPic) return false
 
-      // 3. Lọc Trạng thái ĐP - SX
-      if (selectedDpStatus !== 'ALL') {
-        const st = item.dpStatusCode || item.dpStatus
-        if (selectedDpStatus === 'SX_SAI_NGAY' && st !== 'SX_SAI_NGAY' && !String(item.dpStatusText || '').includes('sai ngày')) return false
-        if (selectedDpStatus === 'TRUOT_KH' && st !== 'TRUOT_KH' && !String(item.dpStatusText || '').includes('Trượt')) return false
-        if (selectedDpStatus === 'KHOP_SL' && st !== 'KHOP_SL' && !String(item.dpStatusText || '').includes('Khớp số lượng')) return false
-        if (selectedDpStatus === 'KHOP_JOB' && st !== 'KHOP_JOB' && !String(item.dpStatusText || '').includes('Khớp job')) return false
-      }
-
-      // 4. Lọc Trạng thái thời gian
-      if (selectedTimeStatus !== 'ALL') {
-        const t = item.timeStatus || item.timeStatusText || ''
-        if (selectedTimeStatus === 'CHAM_DM' && !t.includes('Chậm')) return false
-        if (selectedTimeStatus === 'NHANH_DM' && !t.includes('Nhanh')) return false
-        if (selectedTimeStatus === 'DUNG_DM' && !t.includes('Đúng')) return false
-        if (selectedTimeStatus === 'NO_DATA' && !t.includes('Chưa có')) return false
-      }
-
-      // 5. Lọc Trạng thái capa
-      if (selectedCapaStatus !== 'ALL') {
-        const c = item.capaStatus || item.capaStatusText || ''
-        if (selectedCapaStatus === 'NHANH_DM' && !c.includes('Nhanh')) return false
-        if (selectedCapaStatus === 'CHAM_DM' && !c.includes('Chậm')) return false
-        if (selectedCapaStatus === 'TRONG_HOAC_DUNG' && !c.includes('Trống') && !c.includes('Đúng')) return false
-      }
-
-      // 6. Lọc Máy
-      if (selectedMachine !== 'ALL' && item.machineCode !== selectedMachine) return false
-
-      // 7. Tìm kiếm Search Text
+      // 3. Tìm kiếm Search Text
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
         const match =
@@ -224,7 +255,7 @@ export function useHanoiGs1PlanLogic({
 
       return true
     })
-  }, [rawData, dateRange, selectedPic, selectedDpStatus, selectedTimeStatus, selectedCapaStatus, selectedMachine, searchQuery])
+  }, [rawData, dateRange, selectedPic, searchQuery])
 
   // Sorting
   const sortedData = useMemo(() => {
@@ -737,25 +768,6 @@ export function useHanoiGs1PlanLogic({
     [sortedData, columns, maskText]
   )
 
-  // Reset Filters
-  const handleResetFilters = () => {
-    setSelectedPic('ALL')
-    setSelectedDpStatus('ALL')
-    setSelectedTimeStatus('ALL')
-    setSelectedCapaStatus('ALL')
-    setSelectedMachine('ALL')
-    setSearchQuery('')
-    setDateRange(['2026-09-11', '2026-09-30'])
-  }
-
-  const hasActiveFilters =
-    selectedPic !== 'ALL' ||
-    selectedDpStatus !== 'ALL' ||
-    selectedTimeStatus !== 'ALL' ||
-    selectedCapaStatus !== 'ALL' ||
-    selectedMachine !== 'ALL' ||
-    searchQuery.trim() !== ''
-
   // Xuất file Excel
   const handleExportExcel = () => {
     if (!sortedData.length) return
@@ -788,97 +800,21 @@ export function useHanoiGs1PlanLogic({
 
   // Tải ảnh biểu đồ đơn lẻ
   const handleDownloadSingleChart = async (targetRef, chartName) => {
-    const el = targetRef?.current
-    if (!el) return
-    try {
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false
-      })
-
-      const link = document.createElement('a')
-      link.download = `${chartName}_${new Date().toISOString().slice(0, 10)}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
-    } catch (err) {
-      console.error('Download chart error:', err)
-    }
+    await downloadSingleChart(targetRef, chartName)
   }
 
   // Chụp ảnh toàn bộ báo cáo chuyên nghiệp
   const handleCaptureScreenshot = async () => {
     const el = reportRootRef.current
     if (!el) return
-    setIsCapturing(true)
-
-    try {
-      const scrollParent =
-        el.closest('.overflow-y-auto') ||
-        el.closest('[style*="overflow"]') ||
-        el.parentElement ||
-        window
-      const prevScrollTop = scrollParent === window ? window.scrollY : scrollParent.scrollTop
-
-      if (scrollParent !== window && scrollParent.scrollTop !== undefined) {
-        scrollParent.scrollTop = 0
-      } else if (window.scrollTo) {
-        window.scrollTo(0, 0)
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 350))
-
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: 1440,
-        onclone: (clonedDoc, clonedEl) => {
-          clonedEl.style.width = '1440px'
-          clonedEl.style.maxWidth = '1440px'
-          clonedEl.style.height = 'auto'
-          clonedEl.style.maxHeight = 'none'
-          clonedEl.style.overflow = 'visible'
-          clonedEl.style.boxSizing = 'border-box'
-          clonedEl.style.letterSpacing = 'normal'
-          clonedEl.style.fontFamily =
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
-
-          const hiddenElements = clonedEl.querySelectorAll('.screenshot-hide')
-          hiddenElements.forEach((node) => {
-            node.style.display = 'none'
-          })
-
-          const executiveHeaders = clonedEl.querySelectorAll('.screenshot-show')
-          executiveHeaders.forEach((node) => {
-            node.style.display = 'block'
-          })
-        }
-      })
-
-      if (scrollParent !== window && scrollParent.scrollTop !== undefined) {
-        scrollParent.scrollTop = prevScrollTop
-      } else if (window.scrollTo) {
-        window.scrollTo(0, prevScrollTop)
-      }
-
-      const dateStr = new Date().toISOString().slice(0, 10)
-      const link = document.createElement('a')
-      link.download = `BaoCao_DieuPhoi_KHSX_${plantKey}_${dateStr}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
-    } catch (err) {
-      console.error('Screenshot capture failed:', err)
-      alert('Không thể xuất ảnh: ' + (err.message || 'Lỗi chụp màn hình'))
-    } finally {
-      setIsCapturing(false)
-    }
+    const dateStr = new Date().toISOString().slice(0, 10)
+    await captureReportScreenshot({
+      targetEl: el,
+      fileName: `BaoCao_DieuPhoi_KHSX_${plantKey}_${dateStr}`,
+      onStart: () => setIsCapturing(true),
+      onEnd: () => setIsCapturing(false),
+      onError: (err) => alert('Không thể xuất ảnh: ' + (err?.message || 'Lỗi chụp màn hình'))
+    })
   }
 
   return {
@@ -887,14 +823,6 @@ export function useHanoiGs1PlanLogic({
     setDateRange,
     selectedPic,
     setSelectedPic,
-    selectedDpStatus,
-    setSelectedDpStatus,
-    selectedTimeStatus,
-    setSelectedTimeStatus,
-    selectedCapaStatus,
-    setSelectedCapaStatus,
-    selectedMachine,
-    setSelectedMachine,
     searchQuery,
     setSearchQuery,
     handleResetFilters,

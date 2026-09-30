@@ -89,12 +89,12 @@ export const FORMULA_DATABASE = [
     title: '6. Tỷ lệ liên kết chứng từ tự động (Auto-Logistics Rate)',
     scope: 'Mục III: Biểu đồ Phân bổ Loại Ghi chú Tự động & Thẻ KPI',
     formula:
-      'Tỷ lệ tự động (%) = (Số phiếu có trạng thái sinh phiếu tự động / Tổng số phiếu) × 100%',
+      'Tỷ lệ tự động (%) = ((Tổng số phiếu - Số phiếu thiếu XKTĐ/NKTĐ) / Tổng số phiếu) × 100%',
     source: 'CSDL _ERPProdStatsDetail (Trường: AutoIoStatus, AutoExport, AutoImport, ExportDocNo)',
     description:
-      'Theo dõi mức độ liên thông tự động giữa dữ liệu sản xuất phân xưởng với nghiệp vụ quản lý kho thành phẩm và vật tư.',
+      'Theo dõi tỷ lệ phát sinh đầy đủ và hợp lệ chứng từ kho tự động (chỉ ghi nhận thiếu khi có trạng thái Không có XKTĐ / Không có NKTĐ; các trạng thái Có XKTĐ, Có NKTĐ, Có XKTĐ & NKTĐ, Không áp dụng XNTĐ đều tính hợp lệ).',
     notes:
-      'Toàn bộ phân loại loại hình (Có XKTĐ, Có NKTĐ...) được tổng hợp linh động từ dữ liệu thực tế.'
+      'Toàn bộ phân loại trạng thái chứng từ tự động được tổng hợp linh động từ cột AutoIoStatus thực tế.'
   },
 
   // ==================== II & III. BIỂU ĐỒ PHÂN TÍCH ====================

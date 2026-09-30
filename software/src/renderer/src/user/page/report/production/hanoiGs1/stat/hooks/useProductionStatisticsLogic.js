@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
-import html2canvas from 'html2canvas'
 import { GridCellKind } from '@glideapps/glide-data-grid'
 import { initialHanoiGs1Stats, initialQuevoGs5Stats } from '../../../../common/reportUtils'
+import { captureReportScreenshot, downloadSingleChart } from '../../../../common/screenshotHelper'
 
 // Helper extractor for Auto-Logistics Status strictly from column AutoIoStatus ("Sinh phiếu xuất/nhập tự động")
 export function getAutoExportType(item) {
@@ -104,54 +104,29 @@ export const formatSecondsToTime = (totalSec) => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-// Helper format date & time chuẩn xác cho báo cáo (YYYY-MM-DD HH:mm:ss)
+// Helper format date & time chuẩn xác cho báo cáo (giữ nguyên vẹn text gốc từ DB)
 export function formatReportTimeOrDateTime(rawVal, defaultDate = '', fallbackTime = '') {
-  if (!rawVal && !fallbackTime) return defaultDate ? `${defaultDate} 07:30:00` : ''
-  const val = rawVal || fallbackTime
-  if (!val) return ''
-
-  if (val instanceof Date) {
-    if (isNaN(val.getTime())) return ''
-    const Y = val.getFullYear()
-    const M = String(val.getMonth() + 1).padStart(2, '0')
-    const D = String(val.getDate()).padStart(2, '0')
-    const h = String(val.getHours()).padStart(2, '0')
-    const m = String(val.getMinutes()).padStart(2, '0')
-    const s = String(val.getSeconds()).padStart(2, '0')
+  if (rawVal === undefined || rawVal === null) return fallbackTime || defaultDate || ''
+  if (rawVal instanceof Date) {
+    if (isNaN(rawVal.getTime())) return ''
+    const Y = rawVal.getFullYear()
+    const M = String(rawVal.getMonth() + 1).padStart(2, '0')
+    const D = String(rawVal.getDate()).padStart(2, '0')
+    const h = String(rawVal.getHours()).padStart(2, '0')
+    const m = String(rawVal.getMinutes()).padStart(2, '0')
+    const s = String(rawVal.getSeconds()).padStart(2, '0')
     return `${Y}-${M}-${D} ${h}:${m}:${s}`
   }
 
-  const str = String(val).trim()
-  if (!str || str === 'null' || str === 'undefined') return ''
+  const str = String(rawVal).trim()
+  if (!str || str === 'null' || str === 'undefined') return fallbackTime || defaultDate || ''
 
-  // ISO string like 2026-09-28T07:45:10Z or 2026-09-28T07:45:10
+  // ISO string chứa 'T' (ví dụ 2026-09-28T07:45:10Z)
   if (str.includes('T')) {
     return str.slice(0, 19).replace('T', ' ')
   }
 
-  // Already standard format YYYY-MM-DD HH:mm:ss
-  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(str)) {
-    return str.length === 16 ? `${str}:00` : str
-  }
-
-  // Just HH:mm:ss or HH:mm
-  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(str)) {
-    const padTime = str.length <= 5 ? `${str}:00` : str
-    return defaultDate ? `${defaultDate} ${padTime}` : padTime
-  }
-
-  // Try parse as standard date
-  const parsed = new Date(str)
-  if (!isNaN(parsed.getTime()) && str.length >= 10) {
-    const Y = parsed.getFullYear()
-    const M = String(parsed.getMonth() + 1).padStart(2, '0')
-    const D = String(parsed.getDate()).padStart(2, '0')
-    const h = String(parsed.getHours()).padStart(2, '0')
-    const m = String(parsed.getMinutes()).padStart(2, '0')
-    const s = String(parsed.getSeconds()).padStart(2, '0')
-    return `${Y}-${M}-${D} ${h}:${m}:${s}`
-  }
-
+  // Giữ nguyên vẹn text gốc như DB trả về (ví dụ '9/29/26 9:57:19', '2026-09-29 09:57:19', '09:57:19')
   return str
 }
 
@@ -229,6 +204,8 @@ export const useProductionStatisticsLogic = ({
   const chart1Ref = useRef(null)
   const chart2Ref = useRef(null)
   const chart3Ref = useRef(null)
+  const syncChartRef = useRef(null)
+  const autoExportChartRef = useRef(null)
 
   const machineGridRef = useRef(null)
   const teamGridRef = useRef(null)
@@ -257,49 +234,46 @@ export const useProductionStatisticsLogic = ({
       const def = Number(item.defectQty) || Math.max(0, a - pass) || 0
       const pRate = a > 0 ? Number(((pass / a) * 100).toFixed(1)) : 100
 
-      // Ưu tiên tuyệt đối trường DurationMinutes đã được chuẩn hóa theo phút
-      let durMinutes =
-        item.DurationMinutes !== undefined && item.DurationMinutes !== null && item.DurationMinutes !== ''
-          ? Number(item.DurationMinutes)
-          : item.durationMinutes !== undefined && item.durationMinutes !== null && item.durationMinutes !== ''
-            ? Number(item.durationMinutes)
-            : undefined
-
-      // Nếu chưa có durMinutes, tính trực tiếp theo phút từ StartTime và EndTime
       const rawStart = item.startTime || item.StartTime || item.TicketCreatedDate || item.createdTime
       const rawEnd = item.endTime || item.EndTime || item.MesApprovalTime || item.syncTime
 
-      if (durMinutes === undefined && rawStart && rawEnd) {
+      let durMinutes = undefined
+
+      // 1. Nếu có cả StartTime và EndTime: ưu tiên tính toán trực tiếp thời gian chạy thực tế
+      if (rawStart && rawEnd) {
         const sStr = String(rawStart).trim()
         const eStr = String(rawEnd).trim()
 
         if (sStr.includes(':') && eStr.includes(':')) {
-          // Xử lý cả dạng HH:mm:ss hoặc ngày giờ YYYY-MM-DD HH:mm:ss
-          const sDate = new Date(sStr.includes('T') ? sStr : sStr.replace(' ', 'T')).getTime()
-          const eDate = new Date(eStr.includes('T') ? eStr : eStr.replace(' ', 'T')).getTime()
-
-          if (!isNaN(sDate) && !isNaN(eDate) && eDate >= sDate) {
-            const diffMin = (eDate - sDate) / (1000 * 60)
-            if (diffMin >= 0 && diffMin <= 1440) {
-              durMinutes = Number(diffMin.toFixed(1))
-            }
-          }
-
-          if (durMinutes === undefined) {
-            const sParts = sStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
-            const eParts = eStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
-            const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
-            const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
-            let diff = eMin - sMin
-            if (diff < 0) diff += 1440
-            if (diff >= 0 && diff <= 1440) {
-              durMinutes = Number(diff.toFixed(1))
-            }
+          const sParts = sStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+          const eParts = eStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+          const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
+          const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
+          let diff = eMin - sMin
+          if (diff < 0) diff += 1440 // Chạy xuyên đêm qua ngày hôm sau
+          if (diff >= 0 && diff <= 1440) {
+            durMinutes = Number(diff.toFixed(1))
           }
         }
       }
 
-      // Nếu chưa có, tính từ ActualRunTime (Đơn vị trong hệ thống luôn là PHÚT)
+      // 2. Nếu không có đủ 2 mốc hoặc không tính được, đọc DurationMinutes / ActualRunTime
+      if (durMinutes === undefined) {
+        if (
+          item.DurationMinutes !== undefined &&
+          item.DurationMinutes !== null &&
+          item.DurationMinutes !== ''
+        ) {
+          durMinutes = Number(item.DurationMinutes)
+        } else if (
+          item.durationMinutes !== undefined &&
+          item.durationMinutes !== null &&
+          item.durationMinutes !== ''
+        ) {
+          durMinutes = Number(item.durationMinutes)
+        }
+      }
+
       if (durMinutes === undefined) {
         const rawRt =
           item.ActualRunTime !== undefined && item.ActualRunTime !== null && item.ActualRunTime !== ''
@@ -319,7 +293,6 @@ export const useProductionStatisticsLogic = ({
           } else {
             const val = parseFloat(str)
             if (!isNaN(val) && val >= 0) {
-              // ActualRunTime trong hệ thống ERP luôn là số PHÚT
               durMinutes = Number(val.toFixed(1))
             }
           }
@@ -330,10 +303,7 @@ export const useProductionStatisticsLogic = ({
         durMinutes = 0
       }
 
-      let rt =
-        item.RuntimeHours !== undefined && item.RuntimeHours !== null && item.RuntimeHours !== ''
-          ? Number(item.RuntimeHours)
-          : Number((durMinutes / 60).toFixed(2))
+      let rt = Number((durMinutes / 60).toFixed(2))
 
       const prodDate =
         item.prodDate ||
@@ -342,29 +312,8 @@ export const useProductionStatisticsLogic = ({
         item.StartDate ||
         new Date().toISOString().slice(0, 10)
 
-      const finalStart = formatReportTimeOrDateTime(rawStart || item.CreatedAt, prodDate, `${prodDate} 07:30:00`)
-
-      let finalEnd = ''
-      if (rawEnd && rawEnd !== rawStart) {
-        finalEnd = formatReportTimeOrDateTime(rawEnd, prodDate, '')
-      }
-
-      // Nếu thiếu endTime hoặc trùng startTime, suy diễn endTime = startTime + duration
-      if (!finalEnd || finalEnd === finalStart) {
-        try {
-          const startDateObj = new Date(finalStart.replace(' ', 'T'))
-          if (!isNaN(startDateObj.getTime())) {
-            const addMs = (durMinutes || rt * 60 || 450) * 60 * 1000
-            const endDateObj = new Date(startDateObj.getTime() + addMs)
-            finalEnd = formatReportTimeOrDateTime(endDateObj, prodDate)
-          }
-        } catch (_) {
-          finalEnd = `${prodDate} 15:30:00`
-        }
-      }
-      if (!finalEnd) {
-        finalEnd = `${prodDate} 15:30:00`
-      }
+      const finalStart = rawStart ? formatReportTimeOrDateTime(rawStart) : ''
+      const finalEnd = rawEnd ? formatReportTimeOrDateTime(rawEnd) : ''
 
       return {
         ...item,
@@ -694,12 +643,23 @@ export const useProductionStatisticsLogic = ({
       // 2. Lấy Type động 100% từ dữ liệu thực tế của hàng
       const typeKey = getAutoExportType(item)
       autoExportTypeMap.set(typeKey, (autoExportTypeMap.get(typeKey) || 0) + 1)
-      if (
-        typeKey.includes('Có XKTĐ') ||
-        typeKey.includes('Có NKTĐ') ||
-        typeKey === 'Có XKTĐ' ||
-        typeKey === 'Có NKTĐ'
-      ) {
+
+      // Chỉ tính là thiếu phiếu nếu có trạng thái rõ ràng là "Không có XKTĐ" hoặc "Không có NKTĐ" (hoặc chứa "Không có" / "Thiếu")
+      const lowerKey = typeKey.toLowerCase()
+      const isMissingAutoIo =
+        typeKey.includes('Không có XKTĐ') ||
+        typeKey.includes('Không có NKTĐ') ||
+        typeKey.includes('Thiếu XKTĐ') ||
+        typeKey.includes('Thiếu NKTĐ') ||
+        typeKey.includes('Chưa có XKTĐ') ||
+        typeKey.includes('Chưa có NKTĐ') ||
+        (lowerKey.includes('không có') &&
+          (lowerKey.includes('xktđ') ||
+            lowerKey.includes('nktđ') ||
+            lowerKey.includes('xuất') ||
+            lowerKey.includes('nhập')))
+
+      if (!isMissingAutoIo) {
         autoExportCount++
       }
     })
@@ -717,21 +677,21 @@ export const useProductionStatisticsLogic = ({
         shortGroup: '11–30s',
         count: sync11to30,
         rate: total > 0 ? Number(((sync11to30 / total) * 100).toFixed(1)) : 0,
-        color: '#2b6b79'
+        color: '#334155'
       },
       {
         group: '31 – 60 giây',
         shortGroup: '31–60s',
         count: sync31to60,
         rate: total > 0 ? Number(((sync31to60 / total) * 100).toFixed(1)) : 0,
-        color: '#0284c7'
+        color: '#475569'
       },
       {
         group: '> 60 giây (Độ trễ cao)',
         shortGroup: '> 60s',
         count: syncOver60,
         rate: total > 0 ? Number(((syncOver60 / total) * 100).toFixed(1)) : 0,
-        color: '#d97706'
+        color: '#64748b'
       },
       {
         group: 'Không đồng bộ (trống)',
@@ -742,14 +702,31 @@ export const useProductionStatisticsLogic = ({
       }
     ]
 
-    const autoTypeColors = ['#245d6c', '#2b6b79', '#0284c7', '#0f766e', '#d97706', '#64748b']
+    const defaultAutoColor = '#245d6c'
     const autoExportBreakdown = Array.from(autoExportTypeMap.entries())
-      .map(([label, count], idx) => ({
-        label,
-        count,
-        rate: total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0,
-        color: autoTypeColors[idx % autoTypeColors.length]
-      }))
+      .map(([label, count]) => {
+        const lower = label.toLowerCase()
+        const isMissing =
+          label.includes('Không có XKTĐ') ||
+          label.includes('Không có NKTĐ') ||
+          label.includes('Thiếu XKTĐ') ||
+          label.includes('Thiếu NKTĐ') ||
+          label.includes('Chưa có XKTĐ') ||
+          label.includes('Chưa có NKTĐ') ||
+          (lower.includes('không có') &&
+            (lower.includes('xktđ') ||
+              lower.includes('nktđ') ||
+              lower.includes('xuất') ||
+              lower.includes('nhập')))
+        const color = isMissing ? '#475569' : defaultAutoColor
+        return {
+          label,
+          count,
+          rate: total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0,
+          isMissing,
+          color
+        }
+      })
       .sort((a, b) => b.count - a.count)
 
     const calculatedMesCount = mesCount > 0 ? mesCount : total
@@ -1744,7 +1721,7 @@ export const useProductionStatisticsLogic = ({
             data: item.ticketCode || item.ticketNo || '',
             displayData: item.ticketCode || item.ticketNo || '',
             allowOverlay: false,
-            themeOverride: { textDark: '#2563eb', baseFontStyle: '700 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '700 12px' }
           }
         case 'docNo':
           return {
@@ -1752,7 +1729,7 @@ export const useProductionStatisticsLogic = ({
             data: item.orderCode || item.docNo || '',
             displayData: item.orderCode || item.docNo || '',
             allowOverlay: false,
-            themeOverride: { textDark: '#334155', baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#475569', baseFontStyle: '500 12px' }
           }
         case 'machineCode':
           return {
@@ -1760,7 +1737,7 @@ export const useProductionStatisticsLogic = ({
             data: item.machineCode || '',
             displayData: item.machineCode || '',
             allowOverlay: false,
-            themeOverride: { textDark: '#245d6c', baseFontStyle: '700 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
           }
         case 'machineName':
           return {
@@ -1768,7 +1745,7 @@ export const useProductionStatisticsLogic = ({
             data: item.machineName || '',
             displayData: maskText(item.machineName || '', 5),
             allowOverlay: false,
-            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
           }
         case 'teamName':
           return {
@@ -1776,7 +1753,7 @@ export const useProductionStatisticsLogic = ({
             data: item.teamName || '',
             displayData: item.teamName || '',
             allowOverlay: false,
-            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
+            themeOverride: { textDark: '#475569', baseFontStyle: '500 12px' }
           }
         case 'startTime':
           return {
@@ -1785,7 +1762,7 @@ export const useProductionStatisticsLogic = ({
             displayData: item.startTime || item.StartTime || item.prodDate || '',
             allowOverlay: false,
             contentAlign: 'center',
-            themeOverride: { textDark: '#0f766e', baseFontStyle: '600 11.5px' }
+            themeOverride: { textDark: '#475569', baseFontStyle: '500 11.5px' }
           }
         case 'endTime':
           return {
@@ -1794,7 +1771,7 @@ export const useProductionStatisticsLogic = ({
             displayData: item.endTime || item.EndTime || item.prodDate || '',
             allowOverlay: false,
             contentAlign: 'center',
-            themeOverride: { textDark: '#0284c7', baseFontStyle: '600 11.5px' }
+            themeOverride: { textDark: '#475569', baseFontStyle: '500 11.5px' }
           }
         case 'actualQty':
           return {
@@ -1803,7 +1780,7 @@ export const useProductionStatisticsLogic = ({
             displayData: actual.toLocaleString('vi-VN'),
             allowOverlay: false,
             contentAlign: 'right',
-            themeOverride: { textDark: '#0f172a', baseFontStyle: '700 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
           }
         case 'passQty':
           return {
@@ -1812,7 +1789,7 @@ export const useProductionStatisticsLogic = ({
             displayData: pass.toLocaleString('vi-VN'),
             allowOverlay: false,
             contentAlign: 'right',
-            themeOverride: { textDark: '#0f766e', baseFontStyle: '700 12px' }
+            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
           }
         case 'defectQty':
           return {
@@ -1828,43 +1805,38 @@ export const useProductionStatisticsLogic = ({
           }
         case 'passRate': {
           const rate = parseFloat(passRateVal) || 0
-          const rateTheme =
-            rate >= 98
-              ? { textDark: '#15803d', baseFontStyle: '700 12px' }
-              : rate >= 95
-                ? { textDark: '#0f766e', baseFontStyle: '700 12px' }
-                : { textDark: '#b45309', baseFontStyle: '700 12px' }
           return {
             kind: GridCellKind.Text,
             data: `${passRateVal}%`,
             displayData: `${passRateVal}%`,
             allowOverlay: false,
             contentAlign: 'right',
-            themeOverride: rateTheme
+            themeOverride:
+              rate < 95
+                ? { textDark: '#dc2626', baseFontStyle: '700 12px' }
+                : { textDark: '#0f172a', baseFontStyle: '600 12px' }
           }
         }
         case 'runtimeHours': {
           const rh = Number(item.runtimeHours) || 0
-          const isOver = rh > 24
           return {
             kind: GridCellKind.Text,
             data: `${rh.toFixed(1)}h`,
             displayData: `${rh.toFixed(1)}h`,
             allowOverlay: false,
             contentAlign: 'right',
-            themeOverride: isOver
-              ? { textDark: '#dc2626', baseFontStyle: '700 12px' }
-              : { textDark: '#0284c7', baseFontStyle: '600 12px' }
+            themeOverride:
+              rh > 24
+                ? { textDark: '#dc2626', baseFontStyle: '700 12px' }
+                : { textDark: '#0f172a', baseFontStyle: '500 12px' }
           }
         }
         case 'auditBadge': {
-          let badgeTheme = { textDark: '#15803d', baseFontStyle: '600 12px' }
+          let badgeTheme = { textDark: '#475569', baseFontStyle: '500 12px' }
           if (auditText.includes('< 5p')) {
-            badgeTheme = { textDark: '#be123c', baseFontStyle: '700 12px' }
+            badgeTheme = { textDark: '#dc2626', baseFontStyle: '600 12px' }
           } else if (auditText.includes('Cần kiểm tra')) {
-            badgeTheme = { textDark: '#b45309', baseFontStyle: '700 12px' }
-          } else if (auditText.includes('Đơn lớn')) {
-            badgeTheme = { textDark: '#0f766e', baseFontStyle: '700 12px' }
+            badgeTheme = { textDark: '#dc2626', baseFontStyle: '600 12px' }
           }
           return {
             kind: GridCellKind.Text,
@@ -1876,18 +1848,13 @@ export const useProductionStatisticsLogic = ({
           }
         }
         case 'origin': {
-          const isMes = String(item.origin || item.createdSource || '')
-            .toUpperCase()
-            .includes('MES')
           return {
             kind: GridCellKind.Text,
             data: item.origin || 'MES',
             displayData: item.origin || 'MES',
             allowOverlay: false,
             contentAlign: 'center',
-            themeOverride: isMes
-              ? { textDark: '#2563eb', baseFontStyle: '700 12px' }
-              : { textDark: '#d97706', baseFontStyle: '600 12px' }
+            themeOverride: { textDark: '#475569', baseFontStyle: '600 12px' }
           }
         }
         case 'operator':
@@ -1896,7 +1863,7 @@ export const useProductionStatisticsLogic = ({
             data: maskText(item.operator || 'Kỹ thuật viên', 3),
             displayData: maskText(item.operator || 'Kỹ thuật viên', 3),
             allowOverlay: false,
-            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
+            themeOverride: { textDark: '#475569', baseFontStyle: '500 12px' }
           }
         default:
           return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
@@ -1907,113 +1874,21 @@ export const useProductionStatisticsLogic = ({
 
   // Download Individual Chart as PNG
   const handleDownloadSingleChart = async (targetRef, chartName) => {
-    const el = targetRef?.current
-    if (!el) return
-    try {
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false
-      })
-
-      const link = document.createElement('a')
-      link.download = `${chartName}_${new Date().toISOString().slice(0, 10)}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
-    } catch (err) {
-      console.error('Download chart error:', err)
-    }
+    await downloadSingleChart(targetRef, chartName)
   }
 
   // Full Page Screenshot Capture (Optimized: Direct target capture, no clipping of headers/tabs, full table rendering)
   const handleCaptureScreenshot = async () => {
     const el = reportRootRef.current
     if (!el) return
-    setIsCapturing(true)
-
-    try {
-      // Find scroll container and preserve scroll position
-      const scrollParent =
-        el.closest('.overflow-y-auto') ||
-        el.closest('[style*="overflow"]') ||
-        el.parentElement ||
-        window
-      const prevScrollTop = scrollParent === window ? window.scrollY : scrollParent.scrollTop
-
-      // Temporarily scroll to top
-      if (scrollParent !== window && scrollParent.scrollTop !== undefined) {
-        scrollParent.scrollTop = 0
-      } else if (window.scrollTo) {
-        window.scrollTo(0, 0)
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 350))
-
-      // Direct html2canvas on el with element-bounded rendering to avoid offset distortion
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: 1440,
-        onclone: (clonedDoc, clonedEl) => {
-          clonedEl.style.width = '1440px'
-          clonedEl.style.maxWidth = '1440px'
-          clonedEl.style.height = 'auto'
-          clonedEl.style.maxHeight = 'none'
-          clonedEl.style.overflow = 'visible'
-          clonedEl.style.boxSizing = 'border-box'
-          clonedEl.style.letterSpacing = 'normal'
-          clonedEl.style.fontFamily =
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
-
-          // 1. Ẩn toàn bộ nút bấm, thanh chọn lọc và thao tác web để báo cáo phẳng đẹp
-          const hiddenElements = clonedEl.querySelectorAll('.screenshot-hide')
-          hiddenElements.forEach((node) => {
-            node.style.display = 'none'
-          })
-
-          // 2. Hiển thị dải thông tin kiểm toán/ngày giờ báo cáo chính thức
-          const executiveHeaders = clonedEl.querySelectorAll('.screenshot-show')
-          executiveHeaders.forEach((node) => {
-            node.style.display = 'block'
-          })
-
-          // 3. Mở rộng trọn vẹn chiều cao các bảng dữ liệu
-          const tableContainers = clonedEl.querySelectorAll(
-            '.table-scroll-container, [data-scrollable-table="true"]'
-          )
-          tableContainers.forEach((tc) => {
-            tc.style.maxHeight = 'none'
-            tc.style.height = 'auto'
-            tc.style.overflow = 'visible'
-          })
-        }
-      })
-
-      // Restore scroll position
-      if (scrollParent !== window && scrollParent.scrollTop !== undefined) {
-        scrollParent.scrollTop = prevScrollTop
-      } else if (window.scrollTo) {
-        window.scrollTo(0, prevScrollTop)
-      }
-
-      const dateStr = new Date().toISOString().slice(0, 10)
-      const link = document.createElement('a')
-      link.download = `BaoCao_ThongKe_SanXuat_${plantKey}_${dateStr}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
-    } catch (err) {
-      console.error('Screenshot capture failed:', err)
-      alert('Không thể xuất ảnh: ' + (err.message || 'Lỗi chụp màn hình'))
-    } finally {
-      setIsCapturing(false)
-    }
+    const dateStr = new Date().toISOString().slice(0, 10)
+    await captureReportScreenshot({
+      targetEl: el,
+      fileName: `BaoCao_ThongKe_SanXuat_${plantKey}_${dateStr}`,
+      onStart: () => setIsCapturing(true),
+      onEnd: () => setIsCapturing(false),
+      onError: (err) => alert('Không thể xuất ảnh: ' + (err?.message || 'Lỗi chụp màn hình'))
+    })
   }
 
   // Export Excel Full
@@ -2098,6 +1973,8 @@ export const useProductionStatisticsLogic = ({
     chart1Ref,
     chart2Ref,
     chart3Ref,
+    syncChartRef,
+    autoExportChartRef,
     machineGridRef,
     teamGridRef,
     detailGridRef,

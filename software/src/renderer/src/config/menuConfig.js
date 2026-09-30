@@ -1,39 +1,12 @@
 /**
  * Default Menu & Submenu Configuration
  * Configured in code for GsHub:
- * 1. RootMenu: Hệ thống (ROOT_SYSTEM)
- * 2. RootMenu: Quản lý sản xuất (ROOT_PRODUCTION)
+ * RootMenu: Module Báo cáo (ROOT_REPORT)
  */
 
 import { transformDataMenu } from '../utils/transformDataMenu'
 
 export const DEFAULT_ROOT_MENUS = [
-  {
-    Id: 'ROOT_SYSTEM',
-    RootMenuId: 'ROOT_SYSTEM',
-    RootMenuKey: 'system',
-    RootMenuName: 'Hệ Thống',
-    RootMenuLabel: 'Hệ Thống',
-    Icon: 'Server',
-    MenuIcon: 'Server',
-    RootMenuIcon: 'Server',
-    RootMenuUtilities: true,
-    View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'ROOT_PRODUCTION',
-    RootMenuId: 'ROOT_PRODUCTION',
-    RootMenuKey: 'production',
-    RootMenuName: 'Sản Xuất',
-    RootMenuLabel: 'Sản Xuất',
-    Icon: 'Factory',
-    MenuIcon: 'Factory',
-    RootMenuIcon: 'Factory',
-    RootMenuUtilities: true,
-    View: true,
-    OrderSeq: 2
-  },
   {
     Id: 'ROOT_REPORT',
     RootMenuId: 'ROOT_REPORT',
@@ -45,120 +18,11 @@ export const DEFAULT_ROOT_MENUS = [
     RootMenuIcon: 'BarChart3',
     RootMenuUtilities: true,
     View: true,
-    OrderSeq: 3
+    OrderSeq: 1
   }
 ]
 
 export const DEFAULT_SETTING_ITEMS = [
-  // =========================================================================
-  // ── ROOT_SYSTEM: Hệ thống ────────────────────────────────────────────────
-  // =========================================================================
-  {
-    Id: 'sub_sys_info',
-    MenuKey: 'sys_info',
-    MenuRootId: 'ROOT_SYSTEM',
-    MenuLabel: 'Thông tin hệ thống',
-    MenuType: 'submenu',
-    Icon: 'FolderOutlined',
-    MenuIcon: 'FolderOutlined',
-    View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'menu_sys_users',
-    MenuKey: 'user_management',
-    MenuSubRootId: 'sub_sys_info',
-    MenuRootId: 'ROOT_SYSTEM',
-    MenuLabel: 'Quản lý người dùng',
-    MenuLink: '/erp/u/system/users',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'menu_sys_roles',
-    MenuKey: 'role_management',
-    MenuSubRootId: 'sub_sys_info',
-    MenuRootId: 'ROOT_SYSTEM',
-    MenuLabel: 'Phân quyền & Nhóm vai trò',
-    MenuLink: '/erp/u/system-settings/roles/role-management',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 2
-  },
-  {
-    Id: 'menu_sys_structure',
-    MenuKey: 'structure_modules',
-    MenuSubRootId: 'sub_sys_info',
-    MenuRootId: 'ROOT_SYSTEM',
-    MenuLabel: 'Cấu trúc hệ thống & Danh mục',
-    MenuLink: '/erp/u/system-settings/structure/modules',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 3
-  },
-  {
-    Id: 'menu_sys_settings',
-    MenuKey: 'system_settings',
-    MenuSubRootId: 'sub_sys_info',
-    MenuRootId: 'ROOT_SYSTEM',
-    MenuLabel: 'Cài đặt hệ thống',
-    MenuLink: '/erp/u/setting',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 4
-  },
-
-  // =========================================================================
-  // ── ROOT_PRODUCTION: Quản lý sản xuất ────────────────────────────────────
-  // =========================================================================
-
-  // ── Nhóm 1: Quản lý Lệnh sản xuất ────────────────────────────────────────
-  {
-    Id: 'sub_prod_orders',
-    MenuKey: 'production_orders_group',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Lệnh sản xuất & Công đoạn',
-    MenuType: 'submenu',
-    Icon: 'FolderOutlined',
-    MenuIcon: 'FolderOutlined',
-    View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'menu_production_work_process',
-    MenuKey: 'production_work_process',
-    MenuSubRootId: 'sub_prod_orders',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Lệnh công đoạn',
-    MenuLink: '/erp/u/production/work-process',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'menu_production_operation_detail',
-    MenuKey: 'production_operation_detail',
-    MenuSubRootId: 'sub_prod_orders',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Chi tiết thao tác sản xuất',
-    MenuLink: '/erp/u/production/operation-detail',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 2
-  },
-  {
-    Id: 'menu_production_settlement',
-    MenuKey: 'production_order_settlement',
-    MenuSubRootId: 'sub_prod_orders',
-    MenuRootId: 'ROOT_PRODUCTION',
-    MenuLabel: 'Quyết toán lệnh sản xuất',
-    MenuLink: '/erp/u/production/order-settlement',
-    MenuType: 'menu',
-    View: true,
-    OrderSeq: 3
-  },
-
   // =========================================================================
   // ── ROOT_REPORT: Module Báo cáo ──────────────────────────────────────────
   // =========================================================================
@@ -271,6 +135,13 @@ export const DEFAULT_SETTING_ITEMS = [
 // Menu Items Cấp 4 (nếu có các mục con sâu hơn)
 export const DEFAULT_MENU_ITEMS = []
 
+const EXCLUDED_ROOT_IDENTIFIERS = new Set([
+  'ROOT_SYSTEM',
+  'ROOT_PRODUCTION',
+  'system',
+  'production'
+])
+
 /**
  * Merge server roles menu with default code config
  */
@@ -284,6 +155,14 @@ export function mergeWithDefaultMenuConfig(
     (r) => {
       if (!r) return
       const key = r.RootMenuKey || r.Id || r.RootMenuId
+      const id = r.Id || r.RootMenuId
+      if (
+        (key && EXCLUDED_ROOT_IDENTIFIERS.has(key)) ||
+        (id && EXCLUDED_ROOT_IDENTIFIERS.has(id)) ||
+        (r.RootMenuKey && EXCLUDED_ROOT_IDENTIFIERS.has(r.RootMenuKey))
+      ) {
+        return
+      }
       if (key) rootMenuMap.set(key, { ...r, View: r.View !== false })
     }
   )
@@ -295,6 +174,10 @@ export function mergeWithDefaultMenuConfig(
     ...(Array.isArray(serverSettingItems) ? serverSettingItems : [])
   ].forEach((item) => {
     if (!item) return
+    const rootId = item.MenuRootId
+    if (rootId && EXCLUDED_ROOT_IDENTIFIERS.has(rootId)) {
+      return
+    }
     const key = item.MenuKey || item.Id
     if (key) itemMap.set(key, { ...item, View: item.View !== false })
   })
@@ -304,6 +187,10 @@ export function mergeWithDefaultMenuConfig(
   ;[...DEFAULT_MENU_ITEMS, ...(Array.isArray(serverMenuItems) ? serverMenuItems : [])].forEach(
     (sub) => {
       if (!sub) return
+      const rootId = sub.MenuRootId
+      if (rootId && EXCLUDED_ROOT_IDENTIFIERS.has(rootId)) {
+        return
+      }
       const key = sub.MenuKey || sub.Id
       if (key) subItemMap.set(key, { ...sub, View: sub.View !== false })
     }

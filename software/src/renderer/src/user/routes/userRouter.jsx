@@ -323,14 +323,19 @@ const UserRouter = () => {
       try {
         const record = await getMenuData()
         if (record && isMounted) {
-          if (record.settingItems && record.settingItems.length > 0) {
-            setUserPermissions(record.settingItems)
+          const merged = mergeWithDefaultMenuConfig(
+            record.settingItems || [],
+            record.rootMenuItems || [],
+            record.menuItemList || []
+          )
+          if (merged.settingItems && merged.settingItems.length > 0) {
+            setUserPermissions(merged.settingItems)
           }
-          if (record.rootMenuItems && record.rootMenuItems.length > 0) {
-            setRootMenuItems(record.rootMenuItems)
+          if (merged.rootMenuItems && merged.rootMenuItems.length > 0) {
+            setRootMenuItems(merged.rootMenuItems)
           }
-          if (record.transformedMenu && record.transformedMenu.length > 0) {
-            setMenuTransForm(record.transformedMenu)
+          if (merged.transformedMenu && merged.transformedMenu.length > 0) {
+            setMenuTransForm(merged.transformedMenu)
           }
           if (record.permissionsTree && record.permissionsTree.length > 0) {
             setRoleTable(record.permissionsTree)

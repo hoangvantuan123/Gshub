@@ -78,14 +78,6 @@ export default function HanoiGs1PlanReport(props) {
     setDateRange,
     selectedPic,
     setSelectedPic,
-    selectedDpStatus,
-    setSelectedDpStatus,
-    selectedTimeStatus,
-    setSelectedTimeStatus,
-    selectedCapaStatus,
-    setSelectedCapaStatus,
-    selectedMachine,
-    setSelectedMachine,
     searchQuery,
     setSearchQuery,
     handleResetFilters,
@@ -216,7 +208,7 @@ export default function HanoiGs1PlanReport(props) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {masterList && masterList.length > 0 && (
+            {masterList && masterList.length > 0 ? (
               <MasterBatchSearchSelect
                 masterList={masterList}
                 selectedMasterKey={selectedMasterKey}
@@ -224,6 +216,23 @@ export default function HanoiGs1PlanReport(props) {
                 onRefreshMaster={onRefreshMaster}
                 loading={loadingMaster}
               />
+            ) : (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '4px 10px',
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: 4,
+                  fontSize: 12,
+                  color: '#92400e',
+                  fontWeight: 600
+                }}
+              >
+                <span>⚠️ Chưa có đợt KHSX nào được đăng ký cho {plantName || 'nhà máy'}</span>
+              </div>
             )}
           </div>
 
@@ -260,7 +269,7 @@ export default function HanoiGs1PlanReport(props) {
           </div>
         </div>
 
-        {/* Hàng 2: Khung Bộ Lọc Dữ Liệu Chi Tiết */}
+        {/* Hàng 2: Khung Bộ Lọc Dữ Liệu (Chỉ giữ Ngày lệnh thao tác và PIC Điều phối) */}
         <div
           style={{
             display: 'flex',
@@ -271,7 +280,7 @@ export default function HanoiGs1PlanReport(props) {
             borderTop: '1px dashed #e2e8f0'
           }}
         >
-          {/* 1. Lọc Ngày thực hiện */}
+          {/* 1. Lọc Ngày lệnh thao tác */}
           <div
             style={{
               display: 'inline-flex',
@@ -303,7 +312,7 @@ export default function HanoiGs1PlanReport(props) {
               }}
             >
               <Calendar size={12} color="#245d6c" />
-              <span>Ngày thực hiện:</span>
+              <span>Ngày lệnh thao tác:</span>
             </span>
             <PureDateRangePicker value={dateRange} onChange={setDateRange} />
           </div>
@@ -349,197 +358,6 @@ export default function HanoiGs1PlanReport(props) {
               options={[
                 { value: 'ALL', label: 'Tất cả PIC ĐP' },
                 ...filterOptions.pics.map((p) => ({ value: p, label: p }))
-              ]}
-            />
-          </div>
-
-          {/* 3. Lọc Trạng thái ĐP - SX */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: 28,
-              border: '1px solid #cbd5e1',
-              borderRadius: 3,
-              background: '#ffffff',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              verticalAlign: 'middle'
-            }}
-          >
-            <span
-              style={{
-                height: '100%',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#334155',
-                background: '#f8fafc',
-                padding: '0 8px',
-                borderRight: '1px solid #cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                boxSizing: 'border-box'
-              }}
-            >
-              <Activity size={12} color="#245d6c" />
-              <span>Trạng thái ĐP-SX:</span>
-            </span>
-            <PureSelect
-              value={selectedDpStatus}
-              onChange={setSelectedDpStatus}
-              style={{ width: 165 }}
-              options={[
-                { value: 'ALL', label: 'Tất cả trạng thái' },
-                { value: 'SX_SAI_NGAY', label: '1. SX sai ngày KH' },
-                { value: 'TRUOT_KH', label: '2. Trượt KH' },
-                { value: 'KHOP_SL', label: '3. Khớp số lượng' },
-                { value: 'KHOP_JOB', label: '4. Khớp job' }
-              ]}
-            />
-          </div>
-
-          {/* 4. Lọc Thời gian vs ĐM */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: 28,
-              border: '1px solid #cbd5e1',
-              borderRadius: 3,
-              background: '#ffffff',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              verticalAlign: 'middle'
-            }}
-          >
-            <span
-              style={{
-                height: '100%',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#334155',
-                background: '#f8fafc',
-                padding: '0 8px',
-                borderRight: '1px solid #cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                boxSizing: 'border-box'
-              }}
-            >
-              <Clock size={12} color="#245d6c" />
-              <span>Thời gian vs ĐM:</span>
-            </span>
-            <PureSelect
-              value={selectedTimeStatus}
-              onChange={setSelectedTimeStatus}
-              style={{ width: 155 }}
-              options={[
-                { value: 'ALL', label: 'Tất cả thời gian' },
-                { value: 'CHAM_DM', label: 'Chậm hơn ĐM' },
-                { value: 'NHANH_DM', label: 'Nhanh hơn ĐM' },
-                { value: 'DUNG_DM', label: 'Đúng ĐM' },
-                { value: 'NO_DATA', label: 'Chưa có dữ liệu' }
-              ]}
-            />
-          </div>
-
-          {/* 5. Lọc Tải Capa */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: 28,
-              border: '1px solid #cbd5e1',
-              borderRadius: 3,
-              background: '#ffffff',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              verticalAlign: 'middle'
-            }}
-          >
-            <span
-              style={{
-                height: '100%',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#334155',
-                background: '#f8fafc',
-                padding: '0 8px',
-                borderRight: '1px solid #cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                boxSizing: 'border-box'
-              }}
-            >
-              <Layers size={12} color="#245d6c" />
-              <span>Tải Capa:</span>
-            </span>
-            <PureSelect
-              value={selectedCapaStatus}
-              onChange={setSelectedCapaStatus}
-              style={{ width: 155 }}
-              options={[
-                { value: 'ALL', label: 'Tất cả capa' },
-                { value: 'NHANH_DM', label: 'Nhanh hơn ĐM' },
-                { value: 'CHAM_DM', label: 'Chậm hơn ĐM' },
-                { value: 'TRONG_HOAC_DUNG', label: 'Trống / Đúng capa' }
-              ]}
-            />
-          </div>
-
-          {/* 6. Lọc Cụm máy */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: 28,
-              border: '1px solid #cbd5e1',
-              borderRadius: 3,
-              background: '#ffffff',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              verticalAlign: 'middle'
-            }}
-          >
-            <span
-              style={{
-                height: '100%',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#334155',
-                background: '#f8fafc',
-                padding: '0 8px',
-                borderRight: '1px solid #cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                boxSizing: 'border-box'
-              }}
-            >
-              <Cpu size={12} color="#245d6c" />
-              <span>Cụm máy:</span>
-            </span>
-            <PureSelect
-              value={selectedMachine}
-              onChange={setSelectedMachine}
-              style={{ width: 175 }}
-              options={[
-                { value: 'ALL', label: 'Tất cả cụm máy' },
-                ...filterOptions.machines.map((m) => ({
-                  value: m.code,
-                  label: `${m.code} - ${m.name}`
-                }))
               ]}
             />
           </div>
@@ -628,6 +446,7 @@ export default function HanoiGs1PlanReport(props) {
 
       {/* 2. KPI TỔNG QUAN: 5 THẺ CHỦ CHỐT */}
       <div
+        ref={chart1Ref}
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -1455,102 +1274,376 @@ export default function HanoiGs1PlanReport(props) {
           </table>
         </div>
 
-        {/* Biểu đồ Cột ngang Xếp hạng Tỷ lệ đạt chuẩn & Vạch Mục tiêu (Benchmark) */}
+        {/* Switcher & Biểu đồ phân tích chi tiết */}
         <div
           style={{
-            height: Math.max(280, picBreakdown.length * 60 + 60),
-            width: '100%',
-            marginTop: 16,
+            marginTop: 20,
             background: '#ffffff',
             border: '1px solid #e2e8f0',
             borderRadius: 6,
-            padding: '16px 8px 8px 8px'
+            padding: '16px'
           }}
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={[...picBreakdown]
-                .map((r) => {
-                  const totalPass = (r.khopSl || 0) + (r.khopJob || 0)
-                  const passRate =
-                    r.totalOrders > 0 ? Number(((totalPass / r.totalOrders) * 100).toFixed(1)) : 0
-                  return { ...r, totalPass, passRate, name: r.pic }
-                })
-                .sort((a, b) => b.passRate - a.passRate)}
-              margin={{ top: 24, right: 180, left: 16, bottom: 16 }}
-              barSize={28}
+          {/* Chart Header & Mode Controls */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 10,
+              marginBottom: 16,
+              paddingBottom: 12,
+              borderBottom: '1px solid #f1f5f9'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
+                {picChartMode === 'rate'
+                  ? 'Biểu đồ Tỷ lệ cơ cấu trạng thái điều phối theo PIC (%)'
+                  : picChartMode === 'pass'
+                  ? 'Xếp hạng Tỷ lệ đạt chuẩn điều phối (Benchmark 20%)'
+                  : 'Cơ cấu khối lượng và trạng thái điều phối theo từng PIC (Lệnh)'}
+              </div>
+              <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                {picChartMode === 'rate'
+                  ? 'So sánh tương quan tỷ lệ % Đạt chuẩn, Lệch ngày và Trượt kế hoạch của từng nhân sự'
+                  : picChartMode === 'pass'
+                  ? 'Đánh giá tỷ lệ lệnh đạt chuẩn (Khớp SL + Khớp Job) so với mục tiêu 20%'
+                  : 'Khối lượng lệnh phân bổ theo: Khớp job, Khớp SL, SX sai ngày và Trượt kế hoạch'}
+              </div>
+            </div>
+
+            {/* Mode Switcher */}
+            <div
+              className="screenshot-hide"
+              style={{
+                display: 'inline-flex',
+                background: '#f1f5f9',
+                padding: '2px',
+                borderRadius: 6,
+                border: '1px solid #e2e8f0'
+              }}
             >
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-              <XAxis
-                type="number"
-                domain={[0, 100]}
-                stroke="#64748b"
-                tick={{ fontSize: 11.5, fill: '#64748b' }}
-                tickFormatter={(v) => `${v}%`}
-                axisLine={{ stroke: '#cbd5e1' }}
-                tickLine={false}
-              />
-              <YAxis
-                dataKey="name"
-                type="category"
-                stroke="#64748b"
-                tick={{ fontSize: 12.5, fontWeight: 700, fill: '#0f172a' }}
-                width={120}
-                axisLine={{ stroke: '#cbd5e1' }}
-                tickLine={false}
-              />
-              <ReferenceLine
-                x={20}
-                stroke="#dc2626"
-                strokeDasharray="4 4"
-                strokeWidth={1.5}
-                label={{
-                  value: 'Mục tiêu (20%)',
-                  position: 'top',
-                  fill: '#dc2626',
+              <button
+                type="button"
+                onClick={() => setPicChartMode('volume')}
+                style={{
+                  padding: '5px 10px',
                   fontSize: 11.5,
-                  fontWeight: 700
+                  fontWeight:
+                    picChartMode === 'volume' ||
+                    picChartMode === 'composed' ||
+                    picChartMode === 'stacked'
+                      ? 700
+                      : 500,
+                  color:
+                    picChartMode === 'volume' ||
+                    picChartMode === 'composed' ||
+                    picChartMode === 'stacked'
+                      ? '#0f172a'
+                      : '#64748b',
+                  background:
+                    picChartMode === 'volume' ||
+                    picChartMode === 'composed' ||
+                    picChartMode === 'stacked'
+                      ? '#ffffff'
+                      : 'transparent',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  boxShadow:
+                    picChartMode === 'volume' ||
+                    picChartMode === 'composed' ||
+                    picChartMode === 'stacked'
+                      ? '0 1px 2px rgba(0,0,0,0.06)'
+                      : 'none',
+                  transition: 'all 0.15s ease'
                 }}
-              />
-              <RechartsTooltip content={<ExecutiveChartTooltip />} />
-              <Bar
-                dataKey="passRate"
-                name="Tỷ lệ đạt chuẩn (%)"
-                radius={[0, 4, 4, 0]}
-                isAnimationActive={false}
               >
-                <LabelList
-                  dataKey="passRate"
-                  position="right"
-                  fill="#0f172a"
-                  fontSize={12}
-                  fontWeight={700}
-                  offset={12}
-                  isAnimationActive={false}
-                  formatter={(val, entry) => {
-                    const row = entry?.payload || {}
-                    return `${val}% (${row.totalPass || 0}/${row.totalOrders || 0} lệnh)`
-                  }}
-                />
-                {[...picBreakdown].map((entry, index) => {
-                  const totalPass = (entry.khopSl || 0) + (entry.khopJob || 0)
-                  const rate = entry.totalOrders > 0 ? (totalPass / entry.totalOrders) * 100 : 0
-                  return (
-                    <Cell
-                      key={`cell-rank-${index}`}
-                      fill={rate >= 20 ? '#059669' : rate >= 10 ? '#0284c7' : '#ea580c'}
+                Khối lượng (Lệnh)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPicChartMode('rate')}
+                style={{
+                  padding: '5px 10px',
+                  fontSize: 11.5,
+                  fontWeight: picChartMode === 'rate' ? 700 : 500,
+                  color: picChartMode === 'rate' ? '#0f172a' : '#64748b',
+                  background: picChartMode === 'rate' ? '#ffffff' : 'transparent',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  boxShadow: picChartMode === 'rate' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Tỷ lệ cơ cấu (%)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPicChartMode('pass')}
+                style={{
+                  padding: '5px 10px',
+                  fontSize: 11.5,
+                  fontWeight: picChartMode === 'pass' ? 700 : 500,
+                  color: picChartMode === 'pass' ? '#0f172a' : '#64748b',
+                  background: picChartMode === 'pass' ? '#ffffff' : 'transparent',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  boxShadow: picChartMode === 'pass' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Xếp hạng Đạt chuẩn (%)
+              </button>
+            </div>
+          </div>
+
+          <div style={{ height: Math.max(260, picBreakdown.length * 48 + 50), width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              {picChartMode === 'rate' ? (
+                <BarChart
+                  layout="vertical"
+                  data={[...picBreakdown].map((r) => ({
+                    ...r,
+                    name: r.pic
+                  }))}
+                  margin={{ top: 10, right: 30, left: 16, bottom: 10 }}
+                  barSize={24}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis
+                    type="number"
+                    domain={[0, 100]}
+                    stroke="#64748b"
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    tickFormatter={(v) => `${v}%`}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    stroke="#64748b"
+                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
+                    width={130}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <RechartsTooltip content={<ExecutiveChartTooltip unit="%" />} />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
+                  />
+                  <Bar
+                    dataKey="khopJobRate"
+                    name="Khớp job (%)"
+                    stackId="picRate"
+                    fill="#059669"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="khopSlRate"
+                    name="Khớp số lượng (%)"
+                    stackId="picRate"
+                    fill="#0284c7"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="sxSaiNgayRate"
+                    name="SX sai ngày (%)"
+                    stackId="picRate"
+                    fill="#ea580c"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="truotKhRate"
+                    name="Trượt KH (%)"
+                    stackId="picRate"
+                    fill="#dc2626"
+                    radius={[0, 4, 4, 0]}
+                    isAnimationActive={false}
+                  />
+                </BarChart>
+              ) : picChartMode === 'pass' ? (
+                <BarChart
+                  layout="vertical"
+                  data={(() => {
+                    const sorted = [...picBreakdown]
+                      .map((r) => {
+                        const totalPass = (r.khopSl || 0) + (r.khopJob || 0)
+                        const passRate =
+                          r.totalOrders > 0
+                            ? Number(((totalPass / r.totalOrders) * 100).toFixed(1))
+                            : 0
+                        return { ...r, totalPass, passRate, name: r.pic }
+                      })
+                      .sort((a, b) => b.passRate - a.passRate)
+                    return sorted
+                  })()}
+                  margin={{ top: 20, right: 180, left: 16, bottom: 10 }}
+                  barSize={24}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis
+                    type="number"
+                    domain={[0, 100]}
+                    stroke="#64748b"
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    tickFormatter={(v) => `${v}%`}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    stroke="#64748b"
+                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
+                    width={130}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <ReferenceLine
+                    x={20}
+                    stroke="#dc2626"
+                    strokeDasharray="4 4"
+                    strokeWidth={1.5}
+                    label={{
+                      value: 'Mục tiêu (20%)',
+                      position: 'top',
+                      fill: '#dc2626',
+                      fontSize: 11.5,
+                      fontWeight: 700
+                    }}
+                  />
+                  <RechartsTooltip content={<ExecutiveChartTooltip />} />
+                  <Bar
+                    dataKey="passRate"
+                    name="Tỷ lệ đạt chuẩn (%)"
+                    radius={[0, 4, 4, 0]}
+                    isAnimationActive={false}
+                  >
+                    <LabelList
+                      dataKey="passRate"
+                      position="right"
+                      fill="#0f172a"
+                      fontSize={11.5}
+                      fontWeight={700}
+                      offset={10}
+                      isAnimationActive={false}
+                      formatter={(val, entry) => {
+                        const row = entry?.payload || {}
+                        return `${val}% (${row.totalPass || 0}/${row.totalOrders || 0} lệnh)`
+                      }}
                     />
-                  )
-                })}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+                    {[...picBreakdown]
+                      .map((r) => {
+                        const totalPass = (r.khopSl || 0) + (r.khopJob || 0)
+                        const passRate =
+                          r.totalOrders > 0
+                            ? Number(((totalPass / r.totalOrders) * 100).toFixed(1))
+                            : 0
+                        return { ...r, totalPass, passRate }
+                      })
+                      .sort((a, b) => b.passRate - a.passRate)
+                      .map((entry, index) => {
+                        const rate = entry.passRate
+                        return (
+                          <Cell
+                            key={`cell-pass-${index}`}
+                            fill={rate >= 20 ? '#059669' : rate >= 10 ? '#0284c7' : '#ea580c'}
+                          />
+                        )
+                      })}
+                  </Bar>
+                </BarChart>
+              ) : (
+                <BarChart
+                  layout="vertical"
+                  data={[...picBreakdown].map((r) => ({
+                    ...r,
+                    name: r.pic
+                  }))}
+                  margin={{ top: 10, right: 80, left: 16, bottom: 10 }}
+                  barSize={24}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis
+                    type="number"
+                    stroke="#64748b"
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    stroke="#64748b"
+                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
+                    width={130}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <RechartsTooltip content={<ExecutiveChartTooltip unit=" lệnh" />} />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
+                  />
+                  <Bar
+                    dataKey="khopJob"
+                    name="Khớp job"
+                    stackId="picVol"
+                    fill="#059669"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="khopSl"
+                    name="Khớp số lượng"
+                    stackId="picVol"
+                    fill="#0284c7"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="sxSaiNgay"
+                    name="SX sai ngày KH"
+                    stackId="picVol"
+                    fill="#ea580c"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="truotKh"
+                    name="Trượt KH"
+                    stackId="picVol"
+                    fill="#dc2626"
+                    radius={[0, 4, 4, 0]}
+                    isAnimationActive={false}
+                  >
+                    <LabelList
+                      dataKey="totalOrders"
+                      position="right"
+                      fill="#0f172a"
+                      fontSize={11.5}
+                      fontWeight={700}
+                      offset={10}
+                      isAnimationActive={false}
+                      formatter={(val) => `${val} lệnh`}
+                    />
+                  </Bar>
+                </BarChart>
+              )}
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
-      {/* 7. PHÂN TÍCH CHUYÊN SÂU HIỆU QUẢ ĐIỀU HÀNH & ĐIỂM NGHẼN TỔ SẢN XUẤT */}
+      {/* 6. PHÂN TÍCH CHUYÊN SÂU HIỆU QUẢ ĐIỀU HÀNH & ĐIỂM NGHẼN TỔ SẢN XUẤT */}
       <div
+        ref={chart5Ref}
         style={{
           marginBottom: 44,
           width: '100%',
@@ -1558,21 +1651,42 @@ export default function HanoiGs1PlanReport(props) {
           padding: '8px 0'
         }}
       >
-        <div style={{ marginBottom: 16 }}>
-          <div
-            style={{
-              fontSize: 16,
-              fontWeight: 800,
-              color: '#0f172a',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-          >
-            <span>6. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN</span>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+            marginBottom: 16
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 800,
+                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <span>6. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
+              Đo lường mức độ tuân thủ tiến độ (Schedule Adherence), độ lệch ngày bình quân và tình
+              trạng cân bằng tải giữa các tổ sản xuất
+            </div>
           </div>
-          <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
-            Đo lường mức độ tuân thủ tiến độ (Schedule Adherence), độ lệch ngày bình quân và tình
-            trạng cân bằng tải giữa các tổ sản xuất
+
+          <div className="screenshot-hide">
+            <PureButton
+              icon={<Download size={12} />}
+              onClick={() => handleDownloadSingleChart(chart5Ref, 'DanhGia_TienDo_CanBangTai')}
+              title="Tải ảnh đánh giá tiến độ & cân bằng tải"
+            >
+              Tải ảnh
+            </PureButton>
           </div>
         </div>
 

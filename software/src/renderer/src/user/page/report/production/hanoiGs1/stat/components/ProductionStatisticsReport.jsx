@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   RotateCcw,
   FileSpreadsheet,
@@ -65,6 +65,8 @@ export default function ProductionStatisticsReport(props) {
 
   const [showMachineSummaryTable, setShowMachineSummaryTable] = useState(true)
   const [showTeamSummaryTable, setShowTeamSummaryTable] = useState(true)
+  const [showSyncTable, setShowSyncTable] = useState(true)
+  const [showAutoExportTable, setShowAutoExportTable] = useState(true)
 
   const {
     // State
@@ -111,6 +113,8 @@ export default function ProductionStatisticsReport(props) {
     chart1Ref,
     chart2Ref,
     chart3Ref,
+    syncChartRef,
+    autoExportChartRef,
     machineGridRef,
     teamGridRef,
     detailGridRef,
@@ -241,7 +245,7 @@ export default function ProductionStatisticsReport(props) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {masterList && masterList.length > 0 && (
+            {masterList && masterList.length > 0 ? (
               <MasterBatchSearchSelect
                 masterList={masterList}
                 selectedMasterKey={selectedMasterKey}
@@ -249,6 +253,23 @@ export default function ProductionStatisticsReport(props) {
                 onRefreshMaster={onRefreshMaster}
                 loading={loadingMaster}
               />
+            ) : (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '4px 10px',
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: 4,
+                  fontSize: 12,
+                  color: '#92400e',
+                  fontWeight: 600
+                }}
+              >
+                <span>⚠️ Chưa có đợt TKSX nào được đăng ký cho {plantName || 'nhà máy'}</span>
+              </div>
             )}
           </div>
 
@@ -754,8 +775,7 @@ export default function ProductionStatisticsReport(props) {
               }}
             >
               <span>
-                I. THỐNG KÊ TỔNG GIỜ CHẠY MÁY & PHÂN BỔ TẢI TRỌNG THEO CỤM MÁY (MACHINE RUNTIME &
-                WORKLOAD ANALYSIS)
+                I. THỐNG KÊ TỔNG GIỜ CHẠY MÁY & PHÂN BỔ TẢI TRỌNG THEO CỤM MÁY
               </span>
             </div>
             <div
@@ -1500,7 +1520,7 @@ export default function ProductionStatisticsReport(props) {
               }}
             >
               <span>
-                II. THỐNG KÊ SẢN LƯỢNG SẢN XUẤT & ĐẠT THEO TỔ SẢN XUẤT (TEAM PRODUCTION OUTPUT)
+                II. THỐNG KÊ SẢN LƯỢNG SẢN XUẤT & ĐẠT THEO TỔ SẢN XUẤT
               </span>
             </div>
             <div
@@ -1821,7 +1841,7 @@ export default function ProductionStatisticsReport(props) {
                           padding: '9px 12px',
                           textAlign: 'right',
                           fontWeight: 600,
-                          color: '#0f766e'
+                          color: '#0f172a'
                         }}
                       >
                         {row.totalPassQty?.toLocaleString('vi-VN')}
@@ -1841,13 +1861,8 @@ export default function ProductionStatisticsReport(props) {
                         style={{
                           padding: '9px 12px',
                           textAlign: 'right',
-                          fontWeight: 800,
-                          color:
-                            Number(row.passRate) >= 95
-                              ? '#0f766e'
-                              : Number(row.passRate) >= 80
-                                ? '#d97706'
-                                : '#dc2626'
+                          fontWeight: 700,
+                          color: '#0f172a'
                         }}
                       >
                         {row.passRate}%
@@ -1856,8 +1871,8 @@ export default function ProductionStatisticsReport(props) {
                         style={{
                           padding: '9px 12px',
                           textAlign: 'right',
-                          fontWeight: 700,
-                          color: '#0369a1'
+                          fontWeight: 600,
+                          color: '#334155'
                         }}
                       >
                         {row.mesRate}%
@@ -1865,7 +1880,7 @@ export default function ProductionStatisticsReport(props) {
                       <td style={{ padding: '9px 12px', textAlign: 'right', fontSize: 11.5 }}>
                         {row.under5Min > 0 && (
                           <span
-                            style={{ color: '#be123c', fontWeight: 700, marginRight: 6 }}
+                            style={{ color: '#dc2626', fontWeight: 700, marginRight: 6 }}
                             title="Số đơn nhập dưới 5 phút"
                           >
                             {row.under5Min} (&lt;5p)
@@ -1873,14 +1888,14 @@ export default function ProductionStatisticsReport(props) {
                         )}
                         {row.anomalies > 0 && (
                           <span
-                            style={{ color: '#d97706', fontWeight: 700 }}
+                            style={{ color: '#dc2626', fontWeight: 700 }}
                             title="Số đơn chạy trên 12h cần kiểm tra"
                           >
                             {row.anomalies} (&gt;12h)
                           </span>
                         )}
                         {!row.under5Min && !row.anomalies && (
-                          <span style={{ color: '#0f766e', fontWeight: 600 }}>Chuẩn</span>
+                          <span style={{ color: '#64748b', fontWeight: 500 }}>Chuẩn</span>
                         )}
                       </td>
                     </tr>
@@ -1916,7 +1931,7 @@ export default function ProductionStatisticsReport(props) {
                         padding: '10px 12px',
                         textAlign: 'right',
                         fontWeight: 800,
-                        color: '#0f766e'
+                        color: '#0f172a'
                       }}
                     >
                       {teamGrandTotal.totalPass?.toLocaleString('vi-VN')}
@@ -1926,7 +1941,7 @@ export default function ProductionStatisticsReport(props) {
                         padding: '10px 12px',
                         textAlign: 'right',
                         fontWeight: 800,
-                        color: '#dc2626'
+                        color: teamGrandTotal.totalDefect > 0 ? '#dc2626' : '#0f172a'
                       }}
                     >
                       {teamGrandTotal.totalDefect?.toLocaleString('vi-VN')}
@@ -1935,8 +1950,8 @@ export default function ProductionStatisticsReport(props) {
                       style={{
                         padding: '10px 12px',
                         textAlign: 'right',
-                        fontWeight: 900,
-                        color: '#0f766e'
+                        fontWeight: 800,
+                        color: '#0f172a'
                       }}
                     >
                       {teamGrandTotal.avgPassRate}%
@@ -1946,7 +1961,7 @@ export default function ProductionStatisticsReport(props) {
                         padding: '10px 12px',
                         textAlign: 'right',
                         fontWeight: 800,
-                        color: '#0369a1'
+                        color: '#0f172a'
                       }}
                     >
                       {teamGrandTotal.mesRate}%
@@ -1973,7 +1988,504 @@ export default function ProductionStatisticsReport(props) {
         )}
       </div>
 
-      {/* 6. EXECUTIVE SECTION III: NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT */}
+      {/* 6 & 7. EXECUTIVE ROW: BIỂU ĐỒ III & BIỂU ĐỒ IV (CHIA ĐÔI 1 HÀNG) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
+          gap: 24,
+          marginBottom: 44,
+          width: '100%',
+          alignItems: 'start'
+        }}
+      >
+        {/* CỘT TRÁI: III. THỐNG KÊ ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG */}
+        <div
+          ref={syncChartRef}
+          style={{ width: '100%', background: '#ffffff', padding: '8px 0' }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 12
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 800,
+                  color: '#0f172a',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <span>III. THỐNG KÊ ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG</span>
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: '#475569',
+                  marginTop: 4,
+                  lineHeight: 1.5
+                }}
+              >
+                Độ trễ truyền tải từ MES về Bravo ERP trên toàn bộ <b>{kpiMetrics.totalTickets.toLocaleString('vi-VN')} phiếu</b> ({plantName || 'Nhà máy'}). Độ trễ TB: <b style={{ color: '#245d6c' }}>{kpiMetrics.avgSyncDelaySeconds}s</b> ({kpiMetrics.syncLatencyFormatted}) • Tức thời: <b style={{ color: '#0f766e' }}>{kpiMetrics.syncSuccessRate}</b>.
+              </div>
+            </div>
+            <div
+              className="screenshot-hide"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}
+            >
+              <PureButton
+                icon={<Layers size={12} />}
+                onClick={() => setShowSyncTable(!showSyncTable)}
+                title={showSyncTable ? 'Thu gọn bảng dữ liệu tóm tắt' : 'Mở bảng dữ liệu tóm tắt'}
+                style={{
+                  borderColor: showSyncTable ? '#245d6c' : '#cbd5e1',
+                  color: showSyncTable ? '#245d6c' : '#334155',
+                  background: showSyncTable ? '#f0fdfa' : '#ffffff',
+                  fontWeight: showSyncTable ? 700 : 500,
+                  fontSize: 11.5,
+                  padding: '4px 8px'
+                }}
+              >
+                {showSyncTable ? 'Đóng bảng' : 'Mở bảng'}
+              </PureButton>
+              <PureButton
+                icon={<Download size={12} />}
+                onClick={() => handleDownloadSingleChart(syncChartRef, 'BieuDo_DoTreDongBo')}
+                style={{ fontSize: 11.5, padding: '4px 8px' }}
+              >
+                Tải ảnh
+              </PureButton>
+            </div>
+          </div>
+
+          {/* Biểu đồ phân bổ độ trễ đồng bộ */}
+          <div
+            style={{
+              width: '100%',
+              height: Math.max(260, (kpiMetrics.syncBreakdown?.length || 5) * 44 + 50),
+              border: '1px solid #e2e8f0',
+              padding: '14px 16px 14px 6px',
+              background: '#ffffff'
+            }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={kpiMetrics.syncBreakdown}
+                layout="vertical"
+                margin={{ top: 10, right: 60, left: 115, bottom: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis
+                  type="number"
+                  stroke="#cbd5e1"
+                  strokeWidth={1}
+                  tickLine={true}
+                  tickFormatter={(v) => v.toLocaleString('vi-VN')}
+                  fontSize={11}
+                  tick={{ fill: '#334155' }}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="group"
+                  stroke="#cbd5e1"
+                  strokeWidth={1}
+                  tickLine={true}
+                  fontSize={11.5}
+                  tick={{ fill: '#0f172a', fontWeight: 700 }}
+                  width={110}
+                />
+                <RechartsTooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload
+                      return (
+                        <div
+                          style={{
+                            background: '#0f172a',
+                            color: '#ffffff',
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            borderRadius: 2
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: 4 }}>{d.group}</div>
+                          <div>Số lượng phiếu: <b style={{ color: '#ffffff' }}>{d.count?.toLocaleString('vi-VN')} phiếu</b></div>
+                          <div>Tỷ lệ chiếm: <b style={{ color: '#a7f3d0' }}>{d.rate}%</b></div>
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                />
+                <Bar
+                  dataKey="count"
+                  barSize={18}
+                  radius={[0, 2, 2, 0]}
+                >
+                  <LabelList
+                    dataKey="count"
+                    position="right"
+                    formatter={(v, entry) => {
+                      const item = entry || {}
+                      const rate = item.rate !== undefined ? item.rate : 0
+                      return v ? `${Number(v).toLocaleString('vi-VN')} (${rate}%)` : ''
+                    }}
+                    style={{ fill: '#0f172a', fontSize: 11, fontWeight: 700 }}
+                  />
+                  {kpiMetrics.syncBreakdown &&
+                    kpiMetrics.syncBreakdown.map((entry, index) => (
+                      <Cell key={`cell-sync-${index}`} fill={entry.color || '#245d6c'} />
+                    ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Bảng Gom nhóm phân bổ độ trễ đồng bộ */}
+          {showSyncTable && (
+            <div style={{ width: '100%', marginTop: 14, overflowX: 'auto' }}>
+              <table
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  borderTop: '2px solid #0f172a',
+                  borderBottom: '2px solid #0f172a',
+                  fontSize: 11.5,
+                  textAlign: 'left',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #0f172a', background: '#f8fafc' }}>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Dải thời gian đồng bộ
+                    </th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Đánh giá mức độ
+                    </th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Số phiếu
+                    </th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Tỷ lệ (%)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kpiMetrics.syncBreakdown &&
+                    kpiMetrics.syncBreakdown.map((row, idx) => (
+                      <tr
+                        key={idx}
+                        style={{
+                          borderBottom: '1px solid #e2e8f0',
+                          background: idx % 2 === 1 ? '#fafafa' : 'transparent',
+                          transition: 'background 0.15s ease'
+                        }}
+                      >
+                        <td style={{ padding: '8px 10px', fontWeight: 600, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 9, height: 9, borderRadius: 2, background: row.color || '#245d6c', display: 'inline-block', flexShrink: 0 }} />
+                          {row.group}
+                        </td>
+                        <td style={{ padding: '8px 10px', color: '#475569', fontSize: 11 }}>
+                          {row.group.includes('≤ 10')
+                            ? 'Tức thời (<10s)'
+                            : row.group.includes('11 – 30')
+                              ? 'Nhanh (11–30s)'
+                              : row.group.includes('31 – 60')
+                                ? 'Chấp nhận được'
+                                : row.group.includes('> 60')
+                                  ? 'Độ trễ cao (>60s)'
+                                  : 'Chưa đồng bộ'}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
+                          {row.count?.toLocaleString('vi-VN')}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 800, color: '#0f172a' }}>
+                          {row.rate}%
+                        </td>
+                      </tr>
+                    ))}
+                  <tr style={{ borderTop: '1.5px solid #0f172a', background: '#f1f5f9' }}>
+                    <td colSpan={2} style={{ padding: '9px 10px', fontWeight: 800, color: '#0f172a' }}>
+                      TỔNG CỘNG
+                    </td>
+                    <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: '#0f172a' }}>
+                      {kpiMetrics.totalTickets?.toLocaleString('vi-VN')}
+                    </td>
+                    <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 900, color: '#0f172a' }}>
+                      100.0%
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* CỘT PHẢI: IV. THỐNG KÊ PHÂN BỔ LOẠI CHỨNG TỪ XUẤT/NHẬP TỰ ĐỘNG */}
+        <div
+          ref={autoExportChartRef}
+          style={{ width: '100%', background: '#ffffff', padding: '8px 0' }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 12
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 800,
+                  color: '#0f172a',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <span>IV. THỐNG KÊ PHÂN BỔ LOẠI CHỨNG TỪ XUẤT/NHẬP TỰ ĐỘNG</span>
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: '#475569',
+                  marginTop: 4,
+                  lineHeight: 1.5
+                }}
+              >
+                Liên kết tự động xuất/nhập kho trên <b>{kpiMetrics.totalTickets.toLocaleString('vi-VN')} phiếu</b> ({plantName || 'Nhà máy'}). Tỷ lệ tự động: <b style={{ color: '#0d9488' }}>{kpiMetrics.autoExportRate}%</b> ({kpiMetrics.autoExportCount.toLocaleString('vi-VN')} phiếu) • Chưa sinh/thiếu: <b style={{ color: '#dc2626' }}>{kpiMetrics.noAutoExportCount.toLocaleString('vi-VN')} phiếu ({kpiMetrics.noAutoExportRate}%)</b>.
+              </div>
+            </div>
+            <div
+              className="screenshot-hide"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}
+            >
+              <PureButton
+                icon={<Layers size={12} />}
+                onClick={() => setShowAutoExportTable(!showAutoExportTable)}
+                title={showAutoExportTable ? 'Thu gọn bảng dữ liệu tóm tắt' : 'Mở bảng dữ liệu tóm tắt'}
+                style={{
+                  borderColor: showAutoExportTable ? '#245d6c' : '#cbd5e1',
+                  color: showAutoExportTable ? '#245d6c' : '#334155',
+                  background: showAutoExportTable ? '#f0fdfa' : '#ffffff',
+                  fontWeight: showAutoExportTable ? 700 : 500,
+                  fontSize: 11.5,
+                  padding: '4px 8px'
+                }}
+              >
+                {showAutoExportTable ? 'Đóng bảng' : 'Mở bảng'}
+              </PureButton>
+              <PureButton
+                icon={<Download size={12} />}
+                onClick={() => handleDownloadSingleChart(autoExportChartRef, 'BieuDo_XuatNhapTuDong')}
+                style={{ fontSize: 11.5, padding: '4px 8px' }}
+              >
+                Tải ảnh
+              </PureButton>
+            </div>
+          </div>
+
+          {/* Biểu đồ phân bổ loại chứng từ tự động */}
+          <div
+            style={{
+              width: '100%',
+              height: Math.max(260, (kpiMetrics.autoExportBreakdown?.length || 5) * 44 + 50),
+              border: '1px solid #e2e8f0',
+              padding: '14px 16px 14px 6px',
+              background: '#ffffff'
+            }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={kpiMetrics.autoExportBreakdown}
+                layout="vertical"
+                margin={{ top: 10, right: 60, left: 135, bottom: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis
+                  type="number"
+                  stroke="#cbd5e1"
+                  strokeWidth={1}
+                  tickLine={true}
+                  tickFormatter={(v) => v.toLocaleString('vi-VN')}
+                  fontSize={11}
+                  tick={{ fill: '#334155' }}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  stroke="#cbd5e1"
+                  strokeWidth={1}
+                  tickLine={true}
+                  fontSize={11.5}
+                  tick={({ x, y, payload }) => {
+                    const label = payload?.value || ''
+                    return (
+                      <g transform={`translate(${x},${y})`}>
+                        <text
+                          x={-8}
+                          y={4}
+                          textAnchor="end"
+                          fill="#0f172a"
+                          fontWeight={600}
+                          fontSize={11.5}
+                        >
+                          {label}
+                        </text>
+                      </g>
+                    )
+                  }}
+                  width={130}
+                />
+                <RechartsTooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload
+                      return (
+                        <div
+                          style={{
+                            background: '#0f172a',
+                            color: '#ffffff',
+                            padding: '8px 12px',
+                            fontSize: 12,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            borderRadius: 2
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: 4 }}>{d.label}</div>
+                          <div>Số lượng phiếu: <b style={{ color: '#ffffff' }}>{d.count?.toLocaleString('vi-VN')} phiếu</b></div>
+                          <div>Tỷ lệ chiếm: <b style={{ color: '#a7f3d0' }}>{d.rate}%</b></div>
+                          <div>Đánh giá: <b style={{ color: d.isMissing ? '#fca5a5' : '#a7f3d0' }}>{d.isMissing ? 'Chưa sinh / Thiếu phiếu' : 'Đã sinh / Hợp lệ'}</b></div>
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                />
+                <Bar
+                  dataKey="count"
+                  barSize={18}
+                  radius={[0, 2, 2, 0]}
+                >
+                  <LabelList
+                    dataKey="count"
+                    position="right"
+                    formatter={(v, entry) => {
+                      const item = entry || {}
+                      const rate = item.rate !== undefined ? item.rate : 0
+                      return v ? `${Number(v).toLocaleString('vi-VN')} (${rate}%)` : ''
+                    }}
+                    style={{ fill: '#0f172a', fontSize: 11, fontWeight: 700 }}
+                  />
+                  {kpiMetrics.autoExportBreakdown &&
+                    kpiMetrics.autoExportBreakdown.map((entry, index) => (
+                      <Cell key={`cell-auto-${index}`} fill={entry.color || '#245d6c'} />
+                    ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Bảng Gom nhóm phân bổ loại chứng từ tự động */}
+          {showAutoExportTable && (
+            <div style={{ width: '100%', marginTop: 14, overflowX: 'auto' }}>
+              <table
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  borderTop: '2px solid #0f172a',
+                  borderBottom: '2px solid #0f172a',
+                  fontSize: 11.5,
+                  textAlign: 'left',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  fontVariantNumeric: 'tabular-nums'
+                }}
+              >
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #0f172a', background: '#f8fafc' }}>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Loại trạng thái chứng từ tự động
+                    </th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Đánh giá KPI
+                    </th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Số phiếu
+                    </th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Tỷ lệ (%)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kpiMetrics.autoExportBreakdown &&
+                    kpiMetrics.autoExportBreakdown.map((row, idx) => {
+                      const isMissing = row.isMissing || row.label.includes('Không có') || row.label.includes('Thiếu')
+                      return (
+                        <tr
+                          key={idx}
+                          style={{
+                            borderBottom: '1px solid #e2e8f0',
+                            background: idx % 2 === 1 ? '#fafafa' : 'transparent',
+                            transition: 'background 0.15s ease'
+                          }}
+                        >
+                          <td style={{ padding: '8px 10px', fontWeight: 600, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: isMissing ? '#64748b' : '#245d6c', display: 'inline-block', flexShrink: 0 }} />
+                            {row.label}
+                          </td>
+                          <td style={{ padding: '8px 10px', fontSize: 11 }}>
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                color: isMissing ? '#b91c1c' : '#475569',
+                                background: isMissing ? '#fef2f2' : '#f1f5f9',
+                                padding: '2px 6px',
+                                borderRadius: 3,
+                                display: 'inline-block'
+                              }}
+                            >
+                              {isMissing ? 'Chưa sinh / Thiếu phiếu' : 'Đã sinh / Hợp lệ'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                            {row.count?.toLocaleString('vi-VN')}
+                          </td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
+                            {row.rate}%
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  <tr style={{ borderTop: '1.5px solid #0f172a', background: '#f1f5f9' }}>
+                    <td colSpan={2} style={{ padding: '9px 10px', fontWeight: 800, color: '#0f172a' }}>
+                      TỔNG CỘNG
+                    </td>
+                    <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 800, color: '#0f172a' }}>
+                      {kpiMetrics.totalTickets?.toLocaleString('vi-VN')}
+                    </td>
+                    <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 900, color: '#0f172a' }}>
+                      100.0%
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 8. EXECUTIVE SECTION V: NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT */}
       <div style={{ marginBottom: 40, marginTop: 40 }}>
         {/* Header Section */}
         <div style={{ marginBottom: 16 }}>
@@ -1987,7 +2499,7 @@ export default function ProductionStatisticsReport(props) {
             }}
           >
             <span>
-              III. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT (OPERATIONAL AUDIT TRAIL)
+              V. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT (OPERATIONAL AUDIT TRAIL)
             </span>
           </div>
           <div
@@ -2000,7 +2512,7 @@ export default function ProductionStatisticsReport(props) {
             }}
           >
             Nhật trình kiểm toán chi tiết từng phiếu tác nghiệp sản xuất thời gian thực trên toàn bộ{' '}
-            <b>{filteredData.length} phiếu</b> ghi nhận tại {plantName || 'Nhà máy'}. Bảng hỗ trợ cuộn ảo mượt mà 60fps, sắp xếp đa chiều, tìm kiếm tức thì, sao chép và xuất Excel.
+            <b>{filteredData.length} phiếu</b> ghi nhận tại {plantName || 'Nhà máy'}, hỗ trợ sắp xếp đa chiều, tìm kiếm tức thì, sao chép và xuất Excel.
           </div>
         </div>
 

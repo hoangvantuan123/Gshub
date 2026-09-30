@@ -6,6 +6,15 @@ import {
   queryProdStatsDetail,
   queryPlanDetail
 } from '../../../data/import/services/planRegistrationService'
+import {
+  getCachedMasters,
+  setCachedMasters,
+  getCachedDetail,
+  setCachedDetail,
+  getCachedActiveMaster,
+  setCachedActiveMaster,
+  clearReportCache
+} from '../../../common/reportDataCache'
 
 /**
  * Chuyển đổi và tính toán chính xác Thời gian thao tác theo PHÚT (Duration in Minutes)
@@ -119,27 +128,21 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
   const passRate =
     actualQty > 0 ? Number(Math.min(100, Math.max(0, (passQty / actualQty) * 100)).toFixed(2)) : 100
 
+  const rawStart = item.StartTime || item.startTime || item.TicketCreatedDate || ''
+  const rawEnd = item.EndTime || item.endTime || item.MesApprovalTime || ''
+
   // Tính toán durationMinutes và runtimeHours chính xác theo phút
-  const durationMinutes =
-    item.DurationMinutes !== undefined && item.DurationMinutes !== null && item.DurationMinutes !== ''
-      ? Number(item.DurationMinutes)
-      : item.durationMinutes !== undefined && item.durationMinutes !== null && item.durationMinutes !== ''
-        ? Number(item.durationMinutes)
-        : undefined
+  const finalDurationMinutes = parseDurationToMinutes(
+    item.DurationMinutes ||
+      item.durationMinutes ||
+      item.ActualRunTime ||
+      item.ActualProdTime ||
+      item.BreakdownMinutes,
+    rawStart,
+    rawEnd
+  )
 
-  const finalDurationMinutes =
-    durationMinutes !== undefined
-      ? durationMinutes
-      : parseDurationToMinutes(
-          item.ActualRunTime || item.ActualProdTime || item.BreakdownMinutes,
-          item.StartTime || item.startTime || item.TicketCreatedDate,
-          item.EndTime || item.endTime || item.MesApprovalTime
-        )
-
-  const runtimeHours =
-    item.RuntimeHours !== undefined && item.RuntimeHours !== null && item.RuntimeHours !== ''
-      ? Number(item.RuntimeHours)
-      : Number((finalDurationMinutes / 60).toFixed(2))
+  const runtimeHours = Number((finalDurationMinutes / 60).toFixed(2))
 
   const prodDate =
     item.StatDate ||
@@ -190,30 +193,10 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
           : '5MIN_12H',
     shift: item.Shift || 'Ca 1',
     prodDate,
-    startTime:
-      item.StartTime ||
-      item.startTime ||
-      (item.TicketCreatedDate
-        ? String(item.TicketCreatedDate).slice(0, 19).replace('T', ' ')
-        : `${prodDate} 07:30:00`),
-    endTime:
-      item.EndTime ||
-      item.endTime ||
-      (item.MesApprovalTime
-        ? String(item.MesApprovalTime).slice(0, 19).replace('T', ' ')
-        : `${prodDate} 15:30:00`),
-    StartTime:
-      item.StartTime ||
-      item.startTime ||
-      (item.TicketCreatedDate
-        ? String(item.TicketCreatedDate).slice(0, 19).replace('T', ' ')
-        : `${prodDate} 07:30:00`),
-    EndTime:
-      item.EndTime ||
-      item.endTime ||
-      (item.MesApprovalTime
-        ? String(item.MesApprovalTime).slice(0, 19).replace('T', ' ')
-        : `${prodDate} 15:30:00`),
+    startTime: rawStart ? String(rawStart).replace('T', ' ') : '',
+    endTime: rawEnd ? String(rawEnd).replace('T', ' ') : '',
+    StartTime: rawStart ? String(rawStart).replace('T', ' ') : '',
+    EndTime: rawEnd ? String(rawEnd).replace('T', ' ') : '',
     createdSource: item.TicketCreationLocation || 'MES',
     syncDelayMinutes:
       item.SyncDelayMinutes !== undefined && item.SyncDelayMinutes !== null
@@ -264,23 +247,46 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
 }
 
 export default function HanoiGs1StatPage() {
-  const [loading, setLoading] = useState(false)
-  const [masterList, setMasterList] = useState([])
-  const [selectedMasterKey, setSelectedMasterKey] = useState(null)
-  const [currentMaster, setCurrentMaster] = useState(null)
-  const [statDataset, setStatDataset] = useState(initialHanoiGs1Stats)
-  const [dataSourceType, setDataSourceType] = useState('sample') // 'database' | 'sample'
-  const cachedStatDataRef = useRef({})
+  const cacheKey = 'hanoi_stat'
+  const cachedInitialMasters = getCachedMasters(cacheKey) || []
+  const cachedInitialActiveMaster =
+    getCachedActiveMaster(cacheKey) || (cachedInitialMasters.length > 0 ? cachedInitialMasters[0] : null)
+  const initialDetailKey = cachedInitialActiveMaster
+    ? cachedInitialActiveMaster.RegCode || cachedInitialActiveMaster.IdSeq
+    : null
+  const cachedInitialDataset = initialDetailKey
+    ? getCachedDetail(`hanoi_stat_${initialDetailKey}`) || null
+    : null
+
+  const [loading, setLoading] = useState(cachedInitialMasters.length === 0)
+  const [masterList, setMasterList] = useState(cachedInitialMasters)
+  const [selectedMasterKey, setSelectedMasterKey] = useState(
+    initialDetailKey ? String(initialDetailKey) : null
+  )
+  const [currentMaster, setCurrentMaster] = useState(cachedInitialActiveMaster)
+  const [statDataset, setStatDataset] = useState(
+    cachedInitialDataset && cachedInitialDataset.length > 0
+      ? cachedInitialDataset
+      : initialHanoiGs1Stats
+  )
+  const [dataSourceType, setDataSourceType] = useState(
+    cachedInitialDataset && cachedInitialDataset.length > 0 ? 'database' : 'sample'
+  )
 
   // Tải chi tiết cho 1 Master cụ thể (sử dụng in-memory cache để chuyển đổi tức thì 0ms)
-  const loadDetailForMaster = async (master, forceRefresh = false) => {
+  const loadDetailForMaster = useCallback(async (master, forceRefresh = false) => {
     if (!master) return
     const regCode = master.RegCode || master.regCode || String(master.IdSeq || master.MasterSeq)
+    const detailKey = `hanoi_stat_${regCode}`
 
-    if (!forceRefresh && cachedStatDataRef.current[regCode]) {
-      setStatDataset(cachedStatDataRef.current[regCode])
-      setDataSourceType('database')
-      return
+    if (!forceRefresh) {
+      const cached = getCachedDetail(detailKey)
+      if (cached && cached.length > 0) {
+        setStatDataset(cached)
+        setDataSourceType('database')
+        setLoading(false)
+        return
+      }
     }
 
     setLoading(true)
@@ -298,23 +304,23 @@ export default function HanoiGs1StatPage() {
         } catch (errStats) {
           console.warn('Không tìm thấy trong ProdStatsDetail:', errStats)
         }
+      }
 
-        // 2. Nếu không có ở bảng TKSX, lấy từ _ERPPlanDetail (Chi tiết KHSX)
-        if (rows.length === 0) {
-          try {
-            const resPlan = await queryPlanDetail({ RegCode: apiRegCode, pageSize: '10000' })
-            if (resPlan?.data && resPlan.data.length > 0) {
-              rows = resPlan.data
-            }
-          } catch (errPlan) {
-            console.warn('Không tìm thấy trong PlanDetail:', errPlan)
+      // 2. Nếu không có ở bảng TKSX, lấy từ _ERPPlanDetail (Chi tiết KHSX)
+      if (rows.length === 0) {
+        try {
+          const resPlan = await queryPlanDetail({ RegCode: apiRegCode, pageSize: '10000' })
+          if (resPlan?.data && resPlan.data.length > 0) {
+            rows = resPlan.data
           }
+        } catch (errPlan) {
+          console.warn('Không tìm thấy trong PlanDetail:', errPlan)
         }
       }
 
       if (rows.length > 0) {
         const mappedData = rows.map((item, idx) => mapDBRowToStatItem(item, idx, master))
-        cachedStatDataRef.current[regCode] = mappedData
+        setCachedDetail(detailKey, mappedData)
         setStatDataset(mappedData)
         setDataSourceType('database')
       } else {
@@ -329,87 +335,104 @@ export default function HanoiGs1StatPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  // Fetch danh sách Master các đợt đăng ký từ CSDL
-  const fetchMastersAndLatestData = useCallback(async (targetRegCode = null, clearCache = false) => {
-    if (clearCache) {
-      cachedStatDataRef.current = {}
-    }
-    setLoading(true)
-    try {
-      // 1. Lấy danh sách master đăng ký từ DB và lọc CHẶT CHẼ theo mã nhà máy GS1 (Hà Nội) ngay từ API
-      const resAll = await queryPlanMaster({ FactoryCode: 'GS1' })
-      const allMasters = resAll?.data || []
-
-      const masters = allMasters.filter((m) => {
-        const code = String(m.FactoryCode || m.factoryCode || '')
-          .toUpperCase()
-          .trim()
-        const f = String(m.FactoryName || m.factoryName || '')
-          .toLowerCase()
-          .trim()
-        const isHanoi =
-          code === 'GS1' ||
-          f.includes('hà nội') ||
-          f.includes('gs1') ||
-          f.includes('hanoi') ||
-          (!f.includes('quế võ') && !f.includes('gs5') && !f.includes('quevo'))
-        const isStat =
-          !m.ReportType ||
-          m.ReportType === 'statistics' ||
-          m.ReportType === 'tksx' ||
-          m.ReportType === 'Thống kê sản xuất'
-        return isHanoi && isStat
-      })
-
-      // Sắp xếp master mới nhất lên đầu
-      masters.sort((a, b) => {
-        const dateA = new Date(a.CreatedAt || a.ApplyDate || 0).getTime()
-        const dateB = new Date(b.CreatedAt || b.ApplyDate || 0).getTime()
-        return dateB - dateA || (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
-      })
-
-      setMasterList(masters)
-
-      if (masters.length > 0) {
-        // Tìm master mục tiêu hoặc lấy master mới nhất (ưu tiên đợt TKSX nếu có)
-        let activeMaster = null
-        if (targetRegCode) {
-          activeMaster = masters.find(
-            (m) =>
-              (m.RegCode || m.regCode) === targetRegCode ||
-              String(m.IdSeq || m.MasterSeq) === String(targetRegCode)
-          )
-        }
-        if (!activeMaster) {
-          activeMaster =
-            masters.find((m) => m.ReportType === 'statistics' || m.ReportType === 'tksx') ||
-            masters[0]
-        }
-
-        const activeKey =
-          activeMaster.RegCode ||
-          activeMaster.regCode ||
-          String(activeMaster.IdSeq || activeMaster.MasterSeq)
-        setSelectedMasterKey(activeKey)
-        setCurrentMaster(activeMaster)
-
-        // 2. Tải dữ liệu chi tiết của master này
-        await loadDetailForMaster(activeMaster, clearCache)
-      } else {
-        // Không có dữ liệu đăng ký trong DB -> Dùng dữ liệu mẫu
-        setStatDataset(initialHanoiGs1Stats)
-        setDataSourceType('sample')
-      }
-    } catch (err) {
-      console.error('Lỗi khi tải dữ liệu đăng ký TKSX GS1 Hà Nội:', err)
-      setStatDataset(initialHanoiGs1Stats)
-      setDataSourceType('sample')
-    } finally {
-      setLoading(false)
-    }
   }, [])
+
+  // Fetch danh sách Master các đợt đăng ký từ CSDL (SWR Caching)
+  const fetchMastersAndLatestData = useCallback(
+    async (targetRegCode = null, clearCache = false) => {
+      if (clearCache) {
+        clearReportCache(cacheKey)
+      }
+      if (!getCachedMasters(cacheKey) || clearCache) {
+        setLoading(true)
+      }
+      try {
+        // 1. Lấy danh sách master đăng ký từ DB và lọc CHẶT CHẼ theo mã nhà máy GS1 (Hà Nội) và loại TKSX
+        const resAll = await queryPlanMaster({ FactoryCode: 'GS1', ReportType: 'statistics' })
+        const allMasters = resAll?.data || []
+
+        const masters = allMasters.filter((m) => {
+          const code = String(m.FactoryCode || m.factoryCode || '')
+            .toUpperCase()
+            .trim()
+          const f = String(m.FactoryName || m.factoryName || '')
+            .toLowerCase()
+            .trim()
+          const isHanoi =
+            (code === 'GS1' ||
+              code === 'HANOI' ||
+              f.includes('hà nội') ||
+              f.includes('ha noi') ||
+              f.includes('hanoi') ||
+              f.includes('gs1')) &&
+            !f.includes('quế võ') &&
+            !f.includes('gs5') &&
+            !f.includes('quevo') &&
+            code !== 'GS5'
+          const isStat =
+            m.ReportType === 'statistics' ||
+            m.ReportType === 'tksx' ||
+            m.ReportType === 'Thống kê sản xuất' ||
+            String(m.ReportType || '').toLowerCase().includes('thống kê') ||
+            String(m.ReportType || '').toLowerCase().includes('stat')
+          return isHanoi && isStat
+        })
+
+        // Sắp xếp master mới nhất lên đầu
+        masters.sort((a, b) => {
+          const dateA = new Date(a.CreatedAt || a.ApplyDate || 0).getTime()
+          const dateB = new Date(b.CreatedAt || b.ApplyDate || 0).getTime()
+          return dateB - dateA || (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
+        })
+
+        setCachedMasters(cacheKey, masters)
+        setMasterList(masters)
+
+        if (masters.length > 0) {
+          let activeMaster = null
+          if (targetRegCode) {
+            activeMaster = masters.find(
+              (m) =>
+                (m.RegCode || m.regCode) === targetRegCode ||
+                String(m.IdSeq || m.MasterSeq) === String(targetRegCode)
+            )
+          }
+          if (!activeMaster) {
+            activeMaster =
+              masters.find((m) => m.ReportType === 'statistics' || m.ReportType === 'tksx') ||
+              masters[0]
+          }
+
+          const activeKey =
+            activeMaster.RegCode ||
+            activeMaster.regCode ||
+            String(activeMaster.IdSeq || activeMaster.MasterSeq)
+          setSelectedMasterKey(activeKey)
+          setCurrentMaster(activeMaster)
+          setCachedActiveMaster(cacheKey, activeMaster)
+
+          // 2. Tải dữ liệu chi tiết của master này
+          await loadDetailForMaster(activeMaster, clearCache)
+        } else {
+          setSelectedMasterKey(null)
+          setCurrentMaster(null)
+          setStatDataset(initialHanoiGs1Stats)
+          setDataSourceType('sample')
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải dữ liệu đăng ký TKSX GS1 Hà Nội:', err)
+        if (!getCachedMasters(cacheKey)) {
+          setSelectedMasterKey(null)
+          setCurrentMaster(null)
+          setStatDataset(initialHanoiGs1Stats)
+          setDataSourceType('sample')
+        }
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loadDetailForMaster]
+  )
 
   // Tự động tải dữ liệu khi trang mở
   useEffect(() => {
@@ -426,6 +449,7 @@ export default function HanoiGs1StatPage() {
     )
     if (found) {
       setCurrentMaster(found)
+      setCachedActiveMaster(cacheKey, found)
       loadDetailForMaster(found)
     }
   }

@@ -1,7 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect, useCallback } from 'react'
 import QuevoGs5PlanReport from './components/QuevoGs5PlanReport'
-import { generateDefaultQuevoGs5PlanData } from './hooks/useQuevoGs5PlanLogic'
 import {
   queryPlanMaster,
   queryPlanDetail
@@ -189,96 +188,54 @@ function mapDBRowToPlanItem(item, idx, master) {
   }
 }
 
+import {
+  getCachedMasters,
+  setCachedMasters,
+  getCachedDetail,
+  setCachedDetail,
+  getCachedActiveMaster,
+  setCachedActiveMaster,
+  clearReportCache
+} from '../../../common/reportDataCache'
+
 export default function QuevoGs5PlanPage() {
-  const [loading, setLoading] = useState(false)
-  const [masterList, setMasterList] = useState([])
-  const [selectedMasterKey, setSelectedMasterKey] = useState(null)
-  const [currentMaster, setCurrentMaster] = useState(null)
-  const [planDataset, setPlanDataset] = useState(generateDefaultQuevoGs5PlanData())
-  const [dataSourceType, setDataSourceType] = useState('sample')
+  const cacheKey = 'quevo_plan'
+  const cachedInitialMasters = getCachedMasters(cacheKey) || []
+  const cachedInitialActiveMaster =
+    getCachedActiveMaster(cacheKey) || (cachedInitialMasters.length > 0 ? cachedInitialMasters[0] : null)
+  const initialDetailKey = cachedInitialActiveMaster
+    ? cachedInitialActiveMaster.RegCode || cachedInitialActiveMaster.IdSeq
+    : null
+  const cachedInitialDataset = initialDetailKey
+    ? getCachedDetail(`quevo_plan_${initialDetailKey}`) || []
+    : []
 
-  // Fetch danh sách Master các đợt đăng ký từ CSDL cho GS5 Quế Võ
-  const fetchMastersAndLatestData = useCallback(async (targetRegCode = null) => {
-    setLoading(true)
-    try {
-      const resAll = await queryPlanMaster({})
-      const allMasters = resAll?.data || []
+  const [loading, setLoading] = useState(cachedInitialMasters.length === 0)
+  const [masterList, setMasterList] = useState(cachedInitialMasters)
+  const [selectedMasterKey, setSelectedMasterKey] = useState(
+    initialDetailKey ? String(initialDetailKey) : null
+  )
+  const [currentMaster, setCurrentMaster] = useState(cachedInitialActiveMaster)
+  const [planDataset, setPlanDataset] = useState(cachedInitialDataset)
+  const [dataSourceType, setDataSourceType] = useState(
+    cachedInitialDataset.length > 0 ? 'database' : 'empty'
+  )
 
-      const masters = allMasters.filter((m) => {
-        const code = String(m.FactoryCode || m.factoryCode || '')
-          .toUpperCase()
-          .trim()
-        const f = String(m.FactoryName || m.factoryName || '')
-          .toLowerCase()
-          .trim()
-        const isQuevo =
-          code === 'GS5' ||
-          code === 'QUEVO' ||
-          code === 'ALL' ||
-          f.includes('quế võ') ||
-          f.includes('gs5') ||
-          f.includes('quevo') ||
-          (!f.includes('hà nội') && !f.includes('gs1') && !f.includes('hanoi'))
-        const isPlan =
-          !m.ReportType ||
-          m.ReportType === 'plan' ||
-          m.ReportType === 'khsx' ||
-          m.ReportType === 'Kế hoạch sản xuất' ||
-          String(m.ReportType).toLowerCase().includes('kế hoạch') ||
-          String(m.ReportType).toLowerCase().includes('plan')
-        return isQuevo && isPlan
-      })
-
-      const finalMasters = masters.length > 0 ? masters : allMasters
-
-      finalMasters.sort((a, b) => {
-        const dateA = new Date(a.CreatedAt || a.ApplyDate || 0).getTime()
-        const dateB = new Date(b.CreatedAt || b.ApplyDate || 0).getTime()
-        return dateB - dateA || (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
-      })
-
-      setMasterList(finalMasters)
-
-      if (finalMasters.length > 0) {
-        let activeMaster = null
-        if (targetRegCode) {
-          activeMaster = finalMasters.find(
-            (m) =>
-              (m.RegCode || m.regCode) === targetRegCode ||
-              String(m.IdSeq || m.MasterSeq) === String(targetRegCode)
-          )
-        }
-        if (!activeMaster) {
-          activeMaster =
-            finalMasters.find((m) => m.ReportType === 'plan' || m.ReportType === 'khsx') ||
-            finalMasters[0]
-        }
-
-        const activeKey =
-          activeMaster.RegCode ||
-          activeMaster.regCode ||
-          String(activeMaster.IdSeq || activeMaster.MasterSeq)
-        setSelectedMasterKey(activeKey)
-        setCurrentMaster(activeMaster)
-
-        await loadDetailForMaster(activeMaster)
-      } else {
-        setPlanDataset(generateDefaultQuevoGs5PlanData())
-        setDataSourceType('sample')
-      }
-    } catch (err) {
-      console.error('Lỗi khi tải dữ liệu đăng ký KHSX GS5 Quế Võ:', err)
-      setPlanDataset(generateDefaultQuevoGs5PlanData())
-      setDataSourceType('sample')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const loadDetailForMaster = async (master) => {
+  const loadDetailForMaster = useCallback(async (master, forceRefresh = false) => {
     if (!master) return
     const regCode = master.RegCode || master.regCode
     const masterSeq = master.MasterSeq || master.IdSeq
+    const detailKey = `quevo_plan_${regCode || masterSeq}`
+
+    if (!forceRefresh) {
+      const cached = getCachedDetail(detailKey)
+      if (cached && cached.length > 0) {
+        setPlanDataset(cached)
+        setDataSourceType('database')
+        setLoading(false)
+        return
+      }
+    }
 
     setLoading(true)
     try {
@@ -300,20 +257,115 @@ export default function QuevoGs5PlanPage() {
 
       if (rows.length > 0) {
         const mappedData = rows.map((item, idx) => mapDBRowToPlanItem(item, idx, master))
+        setCachedDetail(detailKey, mappedData)
         setPlanDataset(mappedData)
         setDataSourceType('database')
       } else {
-        setPlanDataset(generateDefaultQuevoGs5PlanData())
-        setDataSourceType('sample')
+        setPlanDataset([])
+        setDataSourceType('empty')
       }
     } catch (err) {
       console.error(`Lỗi tải chi tiết đợt ${regCode}:`, err)
-      setPlanDataset(generateDefaultQuevoGs5PlanData())
-      setDataSourceType('sample')
+      setPlanDataset([])
+      setDataSourceType('empty')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  // Fetch danh sách Master các đợt đăng ký từ CSDL cho GS5 Quế Võ (SWR Caching)
+  const fetchMastersAndLatestData = useCallback(
+    async (targetRegCode = null, forceRefresh = false) => {
+      if (forceRefresh) {
+        clearReportCache(cacheKey)
+      }
+      if (!getCachedMasters(cacheKey) || forceRefresh) {
+        setLoading(true)
+      }
+      try {
+        const resAll = await queryPlanMaster({ FactoryCode: 'GS5', ReportType: 'plan' })
+        const allMasters = resAll?.data || []
+
+        const masters = allMasters.filter((m) => {
+          const code = String(m.FactoryCode || m.factoryCode || '')
+            .toUpperCase()
+            .trim()
+          const f = String(m.FactoryName || m.factoryName || '')
+            .toLowerCase()
+            .trim()
+          const isQuevo =
+            (code === 'GS5' ||
+              code === 'QUEVO' ||
+              f.includes('quế võ') ||
+              f.includes('que vo') ||
+              f.includes('quevo') ||
+              f.includes('gs5')) &&
+            !f.includes('hà nội') &&
+            !f.includes('gs1') &&
+            !f.includes('hanoi') &&
+            code !== 'GS1'
+          const isPlan =
+            m.ReportType === 'plan' ||
+            m.ReportType === 'khsx' ||
+            m.ReportType === 'Kế hoạch sản xuất' ||
+            String(m.ReportType || '').toLowerCase().includes('kế hoạch') ||
+            String(m.ReportType || '').toLowerCase().includes('plan')
+          return isQuevo && isPlan
+        })
+
+        masters.sort((a, b) => {
+          const dateA = new Date(a.CreatedAt || a.ApplyDate || 0).getTime()
+          const dateB = new Date(b.CreatedAt || b.ApplyDate || 0).getTime()
+          return dateB - dateA || (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
+        })
+
+        setCachedMasters(cacheKey, masters)
+        setMasterList(masters)
+
+        if (masters.length > 0) {
+          let activeMaster = null
+          if (targetRegCode) {
+            activeMaster = masters.find(
+              (m) =>
+                (m.RegCode || m.regCode) === targetRegCode ||
+                String(m.IdSeq || m.MasterSeq) === String(targetRegCode)
+            )
+          }
+          if (!activeMaster) {
+            activeMaster =
+              masters.find((m) => m.ReportType === 'plan' || m.ReportType === 'khsx') ||
+              masters[0]
+          }
+
+          const activeKey =
+            activeMaster.RegCode ||
+            activeMaster.regCode ||
+            String(activeMaster.IdSeq || activeMaster.MasterSeq)
+          setSelectedMasterKey(activeKey)
+          setCurrentMaster(activeMaster)
+          setCachedActiveMaster(cacheKey, activeMaster)
+
+          await loadDetailForMaster(activeMaster, forceRefresh)
+        } else {
+          setSelectedMasterKey(null)
+          setCurrentMaster(null)
+          setPlanDataset([])
+          setDataSourceType('empty')
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải dữ liệu đăng ký KHSX GS5 Quế Võ:', err)
+        if (!getCachedMasters(cacheKey)) {
+          setSelectedMasterKey(null)
+          setCurrentMaster(null)
+          setPlanDataset([])
+          setDataSourceType('empty')
+        }
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loadDetailForMaster]
+  )
 
   useEffect(() => {
     fetchMastersAndLatestData()
@@ -328,6 +380,7 @@ export default function QuevoGs5PlanPage() {
     )
     if (found) {
       setCurrentMaster(found)
+      setCachedActiveMaster(cacheKey, found)
       loadDetailForMaster(found)
     }
   }
@@ -343,7 +396,7 @@ export default function QuevoGs5PlanPage() {
           masterList={masterList}
           selectedMasterKey={selectedMasterKey}
           onSelectMaster={handleSelectMaster}
-          onRefreshMaster={fetchMastersAndLatestData}
+          onRefreshMaster={() => fetchMastersAndLatestData(null, true)}
           currentMaster={currentMaster}
           dataSourceType={dataSourceType}
           loadingMaster={loading}
@@ -352,3 +405,4 @@ export default function QuevoGs5PlanPage() {
     </div>
   )
 }
+

@@ -5,7 +5,7 @@ module.exports = {
     {
       name: 'gshub-service', // Tên service PM2
       script: process.platform === 'win32' ? './service-datahub.exe' : './service-datahub',
-      cwd: path.resolve(__dirname, '../service-datahub'),
+      cwd: __dirname,
       exec_interpreter: 'none',
       exec_mode: 'fork',
       instances: 1,

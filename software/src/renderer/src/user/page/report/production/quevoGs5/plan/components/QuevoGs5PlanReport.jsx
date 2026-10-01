@@ -563,193 +563,7 @@ export default function QuevoGs5PlanReport(props) {
         </div>
       </div>
 
-      {/* 3 & 4. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))',
-          gap: 32,
-          marginBottom: 44
-        }}
-      >
-        {/* SECTION 3: TRẠNG THÁI THỜI GIAN (SO VỚI ĐM) */}
-        <div
-          ref={chart2Ref}
-          style={{
-            width: '100%',
-            background: '#ffffff',
-            padding: '8px 0'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              marginBottom: 14
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                3. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
-              </div>
-              <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
-                So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch
-              </div>
-            </div>
-
-            <div className="screenshot-hide">
-              <PureButton
-                icon={<Download size={12} />}
-                onClick={() => handleDownloadSingleChart(chart2Ref, 'TrangThai_ThoiGian_DM')}
-                title="Tải ảnh biểu đồ thời gian vs ĐM"
-              >
-                Tải ảnh
-              </PureButton>
-            </div>
-          </div>
-
-          <div style={{ height: 240, width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                layout="vertical"
-                data={timeStatusBreakdown}
-                margin={{ top: 10, right: 65, left: 24, bottom: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis
-                  type="number"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11.5, fontWeight: 700, fill: '#334155' }}
-                  width={110}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <RechartsTooltip content={<ExecutiveChartTooltip />} />
-                <Bar
-                  dataKey="count"
-                  name="Số lệnh"
-                  barSize={24}
-                  radius={[0, 4, 4, 0]}
-                  isAnimationActive={false}
-                >
-                  <LabelList
-                    dataKey="count"
-                    position="right"
-                    fill="#0f172a"
-                    fontSize={11.5}
-                    fontWeight={700}
-                    offset={8}
-                    isAnimationActive={false}
-                    formatter={(val) => `${val} lệnh`}
-                  />
-                  {timeStatusBreakdown.map((entry, index) => (
-                    <Cell key={`cell-t-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* SECTION 4: TRẠNG THÁI CAPA (ĐÁNH GIÁ THEO NĂNG LỰC) */}
-        <div
-          ref={chart3Ref}
-          style={{
-            width: '100%',
-            background: '#ffffff',
-            padding: '8px 0'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              marginBottom: 14
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                4. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
-              </div>
-              <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
-                Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống
-              </div>
-            </div>
-
-            <div className="screenshot-hide">
-              <PureButton
-                icon={<Download size={12} />}
-                onClick={() => handleDownloadSingleChart(chart3Ref, 'TrangThai_Capa')}
-                title="Tải ảnh biểu đồ trạng thái Capa"
-              >
-                Tải ảnh
-              </PureButton>
-            </div>
-          </div>
-
-          <div style={{ height: 240, width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                layout="vertical"
-                data={capaStatusBreakdown}
-                margin={{ top: 10, right: 65, left: 24, bottom: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis
-                  type="number"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11.5, fontWeight: 700, fill: '#334155' }}
-                  width={120}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <RechartsTooltip content={<ExecutiveChartTooltip />} />
-                <Bar
-                  dataKey="count"
-                  name="Số lệnh"
-                  barSize={24}
-                  radius={[0, 4, 4, 0]}
-                  isAnimationActive={false}
-                >
-                  <LabelList
-                    dataKey="count"
-                    position="right"
-                    fill="#0f172a"
-                    fontSize={11.5}
-                    fontWeight={700}
-                    offset={8}
-                    isAnimationActive={false}
-                    formatter={(val) => `${val} lệnh`}
-                  />
-                  {capaStatusBreakdown.map((entry, index) => (
-                    <Cell key={`cell-c-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* 5. THEO PIC ĐIỀU PHỐI (BẢNG OPENAI & BIỂU ĐỒ CỘT NGANG XẾP HẠNG TỶ LỆ ĐẠT CHUẨN) */}
+  {/* 5. THEO PIC ĐIỀU PHỐI (BẢNG OPENAI & BIỂU ĐỒ CỘT NGANG XẾP HẠNG TỶ LỆ ĐẠT CHUẨN) */}
       <div
         ref={chart4Ref}
         style={{
@@ -780,7 +594,7 @@ export default function QuevoGs5PlanReport(props) {
                 gap: 8
               }}
             >
-              <span>5. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
+              <span>2. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
             </div>
             <div
               style={{
@@ -804,6 +618,371 @@ export default function QuevoGs5PlanReport(props) {
             >
               Tải ảnh biểu đồ
             </PureButton>
+          </div>
+        </div>
+        {/* Switcher & Biểu đồ phân tích chi tiết */}
+        <div
+          style={{
+            marginButton: 20,
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 6,
+            padding: '16px'
+          }}
+        >
+          {/* Chart Header & Mode Controls */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 10,
+              marginBottom: 16,
+              paddingBottom: 12,
+              borderBottom: '1px solid #f1f5f9'
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
+                {picChartMode === 'rate'
+                  ? 'Biểu đồ Tỷ lệ cơ cấu trạng thái điều phối theo PIC (%)'
+                  : picChartMode === 'pass'
+                    ? 'Xếp hạng Tỷ lệ đạt chuẩn điều phối (Benchmark 20%)'
+                    : 'Cơ cấu khối lượng và trạng thái điều phối theo từng PIC (Lệnh)'}
+              </div>
+              <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                {picChartMode === 'rate'
+                  ? 'So sánh tương quan tỷ lệ % Đạt chuẩn, Lệch ngày và Trượt kế hoạch của từng nhân sự'
+                  : picChartMode === 'pass'
+                    ? 'Đánh giá tỷ lệ lệnh đạt chuẩn (Khớp SL + Khớp Job) so với mục tiêu 20%'
+                    : 'Khối lượng lệnh phân bổ theo: Khớp job, Khớp SL, SX sai ngày và Trượt kế hoạch'}
+              </div>
+            </div>
+
+            {/* Mode Switcher */}
+            <div
+              className="screenshot-hide"
+              style={{
+                display: 'inline-flex',
+                background: '#f1f5f9',
+                padding: '2px',
+                borderRadius: 6,
+                border: '1px solid #e2e8f0'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setPicChartMode('volume')}
+                style={{
+                  padding: '5px 10px',
+                  fontSize: 11.5,
+                  fontWeight:
+                    picChartMode === 'volume' ||
+                      picChartMode === 'composed' ||
+                      picChartMode === 'stacked'
+                      ? 700
+                      : 500,
+                  color:
+                    picChartMode === 'volume' ||
+                      picChartMode === 'composed' ||
+                      picChartMode === 'stacked'
+                      ? '#0f172a'
+                      : '#64748b',
+                  background:
+                    picChartMode === 'volume' ||
+                      picChartMode === 'composed' ||
+                      picChartMode === 'stacked'
+                      ? '#ffffff'
+                      : 'transparent',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  boxShadow:
+                    picChartMode === 'volume' ||
+                      picChartMode === 'composed' ||
+                      picChartMode === 'stacked'
+                      ? '0 1px 2px rgba(0,0,0,0.06)'
+                      : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Khối lượng (Lệnh)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPicChartMode('rate')}
+                style={{
+                  padding: '5px 10px',
+                  fontSize: 11.5,
+                  fontWeight: picChartMode === 'rate' ? 700 : 500,
+                  color: picChartMode === 'rate' ? '#0f172a' : '#64748b',
+                  background: picChartMode === 'rate' ? '#ffffff' : 'transparent',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  boxShadow: picChartMode === 'rate' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Tỷ lệ cơ cấu (%)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPicChartMode('pass')}
+                style={{
+                  padding: '5px 10px',
+                  fontSize: 11.5,
+                  fontWeight: picChartMode === 'pass' ? 700 : 500,
+                  color: picChartMode === 'pass' ? '#0f172a' : '#64748b',
+                  background: picChartMode === 'pass' ? '#ffffff' : 'transparent',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  boxShadow: picChartMode === 'pass' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Xếp hạng Đạt chuẩn (%)
+              </button>
+            </div>
+          </div>
+
+          <div style={{ height: Math.max(260, picBreakdown.length * 48 + 50), width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              {picChartMode === 'rate' ? (
+                <BarChart
+                  layout="vertical"
+                  data={[...picBreakdown].map((r) => ({
+                    ...r,
+                    name: r.pic
+                  }))}
+                  margin={{ top: 10, right: 30, left: 16, bottom: 10 }}
+                  barSize={24}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis
+                    type="number"
+                    domain={[0, 100]}
+                    stroke="#64748b"
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    tickFormatter={(v) => `${v}%`}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    stroke="#64748b"
+                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
+                    width={130}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <RechartsTooltip content={<ExecutiveChartTooltip unit="%" />} />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
+                  />
+                  <Bar
+                    dataKey="khopJobRate"
+                    name="Khớp job (%)"
+                    stackId="picRate"
+                    fill="#059669"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="khopSlRate"
+                    name="Khớp số lượng (%)"
+                    stackId="picRate"
+                    fill="#0284c7"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="sxSaiNgayRate"
+                    name="SX sai ngày (%)"
+                    stackId="picRate"
+                    fill="#ea580c"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="truotKhRate"
+                    name="Trượt KH (%)"
+                    stackId="picRate"
+                    fill="#dc2626"
+                    radius={[0, 4, 4, 0]}
+                    isAnimationActive={false}
+                  />
+                </BarChart>
+              ) : picChartMode === 'pass' ? (
+                <BarChart
+                  layout="vertical"
+                  data={(() => {
+                    const sorted = [...picBreakdown]
+                      .map((r) => {
+                        const totalPass = (r.khopSl || 0) + (r.khopJob || 0)
+                        const passRate =
+                          r.totalOrders > 0
+                            ? Number(((totalPass / r.totalOrders) * 100).toFixed(1))
+                            : 0
+                        return { ...r, totalPass, passRate, name: r.pic }
+                      })
+                      .sort((a, b) => b.passRate - a.passRate)
+                    return sorted
+                  })()}
+                  margin={{ top: 20, right: 180, left: 16, bottom: 10 }}
+                  barSize={24}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis
+                    type="number"
+                    domain={[0, 100]}
+                    stroke="#64748b"
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    tickFormatter={(v) => `${v}%`}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    stroke="#64748b"
+                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
+                    width={130}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <ReferenceLine
+                    x={20}
+                    stroke="#dc2626"
+                    strokeDasharray="4 4"
+                    strokeWidth={1.5}
+                    label={{
+                      value: 'Mục tiêu (20%)',
+                      position: 'top',
+                      fill: '#dc2626',
+                      fontSize: 11.5,
+                      fontWeight: 700
+                    }}
+                  />
+                  <RechartsTooltip content={<ExecutiveChartTooltip />} />
+                  <Bar
+                    dataKey="passRate"
+                    name="Tỷ lệ đạt chuẩn (%)"
+                    radius={[0, 4, 4, 0]}
+                    isAnimationActive={false}
+                  >
+                    <LabelList
+                      dataKey="passRate"
+                      position="right"
+                      fill="#0f172a"
+                      fontSize={11.5}
+                      fontWeight={700}
+                      offset={10}
+                      isAnimationActive={false}
+                      formatter={(val, entry) => {
+                        const row = entry?.payload || {}
+                        return `${val}% (${row.totalPass || 0}/${row.totalOrders || 0} lệnh)`
+                      }}
+                    />
+                    {[...picBreakdown]
+                      .map((r) => {
+                        const totalPass = (r.khopSl || 0) + (r.khopJob || 0)
+                        const passRate =
+                          r.totalOrders > 0
+                            ? Number(((totalPass / r.totalOrders) * 100).toFixed(1))
+                            : 0
+                        return { ...r, totalPass, passRate }
+                      })
+                      .sort((a, b) => b.passRate - a.passRate)
+                      .map((entry, index) => {
+                        const rate = entry.passRate
+                        return (
+                          <Cell
+                            key={`cell-pass-${index}`}
+                            fill={rate >= 20 ? '#059669' : rate >= 10 ? '#0284c7' : '#ea580c'}
+                          />
+                        )
+                      })}
+                  </Bar>
+                </BarChart>
+              ) : (
+                <BarChart
+                  layout="vertical"
+                  data={[...picBreakdown].map((r) => ({
+                    ...r,
+                    name: r.pic
+                  }))}
+                  margin={{ top: 10, right: 80, left: 16, bottom: 10 }}
+                  barSize={24}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis
+                    type="number"
+                    stroke="#64748b"
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    stroke="#64748b"
+                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
+                    width={130}
+                    axisLine={{ stroke: '#cbd5e1' }}
+                    tickLine={false}
+                  />
+                  <RechartsTooltip content={<ExecutiveChartTooltip unit=" lệnh" />} />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
+                  />
+                  <Bar
+                    dataKey="khopJob"
+                    name="Khớp job"
+                    stackId="picVol"
+                    fill="#059669"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="khopSl"
+                    name="Khớp số lượng"
+                    stackId="picVol"
+                    fill="#0284c7"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="sxSaiNgay"
+                    name="SX sai ngày KH"
+                    stackId="picVol"
+                    fill="#ea580c"
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="truotKh"
+                    name="Trượt KH"
+                    stackId="picVol"
+                    fill="#dc2626"
+                    radius={[0, 4, 4, 0]}
+                    isAnimationActive={false}
+                  >
+                    <LabelList
+                      dataKey="totalOrders"
+                      position="right"
+                      fill="#0f172a"
+                      fontSize={11.5}
+                      fontWeight={700}
+                      offset={10}
+                      isAnimationActive={false}
+                      formatter={(val) => `${val} lệnh`}
+                    />
+                  </Bar>
+                </BarChart>
+              )}
+            </ResponsiveContainer>
           </div>
         </div>
 
@@ -1135,372 +1314,196 @@ export default function QuevoGs5PlanReport(props) {
           </table>
         </div>
 
-        {/* Switcher & Biểu đồ phân tích chi tiết */}
+
+      </div>
+      {/* 3 & 4. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))',
+          gap: 32,
+          marginBottom: 44
+        }}
+        className='mt-2'
+      >
+        {/* SECTION 3: TRẠNG THÁI THỜI GIAN (SO VỚI ĐM) */}
         <div
+          ref={chart2Ref}
           style={{
-            marginTop: 20,
+            width: '100%',
             background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: 6,
-            padding: '16px'
+            padding: '8px 0'
           }}
         >
-          {/* Chart Header & Mode Controls */}
           <div
             style={{
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 10,
-              marginBottom: 16,
-              paddingBottom: 12,
-              borderBottom: '1px solid #f1f5f9'
+              marginBottom: 14
             }}
           >
             <div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
-                {picChartMode === 'rate'
-                  ? 'Biểu đồ Tỷ lệ cơ cấu trạng thái điều phối theo PIC (%)'
-                  : picChartMode === 'pass'
-                    ? 'Xếp hạng Tỷ lệ đạt chuẩn điều phối (Benchmark 20%)'
-                    : 'Cơ cấu khối lượng và trạng thái điều phối theo từng PIC (Lệnh)'}
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
+                3. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
               </div>
-              <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                {picChartMode === 'rate'
-                  ? 'So sánh tương quan tỷ lệ % Đạt chuẩn, Lệch ngày và Trượt kế hoạch của từng nhân sự'
-                  : picChartMode === 'pass'
-                    ? 'Đánh giá tỷ lệ lệnh đạt chuẩn (Khớp SL + Khớp Job) so với mục tiêu 20%'
-                    : 'Khối lượng lệnh phân bổ theo: Khớp job, Khớp SL, SX sai ngày và Trượt kế hoạch'}
+              <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
+                So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch
               </div>
             </div>
 
-            {/* Mode Switcher */}
-            <div
-              className="screenshot-hide"
-              style={{
-                display: 'inline-flex',
-                background: '#f1f5f9',
-                padding: '2px',
-                borderRadius: 6,
-                border: '1px solid #e2e8f0'
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setPicChartMode('volume')}
-                style={{
-                  padding: '5px 10px',
-                  fontSize: 11.5,
-                  fontWeight:
-                    picChartMode === 'volume' ||
-                    picChartMode === 'composed' ||
-                    picChartMode === 'stacked'
-                      ? 700
-                      : 500,
-                  color:
-                    picChartMode === 'volume' ||
-                    picChartMode === 'composed' ||
-                    picChartMode === 'stacked'
-                      ? '#0f172a'
-                      : '#64748b',
-                  background:
-                    picChartMode === 'volume' ||
-                    picChartMode === 'composed' ||
-                    picChartMode === 'stacked'
-                      ? '#ffffff'
-                      : 'transparent',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  boxShadow:
-                    picChartMode === 'volume' ||
-                    picChartMode === 'composed' ||
-                    picChartMode === 'stacked'
-                      ? '0 1px 2px rgba(0,0,0,0.06)'
-                      : 'none',
-                  transition: 'all 0.15s ease'
-                }}
+            <div className="screenshot-hide">
+              <PureButton
+                icon={<Download size={12} />}
+                onClick={() => handleDownloadSingleChart(chart2Ref, 'TrangThai_ThoiGian_DM')}
+                title="Tải ảnh biểu đồ thời gian vs ĐM"
               >
-                Khối lượng (Lệnh)
-              </button>
-              <button
-                type="button"
-                onClick={() => setPicChartMode('rate')}
-                style={{
-                  padding: '5px 10px',
-                  fontSize: 11.5,
-                  fontWeight: picChartMode === 'rate' ? 700 : 500,
-                  color: picChartMode === 'rate' ? '#0f172a' : '#64748b',
-                  background: picChartMode === 'rate' ? '#ffffff' : 'transparent',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  boxShadow: picChartMode === 'rate' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                Tỷ lệ cơ cấu (%)
-              </button>
-              <button
-                type="button"
-                onClick={() => setPicChartMode('pass')}
-                style={{
-                  padding: '5px 10px',
-                  fontSize: 11.5,
-                  fontWeight: picChartMode === 'pass' ? 700 : 500,
-                  color: picChartMode === 'pass' ? '#0f172a' : '#64748b',
-                  background: picChartMode === 'pass' ? '#ffffff' : 'transparent',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  boxShadow: picChartMode === 'pass' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                Xếp hạng Đạt chuẩn (%)
-              </button>
+                Tải ảnh
+              </PureButton>
             </div>
           </div>
 
-          <div style={{ height: Math.max(260, picBreakdown.length * 48 + 50), width: '100%' }}>
+          <div style={{ height: 240, width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              {picChartMode === 'rate' ? (
-                <BarChart
-                  layout="vertical"
-                  data={[...picBreakdown].map((r) => ({
-                    ...r,
-                    name: r.pic
-                  }))}
-                  margin={{ top: 10, right: 30, left: 16, bottom: 10 }}
+              <BarChart
+                layout="vertical"
+                data={timeStatusBreakdown}
+                margin={{ top: 10, right: 65, left: 24, bottom: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis
+                  type="number"
+                  stroke="#64748b"
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  stroke="#64748b"
+                  tick={{ fontSize: 11.5, fontWeight: 700, fill: '#334155' }}
+                  width={110}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <RechartsTooltip content={<ExecutiveChartTooltip />} />
+                <Bar
+                  dataKey="count"
+                  name="Số lệnh"
                   barSize={24}
+                  radius={[0, 4, 4, 0]}
+                  isAnimationActive={false}
                 >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis
-                    type="number"
-                    domain={[0, 100]}
-                    stroke="#64748b"
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    tickFormatter={(v) => `${v}%`}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    stroke="#64748b"
-                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
-                    width={130}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <RechartsTooltip content={<ExecutiveChartTooltip unit="%" />} />
-                  <Legend
-                    verticalAlign="top"
-                    align="right"
-                    wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
-                  />
-                  <Bar
-                    dataKey="khopJobRate"
-                    name="Khớp job (%)"
-                    stackId="picRate"
-                    fill="#059669"
+                  <LabelList
+                    dataKey="count"
+                    position="right"
+                    fill="#0f172a"
+                    fontSize={11.5}
+                    fontWeight={700}
+                    offset={8}
                     isAnimationActive={false}
+                    formatter={(val) => `${val} lệnh`}
                   />
-                  <Bar
-                    dataKey="khopSlRate"
-                    name="Khớp số lượng (%)"
-                    stackId="picRate"
-                    fill="#0284c7"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="sxSaiNgayRate"
-                    name="SX sai ngày (%)"
-                    stackId="picRate"
-                    fill="#ea580c"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="truotKhRate"
-                    name="Trượt KH (%)"
-                    stackId="picRate"
-                    fill="#dc2626"
-                    radius={[0, 4, 4, 0]}
-                    isAnimationActive={false}
-                  />
-                </BarChart>
-              ) : picChartMode === 'pass' ? (
-                <BarChart
-                  layout="vertical"
-                  data={(() => {
-                    const sorted = [...picBreakdown]
-                      .map((r) => {
-                        const totalPass = (r.khopSl || 0) + (r.khopJob || 0)
-                        const passRate =
-                          r.totalOrders > 0
-                            ? Number(((totalPass / r.totalOrders) * 100).toFixed(1))
-                            : 0
-                        return { ...r, totalPass, passRate, name: r.pic }
-                      })
-                      .sort((a, b) => b.passRate - a.passRate)
-                    return sorted
-                  })()}
-                  margin={{ top: 20, right: 180, left: 16, bottom: 10 }}
+                  {timeStatusBreakdown.map((entry, index) => (
+                    <Cell key={`cell-t-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* SECTION 4: TRẠNG THÁI CAPA (ĐÁNH GIÁ THEO NĂNG LỰC) */}
+        <div
+          ref={chart3Ref}
+          style={{
+            width: '100%',
+            background: '#ffffff',
+            padding: '8px 0'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 14
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
+                4. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
+              </div>
+              <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
+                Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống
+              </div>
+            </div>
+
+            <div className="screenshot-hide">
+              <PureButton
+                icon={<Download size={12} />}
+                onClick={() => handleDownloadSingleChart(chart3Ref, 'TrangThai_Capa')}
+                title="Tải ảnh biểu đồ trạng thái Capa"
+              >
+                Tải ảnh
+              </PureButton>
+            </div>
+          </div>
+
+          <div style={{ height: 240, width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={capaStatusBreakdown}
+                margin={{ top: 10, right: 65, left: 24, bottom: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis
+                  type="number"
+                  stroke="#64748b"
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  stroke="#64748b"
+                  tick={{ fontSize: 11.5, fontWeight: 700, fill: '#334155' }}
+                  width={120}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <RechartsTooltip content={<ExecutiveChartTooltip />} />
+                <Bar
+                  dataKey="count"
+                  name="Số lệnh"
                   barSize={24}
+                  radius={[0, 4, 4, 0]}
+                  isAnimationActive={false}
                 >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis
-                    type="number"
-                    domain={[0, 100]}
-                    stroke="#64748b"
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    tickFormatter={(v) => `${v}%`}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    stroke="#64748b"
-                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
-                    width={130}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <ReferenceLine
-                    x={20}
-                    stroke="#dc2626"
-                    strokeDasharray="4 4"
-                    strokeWidth={1.5}
-                    label={{
-                      value: 'Mục tiêu (20%)',
-                      position: 'top',
-                      fill: '#dc2626',
-                      fontSize: 11.5,
-                      fontWeight: 700
-                    }}
-                  />
-                  <RechartsTooltip content={<ExecutiveChartTooltip />} />
-                  <Bar
-                    dataKey="passRate"
-                    name="Tỷ lệ đạt chuẩn (%)"
-                    radius={[0, 4, 4, 0]}
+                  <LabelList
+                    dataKey="count"
+                    position="right"
+                    fill="#0f172a"
+                    fontSize={11.5}
+                    fontWeight={700}
+                    offset={8}
                     isAnimationActive={false}
-                  >
-                    <LabelList
-                      dataKey="passRate"
-                      position="right"
-                      fill="#0f172a"
-                      fontSize={11.5}
-                      fontWeight={700}
-                      offset={10}
-                      isAnimationActive={false}
-                      formatter={(val, entry) => {
-                        const row = entry?.payload || {}
-                        return `${val}% (${row.totalPass || 0}/${row.totalOrders || 0} lệnh)`
-                      }}
-                    />
-                    {[...picBreakdown]
-                      .map((r) => {
-                        const totalPass = (r.khopSl || 0) + (r.khopJob || 0)
-                        const passRate =
-                          r.totalOrders > 0
-                            ? Number(((totalPass / r.totalOrders) * 100).toFixed(1))
-                            : 0
-                        return { ...r, totalPass, passRate }
-                      })
-                      .sort((a, b) => b.passRate - a.passRate)
-                      .map((entry, index) => {
-                        const rate = entry.passRate
-                        return (
-                          <Cell
-                            key={`cell-pass-${index}`}
-                            fill={rate >= 20 ? '#059669' : rate >= 10 ? '#0284c7' : '#ea580c'}
-                          />
-                        )
-                      })}
-                  </Bar>
-                </BarChart>
-              ) : (
-                <BarChart
-                  layout="vertical"
-                  data={[...picBreakdown].map((r) => ({
-                    ...r,
-                    name: r.pic
-                  }))}
-                  margin={{ top: 10, right: 80, left: 16, bottom: 10 }}
-                  barSize={24}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis
-                    type="number"
-                    stroke="#64748b"
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
+                    formatter={(val) => `${val} lệnh`}
                   />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    stroke="#64748b"
-                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
-                    width={130}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <RechartsTooltip content={<ExecutiveChartTooltip unit=" lệnh" />} />
-                  <Legend
-                    verticalAlign="top"
-                    align="right"
-                    wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
-                  />
-                  <Bar
-                    dataKey="khopJob"
-                    name="Khớp job"
-                    stackId="picVol"
-                    fill="#059669"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="khopSl"
-                    name="Khớp số lượng"
-                    stackId="picVol"
-                    fill="#0284c7"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="sxSaiNgay"
-                    name="SX sai ngày KH"
-                    stackId="picVol"
-                    fill="#ea580c"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="truotKh"
-                    name="Trượt KH"
-                    stackId="picVol"
-                    fill="#dc2626"
-                    radius={[0, 4, 4, 0]}
-                    isAnimationActive={false}
-                  >
-                    <LabelList
-                      dataKey="totalOrders"
-                      position="right"
-                      fill="#0f172a"
-                      fontSize={11.5}
-                      fontWeight={700}
-                      offset={10}
-                      isAnimationActive={false}
-                      formatter={(val) => `${val} lệnh`}
-                    />
-                  </Bar>
-                </BarChart>
-              )}
+                  {capaStatusBreakdown.map((entry, index) => (
+                    <Cell key={`cell-c-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
+
+    
 
       {/* 6. PHÂN TÍCH CHUYÊN SÂU HIỆU QUẢ ĐIỀU HÀNH & ĐIỂM NGHẼN TỔ SẢN XUẤT */}
       <div
@@ -1532,7 +1535,7 @@ export default function QuevoGs5PlanReport(props) {
                 alignItems: 'center'
               }}
             >
-              <span>6. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN</span>
+              <span>5. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN</span>
             </div>
             <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
               Đo lường mức độ tuân thủ tiến độ (Schedule Adherence), độ lệch ngày bình quân và tình
@@ -1944,7 +1947,7 @@ export default function QuevoGs5PlanReport(props) {
         >
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-              7. LỆNH THEO TRẠNG THÁI ĐP – SX (DANH SÁCH CHI TIẾT TỪNG LỆNH)
+              6. LỆNH THEO TRẠNG THÁI ĐP – SX (DANH SÁCH CHI TIẾT TỪNG LỆNH)
             </div>
             <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
               Bảng dữ liệu chi tiết toàn bộ lệnh sản xuất điều phối, hỗ trợ lọc, tìm kiếm và xuất dữ

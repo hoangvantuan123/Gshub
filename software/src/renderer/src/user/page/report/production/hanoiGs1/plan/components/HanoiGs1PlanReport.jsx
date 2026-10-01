@@ -615,7 +615,7 @@ export default function HanoiGs1PlanReport(props) {
                 gap: 8
               }}
             >
-              <span>3. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
+              <span>2. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
             </div>
             <div
               style={{
@@ -642,335 +642,7 @@ export default function HanoiGs1PlanReport(props) {
           </div>
         </div>
 
-        {/* Bảng Gom nhóm theo PIC ĐP Phong Cách OpenAI Technical Table */}
-        <div style={{ width: '100%', marginBottom: 24 }}>
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              borderTop: '2px solid #0f172a',
-              borderBottom: '2px solid #0f172a',
-              fontSize: 12,
-              textAlign: 'left',
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              fontVariantNumeric: 'tabular-nums'
-            }}
-          >
-            <thead>
-              <tr style={{ borderBottom: '1px solid #0f172a' }}>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  PIC Điều phối
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Tổng lệnh
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  SX sai ngày KH
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Trượt KH
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Khớp số lượng
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Khớp job
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Tỷ lệ đạt chuẩn
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {picBreakdown.map((row, idx) => {
-                const totalPass = (row.khopSl || 0) + (row.khopJob || 0)
-                const passRate =
-                  row.totalOrders > 0 ? ((totalPass / row.totalOrders) * 100).toFixed(1) : '0.0'
-                const isSelected = selectedPic === row.pic
-                return (
-                  <tr
-                    key={idx}
-                    style={{
-                      borderBottom: '1px solid #e2e8f0',
-                      background: isSelected ? '#f8fafc' : 'transparent'
-                    }}
-                  >
-                    {/* Cột 1: Tên PIC */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        fontWeight: 600,
-                        color: '#0f172a'
-                      }}
-                    >
-                      <span
-                        onClick={() => setSelectedPic(isSelected ? 'ALL' : row.pic)}
-                        style={{
-                          cursor: 'pointer',
-                          color: isSelected ? '#0369a1' : '#0f172a',
-                          fontWeight: isSelected ? 800 : 600,
-                          textDecoration: isSelected ? 'underline' : 'none'
-                        }}
-                        title={isSelected ? 'Bấm để hủy chọn' : 'Bấm để lọc theo PIC này'}
-                      >
-                        {row.pic || 'Không xác định'}
-                      </span>
-                    </td>
-
-                    {/* Cột 2: Tổng lệnh */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 700,
-                        color: '#0f172a'
-                      }}
-                    >
-                      {row.totalOrders.toLocaleString('vi-VN')}
-                    </td>
-
-                    {/* Cột 3: SX sai ngày KH */}
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>
-                        {row.sxSaiNgay.toLocaleString('vi-VN')}
-                      </span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.sxSaiNgayRate}%)</span>
-                    </td>
-
-                    {/* Cột 4: Trượt KH */}
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>{row.truotKh.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.truotKhRate}%)</span>
-                    </td>
-
-                    {/* Cột 5: Khớp số lượng */}
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>{row.khopSl.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.khopSlRate}%)</span>
-                    </td>
-
-                    {/* Cột 6: Khớp job */}
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>{row.khopJob.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.khopJobRate}%)</span>
-                    </td>
-
-                    {/* Cột 7: Tỷ lệ đạt chuẩn */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 700,
-                        color: Number(passRate) >= 20 ? '#0f172a' : '#475569'
-                      }}
-                    >
-                      {passRate}%
-                    </td>
-                  </tr>
-                )
-              })}
-
-              {/* DÒNG TỔNG CỘNG TOÀN BỘ PIC */}
-              {picBreakdown.length > 0 && (
-                <tr
-                  style={{
-                    borderTop: '1.5px solid #0f172a',
-                    background: '#fafafa'
-                  }}
-                >
-                  <td style={{ padding: '10px 12px', fontWeight: 800, color: '#0f172a' }}>
-                    TỔNG CỘNG
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 800,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {picBreakdown
-                      .reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      .toLocaleString('vi-VN')}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      const count = picBreakdown.reduce((sum, r) => sum + (r.sxSaiNgay || 0), 0)
-                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
-                      return (
-                        <>
-                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
-                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
-                        </>
-                      )
-                    })()}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      const count = picBreakdown.reduce((sum, r) => sum + (r.truotKh || 0), 0)
-                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
-                      return (
-                        <>
-                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
-                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
-                        </>
-                      )
-                    })()}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      const count = picBreakdown.reduce((sum, r) => sum + (r.khopSl || 0), 0)
-                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
-                      return (
-                        <>
-                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
-                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
-                        </>
-                      )
-                    })()}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      const count = picBreakdown.reduce((sum, r) => sum + (r.khopJob || 0), 0)
-                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
-                      return (
-                        <>
-                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
-                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
-                        </>
-                      )
-                    })()}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 800,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const totalOrders = picBreakdown.reduce(
-                        (sum, r) => sum + (r.totalOrders || 0),
-                        0
-                      )
-                      const totalPass = picBreakdown.reduce(
-                        (sum, r) => sum + (r.khopSl || 0) + (r.khopJob || 0),
-                        0
-                      )
-                      return totalOrders > 0
-                        ? `${((totalPass / totalOrders) * 100).toFixed(1)}%`
-                        : '0.0%'
-                    })()}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Switcher & Biểu đồ phân tích chi tiết */}
+ {/* Switcher & Biểu đồ phân tích chi tiết */}
         <div
           style={{
             marginTop: 20,
@@ -1335,6 +1007,335 @@ export default function HanoiGs1PlanReport(props) {
             </ResponsiveContainer>
           </div>
         </div>
+        {/* Bảng Gom nhóm theo PIC ĐP Phong Cách OpenAI Technical Table */}
+        <div style={{ width: '100%', marginBottom: 24 }}>
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              borderTop: '2px solid #0f172a',
+              borderBottom: '2px solid #0f172a',
+              fontSize: 12,
+              textAlign: 'left',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              fontVariantNumeric: 'tabular-nums'
+            }}
+          >
+            <thead>
+              <tr style={{ borderBottom: '1px solid #0f172a' }}>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    fontSize: 12,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  PIC Điều phối
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    fontSize: 12,
+                    textAlign: 'right',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Tổng lệnh
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    fontSize: 12,
+                    textAlign: 'right',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  SX sai ngày KH
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    fontSize: 12,
+                    textAlign: 'right',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Trượt KH
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    fontSize: 12,
+                    textAlign: 'right',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Khớp số lượng
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    fontSize: 12,
+                    textAlign: 'right',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Khớp job
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    fontSize: 12,
+                    textAlign: 'right',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Tỷ lệ đạt chuẩn
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {picBreakdown.map((row, idx) => {
+                const totalPass = (row.khopSl || 0) + (row.khopJob || 0)
+                const passRate =
+                  row.totalOrders > 0 ? ((totalPass / row.totalOrders) * 100).toFixed(1) : '0.0'
+                const isSelected = selectedPic === row.pic
+                return (
+                  <tr
+                    key={idx}
+                    style={{
+                      borderBottom: '1px solid #e2e8f0',
+                      background: isSelected ? '#f8fafc' : 'transparent'
+                    }}
+                  >
+                    {/* Cột 1: Tên PIC */}
+                    <td
+                      style={{
+                        padding: '9px 12px',
+                        fontWeight: 600,
+                        color: '#0f172a'
+                      }}
+                    >
+                      <span
+                        onClick={() => setSelectedPic(isSelected ? 'ALL' : row.pic)}
+                        style={{
+                          cursor: 'pointer',
+                          color: isSelected ? '#0369a1' : '#0f172a',
+                          fontWeight: isSelected ? 800 : 600,
+                          textDecoration: isSelected ? 'underline' : 'none'
+                        }}
+                        title={isSelected ? 'Bấm để hủy chọn' : 'Bấm để lọc theo PIC này'}
+                      >
+                        {row.pic || 'Không xác định'}
+                      </span>
+                    </td>
+
+                    {/* Cột 2: Tổng lệnh */}
+                    <td
+                      style={{
+                        padding: '9px 12px',
+                        textAlign: 'right',
+                        fontWeight: 700,
+                        color: '#0f172a'
+                      }}
+                    >
+                      {row.totalOrders.toLocaleString('vi-VN')}
+                    </td>
+
+                    {/* Cột 3: SX sai ngày KH */}
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
+                      <span style={{ fontWeight: 600 }}>
+                        {row.sxSaiNgay.toLocaleString('vi-VN')}
+                      </span>{' '}
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.sxSaiNgayRate}%)</span>
+                    </td>
+
+                    {/* Cột 4: Trượt KH */}
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
+                      <span style={{ fontWeight: 600 }}>{row.truotKh.toLocaleString('vi-VN')}</span>{' '}
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.truotKhRate}%)</span>
+                    </td>
+
+                    {/* Cột 5: Khớp số lượng */}
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
+                      <span style={{ fontWeight: 600 }}>{row.khopSl.toLocaleString('vi-VN')}</span>{' '}
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.khopSlRate}%)</span>
+                    </td>
+
+                    {/* Cột 6: Khớp job */}
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
+                      <span style={{ fontWeight: 600 }}>{row.khopJob.toLocaleString('vi-VN')}</span>{' '}
+                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.khopJobRate}%)</span>
+                    </td>
+
+                    {/* Cột 7: Tỷ lệ đạt chuẩn */}
+                    <td
+                      style={{
+                        padding: '9px 12px',
+                        textAlign: 'right',
+                        fontWeight: 700,
+                        color: Number(passRate) >= 20 ? '#0f172a' : '#475569'
+                      }}
+                    >
+                      {passRate}%
+                    </td>
+                  </tr>
+                )
+              })}
+
+              {/* DÒNG TỔNG CỘNG TOÀN BỘ PIC */}
+              {picBreakdown.length > 0 && (
+                <tr
+                  style={{
+                    borderTop: '1.5px solid #0f172a',
+                    background: '#fafafa'
+                  }}
+                >
+                  <td style={{ padding: '10px 12px', fontWeight: 800, color: '#0f172a' }}>
+                    TỔNG CỘNG
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      fontWeight: 800,
+                      color: '#0f172a'
+                    }}
+                  >
+                    {picBreakdown
+                      .reduce((sum, r) => sum + (r.totalOrders || 0), 0)
+                      .toLocaleString('vi-VN')}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#0f172a'
+                    }}
+                  >
+                    {(() => {
+                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
+                      const count = picBreakdown.reduce((sum, r) => sum + (r.sxSaiNgay || 0), 0)
+                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
+                      return (
+                        <>
+                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
+                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
+                        </>
+                      )
+                    })()}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#0f172a'
+                    }}
+                  >
+                    {(() => {
+                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
+                      const count = picBreakdown.reduce((sum, r) => sum + (r.truotKh || 0), 0)
+                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
+                      return (
+                        <>
+                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
+                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
+                        </>
+                      )
+                    })()}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#0f172a'
+                    }}
+                  >
+                    {(() => {
+                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
+                      const count = picBreakdown.reduce((sum, r) => sum + (r.khopSl || 0), 0)
+                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
+                      return (
+                        <>
+                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
+                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
+                        </>
+                      )
+                    })()}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#0f172a'
+                    }}
+                  >
+                    {(() => {
+                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
+                      const count = picBreakdown.reduce((sum, r) => sum + (r.khopJob || 0), 0)
+                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
+                      return (
+                        <>
+                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
+                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
+                        </>
+                      )
+                    })()}
+                  </td>
+                  <td
+                    style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      fontWeight: 800,
+                      color: '#0f172a'
+                    }}
+                  >
+                    {(() => {
+                      const totalOrders = picBreakdown.reduce(
+                        (sum, r) => sum + (r.totalOrders || 0),
+                        0
+                      )
+                      const totalPass = picBreakdown.reduce(
+                        (sum, r) => sum + (r.khopSl || 0) + (r.khopJob || 0),
+                        0
+                      )
+                      return totalOrders > 0
+                        ? `${((totalPass / totalOrders) * 100).toFixed(1)}%`
+                        : '0.0%'
+                    })()}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+       
       </div>
 
       {/* 4 & 5. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
@@ -1365,7 +1366,7 @@ export default function HanoiGs1PlanReport(props) {
           >
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                4. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
+                3. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
               </div>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
                 So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch
@@ -1453,7 +1454,7 @@ export default function HanoiGs1PlanReport(props) {
           >
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                5. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
+                4. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
               </div>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
                 Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống
@@ -1554,7 +1555,7 @@ export default function HanoiGs1PlanReport(props) {
                 alignItems: 'center'
               }}
             >
-              <span>6. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN</span>
+              <span>5. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN</span>
             </div>
             <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
               Đo lường mức độ tuân thủ tiến độ (Schedule Adherence), độ lệch ngày bình quân và tình
@@ -1966,7 +1967,7 @@ export default function HanoiGs1PlanReport(props) {
         >
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-              7. LỆNH THEO TRẠNG THÁI ĐP – SX (DANH SÁCH CHI TIẾT TỪNG LỆNH)
+              6. LỆNH THEO TRẠNG THÁI ĐP – SX (DANH SÁCH CHI TIẾT TỪNG LỆNH)
             </div>
             <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
               Bảng dữ liệu chi tiết toàn bộ lệnh sản xuất điều phối, hỗ trợ lọc, tìm kiếm và xuất dữ

@@ -39,7 +39,7 @@ import { languages } from '../../i18n/langs'
 
 // --- Assets ---
 import ErpSoftBg from '../../assets/erpsoft.png'
-import Logo from '../../assets/logo3.png'
+import Logo from '../../assets/gold-sun-logo.svg'
 
 const ErrorAlert = memo(({ message: errMsg, t }) => {
   const displayMsg = typeof t === 'function' ? t(errMsg) : t?.[errMsg] || errMsg

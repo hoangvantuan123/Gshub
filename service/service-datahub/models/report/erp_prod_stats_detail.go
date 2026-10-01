@@ -5,10 +5,10 @@ import (
 )
 
 // ERPProdStatsDetail tương ứng với bảng _ERPProdStatsDetail (Chi tiết thống kê sản xuất thực tế)
-// Liên kết thông qua MasterSeq và RegCode, không sử dụng Foreign Key
+// Liên kết thông qua MasterSeq và RegCode, IdSeq và MasterSeq dùng UUIDv7
 type ERPProdStatsDetail struct {
-	IdSeq                  int64      `gorm:"primaryKey;autoIncrement;column:IdSeq" db:"IdSeq" json:"IdSeq"`
-	MasterSeq              int64      `gorm:"column:MasterSeq;index;not null" db:"MasterSeq" json:"MasterSeq"`
+	IdSeq                  string     `gorm:"primaryKey;column:IdSeq;size:36;not null" db:"IdSeq" json:"IdSeq"`
+	MasterSeq              string     `gorm:"column:MasterSeq;index;size:36;not null" db:"MasterSeq" json:"MasterSeq"`
 	RegCode                string     `gorm:"column:RegCode;index;type:text;not null" db:"RegCode" json:"RegCode"`
 	RowSeq                 int        `gorm:"column:RowSeq;default:0" db:"RowSeq" json:"RowSeq"`
 	WorkingTag             string     `gorm:"column:WorkingTag;size:10;default:'A'" db:"WorkingTag" json:"WorkingTag"`

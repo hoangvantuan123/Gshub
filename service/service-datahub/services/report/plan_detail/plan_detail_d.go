@@ -10,7 +10,7 @@ import (
 // PlanDetailD - Xóa danh sách dòng chi tiết KHSX Điều Phối
 func (s *PlanDetailService) PlanDetailD(
 	ctx context.Context,
-	detailSeqs []int64,
+	detailSeqs []string,
 	userId string,
 ) error {
 	if len(detailSeqs) == 0 {

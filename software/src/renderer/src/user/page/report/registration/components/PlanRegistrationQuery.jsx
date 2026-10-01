@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import DynamicQueryBar from '../../../../../components/query/core/DynamicQueryBar'
+import DynamicQueryBar from '../../../../components/query/core/DynamicQueryBar'
 
 export default function PlanRegistrationQuery({
   searchValues = {},

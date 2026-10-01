@@ -18,11 +18,11 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
         themeOverride: { textDark: '#225588', baseFontStyle: '600 12px' }
       },
 
-      // ── 1. THÔNG TIN LỆNH THAO TÁC / VẬT TƯ
+      // ── 1. THÔNG TIN VẬT TƯ & LỆNH THAO TÁC
       {
         title: t('report.itemCode', 'Mã vật tư'),
         id: 'ItemCode',
-        group: 'Thông tin lệnh thao tác',
+        group: 'Thông tin vật tư',
         kind: 'Text',
         readonly: false,
         width: 140,
@@ -33,7 +33,7 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
       {
         title: t('report.itemName', 'Tên vật tư'),
         id: 'ItemName',
-        group: 'Thông tin lệnh thao tác',
+        group: 'Thông tin vật tư',
         kind: 'Text',
         readonly: false,
         width: 220,
@@ -43,7 +43,7 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
       {
         title: t('report.version', 'Version'),
         id: 'Version',
-        group: 'Thông tin lệnh thao tác',
+        group: 'Thông tin vật tư',
         kind: 'Text',
         readonly: false,
         width: 80,
@@ -53,7 +53,7 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
       {
         title: t('report.model', 'Model'),
         id: 'Model',
-        group: 'Thông tin lệnh thao tác',
+        group: 'Thông tin vật tư',
         kind: 'Text',
         readonly: false,
         width: 100,
@@ -63,7 +63,7 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
       {
         title: t('report.defectMarginWeight', 'Trọng lượng Sp/lề NG'),
         id: 'DefectMarginWeight',
-        group: 'Thông tin lệnh thao tác',
+        group: 'Thông tin vật tư',
         kind: 'Number',
         readonly: false,
         width: 150,
@@ -73,7 +73,7 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
       {
         title: t('report.techMarginWeight', 'Trọng lượng lề kỹ thuật'),
         id: 'TechMarginWeight',
-        group: 'Thông tin lệnh thao tác',
+        group: 'Thông tin vật tư',
         kind: 'Number',
         readonly: false,
         width: 160,

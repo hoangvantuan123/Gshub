@@ -51,7 +51,7 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
           height: 'clamp(660px, 88vh, 920px)',
           maxHeight: '94vh',
           maxWidth: '96vw',
-          border: '1.5px solid #245d6c',
+          border: '1.5px solid #01411b',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
           display: 'flex',
           flexDirection: 'column',
@@ -63,13 +63,13 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
         {/* Modal Header */}
         <div
           style={{
-            background: '#245d6c',
+            background: '#01411b',
             color: '#ffffff',
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid #1a4550',
+            borderBottom: '1px solid #0a2e16',
             flexShrink: 0
           }}
         >
@@ -136,8 +136,8 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
                     fontSize: 11.5,
                     fontWeight: active ? 800 : 600,
                     color: active ? '#ffffff' : '#334155',
-                    background: active ? '#245d6c' : '#ffffff',
-                    border: active ? '1px solid #245d6c' : '1px solid #cbd5e1',
+                    background: active ? '#01411b' : '#ffffff',
+                    border: active ? '1px solid #01411b' : '1px solid #cbd5e1',
                     cursor: 'pointer',
                     borderRadius: 0,
                     transition: 'all 0.12s ease'
@@ -286,7 +286,7 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
                     style={{
                       fontSize: 11.5,
                       fontWeight: 700,
-                      color: '#245d6c'
+                      color: '#01411b'
                     }}
                   >
                     Vị trí: {item.scope}
@@ -366,7 +366,7 @@ export const FormulaHandbookModal = ({ isOpen, onClose }) => {
                       style={{
                         background: '#ffffff',
                         border: '1px solid #cbd5e1',
-                        borderLeft: '3px solid #245d6c',
+                        borderLeft: '3px solid #01411b',
                         padding: '6px 10px',
                         fontFamily: 'Consolas, Monaco, "Courier New", monospace',
                         fontSize: 12,

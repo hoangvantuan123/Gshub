@@ -123,7 +123,7 @@ export const FORMULA_DATABASE = [
     columnName: 'Đường chuẩn 24h & Cột đỏ cảnh báo quá tải',
     title: '8. Đường giới hạn 24h/ngày & Cảnh báo cột đỏ quá tải',
     scope: 'Mục I: Biểu đồ Giờ chạy máy (Đường nét đứt y=24 và màu cột)',
-    formula: 'Cột đỏ = IF(totalRuntimeHours > 24, "#dc2626 (Đỏ Cảnh Báo)", "#245d6c (Chuẩn)")',
+    formula: 'Cột đỏ = IF(totalRuntimeHours > 24, "#dc2626 (Đỏ Cảnh Báo)", "#01411b (Chuẩn)")',
     source: 'Quy chuẩn định mức vận hành 24 giờ/ngày trên mỗi thiết bị máy móc',
     description:
       'Đường tham chiếu đỏ nét đứt y=24h giúp nhận diện tức thì các cụm máy vận hành vượt quá giới hạn 24 giờ trong kỳ báo cáo (do trùng lặp ca hoặc nhập sai thời gian).',
@@ -159,7 +159,7 @@ export const FORMULA_DATABASE = [
     description:
       'Trực quan hóa đối chiếu khối lượng sản xuất thực tế, số lượng đạt tiêu chuẩn và lượng phế phẩm/lỗi của từng tổ sản xuất trong kỳ lọc.',
     notes:
-      'Biểu đồ cột 3 thành phần: SL Sản xuất (Xanh đậm #245d6c), SL Đạt (Xanh ngọc #0f766e) và SL Lỗi (Đỏ #be123c).'
+      'Biểu đồ cột 3 thành phần: SL Sản xuất (Xanh chuẩn #01411b), SL Đạt (Xanh lá #166534) và SL Lỗi (Đỏ #be123c).'
   },
 
   // ==================== IV. BẢNG BIỂU CHI TIẾT (GLIDE DATA GRID) ====================

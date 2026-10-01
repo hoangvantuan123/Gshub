@@ -279,16 +279,16 @@ export const RuntimeAuditDetailModal = ({
         case 'origin':
           return {
             kind: GridCellKind.Text,
-            data: item.origin || 'MES',
-            displayData: item.origin || 'MES',
+            data: item.origin || '',
+            displayData: item.origin || '',
             allowOverlay: false,
             contentAlign: 'center'
           }
         case 'operator':
           return {
             kind: GridCellKind.Text,
-            data: maskText(item.operator || 'Kỹ thuật viên', 3),
-            displayData: maskText(item.operator || 'Kỹ thuật viên', 3),
+            data: item.operator ? maskText(item.operator, 3) : '',
+            displayData: item.operator ? maskText(item.operator, 3) : '',
             allowOverlay: false
           }
         default:
@@ -322,8 +322,8 @@ export const RuntimeAuditDetailModal = ({
           'Tỷ lệ đạt (%)': `${passRateVal}%`,
           'Giờ chạy (h)': (Number(item.runtimeHours) || 0).toFixed(1),
           'Kiểm toán & Cảnh báo QLSX': item.auditText,
-          'Nguồn gốc': item.origin || 'MES',
-          'Người thực hiện': item.operator || 'Kỹ thuật viên'
+          'Nguồn gốc': item.origin || '',
+          'Người thực hiện': item.operator || ''
         }
       })
       const ws = XLSX.utils.json_to_sheet(wsData)
@@ -378,8 +378,8 @@ export const RuntimeAuditDetailModal = ({
             `${passRateVal}%`,
             (Number(item.runtimeHours) || 0).toFixed(1),
             item.auditText,
-            item.origin || 'MES',
-            item.operator || 'Kỹ thuật viên'
+            item.origin || '',
+            item.operator || ''
           ].join('\t')
         })
         .join('\n')
@@ -420,7 +420,7 @@ export const RuntimeAuditDetailModal = ({
           height: 'clamp(620px, 88vh, 880px)',
           maxHeight: '94vh',
           maxWidth: '96vw',
-          border: '1.5px solid #245d6c',
+          border: '1.5px solid #01411b',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
           display: 'flex',
           flexDirection: 'column',
@@ -432,13 +432,13 @@ export const RuntimeAuditDetailModal = ({
         {/* Modal Header */}
         <div
           style={{
-            background: '#245d6c',
+            background: '#01411b',
             color: '#ffffff',
             padding: '12px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid #1a4550',
+            borderBottom: '1px solid #0a2e16',
             flexShrink: 0
           }}
         >
@@ -476,8 +476,8 @@ export const RuntimeAuditDetailModal = ({
               fontWeight: 700,
               cursor: 'pointer',
               border: '1px solid',
-              borderColor: activeCategory === 'ALL' ? '#245d6c' : '#cbd5e1',
-              background: activeCategory === 'ALL' ? '#245d6c' : '#ffffff',
+              borderColor: activeCategory === 'ALL' ? '#01411b' : '#cbd5e1',
+              background: activeCategory === 'ALL' ? '#01411b' : '#ffffff',
               color: activeCategory === 'ALL' ? '#ffffff' : '#334155',
               borderRadius: 2,
               display: 'flex',
@@ -507,8 +507,8 @@ export const RuntimeAuditDetailModal = ({
               fontWeight: 700,
               cursor: 'pointer',
               border: '1px solid',
-              borderColor: activeCategory === 'NORMAL' ? '#245d6c' : '#cbd5e1',
-              background: activeCategory === 'NORMAL' ? '#245d6c' : '#ffffff',
+              borderColor: activeCategory === 'NORMAL' ? '#01411b' : '#cbd5e1',
+              background: activeCategory === 'NORMAL' ? '#01411b' : '#ffffff',
               color: activeCategory === 'NORMAL' ? '#ffffff' : '#334155',
               borderRadius: 2,
               display: 'flex',
@@ -523,7 +523,7 @@ export const RuntimeAuditDetailModal = ({
                 padding: '1px 6px',
                 borderRadius: 10,
                 background: activeCategory === 'NORMAL' ? 'rgba(255,255,255,0.25)' : '#ecfdf5',
-                color: activeCategory === 'NORMAL' ? '#ffffff' : '#047857'
+                color: activeCategory === 'NORMAL' ? '#ffffff' : '#01411b'
               }}
             >
               {categoryCounts.normal}
@@ -608,32 +608,7 @@ export const RuntimeAuditDetailModal = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                border: '1px solid #cbd5e1',
-                padding: '3px 8px',
-                background: '#ffffff',
-                borderRadius: 2
-              }}
-            >
-              <Search size={13} color="#94a3b8" />
-              <input
-                type="text"
-                placeholder="Tìm mã phiếu, lệnh, máy, tổ, người làm..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  border: 'none',
-                  outline: 'none',
-                  padding: '2px 6px',
-                  fontSize: 12,
-                  width: 220,
-                  fontFamily: 'inherit'
-                }}
-              />
-            </div>
+           
 
             {/* Lọc theo tổ */}
             <PureSelect
@@ -714,10 +689,10 @@ export const RuntimeAuditDetailModal = ({
               Tổng SL SX: <b style={{ color: '#0f172a' }}>{totalActual.toLocaleString('vi-VN')}</b>
             </span>
             <span>
-              Tổng SL Đạt: <b style={{ color: '#0f766e' }}>{totalPass.toLocaleString('vi-VN')}</b>
+              Tổng SL Đạt: <b style={{ color: '#01411b' }}>{totalPass.toLocaleString('vi-VN')}</b>
             </span>
             <span>
-              Tổng Giờ chạy: <b style={{ color: '#245d6c' }}>{totalRuntime.toFixed(1)}h</b>
+              Tổng Giờ chạy: <b style={{ color: '#01411b' }}>{totalRuntime.toFixed(1)}h</b>
             </span>
           </div>
         </div>

@@ -6,10 +6,11 @@ export const pageLoaders = {
   HanoiGs1PlanPage: () => import('../../page/report/production/hanoiGs1/plan'),
   QuevoGs5StatPage: () => import('../../page/report/production/quevoGs5/stat'),
   QuevoGs5PlanPage: () => import('../../page/report/production/quevoGs5/plan'),
-  DataRegisterPage: () => import('../../page/report/data/import'),
-  DataImportPage: () => import('../../page/report/data/import'),
+  RegistrationPage: () => import('../../page/report/registration'),
   PlanRegistrationDetailView: () =>
-    import('../../page/report/data/import/components/PlanRegistrationDetailView')
+    import('../../page/report/registration/components/PlanRegistrationDetailView'),
+  PlanRegistrationCreateView: () =>
+    import('../../page/report/registration/components/PlanRegistrationCreateView')
 }
 
 const SettingPrivate = lazy(pageLoaders.SettingPrivate)
@@ -17,9 +18,9 @@ const HanoiGs1StatPage = lazy(pageLoaders.HanoiGs1StatPage)
 const HanoiGs1PlanPage = lazy(pageLoaders.HanoiGs1PlanPage)
 const QuevoGs5StatPage = lazy(pageLoaders.QuevoGs5StatPage)
 const QuevoGs5PlanPage = lazy(pageLoaders.QuevoGs5PlanPage)
-const DataRegisterPage = lazy(pageLoaders.DataRegisterPage)
-const DataImportPage = lazy(pageLoaders.DataImportPage)
+const RegistrationPage = lazy(pageLoaders.RegistrationPage)
 const PlanRegistrationDetailView = lazy(pageLoaders.PlanRegistrationDetailView)
+const PlanRegistrationCreateView = lazy(pageLoaders.PlanRegistrationCreateView)
 
 export const routeToLoaderMap = {
   '/erp/u/setting': pageLoaders.SettingPrivate,
@@ -27,8 +28,12 @@ export const routeToLoaderMap = {
   '/erp/u/report/production/hanoi-gs1/plan': pageLoaders.HanoiGs1PlanPage,
   '/erp/u/report/production/quevo-gs5/statistics': pageLoaders.QuevoGs5StatPage,
   '/erp/u/report/production/quevo-gs5/plan': pageLoaders.QuevoGs5PlanPage,
-  '/erp/u/report/data/register': pageLoaders.DataRegisterPage,
-  '/erp/u/report/data/import': pageLoaders.DataImportPage,
+  '/erp/u/report/registration': pageLoaders.RegistrationPage,
+  '/erp/u/report/registration/create': pageLoaders.PlanRegistrationCreateView,
+  '/erp/u/report/registration/detail': pageLoaders.PlanRegistrationDetailView,
+  '/erp/u/report/data/import': pageLoaders.RegistrationPage,
+  '/erp/u/report/data/register': pageLoaders.RegistrationPage,
+  '/erp/u/report/data/create': pageLoaders.PlanRegistrationCreateView,
   '/erp/u/report/data/detail': pageLoaders.PlanRegistrationDetailView
 }
 
@@ -143,26 +148,58 @@ export const systemsRoutes = [
 
   // ── Đăng ký báo cáo KHSX & TKSX ─────────────────────────────────────────
   {
+    path: '/erp/u/report/registration',
+    element: RegistrationPage,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/registration/*',
+    element: RegistrationPage,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/registration/create',
+    element: PlanRegistrationCreateView,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/registration/detail/:regCode',
+    element: PlanRegistrationDetailView,
+    permission: 'report_registration',
+    public: true
+  },
+
+  // Alias tương thích ngược cho các route cũ
+  {
     path: '/erp/u/report/data/register',
-    element: DataRegisterPage,
+    element: RegistrationPage,
     permission: 'report_data_import',
     public: true
   },
   {
     path: '/erp/u/report/data/register/*',
-    element: DataRegisterPage,
+    element: RegistrationPage,
     permission: 'report_data_import',
     public: true
   },
   {
     path: '/erp/u/report/data/import',
-    element: DataImportPage,
+    element: RegistrationPage,
     permission: 'report_data_import',
     public: true
   },
   {
     path: '/erp/u/report/data/import/*',
-    element: DataImportPage,
+    element: RegistrationPage,
+    permission: 'report_data_import',
+    public: true
+  },
+  {
+    path: '/erp/u/report/data/create',
+    element: PlanRegistrationCreateView,
     permission: 'report_data_import',
     public: true
   },

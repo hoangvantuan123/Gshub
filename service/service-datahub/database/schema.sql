@@ -414,10 +414,10 @@ ON CONFLICT ("EndpointKey") DO UPDATE SET
 
 -- =============================================================================
 -- 13. BẢNG MASTER ĐĂNG KÝ BÁO CÁO (_ERPPlanMaster)
---     (Không dùng Foreign Key ràng buộc, chỉ dùng IdSeq và RegCode)
+--     (Không dùng Foreign Key ràng buộc, định danh chuẩn UUIDv7 cho IdSeq và RegCode)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS "_ERPPlanMaster" (
-    "IdSeq"         BIGSERIAL PRIMARY KEY,
+    "IdSeq"         VARCHAR(36) PRIMARY KEY, -- UUIDv7
     "RegCode"       VARCHAR(100) NOT NULL UNIQUE,
     "ReportType"    VARCHAR(100) NOT NULL DEFAULT 'plan', -- 'plan' (KHSX) | 'statistics' (TKSX)
     "FactoryCode"   VARCHAR(50),            -- 'GS1' (Hà Nội) | 'GS5' (Quế Võ)
@@ -428,9 +428,11 @@ CREATE TABLE IF NOT EXISTS "_ERPPlanMaster" (
     "TotalRows"     INTEGER DEFAULT 0,
     "RowVersion"    BIGINT DEFAULT 1,
     "IsActive"      BOOLEAN DEFAULT true,
-    "CreatedBy"     VARCHAR(100),
+    "CreatedBy"     VARCHAR(100),            -- UserSeq / UserId người đăng ký
+    "CreatedByName" VARCHAR(255),            -- Tên người đăng ký
     "CreatedAt"     TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "UpdatedBy"     VARCHAR(100),
+    "UpdatedByName" VARCHAR(255),
     "UpdatedAt"     TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -439,16 +441,17 @@ CREATE INDEX IF NOT EXISTS "idx_planmaster_reporttype" ON "_ERPPlanMaster" ("Rep
 CREATE INDEX IF NOT EXISTS "idx_planmaster_factorycode" ON "_ERPPlanMaster" ("FactoryCode");
 CREATE INDEX IF NOT EXISTS "idx_planmaster_applydate" ON "_ERPPlanMaster" ("ApplyDate");
 CREATE INDEX IF NOT EXISTS "idx_planmaster_factoryname" ON "_ERPPlanMaster" ("FactoryName");
+CREATE INDEX IF NOT EXISTS "idx_planmaster_createdby" ON "_ERPPlanMaster" ("CreatedBy");
 CREATE INDEX IF NOT EXISTS "idx_planmaster_isactive" ON "_ERPPlanMaster" ("IsActive");
 CREATE INDEX IF NOT EXISTS "idx_planmaster_createdat" ON "_ERPPlanMaster" ("CreatedAt" DESC);
 
 -- =============================================================================
 -- 14. BẢNG 1: CHI TIẾT DỮ LIỆU KẾ HOẠCH SẢN XUẤT ĐIỀU PHỐI (_ERPPlanDetail)
---     (Lưu trữ 24 cột dữ liệu KHSX, liên kết bằng MasterSeq và RegCode, không dùng FK)
+--     (Lưu trữ 24 cột dữ liệu KHSX, IdSeq & MasterSeq chuẩn UUIDv7, không dùng FK)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS "_ERPPlanDetail" (
-    "IdSeq"            BIGSERIAL PRIMARY KEY,
-    "MasterSeq"        BIGINT NOT NULL,
+    "IdSeq"            VARCHAR(36) PRIMARY KEY, -- UUIDv7
+    "MasterSeq"        VARCHAR(36) NOT NULL,    -- UUIDv7 liên kết Master
     "RegCode"          TEXT NOT NULL,
     "RowSeq"           INTEGER DEFAULT 0,
     "WorkingTag"       VARCHAR(10) DEFAULT 'A',
@@ -479,8 +482,10 @@ CREATE TABLE IF NOT EXISTS "_ERPPlanDetail" (
     "RowVersion"       BIGINT DEFAULT 1,
     "IsActive"         BOOLEAN DEFAULT true,
     "CreatedBy"        TEXT,
+    "CreatedByName"    TEXT,
     "CreatedAt"        TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "UpdatedBy"        TEXT,
+    "UpdatedByName"    TEXT,
     "UpdatedAt"        TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -494,11 +499,11 @@ CREATE INDEX IF NOT EXISTS "idx_plandetail_opdate" ON "_ERPPlanDetail" ("OpDate"
 
 -- =============================================================================
 -- 15. BẢNG 2: CHI TIẾT DỮ LIỆU THỐNG KÊ SẢN XUẤT THỰC TẾ (_ERPProdStatsDetail)
---     (Lưu trữ toàn bộ cột dữ liệu TKSX, liên kết bằng MasterSeq và RegCode, không dùng FK)
+--     (Lưu trữ toàn bộ cột dữ liệu TKSX, IdSeq & MasterSeq chuẩn UUIDv7, không dùng FK)
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS "L" (
-    "IdSeq"                  BIGSERIAL PRIMARY KEY,
-    "MasterSeq"              BIGINT NOT NULL,
+CREATE TABLE IF NOT EXISTS "_ERPProdStatsDetail" (
+    "IdSeq"                  VARCHAR(36) PRIMARY KEY, -- UUIDv7
+    "MasterSeq"              VARCHAR(36) NOT NULL,    -- UUIDv7 liên kết Master
     "RegCode"                TEXT NOT NULL,
     "RowSeq"                 INTEGER DEFAULT 0,
     "WorkingTag"             VARCHAR(10) DEFAULT 'A',
@@ -601,8 +606,10 @@ CREATE TABLE IF NOT EXISTS "L" (
     "RowVersion"             BIGINT DEFAULT 1,
     "IsActive"               BOOLEAN DEFAULT true,
     "CreatedBy"              TEXT,
+    "CreatedByName"          TEXT,
     "CreatedAt"              TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "UpdatedBy"              TEXT,
+    "UpdatedByName"          TEXT,
     "UpdatedAt"              TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 

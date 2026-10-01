@@ -14,7 +14,7 @@ import {
   Trash2,
   RefreshCw
 } from 'lucide-react'
-import Logo from '../../assets/logo3.png'
+import Logo from '../../assets/gold-sun-logo.svg'
 import { getDefaultDataHubUrl, getEnvConfig, SERVER_ENVIRONMENTS } from '../../config/serverConfig'
 import { getApiServerEndpoint } from '../../services'
 
@@ -693,8 +693,8 @@ export default function SettingsPage() {
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-200">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div className="w-11 h-11 p-1 flex items-center justify-center shrink-0">
-                      <img src={Logo} alt="GsHub" className="h-full object-contain" />
+                    <div className="w-16 h-11 p-0.5 flex items-center justify-center shrink-0">
+                      <img src={Logo} alt="Goldsun Logo" className="h-full w-auto object-contain" />
                     </div>
 
                     <div className="space-y-0.5 min-w-0 flex-1">

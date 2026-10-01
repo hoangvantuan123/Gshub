@@ -22,7 +22,7 @@ func (s *PlanDetailService) PlanDetailU(
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, item := range items {
-			if item.IdSeq <= 0 {
+			if item.IdSeq == "" {
 				continue
 			}
 

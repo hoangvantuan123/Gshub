@@ -64,6 +64,46 @@ func InitDB(cfg *config.Config, log *zap.Logger) (*gorm.DB, error) {
 
 func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 	log.Info("Running database schema migrations for DATAHUB...")
+
+	// 1. Tiền xử lý an toàn: Xóa FK constraints cũ (nếu có) và convert IdSeq/MasterSeq sang VARCHAR(36)
+	preUpgradeSQL := `
+	DO $$
+	DECLARE
+	    fk_rec RECORD;
+	    r RECORD;
+	BEGIN
+	    -- Xóa bỏ mọi ràng buộc Foreign Key cũ trên các bảng KHSX & TKSX nếu còn tồn tại
+	    FOR fk_rec IN (
+	        SELECT conrelid::regclass::text AS t_name, conname AS c_name
+	        FROM pg_constraint
+	        WHERE contype = 'f'
+	          AND (
+	              conrelid::regclass::text IN ('"_ERPPlanMaster"', '"_ERPPlanDetail"', '"_ERPProdStatsDetail"', '_ERPPlanMaster', '_ERPPlanDetail', '_ERPProdStatsDetail')
+	              OR confrelid::regclass::text IN ('"_ERPPlanMaster"', '_ERPPlanMaster')
+	          )
+	    ) LOOP
+	        EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %I CASCADE', fk_rec.t_name, fk_rec.c_name);
+	    END LOOP;
+
+	    -- Chuyển đổi IdSeq, MasterSeq sang VARCHAR(36) nếu bảng cũ đang lưu số
+	    FOR r IN (
+	        SELECT table_name, column_name, data_type 
+	        FROM information_schema.columns 
+	        WHERE table_schema = 'public' 
+	          AND table_name IN ('_ERPPlanMaster', '_ERPPlanDetail', '_ERPProdStatsDetail')
+	          AND column_name IN ('IdSeq', 'MasterSeq')
+	          AND data_type IN ('bigint', 'integer', 'smallint')
+	    ) LOOP
+	        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I DROP DEFAULT', r.table_name, r.column_name);
+	        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I TYPE VARCHAR(36) USING %I::text', r.table_name, r.column_name, r.column_name);
+	    END LOOP;
+	END $$;
+	`
+	if err := db.Exec(preUpgradeSQL).Error; err != nil {
+		log.Warn("Failed to run pre-migration cleanup/drop FK", zap.Error(err))
+	}
+
+	// 2. Chạy GORM AutoMigrate chuẩn hóa các Entity models
 	err := db.AutoMigrate(
 		&models.ErpConfig{},
 		&models.TokenSession{},
@@ -83,49 +123,28 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		return err
 	}
 
-	// Đảm bảo toàn bộ các cột dữ liệu import trong bảng chi tiết chuyển thành TEXT để không bị giới hạn độ dài ký tự
-	upgradeSQL := `
+	// 3. Chuẩn hóa các cột chuỗi trong bảng chi tiết sang TEXT (tránh giới hạn độ dài ký tự từ file Excel)
+	postUpgradeSQL := `
 	DO $$
 	DECLARE
 	    r RECORD;
 	BEGIN
-	    -- 1. Thêm cột FactoryCode vào _ERPPlanMaster nếu chưa có
-	    IF NOT EXISTS (
-	        SELECT 1 FROM information_schema.columns 
-	        WHERE table_schema = 'public' 
-	          AND table_name = '_ERPPlanMaster' 
-	          AND column_name = 'FactoryCode'
-	    ) THEN
-	        ALTER TABLE "_ERPPlanMaster" ADD COLUMN "FactoryCode" VARCHAR(50) DEFAULT 'GS1';
-	    END IF;
-
-	    -- 2. Tự động chuẩn hóa dữ liệu FactoryCode cho các bản ghi cũ
-	    UPDATE "_ERPPlanMaster" 
-	    SET "FactoryCode" = 'GS5' 
-	    WHERE ("FactoryCode" IS NULL OR "FactoryCode" = '') 
-	      AND ("FactoryName" ILIKE '%GS5%' OR "FactoryName" ILIKE '%Quế Võ%');
-
-	    UPDATE "_ERPPlanMaster" 
-	    SET "FactoryCode" = 'GS1' 
-	    WHERE ("FactoryCode" IS NULL OR "FactoryCode" = '');
-
-	    -- 3. Chuyển đổi các cột detail sang TEXT
 	    FOR r IN (
 	        SELECT table_name, column_name 
 	        FROM information_schema.columns 
 	        WHERE table_schema = 'public' 
 	          AND table_name IN ('_ERPProdStatsDetail', '_ERPPlanDetail')
 	          AND data_type = 'character varying'
-	          AND column_name NOT IN ('WorkingTag')
+	          AND column_name NOT IN ('WorkingTag', 'IdSeq', 'MasterSeq')
 	    ) LOOP
 	        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I TYPE TEXT USING %I::text', r.table_name, r.column_name, r.column_name);
 	    END LOOP;
 	END $$;
 	`
-	if err := db.Exec(upgradeSQL).Error; err != nil {
-		log.Warn("Failed to auto-upgrade detail columns to TEXT or add FactoryCode", zap.Error(err))
+	if err := db.Exec(postUpgradeSQL).Error; err != nil {
+		log.Warn("Failed to verify detail columns as TEXT", zap.Error(err))
 	} else {
-		log.Info("Successfully verified all report tables schema and FactoryCode column")
+		log.Info("Database schema verified and upgraded successfully")
 	}
 
 	return nil

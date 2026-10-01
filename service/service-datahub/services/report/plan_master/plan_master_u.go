@@ -17,7 +17,7 @@ func (s *PlanMasterService) PlanMasterU(
 	master *models.ERPPlanMaster,
 	userId string,
 ) (*models.ERPPlanMaster, error) {
-	if master == nil || master.IdSeq <= 0 {
+	if master == nil || master.IdSeq == "" {
 		return nil, errors.New("thiếu IdSeq của bản ghi Master cần cập nhật")
 	}
 
@@ -38,7 +38,7 @@ func (s *PlanMasterService) PlanMasterU(
 	}
 
 	var updated models.ERPPlanMaster
-	if err := s.db.WithContext(ctx).First(&updated, master.IdSeq).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where(`"IdSeq" = ?`, master.IdSeq).First(&updated).Error; err != nil {
 		return nil, err
 	}
 

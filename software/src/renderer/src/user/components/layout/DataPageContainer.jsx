@@ -30,8 +30,7 @@ export default function DataPageContainer({
                 open={defaultOpenQuery}
               >
                 <summary
-                  className="flex cursor-pointer items-center justify-between px-2 py-0.5 border-b border-slate-200 text-gray-900 select-none relative"
-                  onClick={(e) => e.preventDefault()}
+                  className="flex cursor-pointer items-center justify-between px-2 py-0.5 border-b border-slate-200 text-gray-900 select-none relative hover:bg-slate-50 transition-colors"
                 >
                   <h2 className="text-[10px] italic text-indigo-600 font-bold uppercase flex items-center gap-1.5 py-0.5">
                     <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />

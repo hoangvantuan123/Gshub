@@ -4,7 +4,7 @@ import HanoiGs1PlanReport from './components/HanoiGs1PlanReport'
 import {
   queryPlanMaster,
   queryPlanDetail
-} from '../../../data/import/services/planRegistrationService'
+} from '../../../registration/services/planRegistrationService'
 
 export function parseCleanNumber(val, defaultVal = 0) {
   if (val === undefined || val === null || val === '') return defaultVal

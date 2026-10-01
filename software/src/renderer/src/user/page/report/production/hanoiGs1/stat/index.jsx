@@ -5,7 +5,7 @@ import {
   queryPlanMaster,
   queryProdStatsDetail,
   queryPlanDetail
-} from '../../../data/import/services/planRegistrationService'
+} from '../../../registration/services/planRegistrationService'
 import {
   getCachedMasters,
   setCachedMasters,
@@ -177,16 +177,7 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     ''
 
   let machineCode = rawMachineCode ? String(rawMachineCode).trim() : ''
-  let machineName = rawMachineName ? String(rawMachineName).trim() : ''
-
-  if (!machineCode && machineName) {
-    machineCode = machineName.toUpperCase().replace(/\s+/g, '_').slice(0, 15)
-  } else if (!machineCode && !machineName) {
-    machineCode = `MC-${String((idx % 32) + 1).padStart(2, '0')}`
-    machineName = `Máy ${machineCode}`
-  } else if (machineCode && !machineName) {
-    machineName = `Máy ${machineCode}`
-  }
+  let machineName = rawMachineName ? String(rawMachineName).trim() : (machineCode || '')
 
   const rawTeam =
     item.TeamName ||
@@ -202,34 +193,77 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     item.DeptName ||
     ''
 
-  const team = rawTeam ? String(rawTeam).trim() : 'Tổ In Offset'
-  const teamCode = team.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '')
+  const team = rawTeam ? String(rawTeam).trim() : ''
+  const teamCode = team ? team.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '') : ''
 
   return {
-    id: item.IdSeq ? String(item.IdSeq) : item.StatTicketNo || `HN-STAT-${idx + 1}`,
+    ...item,
+    id: item.IdSeq ? String(item.IdSeq) : item.StatTicketNo || String(idx + 1),
     ticketNo:
       item.StatTicketNo ||
-      item.OperationNo ||
+      item.statTicketNo ||
+      item.ticketNo ||
       item.RegCode ||
-      `PTK-HN-${String(idx + 1).padStart(3, '0')}`,
+      '',
+    StatTicketNo:
+      item.StatTicketNo ||
+      item.statTicketNo ||
+      item.ticketNo ||
+      item.RegCode ||
+      '',
     docNo:
       item.OperationNo ||
-      item.OrderNo ||
+      item.operationNo ||
       item.RoutingDocNo ||
-      `LSX-HN-2026-${String(idx + 1).padStart(4, '0')}`,
+      item.routingDocNo ||
+      '',
+    OperationNo:
+      item.OperationNo ||
+      item.operationNo ||
+      item.RoutingDocNo ||
+      item.routingDocNo ||
+      '',
+    OrderNo:
+      item.OrderNo ||
+      item.orderNo ||
+      '',
+    orderNo:
+      item.OrderNo ||
+      item.orderNo ||
+      '',
     team,
     teamCode,
+    TeamName: item.TeamName || item.teamName || team,
     machineName,
     machineCode,
+    MachineCode: item.MachineCode || machineCode,
+    MachineName: item.MachineName || machineName,
     isManual: false,
-    itemCode: item.ItemCode || 'BOX-GOLDSUN',
-    itemName: item.ItemName || 'Bao bì cao cấp Goldsun',
-    unit: item.Unit || item.RoutingUnit || 'Chiếc',
+    itemCode: item.ItemCode || item.itemCode || '',
+    itemName: item.ItemName || item.itemName || '',
+    ItemCode: item.ItemCode || item.itemCode || '',
+    ItemName: item.ItemName || item.itemName || '',
+    Customer: item.Customer || item.customer || '',
+    customer: item.Customer || item.customer || '',
+    ProcessName: item.ProcessName || item.processName || '',
+    MainWorker: item.MainWorker || item.mainWorker || item.PicDp || '',
+    SubWorker1: item.SubWorker1 || item.subWorker1 || '',
+    SubWorker2: item.SubWorker2 || item.subWorker2 || '',
+    StatStaff: item.StatStaff || item.statStaff || '',
+    SalesStaff: item.SalesStaff || item.salesStaff || '',
+    BreakdownReason: item.BreakdownReason || item.breakdownReason || '',
+    StandardMeters: parseCleanNumber(item.StandardMeters || item.standardMeters, 0),
+    ActualMeters: parseCleanNumber(item.ActualMeters || item.actualMeters, 0),
+    unit: item.Unit || item.unit || item.RoutingUnit || '',
+    Unit: item.Unit || item.unit || item.RoutingUnit || '',
     planQty,
     actualQty,
+    ProdQty: actualQty,
     passQty,
+    PassQty: passQty,
     defectQty,
     passRate,
+    PassRate: passRate,
     runtimeHours,
     durationMinutes: finalDurationMinutes,
     AuditCategory:
@@ -238,13 +272,17 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
         : finalDurationMinutes > 720
           ? 'OVER_12H'
           : '5MIN_12H',
-    shift: item.Shift || 'Ca 1',
+    shift: item.Shift || item.shift || '',
+    Shift: item.Shift || item.shift || '',
     prodDate,
+    StatDate: item.StatDate || item.statDate || prodDate,
+    StartDate: item.StartDate || item.startDate || prodDate,
+    EndDate: item.EndDate || item.endDate || prodDate,
     startTime: rawStart ? String(rawStart).replace('T', ' ') : '',
     endTime: rawEnd ? String(rawEnd).replace('T', ' ') : '',
     StartTime: rawStart ? String(rawStart).replace('T', ' ') : '',
     EndTime: rawEnd ? String(rawEnd).replace('T', ' ') : '',
-    createdSource: item.TicketCreationLocation || 'MES',
+    createdSource: item.TicketCreationLocation || item.createdSource || item.origin || '',
     syncDelayMinutes:
       item.SyncDelayMinutes !== undefined && item.SyncDelayMinutes !== null
         ? item.SyncDelayMinutes

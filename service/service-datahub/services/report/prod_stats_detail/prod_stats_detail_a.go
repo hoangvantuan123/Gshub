@@ -7,6 +7,7 @@ import (
 	"time"
 
 	models "service-datahub/models/report"
+	"service-datahub/services"
 )
 
 // cleanNumberStr chuẩn hóa chuỗi số (xử lý dấu chấm/phẩy phân cách hàng nghìn như 57.211 -> 57211)
@@ -68,7 +69,9 @@ func (s *ProdStatsDetailService) ProdStatsDetailA(
 
 	now := time.Now()
 	for i := range items {
-		items[i].IdSeq = 0
+		if items[i].IdSeq == "" {
+			items[i].IdSeq = services.GenerateUUIDv7()
+		}
 		items[i].WorkingTag = "A"
 		items[i].RowVersion = 1
 		items[i].CreatedBy = &userId

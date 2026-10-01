@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Minus, Square, Copy, X } from 'lucide-react'
+import Logo from '../../../assets/goldusn_light_theme_favicon.png'
 
 export default function TitleBar({ title }) {
   const [isMax, setIsMax] = useState(false)
@@ -199,7 +200,10 @@ export default function TitleBar({ title }) {
             </button>
           </div>
         ) : null}
-        <span className="font-semibold text-slate-800 text-[11px] tracking-tight">GoldSun Hub</span>
+        <div className="flex items-center gap-1.5">
+          <img src={Logo} alt="GoldSun" className="w-3.5 h-3.5 object-contain" />
+          <span className="font-semibold text-slate-800 text-[11px] tracking-tight">GoldSun Hub</span>
+        </div>
       </div>
 
       {/* Center Draggable Spacer */}

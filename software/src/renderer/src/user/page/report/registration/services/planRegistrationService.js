@@ -1,4 +1,4 @@
-import { request } from '../../../../../../services/apiClient'
+import { request } from '../../../../../services/apiClient'
 
 /**
  * Service kết nối Backend API cho Module Đăng ký & Báo cáo Sản xuất (KHSX & TKSX)
@@ -6,33 +6,68 @@ import { request } from '../../../../../../services/apiClient'
 
 // 1. Lưu đợt đăng ký mới (Master + Chi tiết KHSX hoặc TKSX)
 export const savePlanRegistration = async (payload, signal = null, onProgress = null) => {
-  const isStat = payload.reportType === 'statistics' || payload.reportType === 'tksx'
+  // Lấy thông tin tài khoản đăng nhập hiện tại từ Client
+  let currentUser = {}
+  try {
+    const rawUser = localStorage.getItem('userInfo') || sessionStorage.getItem('userInfo')
+    if (rawUser) {
+      currentUser = JSON.parse(rawUser)
+    }
+  } catch {}
+
+  const createdBy = payload.createdBy || currentUser.UserSeq || currentUser.UserId || currentUser.EmpID || 'SystemAdmin'
+  const createdByName = payload.createdByName || currentUser.UserName || currentUser.Login || currentUser.EmpName || 'Admin'
+
+  const reportType = payload.ReportType || payload.reportType || 'plan'
+  const isStat = reportType === 'statistics' || reportType === 'tksx'
+
+  const rawData =
+    payload.SheetData ||
+    payload.data ||
+    (isStat ? payload.statsData || payload.StatsData : payload.planData || payload.PlanData) ||
+    []
+  const totalRows = rawData.length
 
   const factoryCode =
+    payload.FactoryCode ||
     payload.factoryCode ||
-    (String(payload.factoryName || '').includes('GS5') ||
-    String(payload.factoryName || '').includes('Quế Võ')
+    (String(payload.FactoryName || payload.factoryName || '').includes('GS5') ||
+    String(payload.FactoryName || payload.factoryName || '').includes('Quế Võ')
       ? 'GS5'
       : 'GS1')
 
-  const rawData = payload.data || (isStat ? payload.statsData : payload.planData) || []
-  const totalRows = rawData.length
+  const factoryName =
+    payload.FactoryName ||
+    payload.factoryName ||
+    (factoryCode === 'GS5' ? 'GS5 Quế Võ 1B' : 'GS1 Hà Nội')
 
-  // Với số lượng dòng nhỏ (<= 2000 dòng), gửi 1 lần duy nhất
-  const CHUNK_SIZE = 2000
+  const applyDate = payload.ApplyDate || payload.applyDate
+  const regCodeInput = payload.RegCode || payload.regCode
+  const remark = payload.Remark || payload.remark || ''
+
+  // Kích thước mỗi chunk tối ưu: 1.000 dòng để đảm bảo payload nhẹ (~1MB), không bị timeout hay nghẽn socket
+  const CHUNK_SIZE = 1000
+
+  // Với số lượng dòng nhỏ (<= 1.000 dòng), gửi 1 lần duy nhất cùng Master
   if (totalRows <= CHUNK_SIZE) {
     const formattedPayload = {
-      reportType: payload.reportType || 'plan',
+      reportType,
       factoryCode,
-      factoryName: payload.factoryName || (factoryCode === 'GS5' ? 'GS5 Quế Võ 1B' : 'GS1 Hà Nội'),
-      applyDate: payload.applyDate,
-      regCode: payload.regCode,
-      remark: payload.remark || '',
+      factoryName,
+      applyDate,
+      regCode: regCodeInput,
+      remark,
       status: payload.status || (payload.isDraft ? 'draft' : 'published'),
       isDraft: Boolean(payload.isDraft),
+      createdBy,
+      createdByName,
+      userSeq: currentUser.UserSeq || createdBy,
+      userName: createdByName,
       totalRows,
       planData: isStat ? [] : rawData,
-      statsData: isStat ? rawData : []
+      statsData: isStat ? rawData : [],
+      sheetData: rawData,
+      data: rawData
     }
 
     onProgress?.({ current: totalRows, total: totalRows, percent: 100 })
@@ -46,21 +81,27 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
     })
   }
 
-  // Với số lượng dòng lớn (> 2000 dòng, ví dụ 10.000 dòng):
-  // Bước 1: Lưu Master kèm Chunk 1 (2.000 dòng đầu tiên)
+  // Với số lượng dòng lớn (> 1.000 dòng, ví dụ 5.000 - 50.000 dòng):
+  // Bước 1: Lưu Master kèm Chunk 1 (1.000 dòng đầu tiên)
   const firstChunk = rawData.slice(0, CHUNK_SIZE)
   const firstPayload = {
-    reportType: payload.reportType || 'plan',
+    reportType,
     factoryCode,
-    factoryName: payload.factoryName || (factoryCode === 'GS5' ? 'GS5 Quế Võ 1B' : 'GS1 Hà Nội'),
-    applyDate: payload.applyDate,
-    regCode: payload.regCode,
-    remark: payload.remark || '',
+    factoryName,
+    applyDate,
+    regCode: regCodeInput,
+    remark,
     status: payload.status || (payload.isDraft ? 'draft' : 'published'),
     isDraft: Boolean(payload.isDraft),
+    createdBy,
+    createdByName,
+    userSeq: currentUser.UserSeq || createdBy,
+    userName: createdByName,
     totalRows,
     planData: isStat ? [] : firstChunk,
-    statsData: isStat ? firstChunk : []
+    statsData: isStat ? firstChunk : [],
+    sheetData: firstChunk,
+    data: firstChunk
   }
 
   onProgress?.({
@@ -81,7 +122,7 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
   const masterSeq = savedMaster?.IdSeq
   const regCode = savedMaster?.RegCode || payload.regCode
 
-  // Bước 2: Lưu các Chunk tiếp theo tuần tự (kèm delay nhỏ 80ms để tránh nghẽn socket và không bị WAF/AntiSpam đánh giá spam)
+  // Bước 2: Lưu các Chunk tiếp theo tuần tự (kèm delay nhỏ 50ms giữa các chunk để giải phóng event loop)
   const detailUrl = isStat ? '/report/plan/ProdStatsDetailA' : '/report/plan/PlanDetailA'
 
   for (let start = CHUNK_SIZE; start < totalRows; start += CHUNK_SIZE) {
@@ -96,8 +137,8 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
       RowSeq: start + idx + 1
     }))
 
-    // Delay 80ms giữa các batch
-    await new Promise((resolve) => setTimeout(resolve, 80))
+    // Delay 50ms giữa các batch
+    await new Promise((resolve) => setTimeout(resolve, 50))
 
     await request({
       url: detailUrl,

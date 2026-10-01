@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { CompactSelection } from '@glideapps/glide-data-grid'
 import * as XLSX from 'xlsx'
 
-import { usePageHotkeys } from '../../../../hooks/usePageHotkeys'
-import { usePagePermissions } from '../../../../hooks/usePagePermissions'
-import { usePageData } from '../../../../../context/PageDataContext'
-import DataPageContainer from '../../../../components/layout/DataPageContainer'
-import WindowsConfirmModal from '../../../../components/modal/WindowsConfirmModal'
-import { openChildWindow } from '../../../../../utils/openChildWindow'
+import { usePageHotkeys } from '../../../hooks/usePageHotkeys'
+import { usePagePermissions } from '../../../hooks/usePagePermissions'
+import { usePageData } from '../../../../context/PageDataContext'
+import DataPageContainer from '../../../components/layout/DataPageContainer'
+import WindowsConfirmModal from '../../../components/modal/WindowsConfirmModal'
+import { openChildWindow } from '../../../../utils/openChildWindow'
 
 import { useProductionPlanColumns } from './columns/productionPlanColumns'
 import PlanRegistrationTable from './components/PlanRegistrationTable'
@@ -324,6 +324,22 @@ export default function DailyPlanRegistrationPage({
     }
   }, [masterGridData, setStatusMessage])
 
+  // ── Mở Form Đăng ký / Nạp mới: Electron -> Cửa sổ Windows con độc lập, Web -> Full Tab ──
+  const handleOpenCreate = useCallback(() => {
+    if (window.electron?.openChildWindow) {
+      openChildWindow({
+        path: '/sub/report/data/create',
+        title: 'Đăng ký & Nạp dữ liệu báo cáo sản xuất mới',
+        width: 1380,
+        height: 880,
+        id: 'report-create-new'
+      })
+    } else {
+      // Trên Web browser: mở modal nạp hoặc mở new tab full view
+      setIsAddModalOpen(true)
+    }
+  }, [])
+
   // ── Mở cửa sổ Windows mới xem dữ liệu chi tiết của đợt đăng ký đã chọn ──
   const handleOpenDetailWindow = useCallback(
     (targetRow = null) => {
@@ -386,7 +402,7 @@ export default function DailyPlanRegistrationPage({
           <PlanRegistrationActions
             handleSearchData={handleSearchData}
             handleDeleteDataSheet={handleDeleteData}
-            handleOpenAddModal={() => setIsAddModalOpen(true)}
+            handleOpenAddModal={handleOpenCreate}
             handleOpenDetailWindow={() => handleOpenDetailWindow()}
             handleExportExcel={handleExportExcel}
             permissions={pagePerms}

@@ -105,12 +105,12 @@ export const DEFAULT_SETTING_ITEMS = [
     OrderSeq: 2
   },
 
-  // ── Nhóm 3: Đăng ký báo cáo KHSX & TKSX ──────────────────────────────────
+  // ── Nhóm 3: Đăng ký báo cáo ──────────────────────────────────────────────
   {
-    Id: 'sub_report_data_manage',
-    MenuKey: 'report_data_group',
+    Id: 'sub_report_registration',
+    MenuKey: 'report_registration_group',
     MenuRootId: 'ROOT_REPORT',
-    MenuLabel: 'Đăng ký báo cáo KHSX & TKSX',
+    MenuLabel: 'Đăng ký báo cáo',
     MenuType: 'submenu',
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
@@ -118,12 +118,12 @@ export const DEFAULT_SETTING_ITEMS = [
     OrderSeq: 3
   },
   {
-    Id: 'menu_report_data_import',
-    MenuKey: 'report_data_import',
-    MenuSubRootId: 'sub_report_data_manage',
+    Id: 'menu_report_registration',
+    MenuKey: 'report_registration',
+    MenuSubRootId: 'sub_report_registration',
     MenuRootId: 'ROOT_REPORT',
     MenuLabel: 'Đăng ký báo cáo KHSX & TKSX',
-    MenuLink: '/erp/u/report/data/import',
+    MenuLink: '/erp/u/report/registration',
     MenuType: 'menu',
     Icon: 'FileSpreadsheet',
     MenuIcon: 'FileSpreadsheet',

@@ -496,7 +496,7 @@ export default function HanoiGs1PlanReport(props) {
             borderLeft: '1px solid #cbd5e1',
             borderRight: '1px solid #cbd5e1',
             borderBottom: '1px solid #cbd5e1',
-            borderTop: '3.5px solid #059669',
+            borderTop: '3.5px solid #01411b',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',
             flexDirection: 'column',
@@ -509,7 +509,7 @@ export default function HanoiGs1PlanReport(props) {
             style={{
               fontSize: 11,
               fontWeight: 700,
-              color: '#059669',
+              color: '#01411b',
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             }}
@@ -527,11 +527,11 @@ export default function HanoiGs1PlanReport(props) {
             }}
           >
             {kpiMetrics.khopSlCount.toLocaleString('vi-VN')}{' '}
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#059669' }}>lệnh</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: '#01411b' }}>lệnh</span>
           </div>
           <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>
             Tỷ lệ:{' '}
-            <span style={{ color: '#059669', fontWeight: 700 }}>{kpiMetrics.khopSlRate}%</span> •
+            <span style={{ color: '#01411b', fontWeight: 700 }}>{kpiMetrics.khopSlRate}%</span> •
             Đạt chuẩn sản lượng
           </div>
         </div>
@@ -629,16 +629,6 @@ export default function HanoiGs1PlanReport(props) {
               Bảng theo dõi và biểu đồ phân tích năng lực điều hành chi tiết theo từng nhân sự điều
               phối (PIC), bao gồm khối lượng, tỷ lệ lệch ngày, tỷ lệ trượt và tỷ lệ đạt chuẩn.
             </div>
-          </div>
-
-          <div className="screenshot-hide">
-            <PureButton
-              icon={<Download size={12} />}
-              onClick={() => handleDownloadSingleChart(chart4Ref, 'Theo_PIC_DieuPhoi')}
-              title="Tải ảnh biểu đồ phân tích PIC"
-            >
-              Tải ảnh biểu đồ
-            </PureButton>
           </div>
         </div>
 
@@ -1372,16 +1362,6 @@ export default function HanoiGs1PlanReport(props) {
                 So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch
               </div>
             </div>
-
-            <div className="screenshot-hide">
-              <PureButton
-                icon={<Download size={12} />}
-                onClick={() => handleDownloadSingleChart(chart2Ref, 'TrangThai_ThoiGian_DM')}
-                title="Tải ảnh biểu đồ thời gian vs ĐM"
-              >
-                Tải ảnh
-              </PureButton>
-            </div>
           </div>
 
           <div style={{ height: 240, width: '100%' }}>
@@ -1459,16 +1439,6 @@ export default function HanoiGs1PlanReport(props) {
               <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
                 Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống
               </div>
-            </div>
-
-            <div className="screenshot-hide">
-              <PureButton
-                icon={<Download size={12} />}
-                onClick={() => handleDownloadSingleChart(chart3Ref, 'TrangThai_Capa')}
-                title="Tải ảnh biểu đồ trạng thái Capa"
-              >
-                Tải ảnh
-              </PureButton>
             </div>
           </div>
 
@@ -1561,16 +1531,6 @@ export default function HanoiGs1PlanReport(props) {
               Đo lường mức độ tuân thủ tiến độ (Schedule Adherence), độ lệch ngày bình quân và tình
               trạng cân bằng tải giữa các tổ sản xuất
             </div>
-          </div>
-
-          <div className="screenshot-hide">
-            <PureButton
-              icon={<Download size={12} />}
-              onClick={() => handleDownloadSingleChart(chart5Ref, 'DanhGia_TienDo_CanBangTai')}
-              title="Tải ảnh đánh giá tiến độ & cân bằng tải"
-            >
-              Tải ảnh
-            </PureButton>
           </div>
         </div>
 

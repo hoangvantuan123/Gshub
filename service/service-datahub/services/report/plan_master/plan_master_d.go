@@ -13,7 +13,7 @@ import (
 // PlanMasterD - Xóa Master và tự động xóa dữ liệu chi tiết liên kết ở cả 2 bảng Detail (không cần FK)
 func (s *PlanMasterService) PlanMasterD(
 	ctx context.Context,
-	masterSeqs []int64,
+	masterSeqs []string,
 	userId string,
 ) error {
 	if len(masterSeqs) == 0 {

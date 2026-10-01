@@ -2,8 +2,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Input, Spin } from 'antd'
 import { SearchOutlined, FolderOpenOutlined, FileTextOutlined } from '@ant-design/icons'
-import Logo from '../../../assets/logo3.png'
 import { Link } from 'react-router-dom'
+import Logo from '../../../assets/gold-sun-logo.svg'
 import { getMenuData } from '../../../IndexedDB/loadMenuData'
 
 const Home = ({ menuTransForm }) => {
@@ -137,8 +137,8 @@ const Home = ({ menuTransForm }) => {
       <div className="flex flex-col items-center mt-6 text-center px-4">
         <img
           src={Logo}
-          className="w-12 cursor-pointer p-2 border rounded-full h-auto mb-4"
-          alt="Logo"
+          className="h-14 w-auto max-w-[200px] cursor-pointer object-contain mb-3 drop-shadow-xs transition-transform hover:scale-105"
+          alt="Goldsun Logo"
         />
         <h2 className="text-2xl font-semibold text-gray-800">
           Chào bạn, <span className="text-blue-600">{userInfo?.UserName ?? 'Người dùng'}!</span>

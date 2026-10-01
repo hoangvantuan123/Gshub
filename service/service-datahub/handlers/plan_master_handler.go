@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	models "service-datahub/models/report"
+	"service-datahub/services"
 	"service-datahub/services/report/plan_detail"
 	"service-datahub/services/report/plan_master"
 	"service-datahub/services/report/prod_stats_detail"
@@ -89,9 +91,30 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 		return
 	}
 
-	userId := c.GetString("UserId")
+	// Lấy thông tin tài khoản người đăng ký từ claims token hoặc từ request body
+	userId := c.GetString("user_id")
+	if userId == "" {
+		userId = c.GetString("UserId")
+	}
+	if userId == "" {
+		userId = req.CreatedBy
+	}
+	if userId == "" {
+		userId = req.UserSeq
+	}
 	if userId == "" {
 		userId = "SystemAdmin"
+	}
+
+	userName := c.GetString("login")
+	if userName == "" {
+		userName = req.CreatedByName
+	}
+	if userName == "" {
+		userName = req.UserName
+	}
+	if userName == "" {
+		userName = userId
 	}
 
 	reportType := strings.ToLower(strings.TrimSpace(req.ReportType))
@@ -123,6 +146,31 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 		}
 	}
 
+	// Fallback nếu client gửi dữ liệu dưới dạng SheetData hoặc Data hoặc data/sheetData
+	if len(req.StatsData) == 0 && (reportType == "statistics" || reportType == "tksx") {
+		rawList := req.SheetData
+		if len(rawList) == 0 {
+			rawList = req.Data
+		}
+		if len(rawList) > 0 {
+			if rawBytes, err := json.Marshal(rawList); err == nil {
+				_ = json.Unmarshal(rawBytes, &req.StatsData)
+			}
+		}
+	}
+
+	if len(req.PlanData) == 0 && (reportType == "plan" || reportType == "khsx") {
+		rawList := req.SheetData
+		if len(rawList) == 0 {
+			rawList = req.Data
+		}
+		if len(rawList) > 0 {
+			if rawBytes, err := json.Marshal(rawList); err == nil {
+				_ = json.Unmarshal(rawBytes, &req.PlanData)
+			}
+		}
+	}
+
 	totalRows := req.TotalRows
 	if totalRows <= 0 {
 		totalRows = len(req.PlanData)
@@ -145,21 +193,26 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 
 	err := h.db.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
+		masterIdSeq := services.GenerateUUIDv7()
+
 		createdMaster = models.ERPPlanMaster{
-			RegCode:     regCode,
-			ReportType:  reportType,
-			FactoryCode: &req.FactoryCode,
-			FactoryName: &req.FactoryName,
-			ApplyDate:   &req.ApplyDate,
-			Remark:      &req.Remark,
-			Status:      &req.Status,
-			TotalRows:   totalRows,
-			RowVersion:  1,
-			IsActive:    true,
-			CreatedBy:   &userId,
-			CreatedAt:   &now,
-			UpdatedBy:   &userId,
-			UpdatedAt:   &now,
+			IdSeq:         masterIdSeq,
+			RegCode:       regCode,
+			ReportType:    reportType,
+			FactoryCode:   &req.FactoryCode,
+			FactoryName:   &req.FactoryName,
+			ApplyDate:     &req.ApplyDate,
+			Remark:        &req.Remark,
+			Status:        &req.Status,
+			TotalRows:     totalRows,
+			RowVersion:    1,
+			IsActive:      true,
+			CreatedBy:     &userId,
+			CreatedByName: &userName,
+			CreatedAt:     &now,
+			UpdatedBy:     &userId,
+			UpdatedByName: &userName,
+			UpdatedAt:     &now,
 		}
 
 		if err := tx.Create(&createdMaster).Error; err != nil {
@@ -171,14 +224,18 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 				details := make([]models.ERPProdStatsDetail, len(req.StatsData))
 				for i, item := range req.StatsData {
 					details[i] = item
-					details[i].IdSeq = 0
-					details[i].MasterSeq = createdMaster.IdSeq
+					if details[i].IdSeq == "" {
+						details[i].IdSeq = services.GenerateUUIDv7()
+					}
+					details[i].MasterSeq = masterIdSeq
 					details[i].RegCode = regCode
 					details[i].RowSeq = i + 1
 					details[i].WorkingTag = "A"
 					details[i].RowVersion = 1
 					details[i].CreatedBy = &userId
+					details[i].CreatedByName = &userName
 					details[i].UpdatedBy = &userId
+					details[i].UpdatedByName = &userName
 					details[i].CreatedAt = &now
 					details[i].UpdatedAt = &now
 					details[i].IsActive = true
@@ -192,14 +249,18 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 				details := make([]models.ERPPlanDetail, len(req.PlanData))
 				for i, item := range req.PlanData {
 					details[i] = item
-					details[i].IdSeq = 0
-					details[i].MasterSeq = createdMaster.IdSeq
+					if details[i].IdSeq == "" {
+						details[i].IdSeq = services.GenerateUUIDv7()
+					}
+					details[i].MasterSeq = masterIdSeq
 					details[i].RegCode = regCode
 					details[i].RowSeq = i + 1
 					details[i].WorkingTag = "A"
 					details[i].RowVersion = 1
 					details[i].CreatedBy = &userId
+					details[i].CreatedByName = &userName
 					details[i].UpdatedBy = &userId
+					details[i].UpdatedByName = &userName
 					details[i].CreatedAt = &now
 					details[i].UpdatedAt = &now
 					details[i].IsActive = true
@@ -231,8 +292,8 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 // PlanMasterD - Xóa đợt đăng ký Master (tự động xóa data ở cả 2 bảng detail bằng MasterSeq)
 func (h *PlanMasterHandler) PlanMasterD(c *gin.Context) {
 	var req struct {
-		MasterSeqs []int64 `json:"masterSeqs"`
-		IdSeq      int64   `json:"idSeq"`
+		MasterSeqs []string `json:"masterSeqs"`
+		IdSeq      string   `json:"idSeq"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -244,11 +305,14 @@ func (h *PlanMasterHandler) PlanMasterD(c *gin.Context) {
 	}
 
 	seqs := req.MasterSeqs
-	if len(seqs) == 0 && req.IdSeq > 0 {
-		seqs = []int64{req.IdSeq}
+	if len(seqs) == 0 && req.IdSeq != "" {
+		seqs = []string{req.IdSeq}
 	}
 
-	userId := c.GetString("UserId")
+	userId := c.GetString("user_id")
+	if userId == "" {
+		userId = c.GetString("UserId")
+	}
 	if userId == "" {
 		userId = "SystemAdmin"
 	}

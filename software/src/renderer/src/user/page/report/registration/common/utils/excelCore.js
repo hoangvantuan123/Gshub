@@ -65,6 +65,22 @@ export function scanHeaderRow(rows = [], invertedMap, headerKeywords = [], maxSc
     }
   }
 
+  // Nếu dòng được chọn (bestRowIndex) chứa nhiều cột con (như 'ho ten', 'so luong dat', 'bat dau')
+  // và dòng phía trên (bestRowIndex - 1) chứa các từ khóa Group lớn ('tho chinh', 'thong tin lenh', 'so luong thuc hien')
+  // thì dòng bắt đầu của Header thực chất là bestRowIndex - 1
+  if (bestRowIndex > 0) {
+    const prevRow = rows[bestRowIndex - 1] || []
+    const prevText = prevRow.map((c) => normalizeKey(c)).join(' ')
+    if (
+      prevText.includes('tho chinh') ||
+      prevText.includes('thong tin lenh') ||
+      prevText.includes('so luong thuc hien') ||
+      prevText.includes('thoi gian thuc hien')
+    ) {
+      bestRowIndex = bestRowIndex - 1
+    }
+  }
+
   return { rowIndex: bestRowIndex, score: bestScore }
 }
 
@@ -158,6 +174,69 @@ export function formatExcelCellValue(val) {
  * Backward-compatible export alias for parseExcelDateOrTime
  */
 export const parseExcelDateOrTime = formatExcelCellValue
+
+/**
+ * Trích xuất và xây dựng ánh xạ header 2 tầng thông minh:
+ * - Khi dòng 1 có Group (ví dụ: 'Thợ chính', 'Thợ phụ 1', 'Số lượng thực hiện') và dòng 2 có Cột con ('Họ tên', 'Số lượng sản xuất'): key = "Group | Column"
+ * - Khi dòng 2 là cột đơn (ví dụ: 'Mã vật tư', 'Tên vật tư', 'Version', 'Model', 'Số lệnh thao tác') mà dòng 1 rỗng: key = "Column"
+ */
+export function buildHierarchicalHeaders(rawMatrix, headerRowIndex) {
+  const row1 = rawMatrix[headerRowIndex] || []
+  const row2 = rawMatrix[headerRowIndex + 1] || []
+  const maxCols = Math.max(row1.length, row2.length)
+
+  const columnHeaders = []
+  let hasTwoLevels = false
+
+  for (let c = 0; c < maxCols; c++) {
+    const rawVal1 = (row1[c] !== undefined && row1[c] !== null) ? String(row1[c]).trim() : ''
+    const rawVal2 = (row2[c] !== undefined && row2[c] !== null) ? String(row2[c]).trim() : ''
+
+    const norm1 = normalizeKey(rawVal1)
+    const norm2 = normalizeKey(rawVal2)
+
+    // Nếu cả 2 dòng đều rỗng
+    if (!norm1 && !norm2) {
+      columnHeaders[c] = null
+      continue
+    }
+
+    // TH1: Dòng 1 có text và Dòng 2 có text khác Dòng 1 -> Header 2 tầng (Group | Child)
+    if (norm1 && norm2 && norm1 !== norm2) {
+      hasTwoLevels = true
+      columnHeaders[c] = {
+        type: 'hierarchical',
+        group: rawVal1,
+        child: rawVal2,
+        fullKey: `${rawVal1}|${rawVal2}`,
+        normalizedKey: `${norm1}|${norm2}`,
+        normalizedCombined: normalizeKey(`${rawVal1} ${rawVal2}`),
+        normalizedChild: norm2,
+        normalizedGroup: norm1
+      }
+    } else {
+      // TH2: Dòng 1 rỗng và Dòng 2 có text -> Cột đơn ở dòng 2 (VD: Mã vật tư, Tên vật tư, Version, Model...)
+      // Hoặc Dòng 1 có text và Dòng 2 rỗng/giống Dòng 1 -> Cột đơn ở dòng 1
+      const effectiveVal = rawVal2 || rawVal1
+      const effectiveNorm = norm2 || norm1
+      columnHeaders[c] = {
+        type: 'single',
+        group: rawVal1,
+        child: rawVal2,
+        fullKey: effectiveVal,
+        normalizedKey: effectiveNorm,
+        normalizedChild: norm2,
+        normalizedGroup: norm1
+      }
+    }
+  }
+
+  return {
+    headers: columnHeaders,
+    isTwoLevels: hasTwoLevels,
+    dataStartRow: hasTwoLevels ? headerRowIndex + 2 : headerRowIndex + 1
+  }
+}
 
 /**
  * Reads binary buffer to 2D matrix with unmerged cells and formatted text

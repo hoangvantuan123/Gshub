@@ -634,6 +634,43 @@ const UserRouter = () => {
             </div>
           }
         />
+        {/* Standalone Sub-Window Forms without Sidebar */}
+        <Route
+          path="/sub/*"
+          element={
+            <Suspense fallback={<Spinner />}>
+              <LanguageProvider keyLanguage={keyLanguage}>
+                <PageDataProvider>
+                  <StandalonePageLayout rootMenu={rootMenuItems} menuTransForm={menuTransForm}>
+                    <Routes>
+                      {subWindowRoutes.map((route) => (
+                        <Route
+                          key={route.path}
+                          path={route.path}
+                          element={
+                            <AuthorizedRouteElement
+                              element={route.element}
+                              permission={route.permission}
+                              public={route.public}
+                              fallback={route.fallback}
+                              userPermissions={userPermissions}
+                              roleTable={roleTable}
+                              isMobile={isMobile}
+                              cancelAllRequests={cancelAllRequests}
+                              controllers={controllers}
+                              menuTransForm={menuTransForm}
+                            />
+                          }
+                        />
+                      ))}
+                    </Routes>
+                  </StandalonePageLayout>
+                </PageDataProvider>
+              </LanguageProvider>
+            </Suspense>
+          }
+        />
+
         <Route
           path="/*"
           element={
@@ -732,43 +769,6 @@ const UserRouter = () => {
                     </Content>
                   </Layout>
                 </Layout>
-              </LanguageProvider>
-            </Suspense>
-          }
-        />
-
-        {/* Standalone Sub-Window Forms without Sidebar */}
-        <Route
-          path="/sub/*"
-          element={
-            <Suspense fallback={<Spinner />}>
-              <LanguageProvider keyLanguage={keyLanguage}>
-                <PageDataProvider>
-                  <StandalonePageLayout rootMenu={rootMenuItems} menuTransForm={menuTransForm}>
-                    <Routes>
-                      {subWindowRoutes.map((route) => (
-                        <Route
-                          key={route.path}
-                          path={route.path}
-                          element={
-                            <AuthorizedRouteElement
-                              element={route.element}
-                              permission={route.permission}
-                              public={route.public}
-                              fallback={route.fallback}
-                              userPermissions={userPermissions}
-                              roleTable={roleTable}
-                              isMobile={isMobile}
-                              cancelAllRequests={cancelAllRequests}
-                              controllers={controllers}
-                              menuTransForm={menuTransForm}
-                            />
-                          }
-                        />
-                      ))}
-                    </Routes>
-                  </StandalonePageLayout>
-                </PageDataProvider>
               </LanguageProvider>
             </Suspense>
           }

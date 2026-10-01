@@ -5,14 +5,14 @@ import (
 )
 
 // ERPPlanMaster tương ứng với bảng _ERPPlanMaster (Đăng ký đợt báo cáo KHSX / TKSX)
-// Không sử dụng khóa phụ Foreign Key, liên kết trực tiếp bằng IdSeq và RegCode
+// Không sử dụng khóa phụ Foreign Key, liên kết trực tiếp bằng IdSeq (UUIDv7) và RegCode
 type ERPPlanMaster struct {
-	IdSeq         int64      `gorm:"primaryKey;autoIncrement;column:IdSeq" db:"IdSeq" json:"IdSeq"`
-	RegCode       string     `gorm:"column:RegCode;uniqueIndex;size:50;not null" db:"RegCode" json:"RegCode"`
+	IdSeq         string     `gorm:"primaryKey;column:IdSeq;size:36;not null" db:"IdSeq" json:"IdSeq"`
+	RegCode       string     `gorm:"column:RegCode;uniqueIndex;size:100;not null" db:"RegCode" json:"RegCode"`
 	ReportType    string     `gorm:"column:ReportType;size:50;not null;default:'plan'" db:"ReportType" json:"ReportType"` // 'plan' (KHSX) | 'statistics' (TKSX)
 	FactoryCode   *string    `gorm:"column:FactoryCode;size:50;default:'GS1'" db:"FactoryCode" json:"FactoryCode"`
-	FactoryName   *string    `gorm:"column:FactoryName;size:100" db:"FactoryName" json:"FactoryName"`
-	ApplyDate     *string    `gorm:"column:ApplyDate;size:20" db:"ApplyDate" json:"ApplyDate"`
+	FactoryName   *string    `gorm:"column:FactoryName;size:255" db:"FactoryName" json:"FactoryName"`
+	ApplyDate     *string    `gorm:"column:ApplyDate;size:50" db:"ApplyDate" json:"ApplyDate"`
 	Remark        *string    `gorm:"column:Remark;type:text" db:"Remark" json:"Remark"`
 	Status        *string    `gorm:"column:Status;size:50;default:'published'" db:"Status" json:"Status"` // 'draft', 'published', 'cancelled'
 	TotalRows     int        `gorm:"column:TotalRows;default:0" db:"TotalRows" json:"TotalRows"`

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	models "service-datahub/models/report"
+	"service-datahub/services"
 )
 
 // PlanDetailA - Thêm mới danh sách dòng chi tiết KHSX Điều Phối
@@ -20,7 +21,9 @@ func (s *PlanDetailService) PlanDetailA(
 
 	now := time.Now()
 	for i := range items {
-		items[i].IdSeq = 0
+		if items[i].IdSeq == "" {
+			items[i].IdSeq = services.GenerateUUIDv7()
+		}
 		items[i].WorkingTag = "A"
 		items[i].RowVersion = 1
 		items[i].CreatedBy = &userId

@@ -10,7 +10,7 @@ import (
 // ProdStatsDetailD - Xóa danh sách dòng chi tiết Thống Kê Sản Xuất
 func (s *ProdStatsDetailService) ProdStatsDetailD(
 	ctx context.Context,
-	detailSeqs []int64,
+	detailSeqs []string,
 	userId string,
 ) error {
 	if len(detailSeqs) == 0 {

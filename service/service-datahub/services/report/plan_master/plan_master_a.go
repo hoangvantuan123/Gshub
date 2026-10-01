@@ -8,6 +8,7 @@ import (
 	"time"
 
 	models "service-datahub/models/report"
+	"service-datahub/services"
 )
 
 // PlanMasterA - Thêm mới bản ghi Master đăng ký báo cáo
@@ -54,7 +55,13 @@ func (s *PlanMasterService) PlanMasterA(
 		}
 	}
 
+	masterIdSeq := master.IdSeq
+	if masterIdSeq == "" {
+		masterIdSeq = services.GenerateUUIDv7()
+	}
+
 	record := models.ERPPlanMaster{
+		IdSeq:         masterIdSeq,
 		RegCode:       regCode,
 		ReportType:    master.ReportType,
 		FactoryCode:   &factoryCode,

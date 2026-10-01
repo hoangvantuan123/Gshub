@@ -64,11 +64,23 @@ func (h *PlanDetailHandler) PlanDetailQ(c *gin.Context) {
 func (h *PlanDetailHandler) PlanDetailA(c *gin.Context) {
 	var items []models.ERPPlanDetail
 	if err := c.ShouldBindJSON(&items); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Dữ liệu dòng chi tiết KHSX không hợp lệ: " + err.Error(),
-		})
-		return
+		var wrapper struct {
+			Items []models.ERPPlanDetail `json:"items"`
+			Data  []models.ERPPlanDetail `json:"data"`
+		}
+		if errWrap := c.ShouldBindJSON(&wrapper); errWrap == nil && (len(wrapper.Items) > 0 || len(wrapper.Data) > 0) {
+			if len(wrapper.Items) > 0 {
+				items = wrapper.Items
+			} else {
+				items = wrapper.Data
+			}
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Dữ liệu dòng chi tiết KHSX không hợp lệ: " + err.Error(),
+			})
+			return
+		}
 	}
 
 	userId := c.GetString("UserId")
@@ -125,8 +137,8 @@ func (h *PlanDetailHandler) PlanDetailU(c *gin.Context) {
 // PlanDetailD - Xóa danh sách dòng chi tiết KHSX
 func (h *PlanDetailHandler) PlanDetailD(c *gin.Context) {
 	var req struct {
-		DetailSeqs []int64 `json:"detailSeqs"`
-		IdSeq      int64   `json:"idSeq"`
+		DetailSeqs []string `json:"detailSeqs"`
+		IdSeq      string   `json:"idSeq"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -137,8 +149,8 @@ func (h *PlanDetailHandler) PlanDetailD(c *gin.Context) {
 	}
 
 	seqs := req.DetailSeqs
-	if len(seqs) == 0 && req.IdSeq > 0 {
-		seqs = []int64{req.IdSeq}
+	if len(seqs) == 0 && req.IdSeq != "" {
+		seqs = []string{req.IdSeq}
 	}
 
 	userId := c.GetString("UserId")

@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as XLSX from 'xlsx'
-import { queryPlanDetail } from '../../services/planRegistrationService'
-import { usePageData } from '../../../../../../../context/PageDataContext'
+import { queryProdStatsDetail } from '../../services/planRegistrationService'
+import { usePageData } from '../../../../../../context/PageDataContext'
 
-export function usePlanImport({
+export function useStatisticsImport({
   gridData = [],
   setGridData,
   setNumRows,
@@ -18,25 +18,24 @@ export function usePlanImport({
   const { t } = useTranslation()
   const { setStatusMessage, setPageData } = usePageData()
   const [searchValues, setSearchValues] = useState({
-    PicDp: '',
     OperationNo: '',
     ItemCode: '',
-    RoutingDocNo: '',
-    MachineName: '',
-    StatusDpSx: '',
-    TimeStatus: '',
-    CapaStatus: ''
+    MachineCode: '',
+    TeamName: '',
+    Shift: '',
+    Customer: '',
+    Status: ''
   })
 
   const [dynamicQueryFields, setDynamicQueryFields] = useState([])
   const originalDataRef = useRef([])
 
   // Hàm load dữ liệu thực tế từ Database thông qua DataHub API
-  const fetchPlanData = useCallback(
+  const fetchStatsData = useCallback(
     async (filters = {}) => {
       loadingBarRef?.current?.continuousStart?.()
       try {
-        const res = await queryPlanDetail(filters)
+        const res = await queryProdStatsDetail(filters)
         const dataList = res?.data || []
         setGridData(dataList)
         setNumRows(dataList.length)
@@ -47,7 +46,7 @@ export function usePlanImport({
           total: dataList.length,
           totalAll: res?.pageInfo?.totalAll || dataList.length,
           loadedCount: dataList.length,
-          totalColumns: 24
+          totalColumns: 65
         }))
 
         return dataList
@@ -71,43 +70,42 @@ export function usePlanImport({
 
   // Tự động truy vấn từ DB khi khởi tạo giao diện
   useEffect(() => {
-    fetchPlanData({})
-  }, [fetchPlanData])
+    fetchStatsData({})
+  }, [fetchStatsData])
 
   // Search từ Backend DataHub khi bấm TÌM KIẾM
   const handleSearchData = useCallback(async () => {
-    const dataList = await fetchPlanData(searchValues)
+    const dataList = await fetchStatsData(searchValues)
     if (dataList.length > 0) {
       setStatusMessage?.({
         type: 'success',
-        text: `Tìm thấy ${dataList.length.toLocaleString('vi-VN')} bản ghi kế hoạch sản xuất từ hệ thống`
+        text: `Tìm thấy ${dataList.length.toLocaleString('vi-VN')} bản ghi thống kê sản xuất từ hệ thống`
       })
     } else {
       setStatusMessage?.({
         type: 'info',
-        text: 'Không tìm thấy dữ liệu kế hoạch sản xuất phù hợp'
+        text: 'Không tìm thấy dữ liệu thống kê sản xuất phù hợp'
       })
     }
-  }, [fetchPlanData, searchValues, setStatusMessage])
+  }, [fetchStatsData, searchValues, setStatusMessage])
 
   const onResetQuery = useCallback(() => {
     const emptyFilters = {
-      PicDp: '',
       OperationNo: '',
       ItemCode: '',
-      RoutingDocNo: '',
-      MachineName: '',
-      StatusDpSx: '',
-      TimeStatus: '',
-      CapaStatus: ''
+      MachineCode: '',
+      TeamName: '',
+      Shift: '',
+      Customer: '',
+      Status: ''
     }
     setSearchValues(emptyFilters)
-    fetchPlanData({})
+    fetchStatsData({})
     setStatusMessage?.({
       type: 'info',
       text: 'Đã đặt lại điều kiện và tải lại dữ liệu'
     })
-  }, [fetchPlanData, setStatusMessage])
+  }, [fetchStatsData, setStatusMessage])
 
   const onAddQueryField = useCallback((fieldKey) => {
     setDynamicQueryFields((prev) => {
@@ -131,29 +129,101 @@ export function usePlanImport({
       }
       const newRows = Array.from({ length: count }, (_, idx) => ({
         WorkingTag: 'A',
-        PicDp: 'Kế hoạch viên',
-        OperationNo: `LTT-NEW-${Date.now().toString().slice(-4)}`,
-        OpDate: new Date().toISOString().slice(0, 10),
-        RoutingDocNo: `LCD-NEW-${Date.now().toString().slice(-4)}`,
-        RoutingDocDate: new Date().toISOString().slice(0, 10),
         ItemCode: '',
         ItemName: '',
-        OperationName: 'In Offset UV',
-        OpTypeName: 'In Offset',
-        MachineName: 'Máy In Offset Heidelberg XL-106',
+        Version: 'v1.0',
+        Model: '',
+        DefectMarginWeight: 0,
+        TechMarginWeight: 0,
+        OperationNo: `LSX-NEW-${Date.now().toString().slice(-4)}`,
+        MainWorker: '',
+        SubWorker1: '',
+        SubWorker2: '',
+        BreakdownReason: '',
+        MachineCode: '',
+        MachineName: '',
+        OpTypeCode: '',
+        OpTypeName: '',
+        UvPlate: 'Không',
+        MoldSetQty1: 0,
+        MoldSetQty2: 0,
+        MoldSetQty3: 0,
+        ProdQty: 0,
+        PassQty: 0,
+        ActualMeters: 0,
+        StandardMeters: 0,
+        TeamName: '',
+        Shift: 'Ca 1',
+        StartDate: new Date().toISOString().slice(0, 10),
+        StartTime: '07:00',
+        EndDate: new Date().toISOString().slice(0, 10),
+        EndTime: '15:00',
+        StatDate: new Date().toISOString().slice(0, 10),
+        StatTicketNo: `PTK-${Date.now().toString().slice(-5)}`,
+        StatStaff: '',
+        Customer: '',
+        SalesStaff: '',
+        OrderNo: '',
+        ProcessName: '',
         Unit: 'Chiếc',
+        ConvUnit: '',
+        ProcessSpec: '',
+        PartNo: '',
+        CorrugatedPartNo: '',
+        TrimPartNo: '',
+        ColorQty: 0,
+        OutPlateType: '',
+        FrontColors: 0,
+        BackColors: 0,
+        JobNumber: '',
+        Width: 0,
+        Length: 0,
+        Height: 0,
+        ProductLine: '',
+        RawWidth: 0,
+        RawLength: 0,
+        RawLineCode: '',
+        RawLineName: '',
+        FlipType: '',
+        BomPlates: 0,
+        Coating: '',
+        SlitterBlades: 0,
+        CodePositions: 0,
+        PunchHoles: 0,
+        StructureCode: '',
+        StructureName: '',
+        RoutingDocNo: '',
+        RoutingDate: '',
+        ReleaseDate: '',
         TargetPassQty: 0,
         TargetProdQty: 0,
-        StatPassQty: 0,
-        StartTime: '07:00',
-        EndTime: '15:00',
-        StandardProdTime: 8,
-        ActualProdTime: 0,
-        StandardCapa: 0,
+        RoutingUnit: 'Chiếc',
+        BreakdownMinutes: 0,
+        WaitingMaterialMinutes: 0,
+        SetupMinutes: 0,
+        RepairMinutes: 0,
+        TotalWasteMinutes: 0,
+        RigidBoxGlue: 'Không',
+        Outsourcing: 'Không',
+        DefectQty: 0,
+        DefectRate: '0.00%',
+        DefectUnit: 'Chiếc',
+        Status: 'Đang sản xuất',
+        AutoExport: true,
+        AutoImport: true,
+        ExportDocNo: '',
+        ImportDocNo: '',
+        WrongOpCode: false,
+        IsAdditionalStat: false,
+        TicketCreatedDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        ActualRunTime: 0,
         ActualCapa: 0,
-        StatusDpSx: 'Chưa bắt đầu',
-        TimeStatus: 'Đúng hạn',
-        CapaStatus: 'Đạt capa'
+        CheckPlanStatus: 'Bình thường',
+        MesApprovalTime: '',
+        SyncDelayMinutes: 0,
+        IsDuplicateTicket: false,
+        TicketCreationLocation: 'MES Client',
+        AutoIoStatus: 'Chờ xử lý'
       }))
 
       setGridData((prev) => [...prev, ...newRows])
@@ -238,8 +308,8 @@ export function usePlanImport({
       })
       const ws = XLSX.utils.json_to_sheet(exportData)
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'DangKy_KeHoach_SX')
-      XLSX.writeFile(wb, `DangKy_KeHoach_SX_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      XLSX.utils.book_append_sheet(wb, ws, 'DangKy_ThongKe_SX')
+      XLSX.writeFile(wb, `DangKy_ThongKe_SX_${new Date().toISOString().slice(0, 10)}.xlsx`)
       setStatusMessage?.({
         type: 'success',
         text: 'Đã xuất file Excel thành công'

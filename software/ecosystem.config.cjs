@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'gshub-erp',
       script: 'npx',
-      args: 'serve out/renderer/ --single -p 9643',
+      args: 'serve out/renderer/ --single -p 7640',
       instances: 1,
       exec_mode: 'cluster',
       watch: false,

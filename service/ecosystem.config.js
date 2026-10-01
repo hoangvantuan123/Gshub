@@ -6,6 +6,8 @@ module.exports = {
       name: 'gshub-service', // Tên tiến trình PM2 (chuyển từ service-datahub sang gshub-service)
       script: process.platform === 'win32' ? './service-datahub.exe' : './service-datahub',
       cwd: path.join(__dirname, 'service-datahub'),
+      exec_interpreter: 'none',
+      exec_mode: 'fork',
       instances: 1,
       autorestart: true,
       watch: false,

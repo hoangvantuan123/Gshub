@@ -2,10 +2,12 @@ module.exports = {
   apps: [
     {
       name: 'gshub-erp',
-      script: 'npx',
-      args: 'serve out/renderer/ --single -p 7640',
+      cwd: __dirname,
+      script: './node_modules/serve/build/main.js',
+      args: '-s dist/renderer -l 7640',
+      interpreter: 'node',
       instances: 1,
-      exec_mode: 'cluster',
+      exec_mode: 'fork',
       watch: false,
       max_memory_restart: '3G',
       env: {

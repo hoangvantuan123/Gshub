@@ -19,7 +19,7 @@
     "build:linux": "npm run build && electron-builder --linux",
     "build:ui-ota": "node scripts/build-ui-ota.js",
     "dev:web": "vite",
-    "start:web": "serve -s dist/renderer/ -l 3000",
+    "start:web": "serve -s dist/renderer/ -l 7640",
     "build:web": "vite build"
   },
   "dependencies": {

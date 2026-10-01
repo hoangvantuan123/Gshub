@@ -1,15 +1,19 @@
+const path = require('path')
+
 module.exports = {
   apps: [
     {
       name: 'gshub-service', // Tên service PM2
       script: process.platform === 'win32' ? './service-datahub.exe' : './service-datahub',
       cwd: __dirname,
+      exec_interpreter: 'none',
+      exec_mode: 'fork',
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: '2G',
       restart_delay: 3000,
-      
+
       // =========================================================================
       // CẤU HÌNH BIẾN MÔI TRƯỜNG KẾT NỐI (PRODUCTION)
       // Chuyển kết nối CSDL từ DATAHUB sang GSHUB

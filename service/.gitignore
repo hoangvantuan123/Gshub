@@ -1,0 +1,36 @@
+# Ignore all .exe files EXCEPT service-datahub.exe
+*.exe
+!service-datahub/service-datahub.exe
+
+# Ignore all other build artifacts and temporary binaries
+*.exe~
+*.dll
+*.so
+*.dylib
+service-datahub/server
+service-datahub/server.exe
+service-datahub/datahub-server
+service-datahub/datahub-server.exe
+service-datahub/main
+service-datahub/main.exe
+
+# Air live-reload build directory
+tmp/
+service-datahub/tmp/
+
+# Logs (PM2 and application logs)
+logs/
+*.log
+pm2-*.log
+
+# Sensitive environment variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -5,14 +5,13 @@ module.exports = {
     {
       name: 'gshub-service', // Tên service PM2
       script: process.platform === 'win32' ? './service-datahub.exe' : './service-datahub',
-      cwd: __dirname,
+      cwd: path.resolve(__dirname, '../service-datahub'),
       exec_interpreter: 'none',
       exec_mode: 'fork',
       instances: 1,
-      autorestart: true,
       watch: false,
-      max_memory_restart: '2G',
-      restart_delay: 3000,
+      autorestart: false,
+      max_memory_restart: '1024M',
 
       // =========================================================================
       // CẤU HÌNH BIẾN MÔI TRƯỜNG KẾT NỐI (PRODUCTION)

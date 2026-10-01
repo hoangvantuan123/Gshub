@@ -1,12 +1,11 @@
-# Ignore all .exe files EXCEPT service-datahub.exe
+# Ignore all build artifacts and compiled binaries
 *.exe
-!service-datahub/service-datahub.exe
-
-# Ignore all other build artifacts and temporary binaries
 *.exe~
 *.dll
 *.so
 *.dylib
+service-datahub/service-datahub
+service-datahub/service-datahub.exe
 service-datahub/server
 service-datahub/server.exe
 service-datahub/datahub-server

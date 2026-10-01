@@ -1,6 +1,6 @@
 /**
  * GsHub / DataHub Auth & API Service
- * Handles communication with service-datahub backend (http://localhost:8080)
+ * Handles communication with service-datahub backend (http://localhost:9643)
  * Compliant with LOGIN_VA_QUAN_LY_TOKEN.md
  */
 

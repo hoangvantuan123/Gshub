@@ -1,7 +1,7 @@
 /**
  * GsHub - Server Environment & Connection Configuration
  * Target: Goldsun Packaging ERP (DEV & PROD)
- * Backend Gateway: service-datahub (:8080)
+ * Backend Gateway: service-datahub (:9643)
  */
 
 export const STORAGE_KEY_ENV = 'envSelection'

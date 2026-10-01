@@ -79,7 +79,7 @@ export async function queryWorkProcess({
 
   const startTime = Date.now()
 
-  // Ưu tiên 1: Sử dụng kết nối gRPC siêu tốc qua Electron IPC (:50057)
+  // Ưu tiên 1: Sử dụng kết nối gRPC siêu tốc qua Electron IPC (:9644)
   if (typeof window !== 'undefined' && window.electron?.datahub?.queryWorkProcess) {
     try {
       const grpcRes = await window.electron.datahub.queryWorkProcess(payload)
@@ -122,7 +122,7 @@ export async function queryWorkProcess({
     }
   }
 
-  // Ưu tiên 2: Fallback qua HTTP REST Gateway (:8080)
+  // Ưu tiên 2: Fallback qua HTTP REST Gateway (:9643)
   try {
     const headers = {
       'Content-Type': 'application/json',
@@ -171,7 +171,7 @@ export async function queryWorkProcess({
       err.response?.data?.message ||
       err.response?.data?.error ||
       err.message ||
-      'Không thể kết nối đến server DataHub (:8080)'
+      'Không thể kết nối đến server DataHub (:9643)'
 
     if (isSessionExpiredError(errorMsg, err.response?.status)) {
       triggerSessionExpired(errorMsg)

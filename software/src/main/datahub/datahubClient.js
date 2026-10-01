@@ -21,7 +21,7 @@ export function getDataHubClient(customAddress = null) {
     customAddress ||
     process.env.DATAHUB_GRPC_ADDR ||
     process.env.VITE_DATAHUB_GRPC_ADDR ||
-    '127.0.0.1:50057'
+    '127.0.0.1:9644'
 
   if (datahubClient && currentServerAddress === serverAddress) {
     return datahubClient

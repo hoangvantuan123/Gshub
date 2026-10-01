@@ -130,7 +130,7 @@ const api = {
     }
   },
 
-  // DataHub Direct gRPC API (:50057)
+  // DataHub Direct gRPC API (:9644)
   datahub: {
     queryWorkProcess: (payload) => ipcRenderer.invoke('datahub:query-work-process', payload),
     getFactories: (payload) => ipcRenderer.invoke('datahub:get-factories', payload)

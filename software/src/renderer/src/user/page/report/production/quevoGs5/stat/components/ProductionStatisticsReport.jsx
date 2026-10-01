@@ -597,7 +597,7 @@ export default function ProductionStatisticsReport(props) {
               {kpiMetrics.autoExportCount.toLocaleString('vi-VN')}
             </span>{' '}
             • Chưa:{' '}
-            <span style={{ color: '#64748b' }}>
+            <span style={{ color: kpiMetrics.noAutoExportCount > 0 ? '#dc2626' : '#64748b', fontWeight: 700 }}>
               {kpiMetrics.noAutoExportCount.toLocaleString('vi-VN')}
             </span>
           </div>
@@ -2220,7 +2220,7 @@ export default function ProductionStatisticsReport(props) {
                           <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: 4 }}>{d.label}</div>
                           <div>Số lượng phiếu: <b style={{ color: '#ffffff' }}>{d.count?.toLocaleString('vi-VN')} phiếu</b></div>
                           <div>Tỷ lệ chiếm: <b style={{ color: '#a7f3d0' }}>{d.rate}%</b></div>
-                          <div>Đánh giá: <b style={{ color: d.isMissing ? '#fca5a5' : '#a7f3d0' }}>{d.isMissing ? 'Chưa sinh / Thiếu phiếu' : 'Đã sinh / Hợp lệ'}</b></div>
+                          <div>Đánh giá: <b style={{ color: d.isMissing ? '#fca5a5' : d.isNoMaterial ? '#cbd5e1' : '#a7f3d0' }}>{d.isMissing ? 'Chưa sinh / Thiếu phiếu' : d.isNoMaterial ? 'Không sử dụng NVL' : 'Đã sinh / Hợp lệ'}</b></div>
                         </div>
                       )
                     }
@@ -2285,7 +2285,8 @@ export default function ProductionStatisticsReport(props) {
                 <tbody>
                   {kpiMetrics.autoExportBreakdown &&
                     kpiMetrics.autoExportBreakdown.map((row, idx) => {
-                      const isMissing = row.isMissing || row.label.includes('Không có') || row.label.includes('Thiếu')
+                      const isMissing = row.isMissing
+                      const isNoMaterial = row.isNoMaterial
                       return (
                         <tr
                           key={idx}
@@ -2296,21 +2297,21 @@ export default function ProductionStatisticsReport(props) {
                           }}
                         >
                           <td style={{ padding: '8px 10px', fontWeight: 600, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: 2, background: isMissing ? '#64748b' : '#245d6c', display: 'inline-block', flexShrink: 0 }} />
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: row.color || (isMissing ? '#dc2626' : isNoMaterial ? '#94a3b8' : '#245d6c'), display: 'inline-block', flexShrink: 0 }} />
                             {row.label}
                           </td>
                           <td style={{ padding: '8px 10px', fontSize: 11 }}>
                             <span
                               style={{
                                 fontWeight: 600,
-                                color: isMissing ? '#b91c1c' : '#475569',
-                                background: isMissing ? '#fef2f2' : '#f1f5f9',
+                                color: isMissing ? '#b91c1c' : isNoMaterial ? '#475569' : '#047857',
+                                background: isMissing ? '#fef2f2' : isNoMaterial ? '#f1f5f9' : '#ecfdf5',
                                 padding: '2px 6px',
                                 borderRadius: 3,
                                 display: 'inline-block'
                               }}
                             >
-                              {isMissing ? 'Chưa sinh / Thiếu phiếu' : 'Đã sinh / Hợp lệ'}
+                              {isMissing ? 'Chưa sinh / Thiếu phiếu' : isNoMaterial ? 'Không sử dụng NVL' : 'Đã sinh / Hợp lệ'}
                             </span>
                           </td>
                           <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>

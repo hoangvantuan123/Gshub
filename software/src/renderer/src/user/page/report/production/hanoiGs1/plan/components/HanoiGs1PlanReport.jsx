@@ -584,194 +584,7 @@ export default function HanoiGs1PlanReport(props) {
           </div>
         </div>
       </div>
-
-      {/* 4 & 5. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))',
-          gap: 32,
-          marginBottom: 44
-        }}
-      >
-        {/* SECTION 4: TRẠNG THÁI THỜI GIAN (SO VỚI ĐM) */}
-        <div
-          ref={chart2Ref}
-          style={{
-            width: '100%',
-            background: '#ffffff',
-            padding: '8px 0'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              marginBottom: 14
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                3. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
-              </div>
-              <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
-                So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch
-              </div>
-            </div>
-
-            <div className="screenshot-hide">
-              <PureButton
-                icon={<Download size={12} />}
-                onClick={() => handleDownloadSingleChart(chart2Ref, 'TrangThai_ThoiGian_DM')}
-                title="Tải ảnh biểu đồ thời gian vs ĐM"
-              >
-                Tải ảnh
-              </PureButton>
-            </div>
-          </div>
-
-          <div style={{ height: 240, width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                layout="vertical"
-                data={timeStatusBreakdown}
-                margin={{ top: 10, right: 65, left: 24, bottom: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis
-                  type="number"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11.5, fontWeight: 700, fill: '#334155' }}
-                  width={110}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <RechartsTooltip content={<ExecutiveChartTooltip />} />
-                <Bar
-                  dataKey="count"
-                  name="Số lệnh"
-                  barSize={24}
-                  radius={[0, 4, 4, 0]}
-                  isAnimationActive={false}
-                >
-                  <LabelList
-                    dataKey="count"
-                    position="right"
-                    fill="#0f172a"
-                    fontSize={11.5}
-                    fontWeight={700}
-                    offset={8}
-                    isAnimationActive={false}
-                    formatter={(val) => `${val} lệnh`}
-                  />
-                  {timeStatusBreakdown.map((entry, index) => (
-                    <Cell key={`cell-t-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* SECTION 5: TRẠNG THÁI CAPA (ĐÁNH GIÁ THEO NĂNG LỰC) */}
-        <div
-          ref={chart3Ref}
-          style={{
-            width: '100%',
-            background: '#ffffff',
-            padding: '8px 0'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              marginBottom: 14
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                4. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
-              </div>
-              <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
-                Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống
-              </div>
-            </div>
-
-            <div className="screenshot-hide">
-              <PureButton
-                icon={<Download size={12} />}
-                onClick={() => handleDownloadSingleChart(chart3Ref, 'TrangThai_Capa')}
-                title="Tải ảnh biểu đồ trạng thái Capa"
-              >
-                Tải ảnh
-              </PureButton>
-            </div>
-          </div>
-
-          <div style={{ height: 240, width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                layout="vertical"
-                data={capaStatusBreakdown}
-                margin={{ top: 10, right: 65, left: 24, bottom: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis
-                  type="number"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11.5, fontWeight: 700, fill: '#334155' }}
-                  width={120}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <RechartsTooltip content={<ExecutiveChartTooltip />} />
-                <Bar
-                  dataKey="count"
-                  name="Số lệnh"
-                  barSize={24}
-                  radius={[0, 4, 4, 0]}
-                  isAnimationActive={false}
-                >
-                  <LabelList
-                    dataKey="count"
-                    position="right"
-                    fill="#0f172a"
-                    fontSize={11.5}
-                    fontWeight={700}
-                    offset={8}
-                    isAnimationActive={false}
-                    formatter={(val) => `${val} lệnh`}
-                  />
-                  {capaStatusBreakdown.map((entry, index) => (
-                    <Cell key={`cell-c-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* 6. THEO PIC ĐIỀU PHỐI (Biểu đồ ComposedChart kết hợp Cột Khối lượng + Đường Tỷ Lệ Đạt %) */}
+      {/* THEO PIC ĐIỀU PHỐI (Biểu đồ ComposedChart kết hợp Cột Khối lượng + Đường Tỷ Lệ Đạt %) */}
       <div
         ref={chart4Ref}
         style={{
@@ -802,7 +615,7 @@ export default function HanoiGs1PlanReport(props) {
                 gap: 8
               }}
             >
-              <span>5. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
+              <span>3. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
             </div>
             <div
               style={{
@@ -1216,20 +1029,20 @@ export default function HanoiGs1PlanReport(props) {
                   fontSize: 11.5,
                   fontWeight:
                     picChartMode === 'volume' ||
-                    picChartMode === 'composed' ||
-                    picChartMode === 'stacked'
+                      picChartMode === 'composed' ||
+                      picChartMode === 'stacked'
                       ? 700
                       : 500,
                   color:
                     picChartMode === 'volume' ||
-                    picChartMode === 'composed' ||
-                    picChartMode === 'stacked'
+                      picChartMode === 'composed' ||
+                      picChartMode === 'stacked'
                       ? '#0f172a'
                       : '#64748b',
                   background:
                     picChartMode === 'volume' ||
-                    picChartMode === 'composed' ||
-                    picChartMode === 'stacked'
+                      picChartMode === 'composed' ||
+                      picChartMode === 'stacked'
                       ? '#ffffff'
                       : 'transparent',
                   border: 'none',
@@ -1237,8 +1050,8 @@ export default function HanoiGs1PlanReport(props) {
                   cursor: 'pointer',
                   boxShadow:
                     picChartMode === 'volume' ||
-                    picChartMode === 'composed' ||
-                    picChartMode === 'stacked'
+                      picChartMode === 'composed' ||
+                      picChartMode === 'stacked'
                       ? '0 1px 2px rgba(0,0,0,0.06)'
                       : 'none',
                   transition: 'all 0.15s ease'
@@ -1523,6 +1336,193 @@ export default function HanoiGs1PlanReport(props) {
           </div>
         </div>
       </div>
+
+      {/* 4 & 5. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))',
+          gap: 32,
+          marginBottom: 44
+        }}
+      >
+        {/* SECTION 4: TRẠNG THÁI THỜI GIAN (SO VỚI ĐM) */}
+        <div
+          ref={chart2Ref}
+          style={{
+            width: '100%',
+            background: '#ffffff',
+            padding: '8px 0'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 14
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
+                4. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
+              </div>
+              <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
+                So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch
+              </div>
+            </div>
+
+            <div className="screenshot-hide">
+              <PureButton
+                icon={<Download size={12} />}
+                onClick={() => handleDownloadSingleChart(chart2Ref, 'TrangThai_ThoiGian_DM')}
+                title="Tải ảnh biểu đồ thời gian vs ĐM"
+              >
+                Tải ảnh
+              </PureButton>
+            </div>
+          </div>
+
+          <div style={{ height: 240, width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={timeStatusBreakdown}
+                margin={{ top: 10, right: 65, left: 24, bottom: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis
+                  type="number"
+                  stroke="#64748b"
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  stroke="#64748b"
+                  tick={{ fontSize: 11.5, fontWeight: 700, fill: '#334155' }}
+                  width={110}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <RechartsTooltip content={<ExecutiveChartTooltip />} />
+                <Bar
+                  dataKey="count"
+                  name="Số lệnh"
+                  barSize={24}
+                  radius={[0, 4, 4, 0]}
+                  isAnimationActive={false}
+                >
+                  <LabelList
+                    dataKey="count"
+                    position="right"
+                    fill="#0f172a"
+                    fontSize={11.5}
+                    fontWeight={700}
+                    offset={8}
+                    isAnimationActive={false}
+                    formatter={(val) => `${val} lệnh`}
+                  />
+                  {timeStatusBreakdown.map((entry, index) => (
+                    <Cell key={`cell-t-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* SECTION 5: TRẠNG THÁI CAPA (ĐÁNH GIÁ THEO NĂNG LỰC) */}
+        <div
+          ref={chart3Ref}
+          style={{
+            width: '100%',
+            background: '#ffffff',
+            padding: '8px 0'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 14
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
+                5. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
+              </div>
+              <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
+                Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống
+              </div>
+            </div>
+
+            <div className="screenshot-hide">
+              <PureButton
+                icon={<Download size={12} />}
+                onClick={() => handleDownloadSingleChart(chart3Ref, 'TrangThai_Capa')}
+                title="Tải ảnh biểu đồ trạng thái Capa"
+              >
+                Tải ảnh
+              </PureButton>
+            </div>
+          </div>
+
+          <div style={{ height: 240, width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={capaStatusBreakdown}
+                margin={{ top: 10, right: 65, left: 24, bottom: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis
+                  type="number"
+                  stroke="#64748b"
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  stroke="#64748b"
+                  tick={{ fontSize: 11.5, fontWeight: 700, fill: '#334155' }}
+                  width={120}
+                  axisLine={{ stroke: '#cbd5e1' }}
+                  tickLine={false}
+                />
+                <RechartsTooltip content={<ExecutiveChartTooltip />} />
+                <Bar
+                  dataKey="count"
+                  name="Số lệnh"
+                  barSize={24}
+                  radius={[0, 4, 4, 0]}
+                  isAnimationActive={false}
+                >
+                  <LabelList
+                    dataKey="count"
+                    position="right"
+                    fill="#0f172a"
+                    fontSize={11.5}
+                    fontWeight={700}
+                    offset={8}
+                    isAnimationActive={false}
+                    formatter={(val) => `${val} lệnh`}
+                  />
+                  {capaStatusBreakdown.map((entry, index) => (
+                    <Cell key={`cell-c-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
 
       {/* 6. PHÂN TÍCH CHUYÊN SÂU HIỆU QUẢ ĐIỀU HÀNH & ĐIỂM NGHẼN TỔ SẢN XUẤT */}
       <div

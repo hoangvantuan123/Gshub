@@ -5,6 +5,60 @@ import { getCleanDate } from '../../../../common/reportUtils'
 import { captureReportScreenshot, downloadSingleChart } from '../../../../common/screenshotHelper'
 
 // Helper extractor for Auto-Logistics Status strictly from column AutoIoStatus ("Sinh phiếu xuất/nhập tự động")
+export function isNoMaterialAutoIo(label) {
+  if (!label) return false
+  const s = String(label).toLowerCase().trim()
+  return (
+    s.includes('không sử dụng nvl') ||
+    s.includes('khong su dung nvl') ||
+    s.includes('không dùng nvl') ||
+    s.includes('khong dung nvl') ||
+    s.includes('không sd nvl') ||
+    s.includes('khong sd nvl') ||
+    s.includes('không sử dụng nguyên vật liệu') ||
+    s.includes('khong su dung nguyen vat lieu')
+  )
+}
+
+export function isMissingAutoIo(label) {
+  if (!label) return false
+  if (isNoMaterialAutoIo(label)) return false
+  const s = String(label).toLowerCase().trim()
+  return (
+    s.includes('không có xktđ') ||
+    s.includes('khong co xktd') ||
+    s.includes('không có nktđ') ||
+    s.includes('khong co nktd') ||
+    s.includes('thiếu xktđ') ||
+    s.includes('thieu xktd') ||
+    s.includes('thiếu nktđ') ||
+    s.includes('thieu nktd') ||
+    s.includes('chưa có xktđ') ||
+    s.includes('chua co xktd') ||
+    s.includes('chưa có nktđ') ||
+    s.includes('chua co nktd') ||
+    (s.includes('không có') &&
+      (s.includes('xktđ') || s.includes('nktđ') || s.includes('xuất') || s.includes('nhập'))) ||
+    (s.includes('chưa sinh') &&
+      (s.includes('xktđ') || s.includes('nktđ') || s.includes('phiếu')))
+  )
+}
+
+export function isPassAutoIo(label) {
+  if (!label) return false
+  if (isNoMaterialAutoIo(label)) return false
+  if (isMissingAutoIo(label)) return false
+  const s = String(label).toLowerCase().trim()
+  return (
+    s.includes('có xktđ') ||
+    s.includes('co xktd') ||
+    s.includes('có nktđ') ||
+    s.includes('co nktd') ||
+    s.includes('đã sinh') ||
+    s.includes('da sinh')
+  )
+}
+
 export function getAutoExportType(item) {
   const direct = String(
     item.AutoIoStatus ??
@@ -618,6 +672,8 @@ export const useProductionStatisticsLogic = ({
     let mesCount = 0
     let bravoCount = 0
     let autoExportCount = 0
+    let noAutoExportCount = 0
+    let noMaterialAutoIoCount = 0
     let rUnder5 = 0
     let rNormal = 0
     let rOver12Valid = 0
@@ -705,23 +761,15 @@ export const useProductionStatisticsLogic = ({
       const typeKey = getAutoExportType(item)
       autoExportTypeMap.set(typeKey, (autoExportTypeMap.get(typeKey) || 0) + 1)
 
-      // Chỉ tính là thiếu phiếu nếu có trạng thái rõ ràng là "Không có XKTĐ" hoặc "Không có NKTĐ" (hoặc chứa "Không có" / "Thiếu")
-      const lowerKey = typeKey.toLowerCase()
-      const isMissingAutoIo =
-        typeKey.includes('Không có XKTĐ') ||
-        typeKey.includes('Không có NKTĐ') ||
-        typeKey.includes('Thiếu XKTĐ') ||
-        typeKey.includes('Thiếu NKTĐ') ||
-        typeKey.includes('Chưa có XKTĐ') ||
-        typeKey.includes('Chưa có NKTĐ') ||
-        (lowerKey.includes('không có') &&
-          (lowerKey.includes('xktđ') ||
-            lowerKey.includes('nktđ') ||
-            lowerKey.includes('xuất') ||
-            lowerKey.includes('nhập')))
-
-      if (!isMissingAutoIo) {
+      // Không tính hạng mục "Không sử dụng NVL" vào việc tính tổng phiếu pass.
+      // Chỉ tính các phiếu có "Có XKTĐ, Có NKTĐ" (hoặc Có XKTĐ, Có NKTĐ) vào Đã sinh.
+      // Điều kiện cuối "Không có XKTĐ và Không có NKTĐ" (hoặc thiếu) tính vào Chưa sinh.
+      if (isPassAutoIo(typeKey)) {
         autoExportCount++
+      } else if (isMissingAutoIo(typeKey)) {
+        noAutoExportCount++
+      } else if (isNoMaterialAutoIo(typeKey)) {
+        noMaterialAutoIoCount++
       }
     })
 
@@ -763,36 +811,56 @@ export const useProductionStatisticsLogic = ({
       }
     ]
 
-    const defaultAutoColor = '#245d6c'
     const autoExportBreakdown = Array.from(autoExportTypeMap.entries())
       .map(([label, count]) => {
-        const lower = label.toLowerCase()
-        const isMissing =
-          label.includes('Không có XKTĐ') ||
-          label.includes('Không có NKTĐ') ||
-          label.includes('Thiếu XKTĐ') ||
-          label.includes('Thiếu NKTĐ') ||
-          label.includes('Chưa có XKTĐ') ||
-          label.includes('Chưa có NKTĐ') ||
-          (lower.includes('không có') &&
-            (lower.includes('xktđ') ||
-              lower.includes('nktđ') ||
-              lower.includes('xuất') ||
-              lower.includes('nhập')))
-        const color = isMissing ? '#475569' : defaultAutoColor
+        const isMissing = isMissingAutoIo(label)
+        const isNoMat = isNoMaterialAutoIo(label)
+        const isPass = isPassAutoIo(label)
+
+        // Điều kiện cuối Không có XKTĐ và Không có NKTĐ là màu ĐỎ (#dc2626)
+        // Không sử dụng NVL là màu xám (#94a3b8)
+        // Có XKTĐ, Có NKTĐ là màu xanh (#245d6c / #0d9488)
+        let color = '#245d6c'
+        if (isMissing) {
+          color = '#dc2626'
+        } else if (isNoMat) {
+          color = '#94a3b8'
+        } else {
+          color = '#0d9488'
+        }
+
         return {
           label,
           count,
           rate: total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0,
           isMissing,
+          isNoMaterial: isNoMat,
+          isPass,
           color
         }
       })
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => {
+        // Có XKTĐ, Có NKTĐ trước -> Không sử dụng NVL -> Điều kiện cuối: đỏ Không có XKTĐ và Không có NKTĐ ở cuối
+        if (a.isMissing && !b.isMissing) return 1
+        if (!a.isMissing && b.isMissing) return -1
+        if (a.isNoMaterial && b.isPass) return 1
+        if (a.isPass && b.isNoMaterial) return -1
+        return b.count - a.count
+      })
 
     const calculatedMesCount = mesCount > 0 ? mesCount : total
     const calculatedBravoCount = bravoCount > 0 ? bravoCount : total - calculatedMesCount
-    const noAutoExport = total - autoExportCount
+    const totalApplicableAutoIo = autoExportCount + noAutoExportCount
+    const autoExportRate =
+      totalApplicableAutoIo > 0
+        ? ((autoExportCount / totalApplicableAutoIo) * 100).toFixed(1)
+        : total > 0 && noAutoExportCount === 0
+          ? '100'
+          : '0'
+    const noAutoExportRate =
+      totalApplicableAutoIo > 0
+        ? ((noAutoExportCount / totalApplicableAutoIo) * 100).toFixed(1)
+        : '0'
     const avgSyncSec = syncDelayCount > 0 ? totalSyncDelaySec / syncDelayCount : 0
     const syncLatencyFormatted = syncDelayCount > 0 ? formatSecondsToTime(avgSyncSec) : '00:00:00'
 
@@ -810,9 +878,10 @@ export const useProductionStatisticsLogic = ({
       bravoCreatedCount: calculatedBravoCount,
       mesRate: total > 0 ? ((calculatedMesCount / total) * 100).toFixed(1) : '98.4',
       autoExportCount: autoExportCount,
-      noAutoExportCount: noAutoExport,
-      autoExportRate: total > 0 ? ((autoExportCount / total) * 100).toFixed(1) : '100',
-      noAutoExportRate: total > 0 ? ((noAutoExport / total) * 100).toFixed(1) : '0',
+      noAutoExportCount: noAutoExportCount,
+      noMaterialAutoIoCount: noMaterialAutoIoCount,
+      autoExportRate: autoExportRate,
+      noAutoExportRate: noAutoExportRate,
       syncDelayCount: syncDelayCount,
       avgSyncDelaySeconds: avgSyncSec.toFixed(1),
       syncLatencyFormatted: syncLatencyFormatted,

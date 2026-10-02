@@ -97,13 +97,21 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 		userId = c.GetString("UserId")
 	}
 	if userId == "" {
+		userId = c.GetString("user_seq")
+	}
+	if userId == "" {
 		userId = req.CreatedBy
 	}
 	if userId == "" {
 		userId = req.UserSeq
 	}
 	if userId == "" {
-		userId = "SystemAdmin"
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error_code": "UNAUTHORIZED",
+			"message": "Yêu cầu bị từ chối: Vui lòng đăng nhập tài khoản để thực hiện lưu đăng ký báo cáo.",
+		})
+		return
 	}
 
 	userName := c.GetString("login")
@@ -314,7 +322,18 @@ func (h *PlanMasterHandler) PlanMasterD(c *gin.Context) {
 		userId = c.GetString("UserId")
 	}
 	if userId == "" {
-		userId = "SystemAdmin"
+		userId = c.GetString("user_seq")
+	}
+	if userId == "" {
+		userId = c.GetHeader("X-User-Id")
+	}
+	if userId == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error_code": "UNAUTHORIZED",
+			"message": "Vui lòng đăng nhập để thực hiện xóa đợt đăng ký.",
+		})
+		return
 	}
 
 	if err := h.masterSvc.PlanMasterD(c.Request.Context(), seqs, userId); err != nil {

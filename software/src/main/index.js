@@ -396,9 +396,7 @@ function createWindow() {
         {
           role: 'forceReload'
         },
-        {
-          role: 'toggleDevTools'
-        },
+        ...(is.dev ? [{ role: 'toggleDevTools' }] : []),
         {
           role: 'undo'
         },

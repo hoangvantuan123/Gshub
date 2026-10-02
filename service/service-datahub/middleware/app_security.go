@@ -96,7 +96,7 @@ func AppSecurityMiddleware(logger *zap.Logger) gin.HandlerFunc {
 			return
 		}
 
-		// 2. Anti-Replay: Timestamp validation (allow +/- 300s / 5 minutes)
+		// 2. Anti-Replay: Timestamp validation (allow +/- 30s)
 		ts, err := strconv.ParseInt(timestampStr, 10, 64)
 		if err != nil {
 			renderUnauthorizedResponse(c, "INVALID_TIMESTAMP", "Chữ ký bảo mật không hợp lệ.")
@@ -104,14 +104,14 @@ func AppSecurityMiddleware(logger *zap.Logger) gin.HandlerFunc {
 		}
 
 		nowSec := time.Now().Unix()
-		if ts < (nowSec-300) || ts > (nowSec+300) {
+		if ts < (nowSec-30) || ts > (nowSec+30) {
 			if logger != nil {
 				logger.Warn("Request expired or clock out of sync",
 					zap.Int64("client_ts", ts),
 					zap.Int64("server_ts", nowSec),
 				)
 			}
-			renderUnauthorizedResponse(c, "REQUEST_EXPIRED", "Yêu cầu đã hết hạn bảo mật. Vui lòng kiểm tra lại đồng hồ hệ thống trên máy tính của bạn.")
+			renderUnauthorizedResponse(c, "REQUEST_EXPIRED", "Yêu cầu đã hết hạn bảo mật (quá 30 giây). Vui lòng gửi lại từ ứng dụng.")
 			return
 		}
 

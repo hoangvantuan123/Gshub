@@ -109,6 +109,7 @@ func JwtAuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			if userId, ok := claims["UserId"].(string); ok {
 				c.Set("user_id", userId)
+				c.Set("UserId", userId)
 			}
 			if login, ok := claims["Login"].(string); ok {
 				c.Set("login", login)
@@ -122,6 +123,46 @@ func JwtAuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		c.Set("access_token", tokenString)
+		c.Next()
+	}
+}
+
+// OptionalJwtAuthMiddleware parses JWT token if present without aborting
+func OptionalJwtAuthMiddleware(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+			tokenString := parts[1]
+			if !GlobalBlacklist.IsRevoked(tokenString) {
+				token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+					return []byte(cfg.JWT.Secret), nil
+				})
+				if err == nil && token.Valid {
+					if claims, ok := token.Claims.(jwt.MapClaims); ok {
+						if userId, ok := claims["UserId"].(string); ok {
+							c.Set("user_id", userId)
+							c.Set("UserId", userId)
+						}
+						if login, ok := claims["Login"].(string); ok {
+							c.Set("login", login)
+						}
+						if userSeq, ok := claims["UserSeq"].(string); ok {
+							c.Set("user_seq", userSeq)
+						}
+						if companySeq, ok := claims["CompanySeq"].(float64); ok {
+							c.Set("company_seq", int(companySeq))
+						}
+					}
+					c.Set("access_token", tokenString)
+				}
+			}
+		}
 		c.Next()
 	}
 }

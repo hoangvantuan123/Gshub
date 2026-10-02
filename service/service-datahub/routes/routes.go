@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"service-datahub/config"
 	"service-datahub/handlers"
 	"service-datahub/middleware"
 
@@ -9,6 +10,7 @@ import (
 )
 
 func SetupRouter(
+	cfg *config.Config,
 	authHandler *handlers.AuthHandler,
 	loginHandler *handlers.LoginHandler,
 	configHandler *handlers.ConfigHandler,
@@ -32,15 +34,17 @@ func SetupRouter(
 	r.Use(middleware.BotFilter(logger))
 	r.Use(middleware.AntiSpamMiddleware(logger))
 
-	// Health check (Public - no signature needed)
+	// Health check (Public - no signature or token needed)
 	r.GET("/health", healthHandler.HealthCheck)
 	r.GET("/", healthHandler.HealthCheck)
+	r.GET("/ping", healthHandler.HealthCheck)
 
 	// ====================================================================
-	// API V2 Routes - Electron Desktop & Web Client with AppSecurityMiddleware (HMAC-SHA256)
+	// API V2 Routes - Electron Desktop & Web Client with AppSecurity + JWT
 	// ====================================================================
 	v2 := r.Group("/api/v2")
 	v2.Use(middleware.AppSecurityMiddleware(logger))
+	v2.Use(middleware.OptionalJwtAuthMiddleware(cfg))
 	{
 		// 1. Auth & Accounts (/api/v2/acc)
 		acc := v2.Group("/acc")
@@ -100,9 +104,11 @@ func SetupRouter(
 	}
 
 	// ====================================================================
-	// API V1 Routes - High-Performance DataHub APIs
+	// API V1 Routes - High-Performance DataHub APIs with Security & Auth
 	// ====================================================================
 	v1 := r.Group("/api/v1")
+	v1.Use(middleware.AppSecurityMiddleware(logger))
+	v1.Use(middleware.OptionalJwtAuthMiddleware(cfg))
 	{
 		// 1. Auth & Login Endpoints (Dual login support)
 		auth := v1.Group("/auth")

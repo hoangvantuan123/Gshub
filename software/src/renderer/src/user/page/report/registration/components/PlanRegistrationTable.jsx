@@ -16,7 +16,29 @@ import { togglePageInteraction } from '../../../../../utils/togglePageInteractio
 
 const EMPTY_ARRAY = []
 const BOOLEAN_KEYS = new Set(['Utilities', 'Active', 'IsDataLock'])
-const DATE_KEYS = new Set(['PlanDate', 'CreatedAt', 'UpdatedAt', 'CreatedDate', 'UpdatedDate'])
+const ONLY_DATE_KEYS = new Set(['ApplyDate', 'PlanDate', 'CreatedDate', 'UpdatedDate'])
+const DATETIME_KEYS = new Set(['CreatedAt', 'UpdatedAt'])
+
+const getReportTypeName = (val) => {
+  if (!val) return ''
+  const lower = String(val).toLowerCase().trim()
+  if (lower === 'statistics' || lower === 'tksx') {
+    return 'Thống kê sản xuất (TKSX)'
+  }
+  if (lower === 'plan' || lower === 'khsx') {
+    return 'Kế hoạch sản xuất (KHSX)'
+  }
+  return String(val)
+}
+
+const getStatusName = (val) => {
+  if (!val) return ''
+  const lower = String(val).toLowerCase().trim()
+  if (lower === 'published' || lower === 'done' || lower === 'active') {
+    return 'Đã lưu / Đã phát hành'
+  }
+  return String(val)
+}
 
 export default function PlanRegistrationTable({
   tableTitle,
@@ -39,7 +61,7 @@ export default function PlanRegistrationTable({
   onOpenDetail
 }) {
   const { t } = useTranslation()
-  const { formatDateTime } = useDateFormat()
+  const { formatDate, formatDateTime } = useDateFormat()
   const { setStatusMessage } = usePageData() || {}
   const gridRef = useRef(null)
 
@@ -107,14 +129,17 @@ export default function PlanRegistrationTable({
       const columnKey = column.id || ''
       const isStatus = columnKey === 'WorkingTag' || columnKey === 'Status'
       const isBoolean = column.kind === 'Boolean' || BOOLEAN_KEYS.has(columnKey)
-      const isDate =
-        DATE_KEYS.has(columnKey) || columnKey.endsWith('Date') || columnKey.endsWith('At')
+      const isOnlyDate = ONLY_DATE_KEYS.has(columnKey) || columnKey.endsWith('Date')
+      const isDateTime = DATETIME_KEYS.has(columnKey) || columnKey.endsWith('At')
+      const isDate = isOnlyDate || isDateTime
       const cellTheme = getCellTheme(columnKey, column)
       const isReadOnly = isReadOnlyColumn(columnKey, column) || column.readonly || false
       return {
         columnKey,
         isStatus,
         isBoolean,
+        isOnlyDate,
+        isDateTime,
         isDate,
         kind: column.kind,
         cellTheme,
@@ -182,7 +207,17 @@ export default function PlanRegistrationTable({
       }
 
       const strValue = typeof value === 'string' ? value : String(value)
-      const displayData = meta.isDate && value ? formatDateTime(value) || strValue : strValue
+      let displayData = strValue
+
+      if (meta.columnKey === 'ReportType') {
+        displayData = getReportTypeName(value)
+      } else if (meta.columnKey === 'Status') {
+        displayData = getStatusName(value)
+      } else if (meta.isOnlyDate && value) {
+        displayData = formatDate(value, 'DD/MM/YYYY') || strValue
+      } else if (meta.isDateTime && value) {
+        displayData = formatDateTime(value, 'DD/MM/YYYY HH:mm:ss') || strValue
+      }
 
       return {
         kind: GridCellKind.Text,
@@ -194,7 +229,7 @@ export default function PlanRegistrationTable({
         themeOverride: meta.cellTheme
       }
     },
-    [gridData, colMetadata, formatDateTime]
+    [gridData, colMetadata, formatDate, formatDateTime]
   )
 
   const onKeyUp = useCallback(() => {}, [])

@@ -131,13 +131,6 @@ export default function PlanRegistrationActions({
         )}
       </div>
 
-      {/* Thông tin Master Header */}
-      <div className="flex items-center gap-1.5 pr-2">
-        <Layers className="w-3.5 h-3.5 text-indigo-600" />
-        <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight">
-          Danh mục đợt đăng ký báo cáo sản xuất (Master)
-        </span>
-      </div>
     </div>
   )
 }

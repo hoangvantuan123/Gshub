@@ -167,7 +167,7 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
           height: 'clamp(620px, 85vh, 880px)',
           maxHeight: '94vh',
           maxWidth: '96vw',
-          border: '1.5px solid #245d6c',
+          border: '1.5px solid #01411b',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
           display: 'flex',
           flexDirection: 'column',
@@ -179,13 +179,13 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
         {/* Modal Header */}
         <div
           style={{
-            background: '#245d6c',
+            background: '#01411b',
             color: '#ffffff',
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid #1a4550',
+            borderBottom: '1px solid #013014',
             flexShrink: 0
           }}
         >
@@ -241,7 +241,7 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
                 fontSize: 11.5,
                 fontWeight: activeCategory === 'ALL' ? 800 : 600,
                 color: activeCategory === 'ALL' ? '#ffffff' : '#334155',
-                background: activeCategory === 'ALL' ? '#245d6c' : '#ffffff',
+                background: activeCategory === 'ALL' ? '#01411b' : '#ffffff',
                 border: '1px solid #cbd5e1',
                 cursor: 'pointer',
                 borderRadius: 2
@@ -256,7 +256,7 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
                 fontSize: 11.5,
                 fontWeight: activeCategory === 'KPI' ? 800 : 600,
                 color: activeCategory === 'KPI' ? '#ffffff' : '#334155',
-                background: activeCategory === 'KPI' ? '#245d6c' : '#ffffff',
+                background: activeCategory === 'KPI' ? '#01411b' : '#ffffff',
                 border: '1px solid #cbd5e1',
                 cursor: 'pointer',
                 borderRadius: 2
@@ -271,7 +271,7 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
                 fontSize: 11.5,
                 fontWeight: activeCategory === 'CHARTS' ? 800 : 600,
                 color: activeCategory === 'CHARTS' ? '#ffffff' : '#334155',
-                background: activeCategory === 'CHARTS' ? '#245d6c' : '#ffffff',
+                background: activeCategory === 'CHARTS' ? '#01411b' : '#ffffff',
                 border: '1px solid #cbd5e1',
                 cursor: 'pointer',
                 borderRadius: 2
@@ -286,7 +286,7 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
                 fontSize: 11.5,
                 fontWeight: activeCategory === 'TABLES' ? 800 : 600,
                 color: activeCategory === 'TABLES' ? '#ffffff' : '#334155',
-                background: activeCategory === 'TABLES' ? '#245d6c' : '#ffffff',
+                background: activeCategory === 'TABLES' ? '#01411b' : '#ffffff',
                 border: '1px solid #cbd5e1',
                 cursor: 'pointer',
                 borderRadius: 2
@@ -401,7 +401,7 @@ export const PlanFormulaHandbookModal = ({ isOpen, onClose }) => {
                   style={{
                     background: '#f8fafc',
                     padding: '8px 10px',
-                    borderLeft: '3px solid #245d6c',
+                    borderLeft: '3px solid #01411b',
                     fontSize: 11.5
                   }}
                 >

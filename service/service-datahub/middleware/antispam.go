@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,21 +15,24 @@ import (
 )
 
 const (
-	numShards        = 64
-	defaultRateLimit = rate.Limit(300) // 300 req/s recovery rate per client
-	defaultBurst     = 600             // 600 requests burst
-	banDuration      = 10 * time.Second
-	maxViolations    = 50
-	idleEvictTime    = 30 * time.Minute
+	numShards            = 64
+	defaultQueryRate     = rate.Limit(30) // 30 req/s cho truy vấn thông thường
+	defaultQueryBurst    = 50             // Burst 50 requests
+	defaultMutationRate  = rate.Limit(8)  // 8 req/s cho các thao tác ghi (POST/PUT/DELETE/Save)
+	defaultMutationBurst = 15             // Burst 15 requests
+	banDuration          = 5 * time.Minute // Khóa 5 phút khi phát hiện spam dồn dập
+	maxViolations        = 5               // Chỉ cho phép vi phạm tối đa 5 lần trước khi ban
+	idleEvictTime        = 15 * time.Minute
 )
 
 // ClientSpamTracker tracks per-client rate and ban state
 type ClientSpamTracker struct {
-	mu          sync.Mutex
-	limiter     *rate.Limiter
-	violations  int
-	bannedUntil time.Time
-	lastSeen    time.Time
+	mu              sync.Mutex
+	queryLimiter    *rate.Limiter
+	mutationLimiter *rate.Limiter
+	violations      int
+	bannedUntil     time.Time
+	lastSeen        time.Time
 }
 
 type shard struct {
@@ -67,7 +71,7 @@ func init() {
 
 	// Periodic cleanup of idle trackers
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(3 * time.Minute)
 		for range ticker.C {
 			now := time.Now()
 			for i := 0; i < numShards; i++ {
@@ -84,14 +88,27 @@ func init() {
 	}()
 }
 
-func makeClientKey(ip, authHeader string) string {
-	if authHeader == "" {
-		return ip
+func getRealIP(c *gin.Context) string {
+	// 1. Check Cloudflare header
+	if cfIP := strings.TrimSpace(c.GetHeader("CF-Connecting-IP")); cfIP != "" {
+		return cfIP
 	}
-	if len(authHeader) > 30 {
-		authHeader = authHeader[:30]
+	// 2. Check X-Real-IP
+	if realIP := strings.TrimSpace(c.GetHeader("X-Real-IP")); realIP != "" {
+		return realIP
 	}
-	return ip + ":" + authHeader
+	// 3. Check X-Forwarded-For
+	if xff := strings.TrimSpace(c.GetHeader("X-Forwarded-For")); xff != "" {
+		parts := strings.Split(xff, ",")
+		if len(parts) > 0 {
+			ip := strings.TrimSpace(parts[0])
+			if net.ParseIP(ip) != nil {
+				return ip
+			}
+		}
+	}
+	// 4. Gin ClientIP
+	return c.ClientIP()
 }
 
 // AntiSpamMiddleware monitors high frequency request spamming and automatically bans spammers
@@ -99,24 +116,20 @@ func AntiSpamMiddleware(logger *zap.Logger) gin.HandlerFunc {
 	protector.logger = logger
 
 	return func(c *gin.Context) {
-		// Bypass CORS Preflight and Health check
+		// Bypass CORS Preflight and Health check only
 		if c.Request.Method == http.MethodOptions {
 			c.Next()
 			return
 		}
 		path := c.Request.URL.Path
-		if path == "/health" || path == "/ping" || path == "/" || strings.HasPrefix(path, "/api/v2/report/") || strings.HasPrefix(path, "/report/") {
+		if path == "/health" || path == "/ping" || path == "/" {
 			c.Next()
 			return
 		}
 
-		clientIP := c.ClientIP()
-		if clientIP == "127.0.0.1" || clientIP == "::1" || clientIP == "localhost" {
-			c.Next()
-			return
-		}
+		clientIP := getRealIP(c)
+		clientKey := clientIP
 
-		clientKey := makeClientKey(clientIP, c.GetHeader("Authorization"))
 		now := time.Now()
 		sh := protector.getShard(clientKey)
 
@@ -130,8 +143,9 @@ func AntiSpamMiddleware(logger *zap.Logger) gin.HandlerFunc {
 			tracker, exists = sh.clients[clientKey]
 			if !exists {
 				tracker = &ClientSpamTracker{
-					limiter:  rate.NewLimiter(defaultRateLimit, defaultBurst),
-					lastSeen: now,
+					queryLimiter:    rate.NewLimiter(defaultQueryRate, defaultQueryBurst),
+					mutationLimiter: rate.NewLimiter(defaultMutationRate, defaultMutationBurst),
+					lastSeen:        now,
 				}
 				sh.clients[clientKey] = tracker
 			}
@@ -148,14 +162,14 @@ func AntiSpamMiddleware(logger *zap.Logger) gin.HandlerFunc {
 
 			if logger != nil {
 				logger.Warn("Blocked banned spammer",
-					zap.String("client", clientKey),
+					zap.String("ip", clientIP),
 					zap.Int("remaining_ban_sec", remainingSec),
 					zap.String("path", path),
 				)
 			}
 
 			if strings.Contains(c.GetHeader("Accept"), "text/html") {
-				c.AbortWithStatus(http.StatusMethodNotAllowed)
+				c.AbortWithStatus(http.StatusTooManyRequests)
 				return
 			}
 
@@ -163,14 +177,29 @@ func AntiSpamMiddleware(logger *zap.Logger) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"success":             false,
 				"error_code":          "SPAM_AUTO_BANNED",
-				"message":             fmt.Sprintf("Hệ thống phát hiện hành vi spam API. Đã tạm khóa kết nối của bạn trong %d giây.", remainingSec),
+				"message":             fmt.Sprintf("Hệ thống phát hiện hành vi spam API. Kết nối của bạn bị tạm khóa trong %d giây.", remainingSec),
 				"retry_after_seconds": remainingSec,
 			})
 			return
 		}
 
+		// Choose limiter based on HTTP method and path
+		isMutation := c.Request.Method == http.MethodPost ||
+			c.Request.Method == http.MethodPut ||
+			c.Request.Method == http.MethodDelete ||
+			strings.HasSuffix(path, "Save") ||
+			strings.HasSuffix(path, "A") ||
+			strings.HasSuffix(path, "U") ||
+			strings.HasSuffix(path, "D") ||
+			strings.Contains(path, "save")
+
+		limiter := tracker.queryLimiter
+		if isMutation {
+			limiter = tracker.mutationLimiter
+		}
+
 		// Token bucket check
-		if !tracker.limiter.Allow() {
+		if !limiter.Allow() {
 			tracker.violations++
 
 			// Auto ban after 5 consecutive violations
@@ -181,33 +210,23 @@ func AntiSpamMiddleware(logger *zap.Logger) gin.HandlerFunc {
 
 				if logger != nil {
 					logger.Error("CLIENT AUTO-BANNED DUE TO SEVERE SPAM",
-						zap.String("client", clientKey),
+						zap.String("ip", clientIP),
 						zap.Duration("ban_duration", banDuration),
 						zap.String("path", path),
 					)
 				}
 
-				if strings.Contains(c.GetHeader("Accept"), "text/html") {
-					c.AbortWithStatus(http.StatusMethodNotAllowed)
-					return
-				}
-
-				c.Header("Retry-After", "180")
+				c.Header("Retry-After", "300")
 				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 					"success":             false,
 					"error_code":          "SPAM_DETECTED_CIRCUIT_BREAK",
-					"message":             "Cảnh báo: Thao tác gửi yêu cầu quá dồn dập. Hệ thống tự động ngắt kết nối trong 3 phút.",
-					"retry_after_seconds": 180,
+					"message":             "Cảnh báo: Tần suất gửi yêu cầu quá dồn dập. Hệ thống tự động khóa kết nối của bạn trong 5 phút.",
+					"retry_after_seconds": 300,
 				})
 				return
 			}
 
 			tracker.mu.Unlock()
-
-			if strings.Contains(c.GetHeader("Accept"), "text/html") {
-				c.AbortWithStatus(http.StatusMethodNotAllowed)
-				return
-			}
 
 			c.Header("Retry-After", "2")
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
@@ -227,3 +246,4 @@ func AntiSpamMiddleware(logger *zap.Logger) gin.HandlerFunc {
 		c.Next()
 	}
 }
+

@@ -257,7 +257,6 @@ export const useProductionStatisticsLogic = ({
   const [detailSearchText, setDetailSearchText] = useState('')
   const [showDetailSearch, setShowDetailSearch] = useState(false)
 
-  const [fullscreenTable, setFullscreenTable] = useState(null) // null | 'machine' | 'team' | 'detail'
 
   // Refs for Screenshot, Chart export and Glide Grids
   const reportRootRef = useRef(null)
@@ -1488,30 +1487,6 @@ export const useProductionStatisticsLogic = ({
     }
   }
 
-  // Export Detail Table Excel - Khớp chuẩn 100% theo bảng Đăng ký Thống kê sản xuất (statisticsImportColumns.js)
-  const handleExportDetailExcel = () => {
-    try {
-      const wsData = displayDetailList.map((item, idx) => {
-        const row = { STT: idx + 1 }
-        detailGridCols.forEach((col) => {
-          if (!col.id || col.id === 'WorkingTag') return
-          const val =
-            item[col.id] ??
-            item[col.id.charAt(0).toLowerCase() + col.id.slice(1)] ??
-            ''
-          row[col.title || col.id] = val
-        })
-        return row
-      })
-      const ws = XLSX.utils.json_to_sheet(wsData)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'ThongKeSanXuat')
-      const dateStr = new Date().toISOString().slice(0, 10)
-      XLSX.writeFile(wb, `NhatTrinh_ThongKe_SanXuat_${plantKey}_${dateStr}.xlsx`)
-    } catch (e) {
-      console.error('Export detail excel error:', e)
-    }
-  }
 
   // Glide Data Grid Column definitions with custom resize state
   const [machineColWidths, setMachineColWidths] = useState({})
@@ -1959,41 +1934,151 @@ export const useProductionStatisticsLogic = ({
     })
   }
 
-  // Export Excel Full
-  const handleExportExcel = () => {
+  // Export Excel Chuẩn: Lấy dữ liệu từ V. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT
+  // Dòng 1: Tên báo cáo (Merged full width)
+  // Dòng 2: Nhóm cột (Group Header merges)
+  // Dòng 3: Tên cột chi tiết (Sub-column titles)
+  // Dòng 4+: Dữ liệu chi tiết từ displayDetailList
+  const handleExportDetailExcel = useCallback(() => {
     try {
-      const wsData = filteredData.map((item, idx) => ({
-        STT: idx + 1,
-        'Mã phiếu': item.ticketCode,
-        'Ngày TK': item.prodDate,
-        Ca: item.shift,
-        'Tổ sản xuất': item.teamName,
-        'Mã máy': item.machineCode,
-        'Tên máy': item.machineName,
-        'Lệnh SX': item.orderCode,
-        'Khách hàng': item.customerName,
-        'Sản phẩm': item.productName,
-        'Kế hoạch (SP)': item.planQty,
-        'Thực tế (SP)': item.actualQty,
-        'Đạt (SP)': item.passQty,
-        'Phế phẩm (SP)': item.defectQty,
-        'Tỷ lệ đạt (%)':
-          item.actualQty > 0 ? ((item.passQty / item.actualQty) * 100).toFixed(1) : '100',
-        'Giờ chạy (h)': item.runtimeHours,
-        'Nguồn dữ liệu': item.origin || 'MES',
-        'Người thao tác': item.operator
-      }))
+      if (!displayDetailList || displayDetailList.length === 0) {
+        alert('Không có dữ liệu phiếu thống kê để xuất!')
+        return
+      }
 
-      const ws = XLSX.utils.json_to_sheet(wsData)
+      const plantDisplayName =
+        plantKey === 'quevo' || plantKey === 'gs5'
+          ? 'NHÀ MÁY GS QUẾ VÕ'
+          : 'NHÀ MÁY GS HÀ NỘI'
+
+      const reportTitle = `BÁO CÁO NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT - ${plantDisplayName}`
+
+      // Danh sách cột (loại trừ WorkingTag)
+      const validCols = (rawStatCols || []).filter((c) => c.id && c.id !== 'WorkingTag')
+
+      // 1. Dòng 1: Tiêu đề báo cáo
+      // 2. Dòng 2: Nhóm cột (Group Headers)
+      // 3. Dòng 3: Tên cột (Column Titles)
+      const row1_Title = [reportTitle]
+      const row2_Group = ['STT']
+      const row3_ColName = ['STT']
+
+      const merges = []
+      const totalCols = validCols.length + 1 // +1 cho cột STT
+
+      // Dòng 1 merge toàn bộ độ rộng các cột
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } })
+
+      let currentGroup = null
+      let groupStartIndex = -1
+
+      validCols.forEach((col, idx) => {
+        const colIdx = idx + 1 // +1 do col 0 là STT
+        const groupName = col.group || ''
+        const colTitle = col.title || col.id
+
+        row2_Group.push(groupName)
+        row3_ColName.push(colTitle)
+
+        if (groupName) {
+          if (groupName !== currentGroup) {
+            // Đóng nhóm trước nếu có nhiều hơn 1 cột
+            if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
+              merges.push({
+                s: { r: 1, c: groupStartIndex },
+                e: { r: 1, c: colIdx - 1 }
+              })
+            }
+            currentGroup = groupName
+            groupStartIndex = colIdx
+          }
+        } else {
+          // Không có group -> Đóng nhóm trước nếu có
+          if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
+            merges.push({
+              s: { r: 1, c: groupStartIndex },
+              e: { r: 1, c: colIdx - 1 }
+            })
+          }
+          currentGroup = null
+          groupStartIndex = -1
+          // Merge dọc dòng 2 và dòng 3 cho cột không có group
+          merges.push({
+            s: { r: 1, c: colIdx },
+            e: { r: 2, c: colIdx }
+          })
+        }
+      })
+
+      // Đóng nhóm cuối cùng nếu còn
+      if (currentGroup && groupStartIndex !== -1 && totalCols - 1 > groupStartIndex) {
+        merges.push({
+          s: { r: 1, c: groupStartIndex },
+          e: { r: 1, c: totalCols - 1 }
+        })
+      }
+
+      // Merge dọc cho cột STT (col 0: r1 -> r2)
+      merges.push({
+        s: { r: 1, c: 0 },
+        e: { r: 2, c: 0 }
+      })
+
+      // 4. Dòng dữ liệu từ displayDetailList
+      const dataRows = displayDetailList.map((item, rowIdx) => {
+        const row = [rowIdx + 1]
+        validCols.forEach((col) => {
+          const colId = col.id
+          const rawVal =
+            item[colId] ??
+            item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
+            ''
+
+          if (col.kind === 'Boolean') {
+            const b =
+              typeof rawVal === 'boolean'
+                ? rawVal
+                : rawVal === 1 || rawVal === '1' || rawVal === 'true' || rawVal === 'Có'
+            row.push(b ? 'Có' : '')
+          } else if (col.kind === 'Number') {
+            if (rawVal !== '' && rawVal !== null && rawVal !== undefined) {
+              const num = typeof rawVal === 'number' ? rawVal : Number(rawVal)
+              row.push(!isNaN(num) ? num : rawVal)
+            } else {
+              row.push('')
+            }
+          } else {
+            row.push(rawVal !== null && rawVal !== undefined ? rawVal : '')
+          }
+        })
+        return row
+      })
+
+      const aoa = [row1_Title, row2_Group, row3_ColName, ...dataRows]
+      const ws = XLSX.utils.aoa_to_sheet(aoa)
+      ws['!merges'] = merges
+
+      const colWidths = [
+        { wch: 8 },
+        ...validCols.map((col) => ({
+          wch: Math.max(12, Math.min(50, Math.round((col.width || 120) / 7.5)))
+        }))
+      ]
+      ws['!cols'] = colWidths
+
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'ThongKeSanXuat')
+      XLSX.utils.book_append_sheet(wb, ws, 'NhatTrinh_ChiTiet_TKSX')
 
       const dateStr = new Date().toISOString().slice(0, 10)
-      XLSX.writeFile(wb, `BaoCao_ThongKe_SanXuat_${plantKey}_${dateStr}.xlsx`)
-    } catch (err) {
-      console.error('Excel export error:', err)
+      const fileName = `NhatTrinh_ChiTiet_ThongKe_SanXuat_${plantKey}_${dateStr}.xlsx`
+      XLSX.writeFile(wb, fileName)
+    } catch (e) {
+      console.error('Export detail excel error:', e)
+      alert('Xuất file Excel thất bại: ' + (e?.message || e))
     }
-  }
+  }, [displayDetailList, rawStatCols, plantKey])
+
+  const handleExportExcel = handleExportDetailExcel
 
   return {
     // State
@@ -2038,8 +2123,6 @@ export const useProductionStatisticsLogic = ({
     setDetailSearchText,
     showDetailSearch,
     setShowDetailSearch,
-    fullscreenTable,
-    setFullscreenTable,
 
     // Refs
     reportRootRef,

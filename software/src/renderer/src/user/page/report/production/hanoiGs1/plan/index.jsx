@@ -157,6 +157,33 @@ function mapDBRowToPlanItem(item, idx, master) {
     item.PicDp || item.pic || item.Pic || item.Dispatcher || item.Planner || 'Chưa phân công'
 
   return {
+    ...item,
+    // Cột chuẩn 100% theo schema usePlanImportColumns
+    PicDp: pic,
+    OperationNo: item.OperationNo || planNo,
+    OpDate: item.OpDate || planDate,
+    RoutingDocNo: item.RoutingDocNo || orderNo,
+    RoutingDocDate: item.RoutingDocDate || actualDate,
+    ItemCode: item.ItemCode || item.itemCode || 'CAN-FSB-00360',
+    ItemName: item.ItemName || item.itemName || 'Sản phẩm GS1',
+    OperationName: item.OperationName || item.operationName || '',
+    OpTypeName: item.OpTypeName || item.opTypeName || '',
+    MachineName: item.MachineName || item.machineName || item.MachineCode || 'CHUNG',
+    Unit: item.Unit || item.unit || 'Pcs',
+    TargetPassQty: parseCleanNumber(item.TargetPassQty, planQty),
+    TargetProdQty: parseCleanNumber(item.TargetProdQty, planQty),
+    StatPassQty: parseCleanNumber(item.StatPassQty, actualQty),
+    StartTime: item.StartTime || '',
+    EndTime: item.EndTime || '',
+    StandardProdTime: parseCleanNumber(item.StandardProdTime, 0),
+    ActualProdTime: parseCleanNumber(item.ActualProdTime, 0),
+    StandardCapa: parseCleanNumber(item.StandardCapa, 0),
+    ActualCapa: parseCleanNumber(item.ActualCapa, 0),
+    StatusDpSx: dpStatusText,
+    TimeStatus: timeStatusText,
+    CapaStatus: capaStatusText,
+
+    // Dữ liệu nội bộ cho biểu đồ và KPI
     id: item.IdSeq || item.id || `HN-PL-${String(idx + 1).padStart(4, '0')}`,
     docNo,
     orderNo,
@@ -168,7 +195,7 @@ function mapDBRowToPlanItem(item, idx, master) {
       item.OpTypeName || item.OperationName || item.TeamName || item.teamName || 'Tổ sản xuất',
     itemCode: item.ItemCode || item.itemCode || 'CAN-FSB-00360',
     itemName: item.ItemName || item.itemName || 'Sản phẩm GS1',
-    operationNo: item.OperationNo || '',
+    operationNo: item.OperationNo || planNo,
     operationName: item.OperationName || '',
     opTypeName: item.OpTypeName || '',
     unit: item.Unit || item.unit || 'Pcs',

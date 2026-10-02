@@ -33,8 +33,8 @@ export const PureButton = ({
         fontSize: size === 'small' ? 11.5 : 12,
         fontWeight: isPrimary ? 700 : 600,
         color: isPrimary ? '#ffffff' : '#334155',
-        background: isPrimary ? '#245d6c' : '#ffffff',
-        border: isPrimary ? '1px solid #245d6c' : '1px solid #94a3b8',
+        background: isPrimary ? '#01411b' : '#ffffff',
+        border: isPrimary ? '1px solid #01411b' : '1px solid #94a3b8',
         borderRadius: 0,
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
         opacity: disabled || loading ? 0.6 : 1,
@@ -741,9 +741,9 @@ export const PureSelect = ({
                       padding: '5px 8px',
                       fontSize: 11.5,
                       fontWeight: isSelected ? 700 : 500,
-                      color: isSelected ? '#0f766e' : '#334155',
-                      background: isSelected ? '#f0fdfa' : '#ffffff',
-                      borderLeft: isSelected ? '3px solid #245d6c' : '3px solid transparent',
+                      color: isSelected ? '#01411b' : '#334155',
+                      background: isSelected ? '#f0fdf4' : '#ffffff',
+                      borderLeft: isSelected ? '3px solid #01411b' : '3px solid transparent',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -927,7 +927,7 @@ export const MachineRuntimeVerticalBar = (props) => {
   if (height === 0 || isNaN(y)) return null
 
   const isWarning = isOver24h || Number(value) > 24
-  const barColor = isWarning ? '#dc2626' : fill || '#245d6c'
+  const barColor = isWarning ? '#dc2626' : fill || '#01411b'
   const centerX = x + width / 2
 
   return (
@@ -954,7 +954,7 @@ export const CleanTechnicalVerticalBar = (props) => {
   if (height === 0 || isNaN(y)) return null
 
   const isWarning = value < 95
-  const barColor = isWarning ? '#d97706' : fill || '#245d6c'
+  const barColor = isWarning ? '#d97706' : fill || '#01411b'
   const centerX = x + width / 2
 
   return (
@@ -981,7 +981,7 @@ export const CleanTechnicalHorizontalBar = (props) => {
   if (width === 0 || isNaN(x)) return null
 
   const isWarning = value < 95
-  const barColor = isWarning ? '#d97706' : fill || '#245d6c'
+  const barColor = isWarning ? '#d97706' : fill || '#01411b'
   const centerY = y + height / 2
 
   return (
@@ -1002,32 +1002,23 @@ export const CleanTechnicalHorizontalBar = (props) => {
   )
 }
 
-// 6. Glide Data Grid Theme - EXACT EXECUTIVE TEAL HEADER THEME
+// 6. Glide Data Grid Theme - DEFAULT STANDARD TABLE SHEET THEME
 export const executiveGridTheme = {
-  accentColor: '#245d6c',
-  accentLight: 'rgba(36, 93, 108, 0.08)',
-  accentFg: '#ffffff',
-  bgHeader: '#2b6b79',
-  bgHeaderHasFocus: '#2b6b79',
-  bgHeaderHovered: '#2b6b79',
-  textHeader: '#ffffff',
-  textHeaderSelected: '#ffffff',
-  headerFontStyle: '700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  baseFontStyle: '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
-  editorFontSize: '12px',
-  lineHeight: 1.4,
+  fontFamily:
+    'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  baseFontStyle: '13px',
+  headerFontStyle: '600 13px',
+  editorFontSize: '13px',
+  accentColor: '#1677ff',
+  accentLight: '#e6f4ff',
+  textDark: '#1e293b',
+  textMedium: '#475569',
+  textLight: '#94a3b8',
+  textHeader: '#0f172a',
   bgCell: '#ffffff',
-  bgCellMedium: '#f8fafc',
-  textDark: '#0f172a',
-  textMedium: '#334155',
-  textLight: '#64748b',
-  borderColor: '#e2e8f0',
-  drilldownBorder: 'transparent',
-  linkColor: '#245d6c',
-  cellHorizontalPadding: 12,
-  cellVerticalPadding: 8,
-  headerIconSize: 14
+  bgHeader: '#f8fafc',
+  borderColor: '#cbd5e1',
+  headerBottomBorderColor: '#cbd5e1'
 }
 
 // 7. Global CSS overrides for outline suppression & clean report capture/print

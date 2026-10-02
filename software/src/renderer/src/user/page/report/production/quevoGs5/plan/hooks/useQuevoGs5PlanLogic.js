@@ -3,6 +3,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { GridCellKind } from '@glideapps/glide-data-grid'
 import { captureReportScreenshot, downloadSingleChart } from '../../../../common/screenshotHelper'
+import { usePlanImportColumns } from '../../../../registration/plan/columns/planImportColumns'
 
 // Helper chuẩn hóa định dạng ngày YYYY-MM-DD
 function getCleanDate(dateVal) {
@@ -118,10 +119,42 @@ export function generateDefaultQuevoGs5PlanData() {
       else if (i % 3 === 1) capaStatus = 'Chậm hơn ĐM'
       else capaStatus = 'Trống / Đúng capa'
 
+      const operationNo = `QV2609-${String(3000 + idCounter)}(${String(100 + (idCounter % 900))})`
+      const routingDocNo = `SO-QV05-${String(900 + (idCounter % 200))}`
+      const prodTime = dpStatusCode === 'TRUOT_KH' ? 10.5 : 8
+      const stdCapa = Math.round(planQty / 8)
+      const actCapa = Math.round(actualQty / prodTime)
+
       list.push({
         id: `QV-PL-${String(idCounter).padStart(4, '0')}`,
-        docNo: `QV2609-${String(3000 + idCounter)}(${String(100 + (idCounter % 900))})`,
-        orderNo: `SO-QV05-${String(900 + (idCounter % 200))}`,
+        // Chuẩn hóa 100% trường dữ liệu theo Schema Khung đăng ký KHSX
+        PicDp: pic,
+        OperationNo: operationNo,
+        OpDate: actualDate,
+        RoutingDocNo: routingDocNo,
+        RoutingDocDate: planDate,
+        ItemCode: prod.code,
+        ItemName: prod.name,
+        OperationName: 'In / Bế / Dán hoàn thiện GS5',
+        OpTypeName: 'Sản xuất chính',
+        MachineName: machine.name,
+        Unit: 'Chiếc',
+        TargetPassQty: planQty,
+        TargetProdQty: planQty,
+        StatPassQty: actualQty,
+        StartTime: '08:00',
+        EndTime: '17:00',
+        StandardProdTime: 8,
+        ActualProdTime: prodTime,
+        StandardCapa: stdCapa,
+        ActualCapa: actCapa,
+        StatusDpSx: dpStatusText,
+        TimeStatus: timeStatus,
+        CapaStatus: capaStatus,
+
+        // Legacy / Normalized fields
+        docNo: operationNo,
+        orderNo: routingDocNo,
         planNo: `KH-QV-2026-W39-${String(idCounter).padStart(3, '0')}`,
         pic,
         machineCode: machine.code,
@@ -224,9 +257,12 @@ export function useQuevoGs5PlanLogic({
     const machines = new Map()
 
     rawData.forEach((item) => {
-      if (item.pic) pics.add(item.pic)
-      if (item.machineCode) {
-        machines.set(item.machineCode, item.machineName || item.machineCode)
+      const p = item.PicDp || item.pic || item.Pic
+      if (p) pics.add(p)
+      const mCode = item.MachineCode || item.machineCode
+      const mName = item.MachineName || item.machineName || mCode
+      if (mCode || mName) {
+        machines.set(mCode || mName, mName)
       }
     })
 
@@ -250,27 +286,33 @@ export function useQuevoGs5PlanLogic({
   const filteredData = useMemo(() => {
     return rawData.filter((item) => {
       // 1. Lọc PIC Điều phối
-      if (selectedPic !== 'ALL' && item.pic !== selectedPic) return false
+      const itemPic = item.PicDp || item.pic || item.Pic || ''
+      if (selectedPic !== 'ALL' && itemPic !== selectedPic) return false
 
       // 2. Tìm kiếm Search Text
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
         const match =
-          (item.docNo && item.docNo.toLowerCase().includes(q)) ||
-          (item.orderNo && item.orderNo.toLowerCase().includes(q)) ||
-          (item.planNo && item.planNo.toLowerCase().includes(q)) ||
-          (item.itemCode && item.itemCode.toLowerCase().includes(q)) ||
-          (item.itemName && item.itemName.toLowerCase().includes(q)) ||
-          (item.customer && item.customer.toLowerCase().includes(q)) ||
-          (item.machineCode && item.machineCode.toLowerCase().includes(q)) ||
-          (item.machineName && item.machineName.toLowerCase().includes(q)) ||
-          (item.pic && item.pic.toLowerCase().includes(q))
+          (item.docNo && String(item.docNo).toLowerCase().includes(q)) ||
+          (item.orderNo && String(item.orderNo).toLowerCase().includes(q)) ||
+          (item.RoutingDocNo && String(item.RoutingDocNo).toLowerCase().includes(q)) ||
+          (item.planNo && String(item.planNo).toLowerCase().includes(q)) ||
+          (item.OperationNo && String(item.OperationNo).toLowerCase().includes(q)) ||
+          (item.itemCode && String(item.itemCode).toLowerCase().includes(q)) ||
+          (item.ItemCode && String(item.ItemCode).toLowerCase().includes(q)) ||
+          (item.itemName && String(item.itemName).toLowerCase().includes(q)) ||
+          (item.ItemName && String(item.ItemName).toLowerCase().includes(q)) ||
+          (item.OperationName && String(item.OperationName).toLowerCase().includes(q)) ||
+          (item.OpTypeName && String(item.OpTypeName).toLowerCase().includes(q)) ||
+          (item.customer && String(item.customer).toLowerCase().includes(q)) ||
+          (item.MachineName && String(item.MachineName).toLowerCase().includes(q)) ||
+          (itemPic && itemPic.toLowerCase().includes(q))
         if (!match) return false
       }
 
       return true
     })
-  }, [rawData, dateRange, selectedPic, searchQuery])
+  }, [rawData, selectedPic, searchQuery])
 
   // Sorting
   const sortedData = useMemo(() => {
@@ -351,14 +393,14 @@ export function useQuevoGs5PlanLogic({
         name: 'Khớp số lượng',
         count: kpiMetrics.khopSlCount,
         rate: Number(kpiMetrics.khopSlRate),
-        color: '#059669',
+        color: '#01411b',
         tag: 'Đạt chuẩn SL'
       },
       {
         name: 'Khớp job',
         count: kpiMetrics.khopJobCount,
         rate: Number(kpiMetrics.khopJobRate),
-        color: '#0284c7',
+        color: '#059669',
         tag: 'Đạt chuẩn job'
       }
     ]
@@ -397,7 +439,7 @@ export function useQuevoGs5PlanLogic({
         name: 'Đúng ĐM',
         count: dung,
         rate: Number(((dung / total) * 100).toFixed(1)),
-        color: '#059669'
+        color: '#01411b'
       },
       {
         name: 'Chưa có dữ liệu',
@@ -439,7 +481,7 @@ export function useQuevoGs5PlanLogic({
         name: 'Trống / Đúng capa',
         count: trong,
         rate: Number(((trong / total) * 100).toFixed(1)),
-        color: '#059669'
+        color: '#01411b'
       }
     ]
   }, [filteredData])
@@ -660,218 +702,293 @@ export function useQuevoGs5PlanLogic({
     ]
   }, [colWidths])
 
-  // Cell Content Callback cho Glide Data Grid
-  const getCellContent = useCallback(
-    ([col, row]) => {
-      const item = sortedData[row]
-      if (!item) return { kind: GridCellKind.Loading, allowOverlay: false }
+  // 10. DETAIL TABLE (CHI TIẾT LỆNH ĐIỀU PHỐI KHSX THEO TIÊU CHUẨN ĐĂNG KÝ BÁO CÁO)
+  const rawPlanCols = usePlanImportColumns()
+  const [detailColWidths, setDetailColWidths] = useState({})
+  const [detailSortConfig, setDetailSortConfig] = useState({ key: 'OperationNo', direction: 'asc' })
+  const [detailSearchText, setDetailSearchText] = useState('')
+  const [showDetailSearch, setShowDetailSearch] = useState(false)
+  const detailGridRef = useRef(null)
 
-      const colId = columns[col]?.id
+  // Filtered & Sorted Detail List for Detail Table
+  const displayDetailList = useMemo(() => {
+    let list = [...filteredData]
+    if (detailSearchText.trim()) {
+      const q = detailSearchText.toLowerCase().trim()
+      list = list.filter((item) => {
+        return Object.values(item).some((val) =>
+          String(val ?? '').toLowerCase().includes(q)
+        )
+      })
+    }
 
-      switch (colId) {
-        case 'stt':
-          return {
-            kind: GridCellKind.Number,
-            data: row + 1,
-            displayData: String(row + 1),
-            allowOverlay: false,
-            contentAlign: 'center',
-            themeOverride: { textDark: '#64748b' }
-          }
-        case 'docNo':
-          return {
-            kind: GridCellKind.Text,
-            data: item.docNo || item.orderNo || item.planNo || '',
-            displayData: item.docNo || item.orderNo || item.planNo || '',
-            allowOverlay: false,
-            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
-          }
-        case 'orderNo':
-          return {
-            kind: GridCellKind.Text,
-            data: item.orderNo || '',
-            displayData: item.orderNo || '',
-            allowOverlay: false,
-            themeOverride: { textDark: '#334155' }
-          }
-        case 'dpStatus': {
-          const txt = item.dpStatusText || item.dpStatus || 'Khớp số lượng'
-          return {
-            kind: GridCellKind.Text,
-            data: txt,
-            displayData: txt,
-            allowOverlay: false,
-            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
-          }
+    const { key, direction } = detailSortConfig
+    if (key) {
+      list.sort((a, b) => {
+        let valA = a[key] ?? a[key.charAt(0).toLowerCase() + key.slice(1)] ?? ''
+        let valB = b[key] ?? b[key.charAt(0).toLowerCase() + key.slice(1)] ?? ''
+        if (typeof valA === 'number' || typeof valB === 'number') {
+          const numA = Number(valA) || 0
+          const numB = Number(valB) || 0
+          return direction === 'asc' ? numA - numB : numB - numA
         }
-        case 'timeStatus': {
-          const txt = item.timeStatusText || item.timeStatus || 'Đúng ĐM'
-          return {
-            kind: GridCellKind.Text,
-            data: txt,
-            displayData: txt,
-            allowOverlay: false,
-            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
-          }
+        return direction === 'asc'
+          ? String(valA).localeCompare(String(valB))
+          : String(valB).localeCompare(String(valA))
+      })
+    }
+    return list
+  }, [filteredData, detailSearchText, detailSortConfig])
+
+  // Columns for Glide Data Grid matching 100% Plan Import Registration schema
+  const detailGridCols = useMemo(() => {
+    return (rawPlanCols || [])
+      .filter((c) => c.id && c.id !== 'WorkingTag')
+      .map((col) => {
+        let title = col.title
+        const isSorted = detailSortConfig.key === col.id
+        if (isSorted) {
+          title += detailSortConfig.direction === 'asc' ? ' ↑' : ' ↓'
         }
-        case 'capaStatus': {
-          const txt = item.capaStatusText || item.capaStatus || 'Đúng capa'
-          return {
-            kind: GridCellKind.Text,
-            data: txt,
-            displayData: txt,
-            allowOverlay: false,
-            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
-          }
+        const { themeOverride, ...restCol } = col
+        return {
+          ...restCol,
+          title,
+          readonly: true,
+          width: detailColWidths[col.id] || col.width || 135
         }
-        case 'pic':
-          return {
-            kind: GridCellKind.Text,
-            data: item.pic || 'Chưa phân công',
-            displayData: item.pic || 'Chưa phân công',
-            allowOverlay: false,
-            themeOverride: { textDark: '#0f172a', baseFontStyle: '500 12px' }
-          }
-        case 'planDate':
-          return {
-            kind: GridCellKind.Text,
-            data: item.planDate || '',
-            displayData: item.planDate || '',
-            allowOverlay: false,
-            contentAlign: 'center',
-            themeOverride: { textDark: '#334155' }
-          }
-        case 'actualDate':
-          return {
-            kind: GridCellKind.Text,
-            data: item.actualDate || item.prodDate || '',
-            displayData: item.actualDate || item.prodDate || '',
-            allowOverlay: false,
-            contentAlign: 'center',
-            themeOverride: { textDark: '#334155' }
-          }
-        case 'planQty':
-          return {
-            kind: GridCellKind.Number,
-            data: Number(item.planQty) || 0,
-            displayData: (Number(item.planQty) || 0).toLocaleString('vi-VN'),
-            allowOverlay: false,
-            contentAlign: 'right',
-            themeOverride: { textDark: '#334155' }
-          }
-        case 'actualQty':
-          return {
-            kind: GridCellKind.Number,
-            data: Number(item.actualQty) || 0,
-            displayData: (Number(item.actualQty) || 0).toLocaleString('vi-VN'),
-            allowOverlay: false,
-            contentAlign: 'right',
-            themeOverride: { textDark: '#0f172a', baseFontStyle: '600 12px' }
-          }
-        case 'completionRate': {
-          const p = Number(item.planQty) || 0
-          const a = Number(item.actualQty) || 0
-          const rate = p > 0 ? ((a / p) * 100).toFixed(1) : '100.0'
-          return {
-            kind: GridCellKind.Text,
-            data: `${rate}%`,
-            displayData: `${rate}%`,
-            allowOverlay: false,
-            contentAlign: 'right',
-            themeOverride: {
-              textDark: '#0f172a',
-              baseFontStyle: '600 12px'
-            }
-          }
+      })
+  }, [rawPlanCols, detailColWidths, detailSortConfig])
+
+  const onDetailHeaderClicked = useCallback(
+    (col) => {
+      const colObj = detailGridCols[col]
+      if (!colObj) return
+      const colId = colObj.id
+      setDetailSortConfig((prev) => {
+        if (prev.key === colId) {
+          return { key: colId, direction: prev.direction === 'desc' ? 'asc' : 'desc' }
         }
-        case 'machineCode':
-          return {
-            kind: GridCellKind.Text,
-            data: item.machineCode || '',
-            displayData: item.machineCode || '',
-            allowOverlay: false,
-            themeOverride: { textDark: '#334155', baseFontStyle: '500 12px' }
-          }
-        case 'machineName':
-          return {
-            kind: GridCellKind.Text,
-            data: item.machineName || '',
-            displayData: item.machineName || '',
-            allowOverlay: false,
-            themeOverride: { textDark: '#334155' }
-          }
-        case 'itemCode':
-          return {
-            kind: GridCellKind.Text,
-            data: item.itemCode || '',
-            displayData: item.itemCode || '',
-            allowOverlay: false,
-            themeOverride: { textDark: '#475569' }
-          }
-        case 'itemName':
-          return {
-            kind: GridCellKind.Text,
-            data: maskText(item.itemName || ''),
-            displayData: maskText(item.itemName || ''),
-            allowOverlay: false,
-            themeOverride: { textDark: '#0f172a', baseFontStyle: '400 12px' }
-          }
-        case 'customer':
-          return {
-            kind: GridCellKind.Text,
-            data: maskText(item.customer || ''),
-            displayData: maskText(item.customer || ''),
-            allowOverlay: false,
-            themeOverride: { textDark: '#334155' }
-          }
-        case 'note':
-          return {
-            kind: GridCellKind.Text,
-            data: item.note || item.remark || '',
-            displayData: item.note || item.remark || '',
-            allowOverlay: false,
-            themeOverride: { textDark: '#64748b' }
-          }
-        default:
-          return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
-      }
+        return { key: colId, direction: 'desc' }
+      })
     },
-    [sortedData, columns, maskText]
+    [detailGridCols]
   )
 
-  // Xuất file Excel
-  const handleExportExcel = () => {
-    if (!sortedData.length) return
-    const exportRows = sortedData.map((item, idx) => ({
-      STT: idx + 1,
-      'Số LSX': item.docNo || item.planNo || '',
-      'Số Đơn Hàng (SO)': item.orderNo || '',
-      'Trạng thái ĐP - SX': item.dpStatusText || item.dpStatus || '',
-      'Trạng thái Thời gian': item.timeStatusText || item.timeStatus || '',
-      'Trạng thái Capa': item.capaStatusText || item.capaStatus || '',
-      'PIC Điều phối': item.pic || '',
-      'Ngày kế hoạch': item.planDate || '',
-      'Ngày thực tế': item.actualDate || item.prodDate || '',
-      'SL Kế hoạch': Number(item.planQty) || 0,
-      'SL Thực tế': Number(item.actualQty) || 0,
-      'Tỷ lệ hoàn thành (%)':
-        item.planQty > 0 ? Number(((item.actualQty / item.planQty) * 100).toFixed(1)) : 100,
-      'Mã máy': item.machineCode || '',
-      'Tên máy': item.machineName || '',
-      'Mã sản phẩm': item.itemCode || '',
-      'Tên sản phẩm': item.itemName || '',
-      'Khách hàng': item.customer || '',
-      'Ghi chú': item.note || item.remark || ''
+  const onDetailColumnResize = useCallback((column, newSize) => {
+    setDetailColWidths((prev) => ({
+      ...prev,
+      [column.id]: newSize
     }))
+  }, [])
 
-    const ws = XLSX.utils.json_to_sheet(exportRows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'BaoCao_DieuPhoi_KHSX')
-    XLSX.writeFile(
-      wb,
-      `BaoCao_DieuPhoi_KHSX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`
-    )
+  const getDetailCellContent = useCallback(
+    ([col, row]) => {
+      const item = displayDetailList[row]
+      const colObj = detailGridCols[col]
+      if (!item || !colObj) {
+        return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
+      }
+      const colId = colObj.id
+      if (!colId) {
+        return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
+      }
+
+      const val =
+        item[colId] ??
+        item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
+        ''
+
+      if (colObj.kind === 'Boolean') {
+        const boolVal =
+          typeof val === 'boolean'
+            ? val
+            : val === 1 || val === '1' || val === 'true' || val === 'Có'
+        return {
+          kind: GridCellKind.Boolean,
+          data: boolVal,
+          allowOverlay: false
+        }
+      }
+
+      if (colObj.kind === 'Number' || typeof val === 'number') {
+        const numVal = typeof val === 'number' ? val : Number(val)
+        const isValid = !isNaN(numVal) && val !== '' && val !== null && val !== undefined
+        const finalNum = isValid ? numVal : 0
+        const displayData = isValid ? finalNum.toLocaleString('vi-VN') : ''
+        return {
+          kind: GridCellKind.Number,
+          data: finalNum,
+          displayData,
+          allowOverlay: false,
+          contentAlign: 'right'
+        }
+      }
+
+      const strVal = String(val ?? '')
+      return {
+        kind: GridCellKind.Text,
+        data: strVal,
+        displayData: strVal,
+        allowOverlay: false
+      }
+    },
+    [displayDetailList, detailGridCols]
+  )
+
+  // Copy table TSV
+  const handleCopyTable = (dataToCopy, headers, keys) => {
+    try {
+      const headerRow = headers.join('\t')
+      const bodyRows = dataToCopy
+        .map((item) =>
+          keys
+            .map((k) => {
+              const v = item[k] ?? item[k.charAt(0).toLowerCase() + k.slice(1)] ?? ''
+              return typeof v === 'number' ? v : v || ''
+            })
+            .join('\t')
+        )
+        .join('\n')
+      const tsv = `${headerRow}\n${bodyRows}`
+      navigator.clipboard.writeText(tsv)
+      alert('Đã sao chép dữ liệu bảng vào Clipboard (định dạng Excel/TSV)')
+    } catch (err) {
+      console.error('Copy error:', err)
+    }
   }
+
+  // Export Excel Chuẩn: Lấy dữ liệu từ Chi tiết Lệnh điều phối KHSX
+  const handleExportDetailExcel = useCallback(() => {
+    try {
+      if (!displayDetailList || displayDetailList.length === 0) {
+        alert('Không có dữ liệu lệnh điều phối để xuất!')
+        return
+      }
+
+      const plantDisplayName =
+        plantKey === 'quevo_gs5' || plantKey === 'gs5'
+          ? 'NHÀ MÁY GS QUẾ VÕ'
+          : 'NHÀ MÁY GS HÀ NỘI'
+
+      const reportTitle = `BÁO CÁO LỆNH THEO TRẠNG THÁI ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT - ${plantDisplayName}`
+
+      // Danh sách cột (loại trừ WorkingTag)
+      const validCols = (rawPlanCols || []).filter((c) => c.id && c.id !== 'WorkingTag')
+
+      const row1_Title = [reportTitle]
+      const row2_Group = ['STT']
+      const row3_ColName = ['STT']
+
+      const merges = []
+      const totalCols = validCols.length + 1 // +1 cho cột STT
+
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } })
+
+      let currentGroup = null
+      let groupStartIndex = -1
+
+      validCols.forEach((col, idx) => {
+        const colIdx = idx + 1
+        const groupName = col.group || ''
+        const colTitle = col.title || col.id
+
+        row2_Group.push(groupName)
+        row3_ColName.push(colTitle)
+
+        if (groupName) {
+          if (groupName !== currentGroup) {
+            if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
+              merges.push({
+                s: { r: 1, c: groupStartIndex },
+                e: { r: 1, c: colIdx - 1 }
+              })
+            }
+            currentGroup = groupName
+            groupStartIndex = colIdx
+          }
+        } else {
+          if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
+            merges.push({
+              s: { r: 1, c: groupStartIndex },
+              e: { r: 1, c: colIdx - 1 }
+            })
+          }
+          currentGroup = null
+          groupStartIndex = -1
+          merges.push({
+            s: { r: 1, c: colIdx },
+            e: { r: 2, c: colIdx }
+          })
+        }
+      })
+
+      if (currentGroup && groupStartIndex !== -1 && totalCols - 1 > groupStartIndex) {
+        merges.push({
+          s: { r: 1, c: groupStartIndex },
+          e: { r: 1, c: totalCols - 1 }
+        })
+      }
+
+      merges.push({
+        s: { r: 1, c: 0 },
+        e: { r: 2, c: 0 }
+      })
+
+      const dataRows = displayDetailList.map((item, rowIdx) => {
+        const row = [rowIdx + 1]
+        validCols.forEach((col) => {
+          const colId = col.id
+          const rawVal =
+            item[colId] ??
+            item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
+            ''
+
+          if (col.kind === 'Boolean') {
+            const b =
+              typeof rawVal === 'boolean'
+                ? rawVal
+                : rawVal === 1 || rawVal === '1' || rawVal === 'true' || rawVal === 'Có'
+            row.push(b ? 'Có' : '')
+          } else if (col.kind === 'Number') {
+            if (rawVal !== '' && rawVal !== null && rawVal !== undefined) {
+              const num = typeof rawVal === 'number' ? rawVal : Number(rawVal)
+              row.push(!isNaN(num) ? num : rawVal)
+            } else {
+              row.push('')
+            }
+          } else {
+            row.push(rawVal !== null && rawVal !== undefined ? rawVal : '')
+          }
+        })
+        return row
+      })
+
+      const aoa = [row1_Title, row2_Group, row3_ColName, ...dataRows]
+      const ws = XLSX.utils.aoa_to_sheet(aoa)
+      ws['!merges'] = merges
+
+      const colWidths = [
+        { wch: 8 },
+        ...validCols.map((col) => ({
+          wch: Math.max(12, Math.min(50, Math.round((col.width || 120) / 7.5)))
+        }))
+      ]
+      ws['!cols'] = colWidths
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'ChiTiet_DieuPhoi_KHSX')
+
+      const dateStr = new Date().toISOString().slice(0, 10)
+      const fileName = `ChiTiet_DieuPhoi_KHSX_${plantKey}_${dateStr}.xlsx`
+      XLSX.writeFile(wb, fileName)
+    } catch (e) {
+      console.error('Export detail excel error:', e)
+      alert('Xuất file Excel thất bại: ' + (e?.message || e))
+    }
+  }, [displayDetailList, rawPlanCols, plantKey])
+
+  const handleExportExcel = handleExportDetailExcel
 
   // Tải ảnh biểu đồ đơn lẻ
   const handleDownloadSingleChart = async (targetRef, chartName) => {
@@ -924,6 +1041,7 @@ export function useQuevoGs5PlanLogic({
     rawData,
     filteredData,
     sortedData,
+    displayDetailList,
     kpiMetrics,
     dpStatusBreakdown,
     timeStatusBreakdown,
@@ -933,8 +1051,9 @@ export function useQuevoGs5PlanLogic({
     teamBreakdown,
     advancedPlanMetrics,
 
-    // Grid & Refs
+    // Grid & Detail Table
     gridRef,
+    detailGridRef,
     reportRootRef,
     chart1Ref,
     chart2Ref,
@@ -942,15 +1061,25 @@ export function useQuevoGs5PlanLogic({
     chart4Ref,
     chart5Ref,
     isCapturing,
-    columns,
-    getCellContent,
-    onColumnResize,
-    rowHeight,
-    setRowHeight,
-    sortConfig,
-    setSortConfig,
+
+    // Aliases and detail table bindings
+    columns: detailGridCols,
+    getCellContent: getDetailCellContent,
+    onColumnResize: onDetailColumnResize,
+    detailGridCols,
+    getDetailCellContent,
+    onDetailHeaderClicked,
+    onDetailColumnResize,
+    detailSortConfig,
+    setDetailSortConfig,
+    detailSearchText,
+    setDetailSearchText,
+    showDetailSearch,
+    setShowDetailSearch,
 
     // Actions
+    handleCopyTable,
+    handleExportDetailExcel,
     handleExportExcel,
     handleDownloadSingleChart,
     handleCaptureScreenshot

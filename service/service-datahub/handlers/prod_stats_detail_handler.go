@@ -83,9 +83,18 @@ func (h *ProdStatsDetailHandler) ProdStatsDetailA(c *gin.Context) {
 		}
 	}
 
-	userId := c.GetString("UserId")
+	userId := c.GetString("user_id")
 	if userId == "" {
-		userId = "SystemAdmin"
+		userId = c.GetString("UserId")
+	}
+	if userId == "" {
+		userId = c.GetString("user_seq")
+	}
+	if userId == "" {
+		userId = c.GetHeader("X-User-Id")
+	}
+	if userId == "" {
+		userId = "SystemUser"
 	}
 
 	created, err := h.svc.ProdStatsDetailA(c.Request.Context(), items, userId)
@@ -114,9 +123,18 @@ func (h *ProdStatsDetailHandler) ProdStatsDetailU(c *gin.Context) {
 		return
 	}
 
-	userId := c.GetString("UserId")
+	userId := c.GetString("user_id")
 	if userId == "" {
-		userId = "SystemAdmin"
+		userId = c.GetString("UserId")
+	}
+	if userId == "" {
+		userId = c.GetString("user_seq")
+	}
+	if userId == "" {
+		userId = c.GetHeader("X-User-Id")
+	}
+	if userId == "" {
+		userId = "SystemUser"
 	}
 
 	updated, err := h.svc.ProdStatsDetailU(c.Request.Context(), items, userId)
@@ -153,9 +171,18 @@ func (h *ProdStatsDetailHandler) ProdStatsDetailD(c *gin.Context) {
 		seqs = []string{req.IdSeq}
 	}
 
-	userId := c.GetString("UserId")
+	userId := c.GetString("user_id")
 	if userId == "" {
-		userId = "SystemAdmin"
+		userId = c.GetString("UserId")
+	}
+	if userId == "" {
+		userId = c.GetString("user_seq")
+	}
+	if userId == "" {
+		userId = c.GetHeader("X-User-Id")
+	}
+	if userId == "" {
+		userId = "SystemUser"
 	}
 
 	if err := h.svc.ProdStatsDetailD(c.Request.Context(), seqs, userId); err != nil {

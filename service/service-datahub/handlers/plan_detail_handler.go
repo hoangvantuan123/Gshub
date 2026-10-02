@@ -83,9 +83,18 @@ func (h *PlanDetailHandler) PlanDetailA(c *gin.Context) {
 		}
 	}
 
-	userId := c.GetString("UserId")
+	userId := c.GetString("user_id")
 	if userId == "" {
-		userId = "SystemAdmin"
+		userId = c.GetString("UserId")
+	}
+	if userId == "" {
+		userId = c.GetString("user_seq")
+	}
+	if userId == "" {
+		userId = c.GetHeader("X-User-Id")
+	}
+	if userId == "" {
+		userId = "SystemUser"
 	}
 
 	created, err := h.svc.PlanDetailA(c.Request.Context(), items, userId)
@@ -114,9 +123,18 @@ func (h *PlanDetailHandler) PlanDetailU(c *gin.Context) {
 		return
 	}
 
-	userId := c.GetString("UserId")
+	userId := c.GetString("user_id")
 	if userId == "" {
-		userId = "SystemAdmin"
+		userId = c.GetString("UserId")
+	}
+	if userId == "" {
+		userId = c.GetString("user_seq")
+	}
+	if userId == "" {
+		userId = c.GetHeader("X-User-Id")
+	}
+	if userId == "" {
+		userId = "SystemUser"
 	}
 
 	updated, err := h.svc.PlanDetailU(c.Request.Context(), items, userId)
@@ -153,9 +171,18 @@ func (h *PlanDetailHandler) PlanDetailD(c *gin.Context) {
 		seqs = []string{req.IdSeq}
 	}
 
-	userId := c.GetString("UserId")
+	userId := c.GetString("user_id")
 	if userId == "" {
-		userId = "SystemAdmin"
+		userId = c.GetString("UserId")
+	}
+	if userId == "" {
+		userId = c.GetString("user_seq")
+	}
+	if userId == "" {
+		userId = c.GetHeader("X-User-Id")
+	}
+	if userId == "" {
+		userId = "SystemUser"
 	}
 
 	if err := h.svc.PlanDetailD(c.Request.Context(), seqs, userId); err != nil {

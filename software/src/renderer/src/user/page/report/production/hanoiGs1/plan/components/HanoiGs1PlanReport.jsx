@@ -11,6 +11,7 @@ import {
   Activity,
   Calendar,
   Download,
+  Copy,
   Search,
   X,
   PieChart as PieIcon,
@@ -100,6 +101,7 @@ export default function HanoiGs1PlanReport(props) {
     // Data & Metrics
     filteredData,
     sortedData,
+    displayDetailList,
     kpiMetrics,
     dpStatusBreakdown,
     timeStatusBreakdown,
@@ -109,8 +111,9 @@ export default function HanoiGs1PlanReport(props) {
     teamBreakdown,
     advancedPlanMetrics,
 
-    // Grid & Refs
+    // Grid & Detail Table
     gridRef,
+    detailGridRef,
     reportRootRef,
     chart1Ref,
     chart2Ref,
@@ -118,13 +121,20 @@ export default function HanoiGs1PlanReport(props) {
     chart4Ref,
     chart5Ref,
     isCapturing,
+
     columns,
     getCellContent,
     onColumnResize,
-    rowHeight,
-    setRowHeight,
+    detailGridCols,
+    getDetailCellContent,
+    onDetailHeaderClicked,
+    onDetailColumnResize,
+    showDetailSearch,
+    setShowDetailSearch,
 
     // Actions
+    handleCopyTable,
+    handleExportDetailExcel,
     handleExportExcel,
     handleDownloadSingleChart,
     handleCaptureScreenshot
@@ -153,7 +163,7 @@ export default function HanoiGs1PlanReport(props) {
         className="screenshot-show"
         style={{
           display: 'none',
-          borderBottom: '2px solid #245d6c',
+          borderBottom: '2px solid #01411b',
           paddingBottom: 14,
           marginBottom: 24
         }}
@@ -321,10 +331,6 @@ export default function HanoiGs1PlanReport(props) {
           <div>
             <b>Đợt nạp:</b> {selectedMasterKey || 'Hiện hành'}
           </div>
-          <span style={{ color: '#cbd5e1' }}>•</span>
-          <div>
-            <b>Phạm vi phân tích:</b> {dateRange[0]} đến {dateRange[1]}
-          </div>
           {selectedPic !== 'ALL' && (
             <>
               <span style={{ color: '#cbd5e1' }}>•</span>
@@ -354,7 +360,7 @@ export default function HanoiGs1PlanReport(props) {
             borderLeft: '1px solid #cbd5e1',
             borderRight: '1px solid #cbd5e1',
             borderBottom: '1px solid #cbd5e1',
-            borderTop: '3.5px solid #245d6c',
+            borderTop: '3.5px solid #01411b',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',
             flexDirection: 'column',
@@ -367,7 +373,7 @@ export default function HanoiGs1PlanReport(props) {
             style={{
               fontSize: 11,
               fontWeight: 700,
-              color: '#475569',
+              color: '#01411b',
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             }}
@@ -378,14 +384,14 @@ export default function HanoiGs1PlanReport(props) {
             style={{
               fontSize: 'clamp(28px, 3.2vw, 38px)',
               fontWeight: 900,
-              color: '#0f172a',
+              color: '#01411b',
               lineHeight: 1.05,
               margin: '8px 0 6px 0',
               letterSpacing: '-0.04em'
             }}
           >
             {kpiMetrics.totalOrders.toLocaleString('vi-VN')}{' '}
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#64748b' }}>lệnh</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: '#01411b' }}>lệnh</span>
           </div>
           <div style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
             Tổng số lệnh trong phạm vi lọc
@@ -520,7 +526,7 @@ export default function HanoiGs1PlanReport(props) {
             style={{
               fontSize: 'clamp(28px, 3.2vw, 38px)',
               fontWeight: 900,
-              color: '#0f172a',
+              color: '#01411b',
               lineHeight: 1.05,
               margin: '8px 0 6px 0',
               letterSpacing: '-0.04em'
@@ -544,7 +550,7 @@ export default function HanoiGs1PlanReport(props) {
             borderLeft: '1px solid #cbd5e1',
             borderRight: '1px solid #cbd5e1',
             borderBottom: '1px solid #cbd5e1',
-            borderTop: '3.5px solid #0284c7',
+            borderTop: '3.5px solid #059669',
             boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             display: 'flex',
             flexDirection: 'column',
@@ -557,7 +563,7 @@ export default function HanoiGs1PlanReport(props) {
             style={{
               fontSize: 11,
               fontWeight: 700,
-              color: '#0284c7',
+              color: '#059669',
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             }}
@@ -568,18 +574,18 @@ export default function HanoiGs1PlanReport(props) {
             style={{
               fontSize: 'clamp(28px, 3.2vw, 38px)',
               fontWeight: 900,
-              color: '#0f172a',
+              color: '#059669',
               lineHeight: 1.05,
               margin: '8px 0 6px 0',
               letterSpacing: '-0.04em'
             }}
           >
             {kpiMetrics.khopJobCount.toLocaleString('vi-VN')}{' '}
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#0284c7' }}>lệnh</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: '#059669' }}>lệnh</span>
           </div>
           <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>
             Tỷ lệ:{' '}
-            <span style={{ color: '#0284c7', fontWeight: 700 }}>{kpiMetrics.khopJobRate}%</span> •
+            <span style={{ color: '#059669', fontWeight: 700 }}>{kpiMetrics.khopJobRate}%</span> •
             Khớp đúng quy cách job
           </div>
         </div>
@@ -615,7 +621,7 @@ export default function HanoiGs1PlanReport(props) {
                 gap: 8
               }}
             >
-              <span>2. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
+              <span>1. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
             </div>
             <div
               style={{
@@ -632,7 +638,7 @@ export default function HanoiGs1PlanReport(props) {
           </div>
         </div>
 
- {/* Switcher & Biểu đồ phân tích chi tiết */}
+        {/* Switcher & Biểu đồ phân tích chi tiết */}
         <div
           style={{
             marginTop: 20,
@@ -680,42 +686,36 @@ export default function HanoiGs1PlanReport(props) {
                 background: '#f1f5f9',
                 padding: '2px',
                 borderRadius: 6,
-                border: '1px solid #e2e8f0'
+                border: '1px solid #cbd5e1'
               }}
             >
               <button
                 type="button"
                 onClick={() => setPicChartMode('volume')}
                 style={{
-                  padding: '5px 10px',
+                  padding: '5px 12px',
                   fontSize: 11.5,
                   fontWeight:
                     picChartMode === 'volume' ||
-                      picChartMode === 'composed' ||
-                      picChartMode === 'stacked'
+                    picChartMode === 'composed' ||
+                    picChartMode === 'stacked'
                       ? 700
                       : 500,
                   color:
                     picChartMode === 'volume' ||
-                      picChartMode === 'composed' ||
-                      picChartMode === 'stacked'
-                      ? '#0f172a'
-                      : '#64748b',
+                    picChartMode === 'composed' ||
+                    picChartMode === 'stacked'
+                      ? '#ffffff'
+                      : '#334155',
                   background:
                     picChartMode === 'volume' ||
-                      picChartMode === 'composed' ||
-                      picChartMode === 'stacked'
-                      ? '#ffffff'
+                    picChartMode === 'composed' ||
+                    picChartMode === 'stacked'
+                      ? '#01411b'
                       : 'transparent',
                   border: 'none',
                   borderRadius: 4,
                   cursor: 'pointer',
-                  boxShadow:
-                    picChartMode === 'volume' ||
-                      picChartMode === 'composed' ||
-                      picChartMode === 'stacked'
-                      ? '0 1px 2px rgba(0,0,0,0.06)'
-                      : 'none',
                   transition: 'all 0.15s ease'
                 }}
               >
@@ -725,15 +725,14 @@ export default function HanoiGs1PlanReport(props) {
                 type="button"
                 onClick={() => setPicChartMode('rate')}
                 style={{
-                  padding: '5px 10px',
+                  padding: '5px 12px',
                   fontSize: 11.5,
                   fontWeight: picChartMode === 'rate' ? 700 : 500,
-                  color: picChartMode === 'rate' ? '#0f172a' : '#64748b',
-                  background: picChartMode === 'rate' ? '#ffffff' : 'transparent',
+                  color: picChartMode === 'rate' ? '#ffffff' : '#334155',
+                  background: picChartMode === 'rate' ? '#01411b' : 'transparent',
                   border: 'none',
                   borderRadius: 4,
                   cursor: 'pointer',
-                  boxShadow: picChartMode === 'rate' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
                   transition: 'all 0.15s ease'
                 }}
               >
@@ -743,15 +742,14 @@ export default function HanoiGs1PlanReport(props) {
                 type="button"
                 onClick={() => setPicChartMode('pass')}
                 style={{
-                  padding: '5px 10px',
+                  padding: '5px 12px',
                   fontSize: 11.5,
                   fontWeight: picChartMode === 'pass' ? 700 : 500,
-                  color: picChartMode === 'pass' ? '#0f172a' : '#64748b',
-                  background: picChartMode === 'pass' ? '#ffffff' : 'transparent',
+                  color: picChartMode === 'pass' ? '#ffffff' : '#334155',
+                  background: picChartMode === 'pass' ? '#01411b' : 'transparent',
                   border: 'none',
                   borderRadius: 4,
                   cursor: 'pointer',
-                  boxShadow: picChartMode === 'pass' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
                   transition: 'all 0.15s ease'
                 }}
               >
@@ -798,17 +796,17 @@ export default function HanoiGs1PlanReport(props) {
                     wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
                   />
                   <Bar
+                    dataKey="khopSlRate"
+                    name="Khớp số lượng (%)"
+                    stackId="picRate"
+                    fill="#01411b"
+                    isAnimationActive={false}
+                  />
+                  <Bar
                     dataKey="khopJobRate"
                     name="Khớp job (%)"
                     stackId="picRate"
                     fill="#059669"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="khopSlRate"
-                    name="Khớp số lượng (%)"
-                    stackId="picRate"
-                    fill="#0284c7"
                     isAnimationActive={false}
                   />
                   <Bar
@@ -913,7 +911,7 @@ export default function HanoiGs1PlanReport(props) {
                         return (
                           <Cell
                             key={`cell-pass-${index}`}
-                            fill={rate >= 20 ? '#059669' : rate >= 10 ? '#0284c7' : '#ea580c'}
+                            fill={rate >= 20 ? '#01411b' : rate >= 10 ? '#059669' : '#ea580c'}
                           />
                         )
                       })}
@@ -953,17 +951,17 @@ export default function HanoiGs1PlanReport(props) {
                     wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
                   />
                   <Bar
+                    dataKey="khopSl"
+                    name="Khớp số lượng"
+                    stackId="picVol"
+                    fill="#01411b"
+                    isAnimationActive={false}
+                  />
+                  <Bar
                     dataKey="khopJob"
                     name="Khớp job"
                     stackId="picVol"
                     fill="#059669"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="khopSl"
-                    name="Khớp số lượng"
-                    stackId="picVol"
-                    fill="#0284c7"
                     isAnimationActive={false}
                   />
                   <Bar
@@ -998,7 +996,7 @@ export default function HanoiGs1PlanReport(props) {
           </div>
         </div>
         {/* Bảng Gom nhóm theo PIC ĐP Phong Cách OpenAI Technical Table */}
-        <div style={{ width: '100%', marginBottom: 24 }}>
+        <div style={{ width: '100%', marginTop: 28, marginBottom: 24 }}>
           <table
             style={{
               width: '100%',
@@ -1356,7 +1354,7 @@ export default function HanoiGs1PlanReport(props) {
           >
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                3. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
+                2. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
               </div>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
                 So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch
@@ -1434,7 +1432,7 @@ export default function HanoiGs1PlanReport(props) {
           >
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                4. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
+                3. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
               </div>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
                 Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống
@@ -1525,7 +1523,7 @@ export default function HanoiGs1PlanReport(props) {
                 alignItems: 'center'
               }}
             >
-              <span>5. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN</span>
+              <span>4. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN</span>
             </div>
             <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
               Đo lường mức độ tuân thủ tiến độ (Schedule Adherence), độ lệch ngày bình quân và tình
@@ -1905,201 +1903,184 @@ export default function HanoiGs1PlanReport(props) {
         </div>
       </div>
 
-      {/* 7. LỆNH THEO TRẠNG THÁI ĐP–SX: DANH SÁCH CHI TIẾT TỪNG LỆNH */}
+      {/* 6. LỆNH THEO TRẠNG THÁI ĐP–SX: DANH SÁCH CHI TIẾT TỪNG LỆNH */}
       <div
         style={{
-          marginBottom: 44,
+          marginTop: 40,
+          marginBottom: 30,
           width: '100%',
-          background: '#ffffff',
-          padding: '8px 0'
+          background: '#ffffff'
         }}
       >
-        {/* Table Header Row */}
+        {/* Header Section */}
+        <div style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 800,
+              color: '#0f172a',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            <span>
+              5. LỆNH THEO TRẠNG THÁI ĐP – SX (DANH SÁCH CHI TIẾT TỪNG LỆNH)
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: 12.5,
+              color: '#475569',
+              marginTop: 4,
+              lineHeight: 1.5,
+              maxWidth: 960
+            }}
+          >
+            Bảng dữ liệu chi tiết toàn bộ <b>{(displayDetailList || sortedData || []).length} lệnh</b> điều phối kế hoạch sản xuất tại {plantName || 'Nhà máy'}. Tổng hợp chi tiết tiến độ kế hoạch, thực tế sản xuất, định mức thời gian, tải capa và trạng thái khớp lệnh.
+          </div>
+        </div>
+
+        {/* Header toolbar & Tổng hợp số liệu chi tiết */}
         <div
           style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderBottom: 'none',
+            padding: '6px 12px',
+            fontSize: 12,
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: 12,
-            marginBottom: 14
+            gap: 12
           }}
         >
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-              6. LỆNH THEO TRẠNG THÁI ĐP – SX (DANH SÁCH CHI TIẾT TỪNG LỆNH)
-            </div>
-            <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
-              Bảng dữ liệu chi tiết toàn bộ lệnh sản xuất điều phối, hỗ trợ lọc, tìm kiếm và xuất dữ
-              liệu
-            </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: 16,
+              color: '#334155',
+              fontWeight: 700,
+              flexWrap: 'wrap',
+              alignItems: 'center'
+            }}
+          >
+            <span>
+              Tổng số lệnh:{' '}
+              <b style={{ color: '#0f172a' }}>
+                {(displayDetailList || sortedData || []).length.toLocaleString('vi-VN')}
+              </b>
+            </span>
+            <span>
+              Tổng SL Kế hoạch:{' '}
+              <b style={{ color: '#0f172a' }}>
+                {(displayDetailList || sortedData || [])
+                  .reduce((acc, d) => acc + (Number(d.TargetPassQty ?? d.TargetProdQty ?? d.planQty) || 0), 0)
+                  .toLocaleString('vi-VN')}
+              </b>
+            </span>
+            <span>
+              Tổng SL Thực tế:{' '}
+              <b style={{ color: '#01411b' }}>
+                {(displayDetailList || sortedData || [])
+                  .reduce((acc, d) => acc + (Number(d.StatPassQty ?? d.actualQty) || 0), 0)
+                  .toLocaleString('vi-VN')}
+              </b>
+            </span>
+            <span>
+              Tỷ lệ hoàn thành:{' '}
+              <b style={{ color: '#01411b' }}>
+                {(() => {
+                  const list = displayDetailList || sortedData || []
+                  const p = list.reduce((acc, d) => acc + (Number(d.TargetPassQty ?? d.TargetProdQty ?? d.planQty) || 0), 0)
+                  const a = list.reduce((acc, d) => acc + (Number(d.StatPassQty ?? d.actualQty) || 0), 0)
+                  return p > 0 ? ((a / p) * 100).toFixed(1) : '100.0'
+                })()}%
+              </b>
+            </span>
+            <span>
+              Tổng giờ SX thực tế:{' '}
+              <b style={{ color: '#01411b' }}>
+                {(displayDetailList || sortedData || [])
+                  .reduce((acc, d) => acc + (Number(d.ActualProdTime) || 0), 0)
+                  .toFixed(1)}
+                h
+              </b>
+            </span>
           </div>
 
           <div
             className="screenshot-hide"
-            style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
           >
-            {/* Search Box */}
-            <div
+            <PureButton
+              icon={<Search size={12} />}
+              onClick={() => setShowDetailSearch((prev) => !prev)}
+              title="Mở tìm kiếm nhanh trong bảng (Ctrl + F)"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                height: 28,
-                border: '1px solid #cbd5e1',
-                borderRadius: 3,
-                padding: '0 8px',
-                background: '#ffffff',
-                boxSizing: 'border-box',
-                verticalAlign: 'middle',
-                width: 260
+                borderColor: showDetailSearch ? '#01411b' : '#cbd5e1',
+                color: showDetailSearch ? '#01411b' : '#334155',
+                background: showDetailSearch ? '#f0fdf4' : '#ffffff'
               }}
             >
-              <Search size={13} color="#94a3b8" />
-              <input
-                type="text"
-                placeholder="Tìm LSX, đơn hàng, SP, PIC..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  border: 'none',
-                  outline: 'none',
-                  fontSize: 11.5,
-                  width: '100%',
-                  marginLeft: 6,
-                  color: '#1e293b',
-                  background: 'transparent',
-                  fontFamily: 'inherit',
-                  boxSizing: 'border-box'
-                }}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#94a3b8',
-                    padding: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center'
-                  }}
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-
-            {/* Độ cao dòng */}
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                height: 28,
-                border: '1px solid #cbd5e1',
-                borderRadius: 3,
-                background: '#f8fafc',
-                overflow: 'hidden',
-                boxSizing: 'border-box',
-                verticalAlign: 'middle'
+              Tìm kiếm (Ctrl+F)
+            </PureButton>
+            <PureButton
+              icon={<Copy size={12} />}
+              onClick={() => {
+                const colsToCopy = (detailGridCols || columns || []).filter((c) => c.id && c.id !== 'WorkingTag')
+                handleCopyTable(
+                  displayDetailList || sortedData,
+                  colsToCopy.map((c) => c.title || c.id),
+                  colsToCopy.map((c) => c.id)
+                )
               }}
+              title="Sao chép toàn bộ dữ liệu bảng này vào Clipboard"
             >
-              <button
-                type="button"
-                onClick={() => setRowHeight(26)}
-                style={{
-                  height: '100%',
-                  padding: '0 10px',
-                  border: 'none',
-                  background: rowHeight === 26 ? '#245d6c' : 'transparent',
-                  color: rowHeight === 26 ? '#ffffff' : '#334155',
-                  fontSize: 11.5,
-                  fontWeight: rowHeight === 26 ? 700 : 500,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.15s ease',
-                  boxSizing: 'border-box'
-                }}
-                title="Thu gọn dòng"
-              >
-                Gọn
-              </button>
-              <button
-                type="button"
-                onClick={() => setRowHeight(32)}
-                style={{
-                  height: '100%',
-                  padding: '0 10px',
-                  border: 'none',
-                  borderLeft: '1px solid #cbd5e1',
-                  background: rowHeight === 32 ? '#245d6c' : 'transparent',
-                  color: rowHeight === 32 ? '#ffffff' : '#334155',
-                  fontSize: 11.5,
-                  fontWeight: rowHeight === 32 ? 700 : 500,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.15s ease',
-                  boxSizing: 'border-box'
-                }}
-                title="Chuẩn"
-              >
-                Chuẩn
-              </button>
-            </div>
+              Sao chép
+            </PureButton>
+            <PureButton
+              icon={<Download size={12} />}
+              onClick={handleExportDetailExcel || handleExportExcel}
+              title="Xuất bảng chi tiết ra file Excel"
+            >
+              Excel
+            </PureButton>
           </div>
         </div>
 
-        {/* Glide Data Grid Table */}
+        {/* DataEditor Container */}
         <div
           style={{
-            border: '1px solid #cbd5e1',
-            height: 600,
-            width: '100%',
+            height: 480,
+            border: '1px solid #e2e8f0',
+            background: '#ffffff',
             position: 'relative'
           }}
         >
           <DataEditor
-            ref={gridRef}
+            ref={detailGridRef || gridRef}
+            columns={detailGridCols || columns}
+            rows={(displayDetailList || sortedData || []).length}
+            getCellContent={getDetailCellContent || getCellContent}
+            onHeaderClicked={onDetailHeaderClicked}
+            onColumnResize={onDetailColumnResize || onColumnResize}
+            getCellsForSelection={true}
+            rangeSelect="rect"
+            columnSelect="multi"
+            rowSelect="multi"
+            rowMarkers="both"
+            rowHeight={23}
+            headerHeight={23}
+            smoothScrollX={true}
+            smoothScrollY={true}
+            showSearch={showDetailSearch}
+            onSearchClose={() => setShowDetailSearch(false)}
+            keybindings={{ search: true, downFill: true, rightFill: true }}
+            theme={executiveGridTheme}
             width="100%"
             height="100%"
-            columns={columns}
-            rows={sortedData.length}
-            getCellContent={getCellContent}
-            onColumnResize={onColumnResize}
-            rowHeight={rowHeight}
-            headerHeight={34}
-            theme={executiveGridTheme}
-            smoothScrollX
-            smoothScrollY
-            getCellsForSelection
           />
-        </div>
-
-        {/* Table Footer */}
-        <div
-          style={{
-            padding: '10px 18px',
-            background: '#f8fafc',
-            borderBottom: '1px solid #e2e8f0',
-            borderLeft: '1px solid #cbd5e1',
-            borderRight: '1px solid #cbd5e1',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: 12,
-            color: '#64748b'
-          }}
-        >
-          <div>
-            Hiển thị <strong style={{ color: '#0f172a' }}>{sortedData.length}</strong> /{' '}
-            {filteredData.length} lệnh
-          </div>
-          <div>Kéo mép cột để giãn rộng • Nhấn Ctrl+C để sao chép dữ liệu</div>
         </div>
       </div>
 

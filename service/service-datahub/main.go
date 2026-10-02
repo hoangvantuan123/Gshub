@@ -79,6 +79,7 @@ func main() {
 
 	// 6. Setup HTTP REST Router
 	router := routes.SetupRouter(
+		cfg,
 		authHandler,
 		loginHandler,
 		configHandler,

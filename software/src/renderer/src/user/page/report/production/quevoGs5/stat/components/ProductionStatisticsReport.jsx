@@ -8,7 +8,6 @@ import {
   Users,
   Clock,
   Download,
-  Maximize2,
   Search,
   ChevronsUpDown,
   ChevronsDownUp,
@@ -106,8 +105,6 @@ export default function ProductionStatisticsReport(props) {
     setDetailSearchText,
     showDetailSearch,
     setShowDetailSearch,
-    fullscreenTable,
-    setFullscreenTable,
 
     // Refs
     reportRootRef,
@@ -572,7 +569,7 @@ export default function ProductionStatisticsReport(props) {
             style={{
               fontSize: 'clamp(28px, 3.2vw, 38px)',
               fontWeight: 900,
-              color: '#0f172a',
+              color: '#01411b',
               lineHeight: 1.05,
               margin: '8px 0 6px 0',
               letterSpacing: '-0.04em'
@@ -619,7 +616,7 @@ export default function ProductionStatisticsReport(props) {
               }}
             >
               <span>
-                I. THỐNG KÊ TỔNG GIỜ CHẠY MÁY & PHÂN BỔ TẢI TRỌNG THEO CỤM MÁY
+                1. THỐNG KÊ TỔNG GIỜ CHẠY MÁY & PHÂN BỔ TẢI TRỌNG THEO CỤM MÁY
               </span>
             </div>
             <div
@@ -1352,7 +1349,7 @@ export default function ProductionStatisticsReport(props) {
               }}
             >
               <span>
-                II. THỐNG KÊ SẢN LƯỢNG SẢN XUẤT & ĐẠT THEO TỔ SẢN XUẤT
+                2. THỐNG KÊ SẢN LƯỢNG SẢN XUẤT & ĐẠT THEO TỔ SẢN XUẤT
               </span>
             </div>
             <div
@@ -1847,7 +1844,7 @@ export default function ProductionStatisticsReport(props) {
                   alignItems: 'center'
                 }}
               >
-                <span>III. THỐNG KÊ ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG</span>
+                <span>3. THỐNG KÊ ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG</span>
               </div>
               <div
                 style={{
@@ -2071,7 +2068,7 @@ export default function ProductionStatisticsReport(props) {
                   alignItems: 'center'
                 }}
               >
-                <span>IV. THỐNG KÊ PHÂN BỔ LOẠI CHỨNG TỪ XUẤT/NHẬP TỰ ĐỘNG</span>
+                <span>4. THỐNG KÊ PHÂN BỔ LOẠI CHỨNG TỪ XUẤT/NHẬP TỰ ĐỘNG</span>
               </div>
               <div
                 style={{
@@ -2300,7 +2297,7 @@ export default function ProductionStatisticsReport(props) {
             }}
           >
             <span>
-              V. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT
+              5. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT
             </span>
           </div>
           <div
@@ -2421,11 +2418,6 @@ export default function ProductionStatisticsReport(props) {
             >
               Excel
             </PureButton>
-            <PureButton
-              icon={<Maximize2 size={12} />}
-              onClick={() => setFullscreenTable('detail')}
-              title="Xem toàn màn hình"
-            />
           </div>
         </div>
 
@@ -2463,370 +2455,6 @@ export default function ProductionStatisticsReport(props) {
           />
         </div>
       </div>
-
-      {/* FULLSCREEN DATA GRID MODAL */}
-      {fullscreenTable && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 9999,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
-        >
-          {/* Top Bar */}
-          <div
-            style={{
-              padding: '10px 18px',
-              background: '#01411b',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexShrink: 0,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                V. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT
-              </div>
-              <span
-                style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  padding: '2px 8px',
-                  borderRadius: 2,
-                  fontSize: 11.5,
-                  fontWeight: 700
-                }}
-              >
-                {displayDetailList.length} / {filteredData.length} phiếu
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <PureButton
-                icon={<Search size={12} />}
-                onClick={() => setShowDetailSearch((prev) => !prev)}
-                style={{
-                  background: showDetailSearch ? '#f0fdf4' : 'rgba(255,255,255,0.12)',
-                  color: showDetailSearch ? '#01411b' : '#ffffff',
-                  border: '1px solid rgba(255,255,255,0.25)'
-                }}
-                title="Mở tìm kiếm nhanh trong bảng (Ctrl + F)"
-              >
-                Tìm kiếm (Ctrl+F)
-              </PureButton>
-              <PureButton
-                icon={<Copy size={12} />}
-                onClick={() => {
-                  const colsToCopy = (detailGridCols || []).filter((c) => c.id && c.id !== 'WorkingTag')
-                  handleCopyTable(
-                    displayDetailList,
-                    colsToCopy.map((c) => c.title || c.id),
-                    colsToCopy.map((c) => c.id)
-                  )
-                }}
-                style={{
-                  background: 'rgba(255,255,255,0.12)',
-                  color: '#ffffff',
-                  border: '1px solid rgba(255,255,255,0.25)'
-                }}
-                title="Sao chép toàn bộ dữ liệu bảng"
-              >
-                Sao chép
-              </PureButton>
-              <PureButton
-                icon={<Download size={12} />}
-                onClick={handleExportDetailExcel}
-                style={{ background: '#ffffff', color: '#01411b', border: 'none', fontWeight: 700 }}
-              >
-                Xuất Excel
-              </PureButton>
-              <button
-                type="button"
-                onClick={() => setFullscreenTable(null)}
-                style={{
-                  background: 'rgba(239, 68, 68, 0.2)',
-                  border: '1px solid rgba(239, 68, 68, 0.5)',
-                  color: '#ffffff',
-                  height: 28,
-                  padding: '0 14px',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxSizing: 'border-box',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.4)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)')}
-              >
-                Đóng (Esc)
-              </button>
-            </div>
-          </div>
-
-          {/* Main Workspace: Left Query Panel + Right Table */}
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#ffffff' }}>
-            {/* Left Sidebar: Điều kiện truy vấn & Lọc tìm kiếm */}
-            <div
-              style={{
-                width: 300,
-                flexShrink: 0,
-                borderRight: '1px solid #e2e8f0',
-                background: '#f8fafc',
-                display: 'flex',
-                flexDirection: 'column',
-                overflowY: 'auto'
-              }}
-            >
-              {/* Sidebar Header */}
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderBottom: '1px solid #e2e8f0',
-                  background: '#f1f5f9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}
-              >
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                  ĐIỀU KIỆN TRUY VẤN
-                </div>
-                {(detailSearchText || hasActiveFilters) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDetailSearchText('')
-                      handleResetFilters()
-                    }}
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
-                      padding: '2px 8px',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: '#475569',
-                      fontWeight: 600
-                    }}
-                  >
-                    Đặt lại
-                  </button>
-                )}
-              </div>
-
-              {/* Sidebar Content */}
-              <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {/* 1. Tìm kiếm nhanh từ khóa */}
-                <div>
-                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                    Từ khóa tìm kiếm:
-                  </label>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
-                      padding: '4px 8px',
-                      gap: 6
-                    }}
-                  >
-                    <Search size={13} color="#64748b" />
-                    <input
-                      type="text"
-                      placeholder="Mã phiếu, lệnh, sản phẩm, nhân viên..."
-                      value={detailSearchText}
-                      onChange={(e) => setDetailSearchText(e.target.value)}
-                      style={{
-                        border: 'none',
-                        outline: 'none',
-                        background: 'transparent',
-                        fontSize: 12,
-                        width: '100%',
-                        fontFamily: 'inherit',
-                        color: '#0f172a'
-                      }}
-                    />
-                    {detailSearchText && (
-                      <button
-                        type="button"
-                        onClick={() => setDetailSearchText('')}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', padding: 0 }}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* 2. Lọc theo Tổ sản xuất */}
-                <div>
-                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                    Tổ sản xuất:
-                  </label>
-                  <PureSelect
-                    value={selectedTeam}
-                    onChange={setSelectedTeam}
-                    options={[
-                      { value: 'ALL', label: `Tất cả tổ (${filterOptions.teams.length})` },
-                      ...filterOptions.teams.map((t) => ({ value: t, label: t }))
-                    ]}
-                    style={{ width: '100%', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                {/* 3. Lọc theo Cụm máy */}
-                <div>
-                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                    Cụm máy:
-                  </label>
-                  <PureSelect
-                    value={selectedMachine}
-                    onChange={setSelectedMachine}
-                    options={[
-                      { value: 'ALL', label: `Tất cả máy (${filterOptions.machines.length})` },
-                      ...filterOptions.machines.map((m) => ({
-                        value: m.code,
-                        label: `${m.code} - ${m.name}`
-                      }))
-                    ]}
-                    style={{ width: '100%', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                {/* 4. Lọc theo Phân loại thời gian chạy máy */}
-                <div>
-                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                    Kiểm toán thời gian chạy:
-                  </label>
-                  <PureSelect
-                    value={selectedDurationAudit}
-                    onChange={setSelectedDurationAudit}
-                    options={[
-                      { value: 'ALL', label: 'Tất cả mức thời gian' },
-                      { value: 'UNDER_5MIN', label: '1. Thao tác < 5 phút' },
-                      { value: '5MIN_12H', label: '2. Tiêu chuẩn (5p - 12h)' },
-                      { value: 'OVER_12H', label: '3. Thao tác > 12 giờ' }
-                    ]}
-                    style={{ width: '100%', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                {/* KPI Overview Box inside sidebar */}
-                <div
-                  style={{
-                    marginTop: 8,
-                    padding: '12px',
-                    background: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 2
-                  }}
-                >
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#01411b', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.04em' }}>
-                    TỔNG HỢP SỐ LIỆU ĐANG LỌC
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5, color: '#475569' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Số lượng phiếu:</span>
-                      <b style={{ color: '#0f172a' }}>{displayDetailList.length}</b>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Tổng SL sản xuất:</span>
-                      <b style={{ color: '#0f172a' }}>
-                        {displayDetailList
-                          .reduce((acc, d) => acc + (Number(d.ProdQty ?? d.actualQty ?? d.output) || 0), 0)
-                          .toLocaleString('vi-VN')}
-                      </b>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Tổng SL đạt:</span>
-                      <b style={{ color: '#01411b' }}>
-                        {displayDetailList
-                          .reduce((acc, d) => acc + (Number(d.PassQty ?? d.passQty ?? d.passQuantity) || 0), 0)
-                          .toLocaleString('vi-VN')}
-                      </b>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Tổng mét thực tế:</span>
-                      <b style={{ color: '#0f172a' }}>
-                        {displayDetailList
-                          .reduce((acc, d) => acc + (Number(d.ActualMeters ?? d.actualMeters) || 0), 0)
-                          .toLocaleString('vi-VN')}
-                      </b>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Tổng giờ chạy:</span>
-                      <b style={{ color: '#01411b' }}>
-                        {displayDetailList
-                          .reduce((acc, d) => acc + (Number(d.runtimeHours) || 0), 0)
-                          .toFixed(1)}h
-                      </b>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Main Table Area */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              {/* Strip summary on top of table */}
-              <div
-                style={{
-                  background: '#f8fafc',
-                  borderBottom: '1px solid #e2e8f0',
-                  padding: '7px 14px',
-                  fontSize: 12,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexShrink: 0
-                }}
-              >
-                <div style={{ color: '#475569', fontWeight: 600 }}>
-                  Danh sách kết quả: <b style={{ color: '#0f172a' }}>{displayDetailList.length}</b> phiếu thống kê
-                </div>
-                <div style={{ fontSize: 11.5, color: '#64748b' }}>
-                  Click tiêu đề cột để sắp xếp • Nhấp đúp kéo rộng cột • Phím tắt: Ctrl + F để tìm trong lưới
-                </div>
-              </div>
-
-              {/* Grid Canvas */}
-              <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                <DataEditor
-                  columns={detailGridCols}
-                  rows={displayDetailList.length}
-                  getCellContent={getDetailCellContent}
-                  onHeaderClicked={onDetailHeaderClicked}
-                  onColumnResize={onDetailColumnResize}
-                  getCellsForSelection={true}
-                  rangeSelect="rect"
-                  columnSelect="multi"
-                  rowSelect="multi"
-                  rowMarkers="both"
-                  rowHeight={23}
-                  headerHeight={23}
-                  smoothScrollX={true}
-                  smoothScrollY={true}
-                  showSearch={showDetailSearch}
-                  onSearchClose={() => setShowDetailSearch(false)}
-                  keybindings={{ search: true, downFill: true, rightFill: true }}
-                  theme={executiveGridTheme}
-                  width="100%"
-                  height="100%"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* SỔ TAY CÔNG THỨC & QUY TẮC TÍNH TOÁN MODAL */}
       <FormulaHandbookModal isOpen={showFormulaModal} onClose={() => setShowFormulaModal(false)} />

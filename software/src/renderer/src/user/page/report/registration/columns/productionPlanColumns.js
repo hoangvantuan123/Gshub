@@ -32,7 +32,7 @@ export const useProductionPlanColumns = ({ isFieldVisible, isFieldReadOnly } = {
         id: 'ReportType',
         kind: 'Text',
         readonly: true,
-        width: 200,
+        width: 220,
         hasMenu: true,
         visible: true,
         trailingRowOptions: { disabled: true },

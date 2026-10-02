@@ -106,7 +106,7 @@ export const FORMULA_DATABASE = [
     columnId: 'totalRuntimeHours / RuntimeHours',
     columnName: 'Tổng giờ chạy máy theo cụm máy (Machine Runtime)',
     title: '7. Thống kê tổng giờ chạy máy theo cụm máy (Runtime Analysis)',
-    scope: 'Mục I: Biểu đồ Giờ chạy máy theo cụm máy (Toàn bộ nhà máy)',
+    scope: 'Mục 1: Biểu đồ Giờ chạy máy theo cụm máy (Toàn bộ nhà máy)',
     formula: 'Tổng giờ chạy máy i = Sum(RuntimeHours) = Sum(DurationMinutes / 60) của máy i',
     source: 'CSDL _ERPProdStatsDetail (Trường: ActualRunTime, DurationMinutes, MachineCode)',
     description:
@@ -122,7 +122,7 @@ export const FORMULA_DATABASE = [
     columnId: 'isOver24h / ReferenceLine y=24',
     columnName: 'Đường chuẩn 24h & Cột đỏ cảnh báo quá tải',
     title: '8. Đường giới hạn 24h/ngày & Cảnh báo cột đỏ quá tải',
-    scope: 'Mục I: Biểu đồ Giờ chạy máy (Đường nét đứt y=24 và màu cột)',
+    scope: 'Mục 1: Biểu đồ Giờ chạy máy (Đường nét đứt y=24 và màu cột)',
     formula: 'Cột đỏ = IF(totalRuntimeHours > 24, "#dc2626 (Đỏ Cảnh Báo)", "#01411b (Chuẩn)")',
     source: 'Quy chuẩn định mức vận hành 24 giờ/ngày trên mỗi thiết bị máy móc',
     description:
@@ -137,7 +137,7 @@ export const FORMULA_DATABASE = [
     columnId: 'showManualMachines / isManualMachine',
     columnName: 'Lọc tạm ẩn / hiển thị máy thủ công',
     title: '9. Cơ chế lọc & tạm ẩn máy thủ công',
-    scope: 'Mục I: Toolbar Biểu đồ & Mục 4.1 Toolbar Bảng Ma trận máy',
+    scope: 'Mục 1: Toolbar Biểu đồ & Mục 4.1 Toolbar Bảng Ma trận máy',
     formula:
       'Máy thủ công = MachineName / MachineGroup / MachineCode CONTAINS ("thủ công" | "thu cong")',
     source: 'CSDL _ERPProdStatsDetail (Trường: MachineName, MachineCode, MachineGroup)',
@@ -153,7 +153,7 @@ export const FORMULA_DATABASE = [
     columnId: 'actualQty, passQty, defectQty',
     columnName: 'Sản lượng sản xuất, Đạt & Lỗi theo tổ',
     title: '10. Thống kê sản lượng sản xuất & đạt theo tổ (Team Output)',
-    scope: 'Mục II: Biểu đồ Sản lượng sản xuất & Đạt theo tổ',
+    scope: 'Mục 2: Biểu đồ Sản lượng sản xuất & Đạt theo tổ',
     formula: 'SL Sản xuất = Sum(actualQty) | SL Đạt = Sum(passQty) | SL Lỗi = Sum(defectQty)',
     source: 'CSDL _ERPProdStatsDetail (Trường: ProdQty, PassQty, DefectQty, TeamName)',
     description:

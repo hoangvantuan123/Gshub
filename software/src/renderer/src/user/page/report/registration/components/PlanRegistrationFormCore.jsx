@@ -1,15 +1,19 @@
 /* eslint-disable react/prop-types */
 import { useState, useCallback, useMemo, useRef } from 'react'
-import { Button, Upload, Input, Select } from 'antd'
+import { Button, Upload, Input, Select, DatePicker } from 'antd'
 import {
   SaveOutlined,
   ReloadOutlined,
-  CloseOutlined,
   FileExcelOutlined
 } from '@ant-design/icons'
-import { Loader2, Lock } from 'lucide-react'
+import { Loader2, Lock, Database, CheckCircle2, ShieldCheck, FileSpreadsheet } from 'lucide-react'
+import dayjs from 'dayjs'
+import 'dayjs/locale/vi'
+import viVN from 'antd/es/date-picker/locale/vi_VN'
 import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid'
 import '@glideapps/glide-data-grid/dist/index.css'
+
+dayjs.locale('vi')
 
 import WindowsConfirmModal from '../../../../components/modal/WindowsConfirmModal'
 import { useStatisticsImportColumns } from '../statistics/columns/statisticsImportColumns'
@@ -261,6 +265,7 @@ export default function PlanRegistrationFormCore({
 
   // Thực thi lưu theo Batch & Khóa chuột
   const executeSave = async () => {
+    if (isSaving) return
     setIsSaving(true)
     setSaveProgress({ current: 0, total: sheetData.length, percent: 0 })
     loadingBarRef?.current?.continuousStart?.()
@@ -403,20 +408,6 @@ export default function PlanRegistrationFormCore({
           >
             LÀM MỚI
           </Button>
-
-          <Button
-            key="Close"
-            icon={<CloseOutlined className="text-rose-500" style={{ fontSize: '12px' }} />}
-            size="small"
-            onClick={handleRequestClose}
-            className="uppercase text-[10px] whitespace-nowrap font-medium text-rose-600 hover:text-rose-700"
-            style={{ fontSize: '10px', padding: '2px 6px', height: '22px' }}
-            color="default"
-            variant="link"
-            title="Đóng cửa sổ"
-          >
-            ĐÓNG
-          </Button>
         </div>
       </div>
 
@@ -492,14 +483,19 @@ export default function PlanRegistrationFormCore({
               {!isSaved && <span className="text-red-500 ml-0.5">*</span>}
             </div>
             <div className="flex-1 h-full flex items-center px-1">
-              <Input
-                type="date"
+              <DatePicker
+                locale={viVN}
                 size="small"
                 variant="borderless"
-                value={applyDate}
+                format="DD/MM/YYYY"
+                placeholder="Ngày/Tháng/Năm"
+                value={applyDate ? dayjs(applyDate) : null}
                 disabled={isSaved}
-                onChange={(e) => setApplyDate(e.target.value)}
-                className="text-xs font-mono font-medium !p-0"
+                onChange={(date) => {
+                  setApplyDate(date ? date.format('YYYY-MM-DD') : '')
+                }}
+                className="w-full text-xs font-mono font-medium !p-0"
+                allowClear={false}
               />
             </div>
           </div>
@@ -576,37 +572,88 @@ export default function PlanRegistrationFormCore({
         onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
       />
 
-      {/* Lớp khóa chuột và màn hình toàn diện khi đang lưu dữ liệu */}
+      {/* Lớp khóa chuột và màn hình chờ lưu dữ liệu hiện đại, cao cấp */}
       {isSaving && (
-        <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-[2px] flex flex-col items-center justify-center cursor-wait select-none transition-all duration-300">
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 border border-slate-200 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 shadow-inner relative">
-              <Loader2 className="w-7 h-7 animate-spin" />
-              <Lock className="w-3.5 h-3.5 absolute bottom-1 right-1 text-indigo-500" />
+        <div className="fixed inset-0 z-[99999] bg-slate-900/65 backdrop-blur-md flex flex-col items-center justify-center cursor-wait select-none transition-all duration-300">
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 border border-slate-200 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200 relative overflow-hidden">
+            {/* Top decorative stripe */}
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600" />
+
+            {/* Glowing Icon Container */}
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-700 rounded-full flex items-center justify-center mb-4 shadow-inner relative border border-emerald-100">
+              <Database className="w-8 h-8 text-[#01411b] animate-pulse" />
+              <div className="absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow-md border border-slate-100">
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+              </div>
             </div>
 
-            <h3 className="text-base font-bold text-slate-800 mb-1">
-              Đang lưu và đồng bộ dữ liệu vào hệ thống...
+            <h3 className="text-sm font-bold text-slate-900 mb-1 uppercase tracking-wide">
+              ĐANG LƯU & ĐỒNG BỘ DỮ LIỆU BÁO CÁO
             </h3>
 
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              Vui lòng giữ nguyên màn hình, không thao tác chuột hoặc đóng ứng dụng trong lúc hệ thống đang ghi dữ liệu.
+            <p className="text-xs text-slate-500 mb-4 text-center leading-relaxed">
+              Vui lòng giữ nguyên màn hình, không đóng cửa sổ trong lúc hệ thống đang ghi nhận cơ sở dữ liệu và khóa bảo vệ bản ghi.
             </p>
 
-            {/* Thanh tiến trình Progress Bar */}
-            <div className="w-full bg-slate-100 rounded-full h-2.5 mb-2 overflow-hidden border border-slate-200">
-              <div
-                className="bg-indigo-600 h-full rounded-full transition-all duration-300 ease-out"
-                style={{ width: `${saveProgress.percent || 5}%` }}
-              />
+            {/* Thông tin đợt đăng ký đang lưu */}
+            <div className="w-full bg-slate-50 border border-slate-200 rounded p-3 mb-4 text-xs text-slate-700 flex flex-col gap-1.5 font-mono">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-sans">Loại báo cáo:</span>
+                <span className="font-bold text-[#01411b]">
+                  {reportType === 'statistics' ? 'Thống kê sản xuất (TKSX)' : 'Kế hoạch sản xuất (KHSX)'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-sans">Nhà máy áp dụng:</span>
+                <span className="font-semibold text-slate-800">{factoryName}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-sans">Ngày báo cáo:</span>
+                <span className="font-semibold text-slate-800">
+                  {applyDate ? dayjs(applyDate).format('DD/MM/YYYY') : 'Chưa chọn'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center border-t border-slate-200 pt-1.5">
+                <span className="text-slate-500 font-sans">Tổng số dòng nạp:</span>
+                <span className="font-bold text-emerald-700 font-sans">
+                  {sheetData.length.toLocaleString('vi-VN')} dòng
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between w-full text-[11px] font-mono text-slate-600">
-              <span>
-                {saveProgress.current.toLocaleString('vi-VN')} / {saveProgress.total.toLocaleString('vi-VN')} dòng
+            {/* Thanh tiến trình Progress Bar */}
+            <div className="w-full bg-slate-100 rounded-full h-3 mb-2 overflow-hidden border border-slate-200 relative">
+              <div
+                className="bg-gradient-to-r from-emerald-600 via-teal-600 to-[#01411b] h-full rounded-full transition-all duration-300 ease-out relative"
+                style={{ width: `${saveProgress.percent || 5}%` }}
+              >
+                <div className="absolute inset-0 bg-white/20 animate-[pulse_1.5s_infinite]" />
+              </div>
+            </div>
+
+            {/* Chi tiết tiến độ */}
+            <div className="flex items-center justify-between w-full text-xs font-mono text-slate-600">
+              <span className="flex items-center gap-1 text-slate-500">
+                <FileSpreadsheet size={13} className="text-emerald-600" />
+                <span>{saveProgress.current.toLocaleString('vi-VN')} / {saveProgress.total.toLocaleString('vi-VN')} dòng</span>
               </span>
-              <span className="font-bold text-indigo-600">
+              <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                 {saveProgress.percent}%
+              </span>
+            </div>
+
+            {/* Trạng thái các bước xử lý */}
+            <div className="w-full mt-4 pt-3 border-t border-slate-100 flex items-center justify-around text-[11px] text-slate-500">
+              <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                <CheckCircle2 size={12} /> Cấu trúc dữ liệu
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1 text-emerald-700 font-medium animate-pulse">
+                <Loader2 size={12} className="animate-spin" /> Ghi Database
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1 text-slate-400">
+                <ShieldCheck size={12} /> Khóa bản ghi
               </span>
             </div>
           </div>

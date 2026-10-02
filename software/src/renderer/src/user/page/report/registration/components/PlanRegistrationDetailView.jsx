@@ -2,14 +2,22 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, Input, Select } from 'antd'
+import { Button, Input, Select, DatePicker } from 'antd'
+import dayjs from 'dayjs'
+import 'dayjs/locale/vi'
+import viVN from 'antd/es/date-picker/locale/vi_VN'
+
+dayjs.locale('vi')
 import {
-  SearchOutlined,
   ReloadOutlined,
-  CloseOutlined,
-  FileExcelOutlined
+  FileExcelOutlined,
+  SearchOutlined,
+  CopyOutlined
 } from '@ant-design/icons'
 import {
+  Search,
+  Copy,
+  Download,
   Layers,
   Building2,
   Calendar,
@@ -23,7 +31,6 @@ import {
 import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid'
 import '@glideapps/glide-data-grid/dist/index.css'
 import * as XLSX from 'xlsx'
-import { saveAs } from 'file-saver'
 
 import { useStatisticsImportColumns } from '../statistics/columns/statisticsImportColumns'
 import { usePlanImportColumns } from '../plan/columns/planImportColumns'
@@ -35,6 +42,23 @@ import {
 import { usePageHotkeys } from '../../../../hooks/usePageHotkeys'
 import { usePageData } from '../../../../../context/PageDataContext'
 import DataPageContainer from '../../../../components/layout/DataPageContainer'
+
+const executiveGridTheme = {
+  accentColor: '#01411b',
+  accentFg: '#ffffff',
+  accentLight: '#f0fdf4',
+  bgHeader: '#f8fafc',
+  bgHeaderHasFocus: '#f1f5f9',
+  bgHeaderHovered: '#e2e8f0',
+  textHeader: '#334155',
+  textHeaderSelected: '#01411b',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headerFontSize: '12px',
+  baseFontSize: '12px',
+  borderColor: '#cbd5e1',
+  drilldownBorder: '#01411b',
+  lineHeight: 1.2
+}
 
 export default function PlanRegistrationDetailView() {
   const { regCode } = useParams()
@@ -67,28 +91,40 @@ export default function PlanRegistrationDetailView() {
   const [applyDate, setApplyDate] = useState(() => masterInfo?.ApplyDate || '')
   const [remark, setRemark] = useState(() => masterInfo?.Remark || '')
 
-  // ── Sheet Data State ──
+  // ── Sheet Data State & Sorting ──
   const [sheetData, setSheetData] = useState([])
+  const [sortConfig, setSortConfig] = useState({ key: '', direction: 'desc' })
+  const [showSearch, setShowSearch] = useState(false)
   const [selection, setSelection] = useState({
     columns: CompactSelection.empty(),
     rows: CompactSelection.empty()
   })
   const gridRef = useRef(null)
 
-  // ── Cột cấu hình (Toàn bộ là READ-ONLY, có thể chỉnh kích thước cột như Form đăng ký) ──
+  // ── Cột cấu hình (Toàn bộ là READ-ONLY, có thể chỉnh kích thước cột) ──
   const statColumns = useStatisticsImportColumns()
   const planColumns = usePlanImportColumns()
   const [columnWidths, setColumnWidths] = useState({})
 
+  const rawBaseCols = useMemo(() => {
+    return reportType === 'statistics' ? statColumns : planColumns
+  }, [reportType, statColumns, planColumns])
+
   const currentColumns = useMemo(() => {
-    const baseCols = reportType === 'statistics' ? statColumns : planColumns
-    return baseCols.map((col) => ({
-      ...col,
-      readonly: true,
-      isReadOnly: true,
-      width: columnWidths[col.id] || col.width || 135
-    }))
-  }, [reportType, statColumns, planColumns, columnWidths])
+    return rawBaseCols.map((col) => {
+      let title = col.title || col.id
+      if (sortConfig.key === col.id) {
+        title = `${title} ${sortConfig.direction === 'asc' ? '▲' : '▼'}`
+      }
+      return {
+        ...col,
+        title,
+        readonly: true,
+        isReadOnly: true,
+        width: columnWidths[col.id] || col.width || 135
+      }
+    })
+  }, [rawBaseCols, columnWidths, sortConfig])
 
   const onColumnResize = useCallback((column, newSize) => {
     setColumnWidths((prev) => ({
@@ -96,6 +132,39 @@ export default function PlanRegistrationDetailView() {
       [column.id]: newSize
     }))
   }, [])
+
+  // Sắp xếp cột khi bấm tiêu đề
+  const onHeaderClicked = useCallback(
+    (colIndex) => {
+      const colObj = currentColumns[colIndex]
+      if (!colObj) return
+      const colId = colObj.id
+      if (colId === 'WorkingTag') return
+      setSortConfig((prev) => {
+        if (prev.key === colId) {
+          return { key: colId, direction: prev.direction === 'desc' ? 'asc' : 'desc' }
+        }
+        return { key: colId, direction: 'desc' }
+      })
+    },
+    [currentColumns]
+  )
+
+  // Dữ liệu hiển thị sau sắp xếp
+  const displayList = useMemo(() => {
+    if (!sortConfig.key) return sheetData
+    const { key, direction } = sortConfig
+    return [...sheetData].sort((a, b) => {
+      const valA = a[key] ?? a[key.charAt(0).toLowerCase() + key.slice(1)] ?? ''
+      const valB = b[key] ?? b[key.charAt(0).toLowerCase() + key.slice(1)] ?? ''
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return direction === 'asc' ? valA - valB : valB - valA
+      }
+      return direction === 'asc'
+        ? String(valA).localeCompare(String(valB), 'vi')
+        : String(valB).localeCompare(String(valA), 'vi')
+    })
+  }, [sheetData, sortConfig])
 
   // ── Tải dữ liệu Master & Chi tiết từ Database ──
   const fetchDetailData = useCallback(async () => {
@@ -175,11 +244,11 @@ export default function PlanRegistrationDetailView() {
     fetchDetailData()
   }, [fetchDetailData])
 
-  // ── GLIDE GRID CELL GETTER (Giống 100% Form Đăng Ký) ──
+  // ── GLIDE GRID CELL GETTER ──
   const getCellContent = useCallback(
     ([colIndex, rowIndex]) => {
       const col = currentColumns[colIndex]
-      const row = sheetData[rowIndex]
+      const row = displayList[rowIndex]
       if (!col || !row) {
         return {
           kind: GridCellKind.Text,
@@ -205,14 +274,31 @@ export default function PlanRegistrationDetailView() {
         }
       }
 
-      if (col.kind === 'Number' || typeof val === 'number') {
-        const numVal = Number(val) || 0
+      if (col.kind === 'Boolean') {
+        const boolVal =
+          typeof val === 'boolean'
+            ? val
+            : val === 1 || val === '1' || val === 'true' || val === 'Có'
         return {
-          kind: GridCellKind.Number,
-          data: numVal,
-          displayData: numVal.toLocaleString('vi-VN'),
+          kind: GridCellKind.Boolean,
+          data: boolVal,
           readonly: true,
           allowOverlay: false
+        }
+      }
+
+      if (col.kind === 'Number' || typeof val === 'number') {
+        const numVal = typeof val === 'number' ? val : Number(val)
+        const isValid = !isNaN(numVal) && val !== '' && val !== null && val !== undefined
+        const finalNum = isValid ? numVal : 0
+        const displayData = isValid ? finalNum.toLocaleString('vi-VN') : ''
+        return {
+          kind: GridCellKind.Number,
+          data: finalNum,
+          displayData,
+          readonly: true,
+          allowOverlay: false,
+          contentAlign: 'right'
         }
       }
 
@@ -225,58 +311,230 @@ export default function PlanRegistrationDetailView() {
         allowOverlay: false
       }
     },
-    [currentColumns, sheetData]
+    [currentColumns, displayList]
   )
 
-  // ── Xuất file Excel ──
-  const handleExportExcel = useCallback(() => {
-    if (!sheetData || sheetData.length === 0) {
-      setStatusMessage?.({ type: 'warning', text: 'Không có dữ liệu để xuất file Excel' })
-      return
+  // ── Sao chép bảng vào Clipboard (định dạng TSV cho Excel) ──
+  const handleCopyTable = useCallback(() => {
+    try {
+      if (!displayList || displayList.length === 0) {
+        alert('Không có dữ liệu để sao chép!')
+        return
+      }
+      const validCols = currentColumns.filter((c) => c.id && c.id !== 'WorkingTag')
+      const headerRow = validCols.map((c) => c.title || c.id).join('\t')
+      const bodyRows = displayList
+        .map((item) =>
+          validCols
+            .map((c) => {
+              const k = c.id
+              const v = item[k] ?? item[k.charAt(0).toLowerCase() + k.slice(1)] ?? ''
+              return typeof v === 'number' ? v : v || ''
+            })
+            .join('\t')
+        )
+        .join('\n')
+      const tsv = `${headerRow}\n${bodyRows}`
+      navigator.clipboard.writeText(tsv)
+      setStatusMessage?.({
+        type: 'success',
+        text: 'Đã sao chép toàn bộ bảng dữ liệu vào Clipboard'
+      })
+      alert('Đã sao chép dữ liệu bảng vào Clipboard (định dạng Excel/TSV)')
+    } catch (err) {
+      console.error('Copy error:', err)
     }
+  }, [displayList, currentColumns, setStatusMessage])
 
-    const exportRows = sheetData.map((row, idx) => {
-      const cleanRow = { STT: idx + 1 }
-      currentColumns.forEach((c) => {
-        if (c.id && c.title && c.id !== 'WorkingTag') {
-          cleanRow[c.title] = row[c.id] || ''
+  // ── Xuất file Excel chuẩn Quản Trị với Multi-level Group Headers ──
+  const handleExportExcel = useCallback(() => {
+    try {
+      if (!displayList || displayList.length === 0) {
+        setStatusMessage?.({ type: 'warning', text: 'Không có dữ liệu để xuất file Excel' })
+        return
+      }
+
+      const plantDisplayName = factoryCode === 'GS5' ? 'NHÀ MÁY GS QUẾ VÕ' : 'NHÀ MÁY GS HÀ NỘI'
+      const isPlan = reportType === 'plan' || !reportType?.includes('stat')
+      const reportTitle = isPlan
+        ? `BÁO CÁO LỆNH THEO TRẠNG THÁI ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT - ${plantDisplayName}`
+        : `NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT - ${plantDisplayName}`
+
+      const validCols = rawBaseCols.filter((c) => c.id && c.id !== 'WorkingTag')
+
+      const row1_Title = [reportTitle]
+      const row2_Group = ['STT']
+      const row3_ColName = ['STT']
+
+      const merges = []
+      const totalCols = validCols.length + 1 // +1 cho cột STT
+
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } })
+
+      let currentGroup = null
+      let groupStartIndex = -1
+
+      validCols.forEach((col, idx) => {
+        const colIdx = idx + 1
+        const groupName = col.group || ''
+        const colTitle = col.title || col.id
+
+        row2_Group.push(groupName)
+        row3_ColName.push(colTitle)
+
+        if (groupName) {
+          if (groupName !== currentGroup) {
+            if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
+              merges.push({
+                s: { r: 1, c: groupStartIndex },
+                e: { r: 1, c: colIdx - 1 }
+              })
+            }
+            currentGroup = groupName
+            groupStartIndex = colIdx
+          }
+        } else {
+          if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
+            merges.push({
+              s: { r: 1, c: groupStartIndex },
+              e: { r: 1, c: colIdx - 1 }
+            })
+          }
+          currentGroup = null
+          groupStartIndex = -1
+          merges.push({
+            s: { r: 1, c: colIdx },
+            e: { r: 2, c: colIdx }
+          })
         }
       })
-      return cleanRow
-    })
 
-    const worksheet = XLSX.utils.json_to_sheet(exportRows)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'ChiTiet_DangKy')
+      if (currentGroup && groupStartIndex !== -1 && totalCols - 1 > groupStartIndex) {
+        merges.push({
+          s: { r: 1, c: groupStartIndex },
+          e: { r: 1, c: totalCols - 1 }
+        })
+      }
 
-    const filePrefix = reportType === 'statistics' ? 'TKSX_ChiTiet' : 'KHSX_ChiTiet'
-    const fileName = `${filePrefix}_${regCode || 'export'}_${Date.now()}.xlsx`
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-    const dataBlob = new Blob([excelBuffer], { type: 'application/octet-stream' })
-    saveAs(dataBlob, fileName)
+      merges.push({
+        s: { r: 1, c: 0 },
+        e: { r: 2, c: 0 }
+      })
 
-    setStatusMessage?.({
-      type: 'success',
-      text: `Đã xuất ${sheetData.length.toLocaleString('vi-VN')} dòng ra tệp ${fileName}`
-    })
-  }, [currentColumns, sheetData, reportType, regCode, setStatusMessage])
+      const dataRows = displayList.map((item, rowIdx) => {
+        const row = [rowIdx + 1]
+        validCols.forEach((col) => {
+          const colId = col.id
+          const rawVal =
+            item[colId] ??
+            item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
+            ''
 
-  // Đóng cửa sổ
-  const handleClose = useCallback(() => {
-    if (window.electron?.closeChildWindow) {
-      window.electron.closeChildWindow()
-    } else if (window.opener) {
-      window.close()
-    } else {
-      navigate('/erp/u/report/registration')
+          if (col.kind === 'Boolean') {
+            const b =
+              typeof rawVal === 'boolean'
+                ? rawVal
+                : rawVal === 1 || rawVal === '1' || rawVal === 'true' || rawVal === 'Có'
+            row.push(b ? 'Có' : '')
+          } else if (col.kind === 'Number') {
+            if (rawVal !== '' && rawVal !== null && rawVal !== undefined) {
+              const num = typeof rawVal === 'number' ? rawVal : Number(rawVal)
+              row.push(!isNaN(num) ? num : rawVal)
+            } else {
+              row.push('')
+            }
+          } else {
+            row.push(rawVal !== null && rawVal !== undefined ? rawVal : '')
+          }
+        })
+        return row
+      })
+
+      const aoa = [row1_Title, row2_Group, row3_ColName, ...dataRows]
+      const ws = XLSX.utils.aoa_to_sheet(aoa)
+      ws['!merges'] = merges
+
+      const colWidths = [
+        { wch: 8 },
+        ...validCols.map((col) => ({
+          wch: Math.max(12, Math.min(50, Math.round((col.width || 120) / 7.5)))
+        }))
+      ]
+      ws['!cols'] = colWidths
+
+      const wb = XLSX.utils.book_new()
+      const sheetName = isPlan ? 'ChiTiet_DieuPhoi_KHSX' : 'ChiTiet_ThongKe_TKSX'
+      XLSX.utils.book_append_sheet(wb, ws, sheetName)
+
+      const filePrefix = isPlan ? 'KHSX_ChiTiet' : 'TKSX_ChiTiet'
+      const fileName = `${filePrefix}_${regCode || 'export'}_${Date.now()}.xlsx`
+      XLSX.writeFile(wb, fileName)
+
+      setStatusMessage?.({
+        type: 'success',
+        text: `Đã xuất ${displayList.length.toLocaleString('vi-VN')} dòng ra tệp ${fileName}`
+      })
+    } catch (err) {
+      console.error('Export excel error:', err)
+      setStatusMessage?.({
+        type: 'error',
+        text: 'Lỗi xuất file Excel: ' + (err?.message || err)
+      })
     }
-  }, [navigate])
+  }, [displayList, rawBaseCols, reportType, factoryCode, regCode, setStatusMessage])
 
   usePageHotkeys({
     onSearch: fetchDetailData
   })
 
-  const selectedRowCount = selection?.rows?.length || 0
+  // Tính toán nhanh số liệu tóm tắt cho Toolbar
+  const isPlanType = reportType === 'plan' || !reportType?.includes('stat')
+
+  const planSummary = useMemo(() => {
+    if (!isPlanType) return null
+    const totalPlan = displayList.reduce(
+      (acc, d) => acc + (Number(d.TargetPassQty ?? d.TargetProdQty ?? d.planQty) || 0),
+      0
+    )
+    const totalActual = displayList.reduce(
+      (acc, d) => acc + (Number(d.StatPassQty ?? d.actualQty) || 0),
+      0
+    )
+    const completionRate = totalPlan > 0 ? ((totalActual / totalPlan) * 100).toFixed(1) : '100.0'
+    const totalHours = displayList
+      .reduce((acc, d) => acc + (Number(d.ActualProdTime) || 0), 0)
+      .toFixed(1)
+    return {
+      totalRows: displayList.length,
+      totalPlan,
+      totalActual,
+      completionRate,
+      totalHours
+    }
+  }, [displayList, isPlanType])
+
+  const statSummary = useMemo(() => {
+    if (isPlanType) return null
+    const totalProd = displayList.reduce(
+      (acc, d) => acc + (Number(d.Quantity ?? d.StatQty ?? d.PassQty) || 0),
+      0
+    )
+    const totalFail = displayList.reduce(
+      (acc, d) => acc + (Number(d.FailQty ?? d.DefectQty) || 0),
+      0
+    )
+    const defectRate = totalProd > 0 ? ((totalFail / totalProd) * 100).toFixed(2) : '0.00'
+    const totalHours = displayList
+      .reduce((acc, d) => acc + (Number(d.ActualProdTime ?? d.ProdHour) || 0), 0)
+      .toFixed(1)
+    return {
+      totalRows: displayList.length,
+      totalProd,
+      totalFail,
+      defectRate,
+      totalHours
+    }
+  }, [displayList, isPlanType])
 
   return (
     <DataPageContainer
@@ -300,6 +558,20 @@ export default function PlanRegistrationDetailView() {
             </Button>
 
             <Button
+              key="CopyTable"
+              icon={<CopyOutlined className="text-blue-600" style={{ fontSize: '12px' }} />}
+              size="small"
+              onClick={handleCopyTable}
+              className="uppercase text-[10px] whitespace-nowrap font-medium text-blue-700 hover:text-blue-800"
+              style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
+              color="default"
+              variant="link"
+              title="Sao chép toàn bộ dữ liệu bảng vào Clipboard"
+            >
+              {t('SAO CHÉP')}
+            </Button>
+
+            <Button
               key="ExportExcel"
               icon={<FileExcelOutlined className="text-emerald-600" style={{ fontSize: '12px' }} />}
               size="small"
@@ -311,20 +583,6 @@ export default function PlanRegistrationDetailView() {
               title="Xuất dữ liệu chi tiết ra Excel"
             >
               {t('XUẤT EXCEL')}
-            </Button>
-
-            <Button
-              key="Close"
-              icon={<CloseOutlined className="text-rose-500" style={{ fontSize: '12px' }} />}
-              size="small"
-              onClick={handleClose}
-              className="uppercase text-[10px] whitespace-nowrap font-medium text-rose-600 hover:text-rose-700"
-              style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-              color="default"
-              variant="link"
-              title="Đóng cửa sổ"
-            >
-              {t('ĐÓNG')}
             </Button>
           </div>
         </div>
@@ -392,13 +650,16 @@ export default function PlanRegistrationDetailView() {
                 <span>Ngày báo cáo</span>
               </div>
               <div className="flex-1 h-full flex items-center px-1">
-                <Input
-                  type="date"
+                <DatePicker
+                  locale={viVN}
                   size="small"
                   variant="borderless"
-                  value={applyDate}
+                  format="DD/MM/YYYY"
+                  placeholder="Ngày/Tháng/Năm"
+                  value={applyDate ? dayjs(applyDate) : null}
                   disabled={true}
-                  className="text-xs font-mono font-medium !p-0"
+                  className="w-full text-xs font-mono font-medium !p-0"
+                  allowClear={false}
                 />
               </div>
             </div>
@@ -424,17 +685,160 @@ export default function PlanRegistrationDetailView() {
       }
       table={
         <div className="flex-1 w-full h-full min-h-0 bg-white flex flex-col overflow-hidden relative">
-          {/* Header bảng dữ liệu chi tiết (GIỐNG 100% FORM ĐĂNG KÝ) */}
-          <div className="flex cursor-pointer items-center justify-between px-2 py-0.5 border-b border-slate-200 text-gray-900 select-none relative bg-white shrink-0">
-            <h2 className="text-[10px] italic text-indigo-600 font-bold uppercase flex items-center gap-1.5 py-0.5">
-              <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />
-              <span>
-                Bảng dữ liệu chi tiết{' '}
-                {reportType === 'statistics'
-                  ? '(Thống kê sản xuất TKSX - 13 nhóm cột)'
-                  : '(Kế hoạch sản xuất KHSX - 24 cột)'}
+          {/* Header bảng dữ liệu chi tiết & Toolbar Thống kê */}
+          <div
+            style={{
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
+              padding: '6px 12px',
+              fontSize: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 12
+            }}
+            className="shrink-0"
+          >
+            {/* Tóm tắt số liệu nhanh */}
+            <div
+              style={{
+                display: 'flex',
+                gap: 16,
+                color: '#334155',
+                fontWeight: 700,
+                flexWrap: 'wrap',
+                alignItems: 'center'
+              }}
+            >
+              <span className="text-[11px] uppercase font-bold text-emerald-800 flex items-center gap-1.5 mr-1">
+                <span className="w-1.5 h-3.5 bg-emerald-700 rounded-full inline-block shrink-0" />
+                {isPlanType
+                  ? '6. LỆNH THEO TRẠNG THÁI ĐP – SX (CHI TIẾT TỪNG LỆNH)'
+                  : '5. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT'}
               </span>
-            </h2>
+
+              {isPlanType && planSummary && (
+                <>
+                  <span>
+                    Tổng số lệnh:{' '}
+                    <b style={{ color: '#0f172a' }}>
+                      {planSummary.totalRows.toLocaleString('vi-VN')}
+                    </b>
+                  </span>
+                  <span>
+                    Tổng SL Kế hoạch:{' '}
+                    <b style={{ color: '#0f172a' }}>
+                      {planSummary.totalPlan.toLocaleString('vi-VN')}
+                    </b>
+                  </span>
+                  <span>
+                    Tổng SL Thực tế:{' '}
+                    <b style={{ color: '#01411b' }}>
+                      {planSummary.totalActual.toLocaleString('vi-VN')}
+                    </b>
+                  </span>
+                  <span>
+                    Tỷ lệ hoàn thành:{' '}
+                    <b style={{ color: '#01411b' }}>{planSummary.completionRate}%</b>
+                  </span>
+                  <span>
+                    Tổng giờ SX thực tế:{' '}
+                    <b style={{ color: '#01411b' }}>{planSummary.totalHours}h</b>
+                  </span>
+                </>
+              )}
+
+              {!isPlanType && statSummary && (
+                <>
+                  <span>
+                    Tổng số phiếu:{' '}
+                    <b style={{ color: '#0f172a' }}>
+                      {statSummary.totalRows.toLocaleString('vi-VN')}
+                    </b>
+                  </span>
+                  <span>
+                    Tổng SL Sản xuất:{' '}
+                    <b style={{ color: '#0f172a' }}>
+                      {statSummary.totalProd.toLocaleString('vi-VN')}
+                    </b>
+                  </span>
+                  <span>
+                    Tổng SL Hỏng:{' '}
+                    <b style={{ color: '#dc2626' }}>
+                      {statSummary.totalFail.toLocaleString('vi-VN')}
+                    </b>
+                  </span>
+                  <span>
+                    Tỷ lệ hỏng:{' '}
+                    <b style={{ color: '#dc2626' }}>{statSummary.defectRate}%</b>
+                  </span>
+                  <span>
+                    Tổng giờ SX:{' '}
+                    <b style={{ color: '#01411b' }}>{statSummary.totalHours}h</b>
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Các nút công cụ trong bảng */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Button
+                icon={<Search size={12} />}
+                size="small"
+                onClick={() => setShowSearch((prev) => !prev)}
+                title="Mở tìm kiếm nhanh trong bảng (Ctrl + F)"
+                style={{
+                  fontSize: '11px',
+                  borderColor: showSearch ? '#01411b' : '#cbd5e1',
+                  color: showSearch ? '#01411b' : '#334155',
+                  background: showSearch ? '#f0fdf4' : '#ffffff',
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                Tìm kiếm (Ctrl+F)
+              </Button>
+              <Button
+                icon={<Copy size={12} />}
+                size="small"
+                onClick={handleCopyTable}
+                title="Sao chép toàn bộ dữ liệu bảng này vào Clipboard"
+                style={{
+                  fontSize: '11px',
+                  borderColor: '#cbd5e1',
+                  color: '#334155',
+                  background: '#ffffff',
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                Sao chép
+              </Button>
+              <Button
+                icon={<Download size={12} />}
+                size="small"
+                onClick={handleExportExcel}
+                title="Xuất bảng chi tiết ra file Excel"
+                style={{
+                  fontSize: '11px',
+                  borderColor: '#cbd5e1',
+                  color: '#01411b',
+                  background: '#ffffff',
+                  fontWeight: 600,
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                Excel
+              </Button>
+            </div>
           </div>
 
           {/* Glide Data Grid Bảng dữ liệu */}
@@ -442,20 +846,25 @@ export default function PlanRegistrationDetailView() {
             <DataEditor
               ref={gridRef}
               columns={currentColumns}
-              rows={sheetData.length}
+              rows={displayList.length}
               getCellContent={getCellContent}
               gridSelection={selection}
               onGridSelectionChange={setSelection}
+              onHeaderClicked={onHeaderClicked}
               onColumnResize={onColumnResize}
               getCellsForSelection={true}
-              keybindings={{ copy: true }}
-              rowMarkers="both"
+              rangeSelect="rect"
+              columnSelect="multi"
               rowSelect="multi"
-              columnSelect="single"
+              rowMarkers="both"
               headerHeight={23}
               rowHeight={23}
               smoothScrollX
               smoothScrollY
+              showSearch={showSearch}
+              onSearchClose={() => setShowSearch(false)}
+              keybindings={{ search: true, copy: true, downFill: true, rightFill: true }}
+              theme={executiveGridTheme}
               width="100%"
               height="100%"
             />
@@ -465,3 +874,4 @@ export default function PlanRegistrationDetailView() {
     />
   )
 }
+

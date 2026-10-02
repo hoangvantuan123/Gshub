@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx'
 
 import { usePageHotkeys } from '../../../hooks/usePageHotkeys'
 import { usePagePermissions } from '../../../hooks/usePagePermissions'
+import { useDateFormat } from '../../../hooks/useDateFormat'
 import { usePageData } from '../../../../context/PageDataContext'
 import DataPageContainer from '../../../components/layout/DataPageContainer'
 import WindowsConfirmModal from '../../../components/modal/WindowsConfirmModal'
@@ -34,6 +35,7 @@ export default function DailyPlanRegistrationPage({
   ...restProps
 }) {
   const { t } = useTranslation()
+  const { formatDate, formatDateTime } = useDateFormat()
   const { setStatusMessage, setPageData } = usePageData()
   const loadingBarRef = useRef(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -304,9 +306,25 @@ export default function DailyPlanRegistrationPage({
     }
     try {
       const exportData = masterGridData.map((row) => {
-        const copy = { ...row }
-        delete copy.WorkingTag
-        return copy
+        const reportTypeStr =
+          row.ReportType === 'statistics' || row.ReportType === 'tksx'
+            ? 'Thống kê sản xuất (TKSX)'
+            : row.ReportType === 'plan' || row.ReportType === 'khsx'
+            ? 'Kế hoạch sản xuất (KHSX)'
+            : row.ReportType || ''
+
+        return {
+          'Mã đăng ký': row.RegCode || '',
+          'Loại báo cáo': reportTypeStr,
+          'Mã nhà máy': row.FactoryCode || '',
+          'Nhà máy áp dụng': row.FactoryName || '',
+          'Ngày báo cáo': row.ApplyDate ? formatDate(row.ApplyDate, 'DD/MM/YYYY') : '',
+          'Tổng số dòng nạp': row.TotalRows || 0,
+          'Trạng thái': row.Status === 'published' ? 'Đã lưu / Đã phát hành' : row.Status || '',
+          'Mô tả / Ghi chú': row.Remark || '',
+          'Người đăng ký': row.CreatedByName || row.CreatedBy || '',
+          'Thời gian đăng ký': row.CreatedAt ? formatDateTime(row.CreatedAt, 'DD/MM/YYYY HH:mm:ss') : ''
+        }
       })
       const ws = XLSX.utils.json_to_sheet(exportData)
       const wb = XLSX.utils.book_new()
@@ -322,7 +340,7 @@ export default function DailyPlanRegistrationPage({
         text: 'Xuất Excel thất bại: ' + (err?.message || err)
       })
     }
-  }, [masterGridData, setStatusMessage])
+  }, [masterGridData, formatDate, formatDateTime, setStatusMessage])
 
   // ── Mở Form Đăng ký / Nạp mới: Electron -> Cửa sổ Windows con độc lập, Web -> Full Tab ──
   const handleOpenCreate = useCallback(() => {

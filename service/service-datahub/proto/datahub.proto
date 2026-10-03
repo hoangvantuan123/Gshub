@@ -43,6 +43,8 @@ service DataHubService {
   rpc QueryPlanDetail (PlanDetailProtoRequest) returns (PlanDetailProtoResponse);
   rpc QueryProdStatsDetail (ProdStatsDetailProtoRequest) returns (ProdStatsDetailProtoResponse);
   rpc SavePlanRegistration (PlanRegistrationSaveProtoRequest) returns (PlanRegistrationSaveProtoResponse);
+  rpc GetProductionPlanReport (PlanReportProtoRequest) returns (PlanReportProtoResponse);
+  rpc GetProductionStatisticsReport (ProdStatsReportProtoRequest) returns (ProdStatsReportProtoResponse);
 
   // 7. Audit Logs & System Health
   rpc GetAuditLogs (AuditLogsProtoRequest) returns (AuditLogsProtoResponse);

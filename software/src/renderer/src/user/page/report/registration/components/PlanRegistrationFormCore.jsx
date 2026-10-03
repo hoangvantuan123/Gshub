@@ -1,15 +1,17 @@
-/* eslint-disable react/prop-types */
 import { useState, useCallback, useMemo, useRef } from 'react'
-import { Button, Upload, Input, Select, DatePicker } from 'antd'
+import { Button } from '../../../../../components/ui/button'
 import {
-  SaveOutlined,
-  ReloadOutlined,
-  FileExcelOutlined
-} from '@ant-design/icons'
-import { Loader2, Lock, Database, CheckCircle2, ShieldCheck, FileSpreadsheet } from 'lucide-react'
+  Loader2,
+  Lock,
+  Database,
+  CheckCircle2,
+  ShieldCheck,
+  FileSpreadsheet,
+  Save,
+  RotateCw
+} from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/vi'
-import viVN from 'antd/es/date-picker/locale/vi_VN'
 import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid'
 import '@glideapps/glide-data-grid/dist/index.css'
 
@@ -20,7 +22,7 @@ import { useStatisticsImportColumns } from '../statistics/columns/statisticsImpo
 import { usePlanImportColumns } from '../plan/columns/planImportColumns'
 import { parseStatisticsExcelFast } from '../statistics/utils/statisticsExcelParser'
 import { parsePlanExcelFast } from '../plan/utils/planExcelParser'
-import { savePlanRegistration } from '../services/planRegistrationService'
+import { savePlanRegistration, queryPlanMaster } from '../services/planRegistrationService'
 import { usePageHotkeys } from '../../../../hooks/usePageHotkeys'
 
 /**
@@ -76,7 +78,14 @@ export default function PlanRegistrationFormCore({
     rows: CompactSelection.empty()
   })
   const [columnWidths, setColumnWidths] = useState({})
+  const [isDragging, setIsDragging] = useState(false)
   const gridRef = useRef(null)
+  const fileInputRef = useRef(null)
+
+  const handleTriggerFileInput = () => {
+    if (isSaved || isSaving) return
+    fileInputRef.current?.click()
+  }
 
   // ── Hook Columns ──
   const statColumns = useStatisticsImportColumns()
@@ -181,7 +190,7 @@ export default function PlanRegistrationFormCore({
       const val = row[col.id] ?? row[col.id.charAt(0).toLowerCase() + col.id.slice(1)]
 
       if (col.id === 'WorkingTag') {
-        const tag = isSaved ? '' : (val ? String(val).trim() : 'A')
+        const tag = isSaved ? '' : val ? String(val).trim() : 'A'
         return {
           kind: GridCellKind.Text,
           data: tag,
@@ -214,7 +223,8 @@ export default function PlanRegistrationFormCore({
         type: 'unsaved',
         title: 'Xác nhận đóng cửa sổ',
         message: 'Dữ liệu vừa nạp từ Excel chưa được Lưu vào hệ thống.',
-        subMessage: 'Nếu bạn đóng bây giờ, toàn bộ dữ liệu này sẽ bị mất. Bạn có chắc chắn muốn đóng không?',
+        subMessage:
+          'Nếu bạn đóng bây giờ, toàn bộ dữ liệu này sẽ bị mất. Bạn có chắc chắn muốn đóng không?',
         confirmText: 'Đồng ý đóng',
         cancelText: 'Tiếp tục xem',
         confirmVariant: 'danger',
@@ -229,8 +239,8 @@ export default function PlanRegistrationFormCore({
     }
   }, [isSaving, sheetData.length, isSaved, onClose])
 
-  // Xác nhận lưu
-  const handleConfirmSave = () => {
+  // Xác nhận lưu (kèm kiểm tra trùng lặp đợt đăng ký trong ngày của nhà máy)
+  const handleConfirmSave = async () => {
     if (isSaved) {
       setStatusMessage?.({
         type: 'info',
@@ -247,12 +257,49 @@ export default function PlanRegistrationFormCore({
       return
     }
 
+    // Kiểm tra tính duy nhất: 1 nhà máy + 1 loại báo cáo + 1 ngày áp dụng chỉ được tối đa 1 master
+    try {
+      loadingBarRef?.current?.continuousStart?.()
+      const checkRes = await queryPlanMaster({
+        FactoryCode: factoryCode,
+        ReportType: reportType,
+        ApplyDate: applyDate
+      })
+      const existingList = Array.isArray(checkRes?.data) ? checkRes.data : []
+      if (existingList.length > 0) {
+        const existing = existingList[0]
+        const repTitle = reportType === 'statistics' ? 'Thống kê sản xuất' : 'Kế hoạch sản xuất'
+        setConfirmModal({
+          isOpen: true,
+          type: 'danger',
+          title: 'Đã tồn tại đợt đăng ký trong ngày',
+          message: `Nhà máy ${factoryName} đã có đợt đăng ký ${repTitle} ngày ${applyDate} (Mã: ${existing.RegCode || existing.regCode || ''}).`,
+          subMessage:
+            'Quy định hệ thống: Mỗi nhà máy chỉ được có tối đa 1 đợt đăng ký cho mỗi loại báo cáo trong 1 ngày. Vui lòng chọn ngày khác hoặc xóa đợt đăng ký cũ trước khi nạp mới.',
+          confirmText: 'Đã hiểu',
+          cancelText: 'Đóng',
+          confirmVariant: 'danger',
+          onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false }))
+        })
+        setStatusMessage?.({
+          type: 'error',
+          text: `Nhà máy ${factoryName} đã có đợt đăng ký ${repTitle} cho ngày ${applyDate}!`
+        })
+        return
+      }
+    } catch (errCheck) {
+      console.warn('Kiểm tra trùng lặp đợt đăng ký:', errCheck)
+    } finally {
+      loadingBarRef?.current?.complete?.()
+    }
+
     setConfirmModal({
       isOpen: true,
       type: 'warning',
       title: 'Xác nhận đăng ký dữ liệu',
       message: `Hệ thống sẽ lưu ${sheetData.length.toLocaleString('vi-VN')} dòng dữ liệu ${reportType === 'statistics' ? 'TKSX' : 'KHSX'} vào cơ sở dữ liệu.`,
-      subMessage: 'Sau khi lưu, thông tin đăng ký sẽ được khóa lại không cho chỉnh sửa. Bạn có chắc chắn muốn lưu không?',
+      subMessage:
+        'Sau khi lưu, thông tin đăng ký sẽ được khóa lại không cho chỉnh sửa. Bạn có chắc chắn muốn lưu không?',
       confirmText: 'Đồng ý lưu',
       cancelText: 'Hủy bỏ',
       confirmVariant: 'primary',
@@ -294,7 +341,8 @@ export default function PlanRegistrationFormCore({
       })
 
       const masterData = res?.data || res
-      const savedRegCode = masterData?.RegCode || masterData?.regCode || res?.RegCode || res?.regCode
+      const savedRegCode =
+        masterData?.RegCode || masterData?.regCode || res?.RegCode || res?.regCode
       if (res && (res.success || savedRegCode)) {
         setRegCode(savedRegCode || 'Thành công')
         setIsSaved(true)
@@ -334,43 +382,65 @@ export default function PlanRegistrationFormCore({
     <div className="flex flex-col h-full w-full bg-white text-slate-800 font-sans select-none antialiased overflow-hidden relative">
       {/* Action Toolbar */}
       <div className="flex items-center justify-between px-2 h-7 min-h-[28px] border-b border-slate-200 bg-[#F8F9FA] shrink-0">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <Button
             key="SaveData"
-            icon={<SaveOutlined className={isSaved ? 'text-slate-400' : 'text-green-500'} style={{ fontSize: '12px' }} />}
-            size="small"
-            loading={isSaving}
+            size="sm"
+            variant="ghost"
             onClick={handleConfirmSave}
             className="uppercase text-[10px] whitespace-nowrap font-medium"
-            style={{ fontSize: '10px', padding: '2px 6px', height: '22px' }}
-            color="default"
-            variant="link"
             disabled={sheetData.length === 0 || isSaving || isSaved}
-            title={isSaved ? 'Đã lưu thành công và khóa dữ liệu' : 'Lưu toàn bộ dữ liệu đăng ký vào hệ thống (Ctrl+S)'}
+            title={
+              isSaved
+                ? 'Đã lưu thành công và khóa dữ liệu'
+                : 'Lưu toàn bộ dữ liệu đăng ký vào hệ thống (Ctrl+S)'
+            }
           >
-            {isSaved ? 'ĐÃ LƯU' : 'LƯU'}
+            {isSaving ? (
+              <Loader2 size={12} className="animate-spin text-emerald-600" />
+            ) : (
+              <Save size={12} className={isSaved ? 'text-slate-400' : 'text-emerald-600'} />
+            )}
+            <span>{isSaved ? 'ĐÃ LƯU' : 'LƯU'}</span>
           </Button>
 
-          <Upload beforeUpload={handleUploadExcel} showUploadList={false} disabled={isSaved}>
-            <Button
-              key="UploadExcel"
-              icon={<FileExcelOutlined className={isSaved ? 'text-slate-400' : 'text-emerald-600'} style={{ fontSize: '12px' }} />}
-              size="small"
-              className={`uppercase text-[10px] whitespace-nowrap font-medium ${isSaved ? 'text-slate-400' : 'text-emerald-700 hover:text-emerald-800'}`}
-              style={{ fontSize: '10px', padding: '2px 6px', height: '22px' }}
-              color="default"
-              variant="link"
-              disabled={isSaved}
-              title={isSaved ? 'Bản ghi đã lưu, không thể nạp đè' : 'Chọn file Excel để nạp mới dữ liệu'}
-            >
-              NẠP EXCEL
-            </Button>
-          </Upload>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx, .xls"
+            disabled={isSaved || isSaving}
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) {
+                handleUploadExcel(file)
+                e.target.value = ''
+              }
+            }}
+          />
+          <Button
+            key="UploadExcel"
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={handleTriggerFileInput}
+            className={`uppercase text-[10px] whitespace-nowrap font-medium ${isSaved ? 'text-slate-400' : 'text-emerald-700 hover:text-emerald-800'}`}
+            disabled={isSaved || isSaving}
+            title={
+              isSaved ? 'Bản ghi đã lưu, không thể nạp đè' : 'Chọn file Excel để nạp mới dữ liệu'
+            }
+          >
+            <FileSpreadsheet
+              size={12}
+              className={isSaved ? 'text-slate-400' : 'text-emerald-600'}
+            />
+            <span>NẠP EXCEL</span>
+          </Button>
 
           <Button
             key="ResetAll"
-            icon={<ReloadOutlined className={isSaved ? 'text-slate-400' : 'text-amber-500'} style={{ fontSize: '12px' }} />}
-            size="small"
+            size="sm"
+            variant="ghost"
             onClick={() => {
               if (sheetData.length > 0) {
                 setConfirmModal({
@@ -400,13 +470,11 @@ export default function PlanRegistrationFormCore({
               }
             }}
             className="uppercase text-[10px] whitespace-nowrap font-medium"
-            style={{ fontSize: '10px', padding: '2px 6px', height: '22px' }}
-            color="default"
-            variant="link"
             disabled={sheetData.length === 0 || isSaved}
             title="Làm mới / Xóa toàn bộ dữ liệu trên Sheet"
           >
-            LÀM MỚI
+            <RotateCw size={12} className={isSaved ? 'text-slate-400' : 'text-amber-500'} />
+            <span>LÀM MỚI</span>
           </Button>
         </div>
       </div>
@@ -439,18 +507,15 @@ export default function PlanRegistrationFormCore({
               {!isSaved && <span className="text-red-500 ml-0.5">*</span>}
             </div>
             <div className="flex-1 h-full flex items-center px-1">
-              <Select
-                size="small"
-                variant="borderless"
+              <select
                 value={reportType}
                 disabled={isSaved}
-                onChange={handleReportTypeChange}
-                className="w-full text-xs font-medium"
-                options={[
-                  { value: 'statistics', label: 'Thống kê sản xuất (TKSX)' },
-                  { value: 'plan', label: 'Kế hoạch sản xuất (KHSX)' }
-                ]}
-              />
+                onChange={(e) => handleReportTypeChange(e.target.value)}
+                className="w-full text-xs font-medium bg-transparent border-none outline-none cursor-pointer text-slate-800"
+              >
+                <option value="statistics">Thống kê sản xuất (TKSX)</option>
+                <option value="plan">Kế hoạch sản xuất (KHSX)</option>
+              </select>
             </div>
           </div>
 
@@ -461,18 +526,15 @@ export default function PlanRegistrationFormCore({
               {!isSaved && <span className="text-red-500 ml-0.5">*</span>}
             </div>
             <div className="flex-1 h-full flex items-center px-1">
-              <Select
-                size="small"
-                variant="borderless"
+              <select
                 value={factoryCode}
                 disabled={isSaved}
-                onChange={handleFactoryChange}
-                className="w-full text-xs font-medium"
-                options={[
-                  { value: 'GS1', label: 'GS1 - GS1 Hà Nội' },
-                  { value: 'GS5', label: 'GS5 - GS5 Quế Võ 1B' }
-                ]}
-              />
+                onChange={(e) => handleFactoryChange(e.target.value)}
+                className="w-full text-xs font-medium bg-transparent border-none outline-none cursor-pointer text-slate-800"
+              >
+                <option value="GS1">GS1 - GS1 Hà Nội</option>
+                <option value="GS5">GS5 - GS5 Quế Võ 1B</option>
+              </select>
             </div>
           </div>
 
@@ -483,19 +545,12 @@ export default function PlanRegistrationFormCore({
               {!isSaved && <span className="text-red-500 ml-0.5">*</span>}
             </div>
             <div className="flex-1 h-full flex items-center px-1">
-              <DatePicker
-                locale={viVN}
-                size="small"
-                variant="borderless"
-                format="DD/MM/YYYY"
-                placeholder="Ngày/Tháng/Năm"
-                value={applyDate ? dayjs(applyDate) : null}
+              <input
+                type="date"
+                value={applyDate}
                 disabled={isSaved}
-                onChange={(date) => {
-                  setApplyDate(date ? date.format('YYYY-MM-DD') : '')
-                }}
-                className="w-full text-xs font-mono font-medium !p-0"
-                allowClear={false}
+                onChange={(e) => setApplyDate(e.target.value)}
+                className="w-full text-xs font-mono font-medium bg-transparent border-none outline-none text-slate-800"
               />
             </div>
           </div>
@@ -507,21 +562,51 @@ export default function PlanRegistrationFormCore({
             <span>Ghi chú</span>
           </div>
           <div className="flex-1 h-full flex items-center px-1.5">
-            <Input
-              size="small"
-              variant="borderless"
+            <input
+              type="text"
               value={remark}
               disabled={isSaved}
               onChange={(e) => setRemark(e.target.value)}
-              placeholder={isSaved ? '' : "Nhập ghi chú chi tiết cho đợt đăng ký dữ liệu báo cáo..."}
-              className="text-xs !p-0"
+              placeholder={
+                isSaved ? '' : 'Nhập ghi chú chi tiết cho đợt đăng ký dữ liệu báo cáo...'
+              }
+              className="w-full text-xs bg-transparent border-none outline-none text-slate-800"
             />
           </div>
         </div>
       </div>
 
       {/* Main Table Grid */}
-      <div className="flex-1 w-full h-full min-h-0 bg-white flex flex-col overflow-hidden relative">
+      <div
+        className={`flex-1 w-full h-full min-h-0 bg-white flex flex-col overflow-hidden relative transition-colors ${
+          isDragging ? 'bg-emerald-50/60 ring-2 ring-emerald-500 ring-inset' : ''
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          if (!isSaved && !isSaving) setIsDragging(true)
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setIsDragging(false)
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setIsDragging(false)
+          if (isSaved || isSaving) return
+          const file = e.dataTransfer?.files?.[0]
+          if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+            handleUploadExcel(file)
+          } else if (file) {
+            setStatusMessage?.({
+              type: 'warning',
+              text: 'Vui lòng chọn file định dạng Excel (.xlsx hoặc .xls)!'
+            })
+          }
+        }}
+      >
         <div className="flex items-center justify-between px-2 py-0.5 border-b border-slate-200 text-gray-900 select-none relative bg-white shrink-0">
           <h2 className="text-[10px] italic text-indigo-600 font-bold uppercase flex items-center gap-1.5 py-0.5">
             <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />
@@ -592,7 +677,8 @@ export default function PlanRegistrationFormCore({
             </h3>
 
             <p className="text-xs text-slate-500 mb-4 text-center leading-relaxed">
-              Vui lòng giữ nguyên màn hình, không đóng cửa sổ trong lúc hệ thống đang ghi nhận cơ sở dữ liệu và khóa bảo vệ bản ghi.
+              Vui lòng giữ nguyên màn hình, không đóng cửa sổ trong lúc hệ thống đang ghi nhận cơ sở
+              dữ liệu và khóa bảo vệ bản ghi.
             </p>
 
             {/* Thông tin đợt đăng ký đang lưu */}
@@ -600,7 +686,9 @@ export default function PlanRegistrationFormCore({
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-sans">Loại báo cáo:</span>
                 <span className="font-bold text-[#01411b]">
-                  {reportType === 'statistics' ? 'Thống kê sản xuất (TKSX)' : 'Kế hoạch sản xuất (KHSX)'}
+                  {reportType === 'statistics'
+                    ? 'Thống kê sản xuất (TKSX)'
+                    : 'Kế hoạch sản xuất (KHSX)'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -635,7 +723,10 @@ export default function PlanRegistrationFormCore({
             <div className="flex items-center justify-between w-full text-xs font-mono text-slate-600">
               <span className="flex items-center gap-1 text-slate-500">
                 <FileSpreadsheet size={13} className="text-emerald-600" />
-                <span>{saveProgress.current.toLocaleString('vi-VN')} / {saveProgress.total.toLocaleString('vi-VN')} dòng</span>
+                <span>
+                  {saveProgress.current.toLocaleString('vi-VN')} /{' '}
+                  {saveProgress.total.toLocaleString('vi-VN')} dòng
+                </span>
               </span>
               <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                 {saveProgress.percent}%

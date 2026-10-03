@@ -17,6 +17,7 @@ import (
 	"service-datahub/services"
 	"service-datahub/services/report/plan_detail"
 	"service-datahub/services/report/plan_master"
+	"service-datahub/services/report/plan_report"
 	"service-datahub/services/report/prod_stats_detail"
 
 	"go.uber.org/zap"
@@ -62,6 +63,7 @@ func main() {
 	// Báo cáo Master & Detail Services (KHSX & TKSX tách biệt từng thư mục A/U/D/Q)
 	planMasterService := plan_master.NewPlanMasterService(db, logger)
 	planDetailService := plan_detail.NewPlanDetailService(db, logger)
+	planReportService := plan_report.NewPlanReportService(db, logger)
 	prodStatsDetailService := prod_stats_detail.NewProdStatsDetailService(db, logger)
 
 	// 5. Initialize Handlers for REST
@@ -74,6 +76,7 @@ func main() {
 
 	planMasterHandler := handlers.NewPlanMasterHandler(planMasterService, planDetailService, prodStatsDetailService, db, logger)
 	planDetailHandler := handlers.NewPlanDetailHandler(planDetailService, logger)
+	planReportHandler := handlers.NewPlanReportHandler(planReportService, logger)
 	prodStatsDetailHandler := handlers.NewProdStatsDetailHandler(prodStatsDetailService, logger)
 	healthHandler := handlers.NewHealthHandler(db)
 
@@ -89,6 +92,7 @@ func main() {
 		planMasterHandler,
 		planDetailHandler,
 		prodStatsDetailHandler,
+		planReportHandler,
 		healthHandler,
 		logger,
 	)

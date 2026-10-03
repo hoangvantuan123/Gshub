@@ -15,8 +15,18 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
     }
   } catch {}
 
-  const createdBy = payload.createdBy || currentUser.UserSeq || currentUser.UserId || currentUser.EmpID || 'SystemAdmin'
-  const createdByName = payload.createdByName || currentUser.UserName || currentUser.Login || currentUser.EmpName || 'Admin'
+  const createdBy =
+    payload.createdBy ||
+    currentUser.UserSeq ||
+    currentUser.UserId ||
+    currentUser.EmpID ||
+    'SystemAdmin'
+  const createdByName =
+    payload.createdByName ||
+    currentUser.UserName ||
+    currentUser.Login ||
+    currentUser.EmpName ||
+    'Admin'
 
   const reportType = payload.ReportType || payload.reportType || 'plan'
   const isStat = reportType === 'statistics' || reportType === 'tksx'
@@ -199,10 +209,32 @@ export const deletePlanMaster = async (masterSeqs = [], signal = null) => {
   })
 }
 
+// 6. Truy vấn Báo Cáo Thống Kê Sản Xuất ĐÃ ĐƯỢC BE TỔNG HỢP (Aggregated KPIs & Charts)
+export const queryProductionStatisticsReport = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/production/statistics',
+    method: 'POST',
+    data: filters,
+    signal
+  })
+}
+
+// 7. Truy vấn Báo Cáo Kế Hoạch Sản Xuất ĐÃ ĐƯỢC BE TỔNG HỢP (Aggregated KPIs & Charts KHSX)
+export const queryProductionPlanReport = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/production/plan',
+    method: 'POST',
+    data: filters,
+    signal
+  })
+}
+
 export default {
   savePlanRegistration,
   queryPlanMaster,
   queryPlanDetail,
   queryProdStatsDetail,
+  queryProductionStatisticsReport,
+  queryProductionPlanReport,
   deletePlanMaster
 }

@@ -22,7 +22,7 @@ export const PureButton = ({
       onClick={onClick}
       disabled={disabled || loading}
       title={title}
-      className="pure-button"
+      className={`pure-button ${isPrimary ? 'pure-button-primary' : 'pure-button-default'}`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -34,14 +34,15 @@ export const PureButton = ({
         fontWeight: isPrimary ? 700 : 600,
         color: isPrimary ? '#ffffff' : '#334155',
         background: isPrimary ? '#01411b' : '#ffffff',
-        border: isPrimary ? '1px solid #01411b' : '1px solid #94a3b8',
-        borderRadius: 0,
+        border: isPrimary ? '1px solid #01411b' : '1px solid #cbd5e1',
+        borderRadius: 4,
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
         opacity: disabled || loading ? 0.6 : 1,
         fontFamily: 'inherit',
         lineHeight: 1,
         boxSizing: 'border-box',
         verticalAlign: 'middle',
+        outline: 'none',
         transition: 'all 0.15s ease',
         userSelect: 'none',
         whiteSpace: 'nowrap',
@@ -178,8 +179,8 @@ export const MasterBatchSearchSelect = ({
         display: 'inline-flex',
         alignItems: 'center',
         height: 28,
-        border: isOpen ? '1px solid #0f766e' : '1px solid #94a3b8',
-        borderRadius: 0,
+        border: isOpen ? '1px solid #0f766e' : '1px solid #cbd5e1',
+        borderRadius: 4,
         background: '#ffffff',
         boxSizing: 'border-box',
         overflow: 'visible',
@@ -198,7 +199,8 @@ export const MasterBatchSearchSelect = ({
           background: '#f1f5f9',
           padding: '0 8px',
           borderRight: isOpen ? '1px solid #0f766e' : '1px solid #cbd5e1',
-          borderRadius: 0,
+          borderTopLeftRadius: 3,
+          borderBottomLeftRadius: 3,
           display: 'inline-flex',
           alignItems: 'center',
           userSelect: 'none',
@@ -245,7 +247,7 @@ export const MasterBatchSearchSelect = ({
                 background: '#ecfdf5',
                 border: '1px solid #a7f3d0',
                 padding: '1px 5px',
-                borderRadius: 0,
+                borderRadius: 2,
                 lineHeight: 1,
                 letterSpacing: '0.02em',
                 whiteSpace: 'nowrap'
@@ -281,10 +283,12 @@ export const MasterBatchSearchSelect = ({
             height: '100%',
             border: 'none',
             borderLeft: isOpen ? '1px solid #0f766e' : '1px solid #cbd5e1',
-            borderRadius: 0,
+            borderTopRightRadius: 3,
+            borderBottomRightRadius: 3,
             background: 'transparent',
             padding: '0 8px',
             cursor: 'pointer',
+            outline: 'none',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -308,9 +312,10 @@ export const MasterBatchSearchSelect = ({
             zIndex: 99999,
             width: 420,
             background: '#ffffff',
-            border: '1px solid #334155',
-            boxShadow: '0 10px 25px -3px rgba(15, 23, 42, 0.25), 0 4px 6px -4px rgba(15, 23, 42, 0.15)',
-            borderRadius: 0,
+            border: '1px solid #cbd5e1',
+            boxShadow:
+              '0 10px 25px -3px rgba(15, 23, 42, 0.15), 0 4px 6px -4px rgba(15, 23, 42, 0.08)',
+            borderRadius: 4,
             overflow: 'hidden'
           }}
         >
@@ -1075,11 +1080,49 @@ export const gridCustomCss = `
     vertical-align: middle;
     flex-shrink: 0;
   }
+  .production-statistics-report button,
+  .production-statistics-report button:focus,
+  .production-statistics-report button:focus-visible,
+  .production-statistics-report button:active,
+  .production-plan-report button,
+  .production-plan-report button:focus,
+  .production-plan-report button:focus-visible,
+  .production-plan-report button:active,
   .production-statistics-report .pure-button,
-  .production-plan-report .pure-button {
-    box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
+  .production-statistics-report .pure-button:focus,
+  .production-statistics-report .pure-button:focus-visible,
+  .production-statistics-report .pure-button:active,
+  .production-plan-report .pure-button,
+  .production-plan-report .pure-button:focus,
+  .production-plan-report .pure-button:focus-visible,
+  .production-plan-report .pure-button:active {
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  .production-statistics-report .pure-button-default:hover:not(:disabled),
+  .production-plan-report .pure-button-default:hover:not(:disabled) {
+    background-color: #f8fafc !important;
+    border-color: #01411b !important;
+    color: #01411b !important;
+  }
+  .production-statistics-report .pure-button-default:active:not(:disabled),
+  .production-plan-report .pure-button-default:active:not(:disabled) {
+    background-color: #f1f5f9 !important;
+    border-color: #01411b !important;
+    transform: translateY(1px);
+  }
+  .production-statistics-report .pure-button-primary:hover:not(:disabled),
+  .production-plan-report .pure-button-primary:hover:not(:disabled) {
+    background-color: #013214 !important;
+    border-color: #013214 !important;
+    color: #ffffff !important;
+  }
+  .production-statistics-report .pure-button-primary:active:not(:disabled),
+  .production-plan-report .pure-button-primary:active:not(:disabled) {
+    background-color: #01240e !important;
+    border-color: #01240e !important;
+    transform: translateY(1px);
   }
   @media print {
     .screenshot-hide {

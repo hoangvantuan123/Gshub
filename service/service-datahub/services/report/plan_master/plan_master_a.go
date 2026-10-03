@@ -55,6 +55,27 @@ func (s *PlanMasterService) PlanMasterA(
 		}
 	}
 
+	// Kiểm tra tính duy nhất: 1 nhà máy + 1 loại báo cáo + 1 ngày chỉ được tối đa 1 master
+	if master.ApplyDate != nil && *master.ApplyDate != "" {
+		var existingCount int64
+		if master.ReportType == "statistics" || master.ReportType == "tksx" {
+			s.db.WithContext(ctx).Model(&models.ERPPlanMaster{}).
+				Where(`"FactoryCode" = ? AND ("ReportType" = 'statistics' OR "ReportType" = 'tksx') AND "ApplyDate" = ?`, factoryCode, *master.ApplyDate).
+				Count(&existingCount)
+		} else {
+			s.db.WithContext(ctx).Model(&models.ERPPlanMaster{}).
+				Where(`"FactoryCode" = ? AND ("ReportType" = 'plan' OR "ReportType" = 'khsx') AND "ApplyDate" = ?`, factoryCode, *master.ApplyDate).
+				Count(&existingCount)
+		}
+		if existingCount > 0 {
+			repTypeName := "Kế hoạch sản xuất"
+			if master.ReportType == "statistics" || master.ReportType == "tksx" {
+				repTypeName = "Thống kê sản xuất"
+			}
+			return nil, fmt.Errorf("nhà máy %s đã có đợt đăng ký %s cho ngày %s (mỗi nhà máy chỉ được đăng ký tối đa 1 đợt trong 1 ngày)", factoryCode, repTypeName, *master.ApplyDate)
+		}
+	}
+
 	masterIdSeq := master.IdSeq
 	if masterIdSeq == "" {
 		masterIdSeq = services.GenerateUUIDv7()

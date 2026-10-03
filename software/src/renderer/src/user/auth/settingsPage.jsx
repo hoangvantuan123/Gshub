@@ -17,6 +17,7 @@ import {
 import Logo from '../../assets/gold-sun-logo.svg'
 import { getDefaultDataHubUrl, getEnvConfig, SERVER_ENVIRONMENTS } from '../../config/serverConfig'
 import { getApiServerEndpoint } from '../../services'
+import ApiConfigPanel from '../configs/ApiConfigPanel'
 
 const settingsTranslations = {
   vi: {
@@ -492,131 +493,7 @@ export default function SettingsPage() {
 
             {activeTab === 'server' && (
               <div className="space-y-3">
-                <div className="pb-2 border-b border-slate-200">
-                  <h2 className="text-xs font-bold text-slate-900">{t.server.title}</h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{t.server.subtitle}</p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 block">
-                      {t.server.envLabel}
-                    </label>
-                    <Select
-                      value={envSelection}
-                      onChange={handleEnvChange}
-                      bordered={false}
-                      size="middle"
-                      className="w-full !bg-white hover:!bg-slate-50 !rounded-none border border-slate-300 text-xs font-semibold text-slate-800 cursor-pointer"
-                      options={[
-                        {
-                          value: 'dev',
-                          label: (
-                            <div className="flex items-center gap-2 text-xs font-semibold whitespace-nowrap">
-                              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                              {t.server.dev} (http://localhost:9643)
-                            </div>
-                          )
-                        },
-                        {
-                          value: 'official',
-                          label: (
-                            <div className="flex items-center gap-2 text-xs font-semibold whitespace-nowrap">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                              {t.server.official} (https://gshub.erpsheet.vn)
-                            </div>
-                          )
-                        }
-                      ]}
-                    />
-                  </div>
-
-                  <div className="pt-1">
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                        {t.server.backendLabel || 'Cổng kết nối API Gateway hiện hành'}:
-                      </div>
-                      <div className="text-xs font-mono font-bold text-slate-800 p-2.5 bg-slate-50 border border-slate-200 rounded-none break-all mt-1 flex items-center justify-between">
-                        <span>{currentEnvCfg.gatewayUrl || currentEnvCfg.backendUrl}</span>
-                        <span className="text-[10px] font-sans font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                          {envSelection === 'dev' ? 'DEV Gateway' : 'PROD Gateway'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-100">
-                    <div className="text-[11px] font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                      <span>Tùy chỉnh địa chỉ máy chủ (Custom Server URL / IP):</span>
-                      {localStorage.getItem('gshub_api_url') && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            localStorage.removeItem('gshub_api_url')
-                            localStorage.removeItem('datahub_api_url')
-                            import('../../services').then((m) => {
-                              if (typeof m.updateApiServers === 'function') {
-                                m.updateApiServers(envSelection)
-                              }
-                            })
-                            window.dispatchEvent(
-                              new CustomEvent('env-changed', { detail: envSelection })
-                            )
-                            window.dispatchEvent(new Event('storage'))
-                            message.info('Đã khôi phục địa chỉ kết nối mặc định!')
-                          }}
-                          className="text-[10px] text-rose-600 hover:underline cursor-pointer bg-transparent border-0 p-0 font-normal"
-                        >
-                          Khôi phục mặc định
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder={
-                          envSelection === 'official'
-                            ? 'https://gshub.erpsheet.vn'
-                            : 'http://localhost:9643'
-                        }
-                        defaultValue={localStorage.getItem('gshub_api_url') || ''}
-                        id="custom_server_url_input"
-                        className="flex-1 px-2.5 py-1.5 text-xs font-mono border border-slate-300 rounded-none focus:outline-none focus:border-slate-800 bg-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const val = (
-                            document.getElementById('custom_server_url_input')?.value || ''
-                          ).trim()
-                          if (val) {
-                            localStorage.setItem('gshub_api_url', val)
-                            localStorage.setItem('datahub_api_url', val)
-                          } else {
-                            localStorage.removeItem('gshub_api_url')
-                            localStorage.removeItem('datahub_api_url')
-                          }
-                          import('../../services').then((m) => {
-                            if (typeof m.updateApiServers === 'function') {
-                              m.updateApiServers(envSelection)
-                            }
-                          })
-                          window.dispatchEvent(
-                            new CustomEvent('env-changed', { detail: envSelection })
-                          )
-                          window.dispatchEvent(new Event('storage'))
-                          message.success('Đã cập nhật địa chỉ kết nối máy chủ!')
-                        }}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-none cursor-pointer border-0 transition-colors"
-                      >
-                        Lưu địa chỉ
-                      </button>
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-1">
-                      Để trống và nhấn Lưu để sử dụng cấu hình mặc định của hệ thống.
-                    </div>
-                  </div>
-                </div>
+                <ApiConfigPanel />
               </div>
             )}
 

@@ -236,7 +236,7 @@ export default function DailyPlanRegistrationPage({
       return
     }
 
-    const selectedRows = masterSelection?.rows ? masterSelection.rows.toArray() : []
+    const selectedRows = getSelectedRows()
     if (selectedRows.length === 0) {
       setStatusMessage?.({
         type: 'warning',
@@ -246,7 +246,9 @@ export default function DailyPlanRegistrationPage({
     }
 
     const selectedMasters = selectedRows.map((idx) => masterGridData[idx]).filter(Boolean)
-    const masterSeqs = selectedMasters.map((m) => m.IdSeq).filter((id) => id > 0)
+    const masterSeqs = selectedMasters
+      .map((m) => m.IdSeq || m.MasterSeq || m.RegCode)
+      .filter(Boolean)
 
     if (masterSeqs.length === 0) {
       setStatusMessage?.({
@@ -310,8 +312,8 @@ export default function DailyPlanRegistrationPage({
           row.ReportType === 'statistics' || row.ReportType === 'tksx'
             ? 'Thống kê sản xuất (TKSX)'
             : row.ReportType === 'plan' || row.ReportType === 'khsx'
-            ? 'Kế hoạch sản xuất (KHSX)'
-            : row.ReportType || ''
+              ? 'Kế hoạch sản xuất (KHSX)'
+              : row.ReportType || ''
 
         return {
           'Mã đăng ký': row.RegCode || '',
@@ -323,7 +325,9 @@ export default function DailyPlanRegistrationPage({
           'Trạng thái': row.Status === 'published' ? 'Đã lưu / Đã phát hành' : row.Status || '',
           'Mô tả / Ghi chú': row.Remark || '',
           'Người đăng ký': row.CreatedByName || row.CreatedBy || '',
-          'Thời gian đăng ký': row.CreatedAt ? formatDateTime(row.CreatedAt, 'DD/MM/YYYY HH:mm:ss') : ''
+          'Thời gian đăng ký': row.CreatedAt
+            ? formatDateTime(row.CreatedAt, 'DD/MM/YYYY HH:mm:ss')
+            : ''
         }
       })
       const ws = XLSX.utils.json_to_sheet(exportData)
@@ -342,18 +346,18 @@ export default function DailyPlanRegistrationPage({
     }
   }, [masterGridData, formatDate, formatDateTime, setStatusMessage])
 
-  // ── Mở Form Đăng ký / Nạp mới: Electron -> Cửa sổ Windows con độc lập, Web -> Full Tab ──
+  // ── Mở Form Đăng ký / Nạp mới: Electron -> Cửa sổ Windows con độc lập, Web -> Modal / Tab ──
   const handleOpenCreate = useCallback(() => {
-    if (window.electron?.openChildWindow) {
+    if (window.electron?.openChildWindow || window.electron?.ipcRenderer) {
       openChildWindow({
-        path: '/sub/report/data/create',
+        path: '/sub/report/registration/create',
         title: 'Đăng ký & Nạp dữ liệu báo cáo sản xuất mới',
         width: 1380,
         height: 880,
         id: 'report-create-new'
       })
     } else {
-      // Trên Web browser: mở modal nạp hoặc mở new tab full view
+      // Trên Web browser: mở modal nạp dữ liệu
       setIsAddModalOpen(true)
     }
   }, [])
@@ -464,6 +468,10 @@ export default function DailyPlanRegistrationPage({
       <AddPlanRegistrationModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        onSaveSuccess={async () => {
+          setIsAddModalOpen(false)
+          await fetchMasterData(searchValues)
+        }}
         onSaveRegistration={handleSaveRegistration}
       />
 

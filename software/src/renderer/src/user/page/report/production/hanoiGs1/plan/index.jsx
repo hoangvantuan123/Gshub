@@ -3,7 +3,8 @@ import { useState, useEffect, useCallback } from 'react'
 import HanoiGs1PlanReport from './components/HanoiGs1PlanReport'
 import {
   queryPlanMaster,
-  queryPlanDetail
+  queryPlanDetail,
+  queryProductionPlanReport
 } from '../../../registration/services/planRegistrationService'
 
 export function parseCleanNumber(val, defaultVal = 0) {
@@ -278,6 +279,30 @@ export default function HanoiGs1PlanPage() {
     setLoading(true)
     try {
       let rows = []
+      // 1. Ưu tiên gọi API Tổng Hợp KHSX từ Backend
+      if (regCode || masterSeq) {
+        try {
+          const resAgg = await queryProductionPlanReport({
+            regCode: regCode,
+            masterSeq: masterSeq,
+            factoryCode: 'GS1',
+            pageSize: '10000'
+          })
+          if (resAgg?.data?.items && resAgg.data.items.length > 0) {
+            const beItems = resAgg.data.items
+            const mappedData = beItems.map((item, idx) => mapDBRowToPlanItem(item, idx, master))
+            setCachedDetail(detailKey, mappedData)
+            setPlanDataset(mappedData)
+            setDataSourceType('database')
+            setLoading(false)
+            return
+          }
+        } catch (errAgg) {
+          console.warn('Fallback sang truy vấn chi tiết PlanDetail:', errAgg)
+        }
+      }
+
+      // 2. Fallback sang truy vấn trực tiếp PlanDetail nếu cần
       if (regCode || masterSeq) {
         try {
           const resPlan = await queryPlanDetail({

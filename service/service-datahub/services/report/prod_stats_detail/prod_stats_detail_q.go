@@ -131,41 +131,8 @@ func (s *ProdStatsDetailService) ProdStatsDetailQ(ctx context.Context, filters m
 		return nil, nil, err
 	}
 
-	// Chuẩn hóa và tính toán sẵn DurationMinutes (số phút) và RuntimeHours (số giờ)
+	// Chuẩn hóa làm sạch số lượng chuỗi
 	for i := range details {
-		if details[i].ActualRunTime != nil && strings.TrimSpace(*details[i].ActualRunTime) != "" {
-			valStr := strings.TrimSpace(strings.ReplaceAll(*details[i].ActualRunTime, ",", "."))
-			if strings.Contains(valStr, ":") {
-				parts := strings.Split(valStr, ":")
-				var hrs float64
-				if len(parts) >= 1 {
-					if h, err := strconv.ParseFloat(parts[0], 64); err == nil {
-						hrs += h
-					}
-				}
-				if len(parts) >= 2 {
-					if m, err := strconv.ParseFloat(parts[1], 64); err == nil {
-						hrs += m / 60.0
-					}
-				}
-				if len(parts) >= 3 {
-					if s, err := strconv.ParseFloat(parts[2], 64); err == nil {
-						hrs += s / 3600.0
-					}
-				}
-				durMin := math.Round((hrs*60.0)*100) / 100
-				rtH := math.Round(hrs*100) / 100
-				details[i].DurationMinutes = &durMin
-				details[i].RuntimeHours = &rtH
-			} else if val, err := strconv.ParseFloat(valStr, 64); err == nil && val >= 0 {
-				durMin := val
-				rtH := math.Round((val/60.0)*100) / 100
-				details[i].DurationMinutes = &durMin
-				details[i].RuntimeHours = &rtH
-			}
-		}
-
-		// Chuẩn hóa làm sạch số lượng
 		details[i].ProdQty = cleanNumberStr(details[i].ProdQty)
 		details[i].PassQty = cleanNumberStr(details[i].PassQty)
 		details[i].DefectQty = cleanNumberStr(details[i].DefectQty)
@@ -173,24 +140,12 @@ func (s *ProdStatsDetailService) ProdStatsDetailQ(ctx context.Context, filters m
 		details[i].StandardMeters = cleanNumberStr(details[i].StandardMeters)
 		details[i].TargetProdQty = cleanNumberStr(details[i].TargetProdQty)
 		details[i].TargetPassQty = cleanNumberStr(details[i].TargetPassQty)
-
-		if details[i].DurationMinutes != nil {
-			dur := *details[i].DurationMinutes
-			var cat string
-			if dur < 5 && dur >= 0 {
-				cat = "UNDER_5MIN"
-			} else if dur > 720 {
-				cat = "OVER_12H"
-			} else {
-				cat = "5MIN_12H"
-			}
-			details[i].AuditCategory = &cat
-		}
 	}
 
 	pageInfo := &models.PlanPageInfo{
 		Page:         page,
 		PageSize:     pageSize,
+		TotalRows:    int(totalFiltered),
 		Total:        totalFiltered,
 		TotalAll:     s.GetTotalAll(),
 		TotalPages:   totalPages,

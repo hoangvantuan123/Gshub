@@ -2,18 +2,11 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, Input, Select, DatePicker } from 'antd'
+import { Button } from '../../../../../components/ui/button'
 import dayjs from 'dayjs'
 import 'dayjs/locale/vi'
-import viVN from 'antd/es/date-picker/locale/vi_VN'
 
 dayjs.locale('vi')
-import {
-  ReloadOutlined,
-  FileExcelOutlined,
-  SearchOutlined,
-  CopyOutlined
-} from '@ant-design/icons'
 import {
   Search,
   Copy,
@@ -26,7 +19,9 @@ import {
   User,
   Info,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  RotateCw,
+  FileSpreadsheet
 } from 'lucide-react'
 import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid'
 import '@glideapps/glide-data-grid/dist/index.css'
@@ -82,8 +77,7 @@ export default function PlanRegistrationDetailView() {
   // ── Form Master Info States (giống 100% Form Đăng Ký) ──
   const [reportType, setReportType] = useState(() => {
     return (
-      masterInfo?.ReportType ||
-      (regCode?.toLowerCase()?.includes('tksx') ? 'statistics' : 'plan')
+      masterInfo?.ReportType || (regCode?.toLowerCase()?.includes('tksx') ? 'statistics' : 'plan')
     )
   })
   const [factoryCode, setFactoryCode] = useState(() => masterInfo?.FactoryCode || 'GS1')
@@ -179,7 +173,9 @@ export default function PlanRegistrationDetailView() {
 
       if (currentMaster) {
         setMasterInfo(currentMaster)
-        setReportType(currentMaster.ReportType || (regCode.includes('TKSX') ? 'statistics' : 'plan'))
+        setReportType(
+          currentMaster.ReportType || (regCode.includes('TKSX') ? 'statistics' : 'plan')
+        )
         setFactoryCode(currentMaster.FactoryCode || 'GS1')
         setFactoryName(currentMaster.FactoryName || 'GS1 Hà Nội')
         setApplyDate(currentMaster.ApplyDate || '')
@@ -220,9 +216,13 @@ export default function PlanRegistrationDetailView() {
         loadedCount: cleanList.length,
         totalColumns: currentColumns.length,
         createdBy: currentMaster?.CreatedByName || currentMaster?.CreatedBy || '',
-        createdAt: currentMaster?.CreatedAt ? new Date(currentMaster.CreatedAt).toLocaleDateString('vi-VN') : '',
+        createdAt: currentMaster?.CreatedAt
+          ? new Date(currentMaster.CreatedAt).toLocaleDateString('vi-VN')
+          : '',
         updatedBy: currentMaster?.UpdatedByName || currentMaster?.UpdatedBy || '',
-        updatedAt: currentMaster?.UpdatedAt ? new Date(currentMaster.UpdatedAt).toLocaleDateString('vi-VN') : ''
+        updatedAt: currentMaster?.UpdatedAt
+          ? new Date(currentMaster.UpdatedAt).toLocaleDateString('vi-VN')
+          : ''
       }))
 
       setStatusMessage?.({
@@ -425,10 +425,7 @@ export default function PlanRegistrationDetailView() {
         const row = [rowIdx + 1]
         validCols.forEach((col) => {
           const colId = col.id
-          const rawVal =
-            item[colId] ??
-            item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
-            ''
+          const rawVal = item[colId] ?? item[colId.charAt(0).toLowerCase() + colId.slice(1)] ?? ''
 
           if (col.kind === 'Boolean') {
             const b =
@@ -540,49 +537,43 @@ export default function PlanRegistrationDetailView() {
     <DataPageContainer
       loadingBarRef={loadingBarRef}
       actions={
-        <div className="flex items-center justify-between w-full h-6 min-h-[24px] overflow-x-auto max-w-full">
+        <div className="flex items-center justify-between w-full h-5  max-w-full">
           {/* Nút tác vụ chuẩn đồng bộ với Modal Đăng Ký */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <Button
               key="Reload"
-              icon={<ReloadOutlined className="text-indigo-500" style={{ fontSize: '12px' }} />}
-              size="small"
+              size="sm"
+              variant="ghost"
               onClick={fetchDetailData}
-              className="uppercase text-[10px] whitespace-nowrap font-medium text-indigo-700 hover:text-indigo-800"
-              style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-              color="default"
-              variant="link"
+              className="uppercase text-[10px] whitespace-nowrap  text-indigo-700 hover:text-indigo-800"
               title="Tải lại dữ liệu từ hệ thống"
             >
-              {t('TẢI LẠI')}
+              <RotateCw size={12} className="text-indigo-500" />
+              {t('Truy vấn')}
             </Button>
 
             <Button
               key="CopyTable"
-              icon={<CopyOutlined className="text-blue-600" style={{ fontSize: '12px' }} />}
-              size="small"
+              size="sm"
+              variant="ghost"
               onClick={handleCopyTable}
-              className="uppercase text-[10px] whitespace-nowrap font-medium text-blue-700 hover:text-blue-800"
-              style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-              color="default"
-              variant="link"
+              className="uppercase text-[10px] whitespace-nowrap  text-blue-700 hover:text-blue-800"
               title="Sao chép toàn bộ dữ liệu bảng vào Clipboard"
             >
+              <Copy size={12} className="text-blue-600" />
               {t('SAO CHÉP')}
             </Button>
 
             <Button
               key="ExportExcel"
-              icon={<FileExcelOutlined className="text-emerald-600" style={{ fontSize: '12px' }} />}
-              size="small"
+              size="sm"
+              variant="ghost"
               onClick={handleExportExcel}
-              className="uppercase text-[10px] whitespace-nowrap font-medium text-emerald-700 hover:text-emerald-800"
-              style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-              color="default"
-              variant="link"
+              className="uppercase text-[10px] whitespace-nowrap text-emerald-700 hover:text-emerald-800"
               title="Xuất dữ liệu chi tiết ra Excel"
             >
-              {t('XUẤT EXCEL')}
+              <FileSpreadsheet size={12} className="text-emerald-600" />
+              {t('Xuất excel')}
             </Button>
           </div>
         </div>
@@ -610,17 +601,14 @@ export default function PlanRegistrationDetailView() {
                 <span>Loại báo cáo</span>
               </div>
               <div className="flex-1 h-full flex items-center px-1">
-                <Select
-                  size="small"
-                  variant="borderless"
+                <select
                   value={reportType}
                   disabled={true}
-                  className="w-full text-xs font-medium"
-                  options={[
-                    { value: 'statistics', label: 'Thống kê sản xuất (TKSX)' },
-                    { value: 'plan', label: 'Kế hoạch sản xuất (KHSX)' }
-                  ]}
-                />
+                  className="w-full text-xs font-medium bg-transparent border-none outline-none cursor-default text-slate-800"
+                >
+                  <option value="statistics">Thống kê sản xuất (TKSX)</option>
+                  <option value="plan">Kế hoạch sản xuất (KHSX)</option>
+                </select>
               </div>
             </div>
 
@@ -630,17 +618,14 @@ export default function PlanRegistrationDetailView() {
                 <span>Nhà máy SX</span>
               </div>
               <div className="flex-1 h-full flex items-center px-1">
-                <Select
-                  size="small"
-                  variant="borderless"
+                <select
                   value={factoryCode}
                   disabled={true}
-                  className="w-full text-xs font-medium"
-                  options={[
-                    { value: 'GS1', label: 'GS1 - GS1 Hà Nội' },
-                    { value: 'GS5', label: 'GS5 - GS5 Quế Võ 1B' }
-                  ]}
-                />
+                  className="w-full text-xs font-medium bg-transparent border-none outline-none cursor-default text-slate-800"
+                >
+                  <option value="GS1">GS1 - GS1 Hà Nội</option>
+                  <option value="GS5">GS5 - GS5 Quế Võ 1B</option>
+                </select>
               </div>
             </div>
 
@@ -650,16 +635,11 @@ export default function PlanRegistrationDetailView() {
                 <span>Ngày báo cáo</span>
               </div>
               <div className="flex-1 h-full flex items-center px-1">
-                <DatePicker
-                  locale={viVN}
-                  size="small"
-                  variant="borderless"
-                  format="DD/MM/YYYY"
-                  placeholder="Ngày/Tháng/Năm"
-                  value={applyDate ? dayjs(applyDate) : null}
+                <input
+                  type="date"
+                  value={applyDate ? String(applyDate).slice(0, 10) : ''}
                   disabled={true}
-                  className="w-full text-xs font-mono font-medium !p-0"
-                  allowClear={false}
+                  className="w-full text-xs font-mono font-medium bg-transparent border-none outline-none cursor-default text-slate-800"
                 />
               </div>
             </div>
@@ -671,13 +651,12 @@ export default function PlanRegistrationDetailView() {
               <span>Ghi chú</span>
             </div>
             <div className="flex-1 h-full flex items-center px-1.5">
-              <Input
-                size="small"
-                variant="borderless"
-                value={remark}
+              <input
+                type="text"
+                value={remark || ''}
                 disabled={true}
-                placeholder=""
-                className="text-xs !p-0 text-slate-700"
+                placeholder="Không có ghi chú"
+                className="w-full text-xs bg-transparent border-none outline-none cursor-default text-slate-700"
               />
             </div>
           </div>
@@ -717,127 +696,6 @@ export default function PlanRegistrationDetailView() {
                   ? '6. LỆNH THEO TRẠNG THÁI ĐP – SX (CHI TIẾT TỪNG LỆNH)'
                   : '5. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT'}
               </span>
-
-              {isPlanType && planSummary && (
-                <>
-                  <span>
-                    Tổng số lệnh:{' '}
-                    <b style={{ color: '#0f172a' }}>
-                      {planSummary.totalRows.toLocaleString('vi-VN')}
-                    </b>
-                  </span>
-                  <span>
-                    Tổng SL Kế hoạch:{' '}
-                    <b style={{ color: '#0f172a' }}>
-                      {planSummary.totalPlan.toLocaleString('vi-VN')}
-                    </b>
-                  </span>
-                  <span>
-                    Tổng SL Thực tế:{' '}
-                    <b style={{ color: '#01411b' }}>
-                      {planSummary.totalActual.toLocaleString('vi-VN')}
-                    </b>
-                  </span>
-                  <span>
-                    Tỷ lệ hoàn thành:{' '}
-                    <b style={{ color: '#01411b' }}>{planSummary.completionRate}%</b>
-                  </span>
-                  <span>
-                    Tổng giờ SX thực tế:{' '}
-                    <b style={{ color: '#01411b' }}>{planSummary.totalHours}h</b>
-                  </span>
-                </>
-              )}
-
-              {!isPlanType && statSummary && (
-                <>
-                  <span>
-                    Tổng số phiếu:{' '}
-                    <b style={{ color: '#0f172a' }}>
-                      {statSummary.totalRows.toLocaleString('vi-VN')}
-                    </b>
-                  </span>
-                  <span>
-                    Tổng SL Sản xuất:{' '}
-                    <b style={{ color: '#0f172a' }}>
-                      {statSummary.totalProd.toLocaleString('vi-VN')}
-                    </b>
-                  </span>
-                  <span>
-                    Tổng SL Hỏng:{' '}
-                    <b style={{ color: '#dc2626' }}>
-                      {statSummary.totalFail.toLocaleString('vi-VN')}
-                    </b>
-                  </span>
-                  <span>
-                    Tỷ lệ hỏng:{' '}
-                    <b style={{ color: '#dc2626' }}>{statSummary.defectRate}%</b>
-                  </span>
-                  <span>
-                    Tổng giờ SX:{' '}
-                    <b style={{ color: '#01411b' }}>{statSummary.totalHours}h</b>
-                  </span>
-                </>
-              )}
-            </div>
-
-            {/* Các nút công cụ trong bảng */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Button
-                icon={<Search size={12} />}
-                size="small"
-                onClick={() => setShowSearch((prev) => !prev)}
-                title="Mở tìm kiếm nhanh trong bảng (Ctrl + F)"
-                style={{
-                  fontSize: '11px',
-                  borderColor: showSearch ? '#01411b' : '#cbd5e1',
-                  color: showSearch ? '#01411b' : '#334155',
-                  background: showSearch ? '#f0fdf4' : '#ffffff',
-                  height: '24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                Tìm kiếm (Ctrl+F)
-              </Button>
-              <Button
-                icon={<Copy size={12} />}
-                size="small"
-                onClick={handleCopyTable}
-                title="Sao chép toàn bộ dữ liệu bảng này vào Clipboard"
-                style={{
-                  fontSize: '11px',
-                  borderColor: '#cbd5e1',
-                  color: '#334155',
-                  background: '#ffffff',
-                  height: '24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                Sao chép
-              </Button>
-              <Button
-                icon={<Download size={12} />}
-                size="small"
-                onClick={handleExportExcel}
-                title="Xuất bảng chi tiết ra file Excel"
-                style={{
-                  fontSize: '11px',
-                  borderColor: '#cbd5e1',
-                  color: '#01411b',
-                  background: '#ffffff',
-                  fontWeight: 600,
-                  height: '24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                Excel
-              </Button>
             </div>
           </div>
 
@@ -874,4 +732,3 @@ export default function PlanRegistrationDetailView() {
     />
   )
 }
-

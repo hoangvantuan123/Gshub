@@ -20,6 +20,7 @@ func SetupRouter(
 	planMasterHandler *handlers.PlanMasterHandler,
 	planDetailHandler *handlers.PlanDetailHandler,
 	prodStatsDetailHandler *handlers.ProdStatsDetailHandler,
+	planReportHandler *handlers.PlanReportHandler,
 	healthHandler *handlers.HealthHandler,
 	logger *zap.Logger,
 ) *gin.Engine {
@@ -97,9 +98,17 @@ func SetupRouter(
 
 			// TKSX Detail (A/U/D/Q)
 			planV2.POST("/ProdStatsDetailQ", prodStatsDetailHandler.ProdStatsDetailQ)
-			planV2.POST("/ProdStatsDetailA", prodStatsDetailHandler.ProdStatsDetailA)
 			planV2.POST("/ProdStatsDetailU", prodStatsDetailHandler.ProdStatsDetailU)
 			planV2.POST("/ProdStatsDetailD", prodStatsDetailHandler.ProdStatsDetailD)
+		}
+
+		// Aggregated Production Report (V2)
+		prodReportsV2 := v2.Group("/report/production")
+		{
+			prodReportsV2.GET("/statistics", prodStatsDetailHandler.GetProductionStatisticsReport)
+			prodReportsV2.POST("/statistics", prodStatsDetailHandler.GetProductionStatisticsReport)
+			prodReportsV2.GET("/plan", planReportHandler.GetProductionPlanReport)
+			prodReportsV2.POST("/plan", planReportHandler.GetProductionPlanReport)
 		}
 	}
 
@@ -195,6 +204,15 @@ func SetupRouter(
 			planV1.POST("/save", planMasterHandler.PlanRegistrationSave)
 			planV1.POST("/delete-master", planMasterHandler.PlanMasterD)
 			planV1.DELETE("/master/:reg_code", planMasterHandler.PlanMasterD)
+		}
+
+		// 8. Báo cáo Thống kê & Kế hoạch Sản xuất Tổng hợp (Aggregated Production Reports)
+		prodReportsV1 := v1.Group("/report/production")
+		{
+			prodReportsV1.GET("/statistics", prodStatsDetailHandler.GetProductionStatisticsReport)
+			prodReportsV1.POST("/statistics", prodStatsDetailHandler.GetProductionStatisticsReport)
+			prodReportsV1.GET("/plan", planReportHandler.GetProductionPlanReport)
+			prodReportsV1.POST("/plan", planReportHandler.GetProductionPlanReport)
 		}
 	}
 

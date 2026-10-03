@@ -277,3 +277,194 @@ message PlanRegistrationSaveProtoResponse {
   int64 inserted_rows = 4;
   string error_message = 5;
 }
+
+// ==========================================
+// 5. Production Statistics Aggregated Report
+// ==========================================
+
+message ProdStatsReportSummaryProto {
+  int32 total_tickets = 1;
+  double total_plan_qty = 2;
+  double total_actual_qty = 3;
+  double total_pass_qty = 4;
+  double total_defect_qty = 5;
+  double avg_pass_rate = 6;
+  double total_runtime_hours = 7;
+  int32 count_completed = 8;
+  int32 count_running = 9;
+}
+
+message TeamStatAggregateProto {
+  string team_name = 1;
+  string team_code = 2;
+  double plan_qty = 3;
+  double actual_qty = 4;
+  double pass_qty = 5;
+  double pass_rate = 6;
+  double runtime_hours = 7;
+  int32 ticket_count = 8;
+}
+
+message MachineStatAggregateProto {
+  string machine_code = 1;
+  string machine_name = 2;
+  string team_name = 3;
+  double actual_qty = 4;
+  double pass_rate = 5;
+  double runtime_hours = 6;
+  int32 ticket_count = 7;
+}
+
+message DailyStatAggregateProto {
+  string date = 1;
+  double plan_qty = 2;
+  double actual_qty = 3;
+  double pass_qty = 4;
+  double pass_rate = 5;
+}
+
+message ProdStatsReportProtoRequest {
+  string factory_code = 1;
+  string reg_code = 2;
+  string master_seq = 3;
+  string stat_date_from = 4;
+  string stat_date_to = 5;
+  string team_name = 6;
+  string machine_code = 7;
+  int32 page = 8;
+  int32 page_size = 9;
+}
+
+message ProdStatsReportProtoResponse {
+  bool success = 1;
+  string message = 2;
+  ProdStatsReportSummaryProto summary = 3;
+  repeated TeamStatAggregateProto chart_by_team = 4;
+  repeated MachineStatAggregateProto chart_by_machine = 5;
+  repeated DailyStatAggregateProto chart_by_day = 6;
+  repeated string filter_teams = 7;
+  repeated string filter_machines = 8;
+  repeated string filter_shifts = 9;
+  repeated string filter_dates = 10;
+  repeated ProdStatsDetailProtoItem items = 11;
+  int64 total_records = 12;
+  int32 total_pages = 13;
+  int32 page = 14;
+  int32 page_size = 15;
+}
+
+// ==========================================
+// 6. Production Plan Aggregated Report
+// ==========================================
+
+message PlanReportSummaryProto {
+  int32 total_orders = 1;
+  int32 total_tickets = 2;
+  double total_plan_qty = 3;
+  double total_actual_qty = 4;
+  double total_pass_qty = 5;
+  double overall_progress = 6;
+  double avg_pass_rate = 7;
+  int32 total_items = 8;
+  int32 sx_sai_ngay_count = 9;
+  double sx_sai_ngay_rate = 10;
+  int32 truot_kh_count = 11;
+  double truot_kh_rate = 12;
+  int32 khop_sl_count = 13;
+  double khop_sl_rate = 14;
+  int32 khop_job_count = 15;
+  double khop_job_rate = 16;
+  int32 total_days = 17;
+  string from_date = 18;
+  string to_date = 19;
+}
+
+message PlanStatusItemProto {
+  string name = 1;
+  int32 count = 2;
+  double rate = 3;
+  string color = 4;
+  string tag = 5;
+}
+
+message PicPlanAggregateProto {
+  string pic = 1;
+  int32 total_orders = 2;
+  double plan_qty = 3;
+  double actual_qty = 4;
+  double pass_rate = 5;
+  int32 sx_sai_ngay_count = 6;
+  int32 truot_kh_count = 7;
+  int32 khop_sl_count = 8;
+  int32 khop_job_count = 9;
+}
+
+message TeamPlanAggregateProto {
+  string team_name = 1;
+  int32 total_orders = 2;
+  double plan_qty = 3;
+  double actual_qty = 4;
+  double pass_rate = 5;
+}
+
+message MachinePlanAggregateProto {
+  string machine_code = 1;
+  string machine_name = 2;
+  string team_name = 3;
+  int32 total_orders = 4;
+  double plan_qty = 5;
+  double actual_qty = 6;
+  double pass_rate = 7;
+}
+
+message DailyPlanAggregateProto {
+  string date = 1;
+  double plan_qty = 2;
+  double actual_qty = 3;
+  int32 order_count = 4;
+  double pass_rate = 5;
+}
+
+message PlanFilterOptionsProto {
+  repeated string factories = 1;
+  repeated string pics = 2;
+  repeated string teams = 3;
+  repeated string machines = 4;
+  repeated string dates = 5;
+}
+
+message PlanReportProtoRequest {
+  string factory_code = 1;
+  string reg_code = 2;
+  string master_seq = 3;
+  string from_date = 4;
+  string to_date = 5;
+  string pic = 6;
+  string team_name = 7;
+  string machine_code = 8;
+  string item_code = 9;
+  string order_no = 10;
+  string status = 11;
+  int32 page = 12;
+  int32 page_size = 13;
+}
+
+message PlanReportProtoResponse {
+  bool success = 1;
+  string message = 2;
+  PlanReportSummaryProto summary = 3;
+  repeated PlanStatusItemProto dp_status_breakdown = 4;
+  repeated PlanStatusItemProto time_status_breakdown = 5;
+  repeated PlanStatusItemProto capa_status_breakdown = 6;
+  repeated PicPlanAggregateProto pic_breakdown = 7;
+  repeated TeamPlanAggregateProto team_breakdown = 8;
+  repeated MachinePlanAggregateProto machine_breakdown = 9;
+  repeated DailyPlanAggregateProto daily_trend_data = 10;
+  PlanFilterOptionsProto filter_options = 11;
+  repeated PlanDetailProtoItem items = 12;
+  int64 total_records = 13;
+  int32 total_pages = 14;
+  int32 page = 15;
+  int32 page_size = 16;
+}
+

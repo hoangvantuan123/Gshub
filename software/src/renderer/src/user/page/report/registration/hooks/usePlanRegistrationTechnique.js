@@ -83,6 +83,27 @@ const INITIAL_SAMPLE_TEMPLATES = [
     CreatedByName: 'Admin',
     UpdatedAt: '2026-09-29 08:30:00',
     UpdatedByName: 'Admin'
+  },
+  {
+    Id: 5,
+    WorkingTag: '',
+    ReportKey: 'RP-TH-ALL-TIME',
+    ReportName: 'Báo cáo Tổng hợp KHSX & TKSX toàn thời gian',
+    ReportType: 'Tổng hợp toàn diện',
+    FactoryName: 'Tất cả nhà máy (GS1 & GS5)',
+    Frequency: 'Tùy chọn thời gian',
+    FormVersion: 'v2.0',
+    TemplateFileName: 'Template_Tong_Hop_KHSX_TKSX.xlsx',
+    OrderSeq: 5,
+    Active: true,
+    IsPublic: true,
+    PublicUrl: '#/erp/u/report/production/timeline-summary',
+    Remark:
+      'Báo cáo tổng hợp đa chiều trải dài theo khoảng thời gian với đầy đủ bộ lọc, KPI và biểu đồ',
+    CreatedAt: '2026-10-03 08:00:00',
+    CreatedByName: 'Admin',
+    UpdatedAt: '2026-10-03 08:00:00',
+    UpdatedByName: 'Admin'
   }
 ]
 

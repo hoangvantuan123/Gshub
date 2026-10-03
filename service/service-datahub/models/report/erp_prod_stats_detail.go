@@ -116,11 +116,6 @@ type ERPProdStatsDetail struct {
 	UpdatedBy              *string    `gorm:"column:UpdatedBy;type:text" db:"UpdatedBy" json:"UpdatedBy"`
 	UpdatedByName          *string    `gorm:"column:UpdatedByName;type:text" db:"UpdatedByName" json:"UpdatedByName"`
 	UpdatedAt              *time.Time `gorm:"column:UpdatedAt;autoUpdateTime" db:"UpdatedAt" json:"UpdatedAt"`
-
-	// Các trường tính toán chuẩn hóa trả ra API cho Frontend dùng trực tiếp
-	DurationMinutes        *float64   `gorm:"-" json:"DurationMinutes,omitempty"`
-	RuntimeHours           *float64   `gorm:"-" json:"RuntimeHours,omitempty"`
-	AuditCategory          *string    `gorm:"-" json:"AuditCategory,omitempty"`
 }
 
 func (ERPProdStatsDetail) TableName() string {

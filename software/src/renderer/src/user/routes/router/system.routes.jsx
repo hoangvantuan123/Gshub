@@ -6,11 +6,15 @@ export const pageLoaders = {
   HanoiGs1PlanPage: () => import('../../page/report/production/hanoiGs1/plan'),
   QuevoGs5StatPage: () => import('../../page/report/production/quevoGs5/stat'),
   QuevoGs5PlanPage: () => import('../../page/report/production/quevoGs5/plan'),
+  SummaryStatisticsReportPage: () => import('../../page/report/production/summary/statistics'),
+  SummaryPlanReportPage: () => import('../../page/report/production/summary/plan'),
+  TimelineSummaryReportPage: () => import('../../page/report/production/timelineSummary'),
   RegistrationPage: () => import('../../page/report/registration'),
   PlanRegistrationDetailView: () =>
     import('../../page/report/registration/components/PlanRegistrationDetailView'),
   PlanRegistrationCreateView: () =>
-    import('../../page/report/registration/components/PlanRegistrationCreateView')
+    import('../../page/report/registration/components/PlanRegistrationCreateView'),
+  FormulaHandbookPage: () => import('../../page/report/production/handbook/FormulaHandbookPage')
 }
 
 const SettingPrivate = lazy(pageLoaders.SettingPrivate)
@@ -18,9 +22,13 @@ const HanoiGs1StatPage = lazy(pageLoaders.HanoiGs1StatPage)
 const HanoiGs1PlanPage = lazy(pageLoaders.HanoiGs1PlanPage)
 const QuevoGs5StatPage = lazy(pageLoaders.QuevoGs5StatPage)
 const QuevoGs5PlanPage = lazy(pageLoaders.QuevoGs5PlanPage)
+const SummaryStatisticsReportPage = lazy(pageLoaders.SummaryStatisticsReportPage)
+const SummaryPlanReportPage = lazy(pageLoaders.SummaryPlanReportPage)
+const TimelineSummaryReportPage = lazy(pageLoaders.TimelineSummaryReportPage)
 const RegistrationPage = lazy(pageLoaders.RegistrationPage)
 const PlanRegistrationDetailView = lazy(pageLoaders.PlanRegistrationDetailView)
 const PlanRegistrationCreateView = lazy(pageLoaders.PlanRegistrationCreateView)
+const FormulaHandbookPage = lazy(pageLoaders.FormulaHandbookPage)
 
 export const routeToLoaderMap = {
   '/erp/u/setting': pageLoaders.SettingPrivate,
@@ -28,9 +36,15 @@ export const routeToLoaderMap = {
   '/erp/u/report/production/hanoi-gs1/plan': pageLoaders.HanoiGs1PlanPage,
   '/erp/u/report/production/quevo-gs5/statistics': pageLoaders.QuevoGs5StatPage,
   '/erp/u/report/production/quevo-gs5/plan': pageLoaders.QuevoGs5PlanPage,
+  '/erp/u/report/production/summary/statistics': pageLoaders.SummaryStatisticsReportPage,
+  '/erp/u/report/production/summary/plan': pageLoaders.SummaryPlanReportPage,
+  '/erp/u/report/production/timeline-summary': pageLoaders.TimelineSummaryReportPage,
+  '/erp/u/report/production/timeline-summary/stat': pageLoaders.TimelineSummaryReportPage,
+  '/erp/u/report/production/timeline-summary/plan': pageLoaders.SummaryPlanReportPage,
   '/erp/u/report/registration': pageLoaders.RegistrationPage,
   '/erp/u/report/registration/create': pageLoaders.PlanRegistrationCreateView,
   '/erp/u/report/registration/detail': pageLoaders.PlanRegistrationDetailView,
+  '/erp/u/report/handbook/formula': pageLoaders.FormulaHandbookPage,
   '/erp/u/report/data/import': pageLoaders.RegistrationPage,
   '/erp/u/report/data/register': pageLoaders.RegistrationPage,
   '/erp/u/report/data/create': pageLoaders.PlanRegistrationCreateView,
@@ -146,6 +160,60 @@ export const systemsRoutes = [
     public: true
   },
 
+  // ── Tổng hợp Thống kê Sản xuất (TKSX) Toàn Thời Gian ───────────────────
+  {
+    path: '/erp/u/report/production/summary/statistics',
+    element: SummaryStatisticsReportPage,
+    permission: 'report_summary_stat',
+    public: true
+  },
+  {
+    path: '/erp/u/report/production/summary/statistics/*',
+    element: SummaryStatisticsReportPage,
+    permission: 'report_summary_stat',
+    public: true
+  },
+
+  // ── Tổng hợp Kế hoạch Sản xuất (KHSX) Toàn Thời Gian ───────────────────
+  {
+    path: '/erp/u/report/production/summary/plan',
+    element: SummaryPlanReportPage,
+    permission: 'report_summary_plan',
+    public: true
+  },
+  {
+    path: '/erp/u/report/production/summary/plan/*',
+    element: SummaryPlanReportPage,
+    permission: 'report_summary_plan',
+    public: true
+  },
+
+  // ── Alias tương thích ngược cho Timeline Summary ─────────────────────────
+  {
+    path: '/erp/u/report/production/timeline-summary',
+    element: TimelineSummaryReportPage,
+    permission: 'report_timeline_summary',
+    public: true
+  },
+  {
+    path: '/erp/u/report/production/timeline-summary/*',
+    element: TimelineSummaryReportPage,
+    permission: 'report_timeline_summary',
+    public: true
+  },
+  {
+    path: '/erp/u/report/production/timeline-summary/stat',
+    element: TimelineSummaryReportPage,
+    permission: 'report_timeline_summary',
+    public: true
+  },
+  {
+    path: '/erp/u/report/production/timeline-summary/plan',
+    element: SummaryPlanReportPage,
+    permission: 'report_timeline_summary',
+    public: true
+  },
+
   // ── Đăng ký báo cáo KHSX & TKSX ─────────────────────────────────────────
   {
     path: '/erp/u/report/registration',
@@ -169,6 +237,20 @@ export const systemsRoutes = [
     path: '/erp/u/report/registration/detail/:regCode',
     element: PlanRegistrationDetailView,
     permission: 'report_registration',
+    public: true
+  },
+
+  // ── Cẩm nang công thức & Từ điển dữ liệu ────────────────────────────────
+  {
+    path: '/erp/u/report/handbook/formula',
+    element: FormulaHandbookPage,
+    permission: 'report_handbook',
+    public: true
+  },
+  {
+    path: '/erp/u/report/handbook/formula/*',
+    element: FormulaHandbookPage,
+    permission: 'report_handbook',
     public: true
   },
 

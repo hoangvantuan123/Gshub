@@ -1,0 +1,203 @@
+/* eslint-disable react/prop-types */
+import { gridCustomCss } from '../../hanoiGs1/stat/components/reportUIComponents'
+import { FormulaHandbookModal } from '../../handbook/FormulaHandbookModal'
+import { useSummaryPlanLogic } from './hooks/useSummaryPlanLogic'
+import { SummaryTopControlBar } from '../common/SummaryTopControlBar'
+import { PlanHeroKpiCards } from './components/PlanHeroKpiCards'
+import { PlanPicAnalysisSection } from './components/PlanPicAnalysisSection'
+import { PlanPicTimelineSection } from './components/PlanPicTimelineSection'
+import { PlanTimeAndCapaSection } from './components/PlanTimeAndCapaSection'
+import { PlanTeamBottleneckSection } from './components/PlanTeamBottleneckSection'
+
+export default function SummaryPlanReportPage() {
+  const {
+    factoryCode,
+    setFactoryCode,
+    dateRange,
+    handleCustomDateChange,
+    selectedPic,
+    setSelectedPic,
+    picBreakdown,
+    picTimelineBreakdown,
+    showPicSummaryTable,
+    setShowPicSummaryTable,
+    picChartMode,
+    setPicChartMode,
+    loading,
+    fetchTimelineData,
+    isHandbookModalOpen,
+    setIsHandbookModalOpen,
+    isCapturing,
+    reportRootRef,
+    factoryOptions,
+    filterOptions,
+    planMetrics,
+    timeStatusBreakdown,
+    capaStatusBreakdown,
+    planTeamBreakdown,
+    advancedPlanMetrics,
+    handleExportExcel,
+    handleCaptureScreenshot,
+    currentPlantName,
+    totalDays
+  } = useSummaryPlanLogic()
+
+  return (
+    <div className="w-full h-full flex flex-col overflow-hidden bg-[#f8fafc]">
+      <div className="flex-1 w-full overflow-y-auto">
+        <div
+          ref={reportRootRef}
+          className="production-plan-report"
+          style={{
+            background: '#ffffff',
+            minHeight: '100%',
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+            padding: '24px 32px 60px 32px',
+            color: '#0f172a',
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+          }}
+        >
+          <style>{gridCustomCss}</style>
+
+          {/* TOP CONTROL BAR CHUẨN ACTION & BỘ LỌC ERP (Bao gồm lọc PIC Điều phối) */}
+          <div className="screenshot-hide" style={{ marginBottom: 24 }}>
+            <SummaryTopControlBar
+              factoryCode={factoryCode}
+              setFactoryCode={setFactoryCode}
+              factoryOptions={factoryOptions}
+              reportType="plan"
+              reportTypeName="Kế hoạch SX"
+              handleCustomDateChange={handleCustomDateChange}
+              dateRange={dateRange}
+              selectedPic={selectedPic}
+              setSelectedPic={setSelectedPic}
+              picOptions={filterOptions?.pics || []}
+              loading={loading}
+              fetchData={fetchTimelineData}
+              handleExportExcel={handleExportExcel}
+              setIsHandbookModalOpen={setIsHandbookModalOpen}
+              handleCaptureScreenshot={handleCaptureScreenshot}
+              isCapturing={isCapturing}
+            />
+          </div>
+
+          {/* MAIN REPORT HEADER */}
+          <div
+            style={{
+              marginTop: 16,
+              marginBottom: 36,
+              paddingBottom: 18,
+              borderBottom: '2px solid #0f172a'
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 8
+              }}
+            >
+              <h1
+                style={{
+                  fontSize: 'clamp(22px, 3vw, 28px)',
+                  fontWeight: 900,
+                  letterSpacing: '-0.03em',
+                  color: '#0f172a',
+                  margin: 0,
+                  lineHeight: 1.2
+                }}
+              >
+                BÁO CÁO TỔNG HỢP TIẾN ĐỘ KẾ HOẠCH SẢN XUẤT (KHSX)
+              </h1>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                marginTop: 10,
+                fontSize: 13,
+                color: '#475569',
+                flexWrap: 'wrap'
+              }}
+            >
+              <span>
+                <b>Đơn vị:</b> {currentPlantName}
+              </span>
+              <span>•</span>
+              <span>
+                <b>Hệ thống:</b> Điều phối KHSX & Bravo ERP
+              </span>
+              {dateRange && dateRange[0] && dateRange[1] && (
+                <>
+                  <span>•</span>
+                  <span>
+                    <b>Phạm vi kế hoạch:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays} ngày)
+                  </span>
+                </>
+              )}
+              {selectedPic !== 'ALL' && (
+                <>
+                  <span>•</span>
+                  <span>
+                    <b>PIC:</b> {selectedPic}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* I. HERO KPI METRICS CHỦ CHỐT CHO ĐIỀU PHỐI KHSX */}
+          <PlanHeroKpiCards planMetrics={planMetrics} />
+
+          {/* 1. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI) */}
+          <PlanPicAnalysisSection
+            picBreakdown={picBreakdown || []}
+            plantName={currentPlantName}
+            selectedPic={selectedPic}
+            onSelectPic={setSelectedPic}
+            showPicTable={showPicSummaryTable}
+            setShowPicTable={setShowPicSummaryTable}
+            picChartMode={picChartMode}
+            setPicChartMode={setPicChartMode}
+          />
+
+          {/* 2. TIẾN ĐỘ & XU HƯỚNG TĂNG TRƯỞNG KHSX THEO DẢI NGÀY CỦA PIC */}
+          <PlanPicTimelineSection
+            picTimelineBreakdown={picTimelineBreakdown || { dailyList: [], picList: [] }}
+            plantName={currentPlantName}
+            totalDays={totalDays}
+            selectedPic={selectedPic}
+            onSelectPic={setSelectedPic}
+          />
+
+          {/* 3 & 4. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (SO VỚI ĐỊNH MỨC & NĂNG LỰC) */}
+          <PlanTimeAndCapaSection
+            timeStatusBreakdown={timeStatusBreakdown || []}
+            capaStatusBreakdown={capaStatusBreakdown || []}
+          />
+
+          {/* 5. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN */}
+          <PlanTeamBottleneckSection
+            advancedPlanMetrics={advancedPlanMetrics || {}}
+            teamBreakdown={planTeamBreakdown || []}
+          />
+
+          {/* MODAL CẨM NANG CÔNG THỨC */}
+          <FormulaHandbookModal
+            isOpen={isHandbookModalOpen}
+            open={isHandbookModalOpen}
+            onClose={() => setIsHandbookModalOpen(false)}
+            defaultReportType="plan"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}

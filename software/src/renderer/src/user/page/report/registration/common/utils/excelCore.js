@@ -189,8 +189,8 @@ export function buildHierarchicalHeaders(rawMatrix, headerRowIndex) {
   let hasTwoLevels = false
 
   for (let c = 0; c < maxCols; c++) {
-    const rawVal1 = (row1[c] !== undefined && row1[c] !== null) ? String(row1[c]).trim() : ''
-    const rawVal2 = (row2[c] !== undefined && row2[c] !== null) ? String(row2[c]).trim() : ''
+    const rawVal1 = row1[c] !== undefined && row1[c] !== null ? String(row1[c]).trim() : ''
+    const rawVal2 = row2[c] !== undefined && row2[c] !== null ? String(row2[c]).trim() : ''
 
     const norm1 = normalizeKey(rawVal1)
     const norm2 = normalizeKey(rawVal2)

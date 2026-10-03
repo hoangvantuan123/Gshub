@@ -1,4 +1,5 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
+import { useState } from 'react'
 import {
   RotateCcw,
   FileSpreadsheet,
@@ -12,8 +13,16 @@ import {
   Download,
   Copy,
   Search,
-  X
+  X,
+  BookOpen,
+  ExternalLink,
+  TableProperties,
+  Eye,
+  EyeOff
 } from 'lucide-react'
+import { openChildWindow } from '@renderer/utils/openChildWindow'
+import { Button } from '@renderer/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import {
   ResponsiveContainer,
   BarChart,
@@ -39,7 +48,7 @@ import {
   executiveGridTheme,
   gridCustomCss
 } from './reportUIComponents'
-import { PlanFormulaHandbookModal } from './PlanFormulaHandbookModal'
+import { FormulaHandbookModal } from '../../../handbook/FormulaHandbookModal'
 import { useQuevoGs5PlanLogic } from '../hooks/useQuevoGs5PlanLogic'
 
 export default function QuevoGs5PlanReport(props) {
@@ -119,6 +128,24 @@ export default function QuevoGs5PlanReport(props) {
     handleCaptureScreenshot
   } = logic
 
+  const [timeChartMode, setTimeChartMode] = useState('count')
+  const [capaChartMode, setCapaChartMode] = useState('count')
+
+  const handleOpenHandbook = () => {
+    try {
+      openChildWindow({
+        path: '/sub/report/handbook/formula?type=plan',
+        title: 'Cẩm nang công thức & Từ điển dữ liệu Kế hoạch Sản xuất',
+        width: 1250,
+        height: 850,
+        id: 'report-formula-handbook-window'
+      })
+    } catch (e) {
+      console.warn('Lỗi mở window con cẩm nang, fallback sang modal:', e)
+      setShowFormulaModal(true)
+    }
+  }
+
   return (
     <div
       ref={reportRootRef}
@@ -173,90 +200,63 @@ export default function QuevoGs5PlanReport(props) {
         </div>
       </div>
 
-      {/* 1. TOP TOOLBAR & CONTROLS */}
-      <div
-        className="report-interactive-toolbar screenshot-hide"
-        style={{
-          borderTop: '1px solid #e2e8f0',
-          borderBottom: '1px solid #e2e8f0',
-          padding: '14px 0',
-          marginBottom: 26,
-          background: '#ffffff',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12
-        }}
-      >
-        {/* Hàng 1: Chọn đợt nạp & Nhóm nút thao tác chính */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 10
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {masterList && masterList.length > 0 ? (
-              <MasterBatchSearchSelect
-                masterList={masterList}
-                selectedMasterKey={selectedMasterKey}
-                onSelectMaster={onSelectMaster}
-                onRefreshMaster={onRefreshMaster}
-                loading={loadingMaster}
-              />
-            ) : (
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '4px 10px',
-                  background: '#fffbeb',
-                  border: '1px solid #fde68a',
-                  borderRadius: 4,
-                  fontSize: 12,
-                  color: '#92400e',
-                  fontWeight: 600
-                }}
-              >
-                <span>⚠️ Chưa có đợt KHSX nào được đăng ký cho {plantName || 'nhà máy'}</span>
-              </div>
-            )}
-          </div>
+      {/* 1. TOP TOOLBAR & CONTROLS (Chuẩn Action Toolbar ERP) */}
+      <div className="report-interactive-toolbar screenshot-hide w-full bg-white border-y border-slate-200 px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap mb-6">
+        <div className="flex items-center gap-2 flex-wrap">
+          {masterList && masterList.length > 0 ? (
+            <MasterBatchSearchSelect
+              masterList={masterList}
+              selectedMasterKey={selectedMasterKey}
+              onSelectMaster={onSelectMaster}
+              onRefreshMaster={onRefreshMaster}
+              loading={loadingMaster}
+            />
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-800 text-[11px] font-semibold">
+              <span>⚠️ Chưa có đợt KHSX nào được đăng ký cho {plantName || 'nhà máy'}</span>
+            </div>
+          )}
+        </div>
 
-          {/* Nhóm công cụ thao tác */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <PureButton
-              icon={
-                <span style={{ fontWeight: 900, fontSize: 13, color: '#0369a1', lineHeight: 1 }}>
-                  !
-                </span>
-              }
-              onClick={() => setShowFormulaModal(true)}
-              style={{
-                borderColor: '#38bdf8',
-                color: '#0369a1',
-                background: '#f0f9ff',
-                fontWeight: 700
-              }}
-              title="Xem toàn bộ sổ tay công thức, nguồn dữ liệu và vị trí áp dụng"
+        {/* Nhóm nút tác vụ chuẩn ERP */}
+        <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleOpenHandbook}
+            className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+            title="Mở cẩm nang công thức và giải thích thuật ngữ trong cửa sổ mới"
+          >
+            <BookOpen size={13} className="text-emerald-600" />
+            <span>CẨM NANG</span>
+          </Button>
+
+          {handleExportExcel && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExportExcel}
+              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+              title="Xuất file Excel báo cáo"
             >
-              Công thức & Chỉ số (!)
-            </PureButton>
-            <PureButton icon={<FileSpreadsheet size={12} />} onClick={handleExportExcel}>
-              Xuất Excel (XLSX)
-            </PureButton>
-            <PureButton
-              type="primary"
-              loading={isCapturing}
-              icon={<Camera size={12} />}
+              <FileSpreadsheet size={13} className="text-emerald-600" />
+              <span>XUẤT EXCEL</span>
+            </Button>
+          )}
+
+          {handleCaptureScreenshot && (
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleCaptureScreenshot}
+              disabled={isCapturing}
+              className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
+              title="Chụp ảnh toàn bộ báo cáo để xuất file PNG"
             >
-              Tải ảnh toàn bộ báo cáo
-            </PureButton>
-          </div>
+              <Camera size={13} className="text-indigo-600" />
+              <span>{isCapturing ? 'ĐANG CHỤP...' : 'TẢI ẢNH BÁO CÁO'}</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -283,9 +283,6 @@ export default function QuevoGs5PlanReport(props) {
           >
             BÁO CÁO ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT (KHSX)
           </h1>
-          <div style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>
-            Dữ liệu phân tích điều phối từ hệ thống ERP & MES Engine
-          </div>
         </div>
 
         <div
@@ -570,7 +567,7 @@ export default function QuevoGs5PlanReport(props) {
         </div>
       </div>
 
-  {/* 5. THEO PIC ĐIỀU PHỐI (BẢNG OPENAI & BIỂU ĐỒ CỘT NGANG XẾP HẠNG TỶ LỆ ĐẠT CHUẨN) */}
+      {/* 5. THEO PIC ĐIỀU PHỐI (BẢNG OPENAI & BIỂU ĐỒ CỘT NGANG XẾP HẠNG TỶ LỆ ĐẠT CHUẨN) */}
       <div
         ref={chart4Ref}
         style={{
@@ -658,82 +655,24 @@ export default function QuevoGs5PlanReport(props) {
             </div>
 
             {/* Mode Switcher */}
-            <div
-              className="screenshot-hide"
-              style={{
-                display: 'inline-flex',
-                background: '#f1f5f9',
-                padding: '2px',
-                borderRadius: 6,
-                border: '1px solid #e2e8f0'
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setPicChartMode('volume')}
-                style={{
-                  padding: '5px 10px',
-                  fontSize: 11.5,
-                  fontWeight:
-                    picChartMode === 'volume' ||
-                      picChartMode === 'composed' ||
-                      picChartMode === 'stacked'
-                      ? 700
-                      : 500,
-                  color:
-                    picChartMode === 'volume' || picChartMode === 'composed' || picChartMode === 'stacked' ? '#ffffff' : '#64748b',
-                  background:
-                    picChartMode === 'volume' || picChartMode === 'composed' || picChartMode === 'stacked' ? '#01411b' : 'transparent',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  boxShadow:
-                    picChartMode === 'volume' ||
-                      picChartMode === 'composed' ||
-                      picChartMode === 'stacked'
-                      ? '0 1px 2px rgba(0,0,0,0.06)'
-                      : 'none',
-                  transition: 'all 0.15s ease'
-                }}
+            <div className="screenshot-hide">
+              <Tabs
+                value={picChartMode}
+                onValueChange={(val) => setPicChartMode(val)}
+                className="w-auto"
               >
-                Khối lượng (Lệnh)
-              </button>
-              <button
-                type="button"
-                onClick={() => setPicChartMode('rate')}
-                style={{
-                  padding: '5px 10px',
-                  fontSize: 11.5,
-                  fontWeight: picChartMode === 'rate' ? 700 : 500,
-                  color: picChartMode === 'rate' ? '#ffffff' : '#64748b',
-                  background: picChartMode === 'rate' ? '#01411b' : 'transparent',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  boxShadow: picChartMode === 'rate' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                Tỷ lệ cơ cấu (%)
-              </button>
-              <button
-                type="button"
-                onClick={() => setPicChartMode('pass')}
-                style={{
-                  padding: '5px 10px',
-                  fontSize: 11.5,
-                  fontWeight: picChartMode === 'pass' ? 700 : 500,
-                  color: picChartMode === 'pass' ? '#ffffff' : '#64748b',
-                  background: picChartMode === 'pass' ? '#01411b' : 'transparent',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  boxShadow: picChartMode === 'pass' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                Xếp hạng Đạt chuẩn (%)
-              </button>
+                <TabsList variant="line">
+                  <TabsTrigger value="volume" variant="line">
+                    Khối lượng (Lệnh)
+                  </TabsTrigger>
+                  <TabsTrigger value="rate" variant="line">
+                    Tỷ lệ cơ cấu (%)
+                  </TabsTrigger>
+                  <TabsTrigger value="pass" variant="line">
+                    Xếp hạng Đạt chuẩn (%)
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
           </div>
 
@@ -903,7 +842,7 @@ export default function QuevoGs5PlanReport(props) {
                     ...r,
                     name: r.pic
                   }))}
-                  margin={{ top: 10, right: 80, left: 16, bottom: 10 }}
+                  margin={{ top: 10, right: 90, left: 16, bottom: 10 }}
                   barSize={24}
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
@@ -966,7 +905,7 @@ export default function QuevoGs5PlanReport(props) {
                       fontWeight={700}
                       offset={10}
                       isAnimationActive={false}
-                      formatter={(val) => `${val} lệnh`}
+                      formatter={(val) => (val > 0 ? `${val} lệnh` : '')}
                     />
                   </Bar>
                 </BarChart>
@@ -1302,10 +1241,8 @@ export default function QuevoGs5PlanReport(props) {
             </tbody>
           </table>
         </div>
-
-
       </div>
-      {/* 3 & 4. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
+      {/* 2 & 3. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
       <div
         style={{
           display: 'grid',
@@ -1313,9 +1250,9 @@ export default function QuevoGs5PlanReport(props) {
           gap: 32,
           marginBottom: 44
         }}
-        className='mt-2'
+        className="mt-2"
       >
-        {/* SECTION 3: TRẠNG THÁI THỜI GIAN (SO VỚI ĐM) */}
+        {/* SECTION 2: TRẠNG THÁI THỜI GIAN (SO VỚI ĐM) */}
         <div
           ref={chart2Ref}
           style={{
@@ -1340,9 +1277,27 @@ export default function QuevoGs5PlanReport(props) {
                 So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch
               </div>
             </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Tabs value={timeChartMode} onValueChange={setTimeChartMode}>
+                <TabsList>
+                  <TabsTrigger value="count">Số lượng (Lệnh)</TabsTrigger>
+                  <TabsTrigger value="rate">Tỷ lệ cơ cấu (%)</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
 
-          <div style={{ height: 240, width: '100%' }}>
+          <div
+            style={{
+              height: 240,
+              width: '100%',
+              border: '1px solid #e2e8f0',
+              borderRadius: 8,
+              padding: '14px 16px 14px 6px',
+              background: '#ffffff'
+            }}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 layout="vertical"
@@ -1353,9 +1308,12 @@ export default function QuevoGs5PlanReport(props) {
                 <XAxis
                   type="number"
                   stroke="#64748b"
+                  domain={timeChartMode === 'rate' ? [0, 100] : undefined}
+                  unit={timeChartMode === 'rate' ? '%' : undefined}
                   tick={{ fontSize: 11, fill: '#64748b' }}
                   axisLine={{ stroke: '#cbd5e1' }}
                   tickLine={false}
+                  tickFormatter={timeChartMode === 'rate' ? (val) => `${val}%` : undefined}
                 />
                 <YAxis
                   dataKey="name"
@@ -1368,21 +1326,21 @@ export default function QuevoGs5PlanReport(props) {
                 />
                 <RechartsTooltip content={<ExecutiveChartTooltip />} />
                 <Bar
-                  dataKey="count"
-                  name="Số lệnh"
+                  dataKey={timeChartMode === 'rate' ? 'rate' : 'count'}
+                  name={timeChartMode === 'rate' ? 'Tỷ lệ' : 'Số lệnh'}
                   barSize={24}
                   radius={[0, 4, 4, 0]}
                   isAnimationActive={false}
                 >
                   <LabelList
-                    dataKey="count"
+                    dataKey={timeChartMode === 'rate' ? 'rate' : 'count'}
                     position="right"
                     fill="#0f172a"
                     fontSize={11.5}
                     fontWeight={700}
                     offset={8}
                     isAnimationActive={false}
-                    formatter={(val) => `${val} lệnh`}
+                    formatter={(val) => (timeChartMode === 'rate' ? `${val}%` : `${val} lệnh`)}
                   />
                   {timeStatusBreakdown.map((entry, index) => (
                     <Cell key={`cell-t-${index}`} fill={entry.color} />
@@ -1393,7 +1351,7 @@ export default function QuevoGs5PlanReport(props) {
           </div>
         </div>
 
-        {/* SECTION 4: TRẠNG THÁI CAPA (ĐÁNH GIÁ THEO NĂNG LỰC) */}
+        {/* SECTION 3: TRẠNG THÁI CAPA (ĐÁNH GIÁ THEO NĂNG LỰC) */}
         <div
           ref={chart3Ref}
           style={{
@@ -1418,9 +1376,27 @@ export default function QuevoGs5PlanReport(props) {
                 Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống
               </div>
             </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Tabs value={capaChartMode} onValueChange={setCapaChartMode}>
+                <TabsList>
+                  <TabsTrigger value="count">Số lượng (Lệnh)</TabsTrigger>
+                  <TabsTrigger value="rate">Tỷ lệ cơ cấu (%)</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
 
-          <div style={{ height: 240, width: '100%' }}>
+          <div
+            style={{
+              height: 240,
+              width: '100%',
+              border: '1px solid #e2e8f0',
+              borderRadius: 8,
+              padding: '14px 16px 14px 6px',
+              background: '#ffffff'
+            }}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 layout="vertical"
@@ -1431,9 +1407,12 @@ export default function QuevoGs5PlanReport(props) {
                 <XAxis
                   type="number"
                   stroke="#64748b"
+                  domain={capaChartMode === 'rate' ? [0, 100] : undefined}
+                  unit={capaChartMode === 'rate' ? '%' : undefined}
                   tick={{ fontSize: 11, fill: '#64748b' }}
                   axisLine={{ stroke: '#cbd5e1' }}
                   tickLine={false}
+                  tickFormatter={capaChartMode === 'rate' ? (val) => `${val}%` : undefined}
                 />
                 <YAxis
                   dataKey="name"
@@ -1446,21 +1425,21 @@ export default function QuevoGs5PlanReport(props) {
                 />
                 <RechartsTooltip content={<ExecutiveChartTooltip />} />
                 <Bar
-                  dataKey="count"
-                  name="Số lệnh"
+                  dataKey={capaChartMode === 'rate' ? 'rate' : 'count'}
+                  name={capaChartMode === 'rate' ? 'Tỷ lệ' : 'Số lệnh'}
                   barSize={24}
                   radius={[0, 4, 4, 0]}
                   isAnimationActive={false}
                 >
                   <LabelList
-                    dataKey="count"
+                    dataKey={capaChartMode === 'rate' ? 'rate' : 'count'}
                     position="right"
                     fill="#0f172a"
                     fontSize={11.5}
                     fontWeight={700}
                     offset={8}
                     isAnimationActive={false}
-                    formatter={(val) => `${val} lệnh`}
+                    formatter={(val) => (capaChartMode === 'rate' ? `${val}%` : `${val} lệnh`)}
                   />
                   {capaStatusBreakdown.map((entry, index) => (
                     <Cell key={`cell-c-${index}`} fill={entry.color} />
@@ -1471,8 +1450,6 @@ export default function QuevoGs5PlanReport(props) {
           </div>
         </div>
       </div>
-
-    
 
       {/* 6. PHÂN TÍCH CHUYÊN SÂU HIỆU QUẢ ĐIỀU HÀNH & ĐIỂM NGHẼN TỔ SẢN XUẤT */}
       <div
@@ -1904,9 +1881,7 @@ export default function QuevoGs5PlanReport(props) {
               alignItems: 'center'
             }}
           >
-            <span>
-              5. LỆNH THEO TRẠNG THÁI ĐP – SX (DANH SÁCH CHI TIẾT TỪNG LỆNH)
-            </span>
+            <span>5. LỆNH THEO TRẠNG THÁI ĐP – SX (DANH SÁCH CHI TIẾT TỪNG LỆNH)</span>
           </div>
           <div
             style={{
@@ -1917,7 +1892,10 @@ export default function QuevoGs5PlanReport(props) {
               maxWidth: 960
             }}
           >
-            Bảng dữ liệu chi tiết toàn bộ <b>{(displayDetailList || sortedData || []).length} lệnh</b> điều phối kế hoạch sản xuất tại {plantName || 'Nhà máy'}. Tổng hợp chi tiết tiến độ kế hoạch, thực tế sản xuất, định mức thời gian, tải capa và trạng thái khớp lệnh.
+            Bảng dữ liệu chi tiết toàn bộ{' '}
+            <b>{(displayDetailList || sortedData || []).length} lệnh</b> điều phối kế hoạch sản xuất
+            tại {plantName || 'Nhà máy'}. Tổng hợp chi tiết tiến độ kế hoạch, thực tế sản xuất, định
+            mức thời gian, tải capa và trạng thái khớp lệnh.
           </div>
         </div>
 
@@ -1956,7 +1934,11 @@ export default function QuevoGs5PlanReport(props) {
               Tổng SL Kế hoạch:{' '}
               <b style={{ color: '#0f172a' }}>
                 {(displayDetailList || sortedData || [])
-                  .reduce((acc, d) => acc + (Number(d.TargetPassQty ?? d.TargetProdQty ?? d.planQty) || 0), 0)
+                  .reduce(
+                    (acc, d) =>
+                      acc + (Number(d.TargetPassQty ?? d.TargetProdQty ?? d.planQty) || 0),
+                    0
+                  )
                   .toLocaleString('vi-VN')}
               </b>
             </span>
@@ -1973,10 +1955,18 @@ export default function QuevoGs5PlanReport(props) {
               <b style={{ color: '#01411b' }}>
                 {(() => {
                   const list = displayDetailList || sortedData || []
-                  const p = list.reduce((acc, d) => acc + (Number(d.TargetPassQty ?? d.TargetProdQty ?? d.planQty) || 0), 0)
-                  const a = list.reduce((acc, d) => acc + (Number(d.StatPassQty ?? d.actualQty) || 0), 0)
+                  const p = list.reduce(
+                    (acc, d) =>
+                      acc + (Number(d.TargetPassQty ?? d.TargetProdQty ?? d.planQty) || 0),
+                    0
+                  )
+                  const a = list.reduce(
+                    (acc, d) => acc + (Number(d.StatPassQty ?? d.actualQty) || 0),
+                    0
+                  )
                   return p > 0 ? ((a / p) * 100).toFixed(1) : '100.0'
-                })()}%
+                })()}
+                %
               </b>
             </span>
             <span>
@@ -1994,39 +1984,49 @@ export default function QuevoGs5PlanReport(props) {
             className="screenshot-hide"
             style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
           >
-            <PureButton
-              icon={<Search size={12} />}
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setShowDetailSearch((prev) => !prev)}
+              className={`uppercase text-[11px] font-semibold ${
+                showDetailSearch
+                  ? 'text-emerald-700 hover:text-emerald-800'
+                  : 'text-slate-700 hover:text-slate-900'
+              }`}
               title="Mở tìm kiếm nhanh trong bảng (Ctrl + F)"
-              style={{
-                borderColor: showDetailSearch ? '#01411b' : '#cbd5e1',
-                color: showDetailSearch ? '#01411b' : '#334155',
-                background: showDetailSearch ? '#f0fdf4' : '#ffffff'
-              }}
             >
-              Tìm kiếm (Ctrl+F)
-            </PureButton>
-            <PureButton
-              icon={<Copy size={12} />}
+              <Search size={13} className="text-blue-500" />
+              <span>TÌM KIẾM (CTRL+F)</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
-                const colsToCopy = (detailGridCols || columns || []).filter((c) => c.id && c.id !== 'WorkingTag')
+                const colsToCopy = (detailGridCols || columns || []).filter(
+                  (c) => c.id && c.id !== 'WorkingTag'
+                )
                 handleCopyTable(
                   displayDetailList || sortedData,
                   colsToCopy.map((c) => c.title || c.id),
                   colsToCopy.map((c) => c.id)
                 )
               }}
+              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
               title="Sao chép toàn bộ dữ liệu bảng này vào Clipboard"
             >
-              Sao chép
-            </PureButton>
-            <PureButton
-              icon={<Download size={12} />}
+              <Copy size={13} className="text-slate-500" />
+              <span>SAO CHÉP</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleExportDetailExcel || handleExportExcel}
+              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
               title="Xuất bảng chi tiết ra file Excel"
             >
-              Excel
-            </PureButton>
+              <FileSpreadsheet size={13} className="text-emerald-600" />
+              <span>XUẤT EXCEL</span>
+            </Button>
           </div>
         </div>
 
@@ -2066,9 +2066,10 @@ export default function QuevoGs5PlanReport(props) {
       </div>
 
       {/* PLAN FORMULA HANDBOOK MODAL */}
-      <PlanFormulaHandbookModal
+      <FormulaHandbookModal
         isOpen={showFormulaModal}
         onClose={() => setShowFormulaModal(false)}
+        defaultReportType="plan"
       />
     </div>
   )

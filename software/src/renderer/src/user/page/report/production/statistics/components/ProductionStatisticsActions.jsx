@@ -1,12 +1,5 @@
-import { Button } from 'antd'
-import {
-  SearchOutlined,
-  SaveOutlined,
-  DeleteRowOutlined,
-  FileExcelOutlined,
-  PrinterOutlined,
-  ShareAltOutlined
-} from '@ant-design/icons'
+import { Button } from '../../../../../../components/ui/button'
+import { Search, Save, Trash2, FileSpreadsheet, Printer, Share2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export default function ProductionStatisticsActions({
@@ -25,19 +18,17 @@ export default function ProductionStatisticsActions({
   const canDelete = Boolean(permissions.canDelete)
 
   return (
-    <div className="flex items-center gap-2 py-0.5 overflow-x-auto max-w-full">
+    <div className="flex items-center gap-1.5 py-0.5 overflow-x-auto max-w-full">
       {canSearch && (
         <Button
           key="Search"
-          icon={<SearchOutlined className="text-blue-500" style={{ fontSize: '12px' }} />}
-          size="small"
+          size="sm"
+          variant="ghost"
           onClick={handleSearchData}
-          className="uppercase text-[10px] whitespace-nowrap font-medium"
-          style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-          color="default"
-          variant="link"
+          className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
           title="Tìm kiếm (Ctrl+Q)"
         >
+          <Search size={13} className="text-blue-500" />
           {t('TÌM KIẾM')}
         </Button>
       )}
@@ -45,15 +36,13 @@ export default function ProductionStatisticsActions({
       {canSave && (
         <Button
           key="Save"
-          icon={<SaveOutlined className="text-green-500" style={{ fontSize: '12px' }} />}
-          size="small"
+          size="sm"
+          variant="ghost"
           onClick={handleSaveData}
-          className="uppercase text-[10px] whitespace-nowrap font-medium"
-          style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-          color="default"
-          variant="link"
+          className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
           title="Lưu dữ liệu (Ctrl+S)"
         >
+          <Save size={13} className="text-emerald-600" />
           {t('LƯU')}
         </Button>
       )}
@@ -61,15 +50,13 @@ export default function ProductionStatisticsActions({
       {handleDeleteDataSheet && canDelete && (
         <Button
           key="Delete"
-          icon={<DeleteRowOutlined className="text-red-500" style={{ fontSize: '12px' }} />}
-          size="small"
+          size="sm"
+          variant="ghost"
           onClick={handleDeleteDataSheet}
-          className="uppercase text-[10px] whitespace-nowrap font-medium"
-          style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-          color="default"
-          variant="link"
+          className="uppercase text-[11px] font-semibold text-rose-600 hover:text-rose-700"
           title="Xóa dòng (Ctrl+Shift+D)"
         >
+          <Trash2 size={13} className="text-rose-500" />
           {t('XÓA SHEET')}
         </Button>
       )}
@@ -77,15 +64,13 @@ export default function ProductionStatisticsActions({
       {handleExportExcel && (
         <Button
           key="ExportExcel"
-          icon={<FileExcelOutlined className="text-emerald-600" style={{ fontSize: '12px' }} />}
-          size="small"
+          size="sm"
+          variant="ghost"
           onClick={handleExportExcel}
-          className="uppercase text-[10px] whitespace-nowrap font-medium"
-          style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-          color="default"
-          variant="link"
+          className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
           title="Xuất file Excel"
         >
+          <FileSpreadsheet size={13} className="text-emerald-600" />
           {t('XUẤT EXCEL')}
         </Button>
       )}
@@ -93,15 +78,13 @@ export default function ProductionStatisticsActions({
       {handlePrint && (
         <Button
           key="Print"
-          icon={<PrinterOutlined className="text-indigo-600" style={{ fontSize: '12px' }} />}
-          size="small"
+          size="sm"
+          variant="ghost"
           onClick={handlePrint}
-          className="uppercase text-[10px] whitespace-nowrap font-medium"
-          style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-          color="default"
-          variant="link"
+          className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
           title="In báo cáo thống kê"
         >
+          <Printer size={13} className="text-indigo-600" />
           {t('IN BÁO CÁO')}
         </Button>
       )}
@@ -109,15 +92,13 @@ export default function ProductionStatisticsActions({
       {handleOpenPublicLink && (
         <Button
           key="PublicLink"
-          icon={<ShareAltOutlined className="text-sky-600" style={{ fontSize: '12px' }} />}
-          size="small"
+          size="sm"
+          variant="ghost"
           onClick={handleOpenPublicLink}
-          className="uppercase text-[10px] whitespace-nowrap font-medium"
-          style={{ fontSize: '10px', padding: '2px 6px', height: '24px' }}
-          color="default"
-          variant="link"
+          className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
           title="Xem đường dẫn báo cáo công khai (Public)"
         >
+          <Share2 size={13} className="text-sky-600" />
           {t('LINK PUBLIC')}
         </Button>
       )}

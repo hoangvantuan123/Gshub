@@ -49,7 +49,8 @@ import {
   ShieldAlert,
   UserCheck,
   UserCog,
-  FolderTree
+  FolderTree,
+  TrendingUp
 } from 'lucide-react'
 
 export const iconComponents = {
@@ -93,6 +94,7 @@ export const iconComponents = {
   ApartmentOutlined: Workflow,
   BranchesOutlined: Network,
   WorkflowOutlined: Workflow,
+  TrendingUpOutlined: TrendingUp,
 
   // Direct Lucide names
   Package,
@@ -145,7 +147,8 @@ export const iconComponents = {
   ShieldAlert,
   UserCheck,
   UserCog,
-  FolderTree
+  FolderTree,
+  TrendingUp
 }
 
 export const iconMapping = Object.fromEntries(

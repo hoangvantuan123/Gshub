@@ -29,3 +29,37 @@ type ERPPlanMaster struct {
 func (ERPPlanMaster) TableName() string {
 	return "_ERPPlanMaster"
 }
+
+// PlanPageInfo: Thông tin phân trang chuẩn cho báo cáo KHSX / TKSX
+type PlanPageInfo struct {
+	Page         int   `json:"page"`
+	PageSize     int   `json:"pageSize"`
+	TotalRows    int   `json:"totalRows"`
+	Total        int64 `json:"total"`
+	TotalPages   int   `json:"totalPages"`
+	TotalAll     int64 `json:"totalAll"`
+	LoadedCount  int   `json:"loadedCount"`
+	TotalColumns int   `json:"totalColumns"`
+}
+
+// PlanRegistrationSaveRequest: Body gửi lên khi lưu đợt nạp dữ liệu KHSX / TKSX
+type PlanRegistrationSaveRequest struct {
+	RegCode       string                   `json:"regCode"`
+	ReportType    string                   `json:"reportType"`
+	FactoryCode   string                   `json:"factoryCode"`
+	FactoryName   string                   `json:"factoryName"`
+	ApplyDate     string                   `json:"applyDate"`
+	Remark        string                   `json:"remark"`
+	Status        string                   `json:"status"`
+	IsDraft       bool                     `json:"isDraft"`
+	TotalRows     int                      `json:"totalRows"`
+	CreatedBy     string                   `json:"createdBy"`
+	CreatedByName string                   `json:"createdByName"`
+	UserSeq       string                   `json:"userSeq"`
+	UserName      string                   `json:"userName"`
+	StatsData     []ERPProdStatsDetail     `json:"statsData"`
+	PlanData      []ERPPlanDetail          `json:"planData"`
+	SheetData     []map[string]interface{} `json:"sheetData"`
+	Data          []map[string]interface{} `json:"data"`
+}
+

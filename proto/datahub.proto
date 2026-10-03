@@ -9,7 +9,7 @@ import "config.proto";
 import "work_process.proto";
 import "proxy.proto";
 import "audit.proto";
-import "health.proto";
+import "plan_report.proto";
 
 // ==========================================
 // DataHub Master gRPC Service Definition
@@ -37,7 +37,15 @@ service DataHubService {
   rpc GetAllEndpoints (GetEndpointsProtoRequest) returns (GetEndpointsProtoResponse);
   rpc SaveEndpoint (SaveEndpointProtoRequest) returns (SaveEndpointProtoResponse);
 
-  // 6. Audit Logs & System Health
+  // 6. Production Plan & Stats Reports (KHSX & TKSX)
+  rpc QueryPlanMaster (PlanMasterProtoRequest) returns (PlanMasterProtoResponse);
+  rpc QueryPlanDetail (PlanDetailProtoRequest) returns (PlanDetailProtoResponse);
+  rpc QueryProdStatsDetail (ProdStatsDetailProtoRequest) returns (ProdStatsDetailProtoResponse);
+  rpc SavePlanRegistration (PlanRegistrationSaveProtoRequest) returns (PlanRegistrationSaveProtoResponse);
+  rpc GetProductionPlanReport (PlanReportProtoRequest) returns (PlanReportProtoResponse);
+  rpc GetProductionStatisticsReport (ProdStatsReportProtoRequest) returns (ProdStatsReportProtoResponse);
+
+  // 7. Audit Logs & System Health
   rpc GetAuditLogs (AuditLogsProtoRequest) returns (AuditLogsProtoResponse);
   rpc HealthCheck (HealthProtoRequest) returns (HealthProtoResponse);
 }

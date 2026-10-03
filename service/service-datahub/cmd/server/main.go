@@ -17,6 +17,7 @@ import (
 	"service-datahub/services"
 	"service-datahub/services/report/plan_detail"
 	"service-datahub/services/report/plan_master"
+	"service-datahub/services/report/plan_report"
 	"service-datahub/services/report/prod_stats_detail"
 
 	"go.uber.org/zap"
@@ -63,6 +64,7 @@ func main() {
 	planMasterService := plan_master.NewPlanMasterService(db, logger)
 	planDetailService := plan_detail.NewPlanDetailService(db, logger)
 	prodStatsDetailService := prod_stats_detail.NewProdStatsDetailService(db, logger)
+	planReportService := plan_report.NewPlanReportService(db, logger)
 
 	// 5. Initialize Handlers for REST
 	authHandler := handlers.NewAuthHandler(authService, logger)
@@ -75,6 +77,7 @@ func main() {
 	planMasterHandler := handlers.NewPlanMasterHandler(planMasterService, planDetailService, prodStatsDetailService, db, logger)
 	planDetailHandler := handlers.NewPlanDetailHandler(planDetailService, logger)
 	prodStatsDetailHandler := handlers.NewProdStatsDetailHandler(prodStatsDetailService, logger)
+	planReportHandler := handlers.NewPlanReportHandler(planReportService, logger)
 	healthHandler := handlers.NewHealthHandler(db)
 
 	// 6. Setup HTTP REST Router
@@ -89,6 +92,7 @@ func main() {
 		planMasterHandler,
 		planDetailHandler,
 		prodStatsDetailHandler,
+		planReportHandler,
 		healthHandler,
 		logger,
 	)

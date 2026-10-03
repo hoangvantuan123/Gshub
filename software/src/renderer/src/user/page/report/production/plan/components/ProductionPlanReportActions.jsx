@@ -9,7 +9,6 @@ import {
   Plus,
   Share2
 } from 'lucide-react'
-import { message, Modal } from 'antd'
 
 export default function ProductionPlanReportActions({
   handleSearchData,
@@ -29,7 +28,7 @@ export default function ProductionPlanReportActions({
   const handleCopyPublicLink = () => {
     const url = `${window.location.origin}/#/public/report/plan?plant=${plantKey}`
     navigator.clipboard.writeText(url)
-    message.success(t('Đã sao chép liên kết báo cáo KHSX công khai'))
+    alert(t('Đã sao chép liên kết báo cáo KHSX công khai'))
   }
 
   const handlePrint = () => {

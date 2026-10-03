@@ -132,6 +132,7 @@ func (s *PlanDetailService) PlanDetailQ(ctx context.Context, filters map[string]
 	pageInfo := &models.PlanPageInfo{
 		Page:         page,
 		PageSize:     pageSize,
+		TotalRows:    int(totalFiltered),
 		Total:        totalFiltered,
 		TotalAll:     s.GetTotalAll(),
 		TotalPages:   totalPages,

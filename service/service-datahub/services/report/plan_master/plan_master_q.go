@@ -119,8 +119,8 @@ func (s *PlanMasterService) PlanMasterQ(ctx context.Context, filters map[string]
 		totalPages = 1
 	}
 
-	// 7. Sắp xếp
-	sortField := `"CreatedAt"`
+	// 7. Sắp xếp (Ưu tiên theo thứ tự mới nhất ở cột ngày đăng ký báo cáo ApplyDate DESC)
+	sortField := `"ApplyDate"`
 	sortOrder := "DESC"
 	if sf, ok := filters["sortField"]; ok && sf != "" {
 		sortField = `"` + sf + `"`
@@ -129,8 +129,15 @@ func (s *PlanMasterService) PlanMasterQ(ctx context.Context, filters map[string]
 		sortOrder = "ASC"
 	}
 
+	orderClause := sortField + " " + sortOrder
+	if sortField == `"ApplyDate"` {
+		orderClause = `"ApplyDate" ` + sortOrder + `, "CreatedAt" ` + sortOrder + `, "IdSeq" ` + sortOrder
+	} else if sortField == `"CreatedAt"` {
+		orderClause = `"CreatedAt" ` + sortOrder + `, "ApplyDate" ` + sortOrder + `, "IdSeq" ` + sortOrder
+	}
+
 	var results []models.ERPPlanMaster
-	err := query.Order(sortField + " " + sortOrder).Offset(offset).Limit(pageSize).Find(&results).Error
+	err := query.Order(orderClause).Offset(offset).Limit(pageSize).Find(&results).Error
 	if err != nil {
 		return nil, nil, err
 	}
@@ -138,6 +145,7 @@ func (s *PlanMasterService) PlanMasterQ(ctx context.Context, filters map[string]
 	pageInfo := &models.PlanPageInfo{
 		Page:         page,
 		PageSize:     pageSize,
+		TotalRows:    int(totalFiltered),
 		Total:        totalFiltered,
 		TotalAll:     s.GetTotalAll(),
 		TotalPages:   totalPages,

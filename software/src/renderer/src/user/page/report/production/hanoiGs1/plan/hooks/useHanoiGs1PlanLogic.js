@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { GridCellKind } from '@glideapps/glide-data-grid'
@@ -206,7 +206,7 @@ export function useHanoiGs1PlanLogic({
   // Chart Modes (Cho phép chuyển đổi đa dạng giữa Donut, Gauge, Bar, Composed)
   const [dpChartMode, setDpChartMode] = useState('donut') // 'donut' | 'bar' | 'radial'
   const [timeCapaMode, setTimeCapaMode] = useState('donut') // 'donut' | 'bar'
-  const [picChartMode, setPicChartMode] = useState('composed') // 'composed' | 'stacked' | 'bar'
+  const [picChartMode, setPicChartMode] = useState('volume') // 'volume' | 'rate' | 'pass'
 
   // Screenshot & Chart Refs
   const [isCapturing, setIsCapturing] = useState(false)
@@ -681,7 +681,9 @@ export function useHanoiGs1PlanLogic({
       const q = detailSearchText.toLowerCase().trim()
       list = list.filter((item) => {
         return Object.values(item).some((val) =>
-          String(val ?? '').toLowerCase().includes(q)
+          String(val ?? '')
+            .toLowerCase()
+            .includes(q)
         )
       })
     }
@@ -758,10 +760,7 @@ export function useHanoiGs1PlanLogic({
         return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
       }
 
-      const val =
-        item[colId] ??
-        item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
-        ''
+      const val = item[colId] ?? item[colId.charAt(0).toLowerCase() + colId.slice(1)] ?? ''
 
       if (colObj.kind === 'Boolean') {
         const boolVal =
@@ -831,9 +830,7 @@ export function useHanoiGs1PlanLogic({
       }
 
       const plantDisplayName =
-        plantKey === 'quevo_gs5' || plantKey === 'gs5'
-          ? 'NHÀ MÁY GS QUẾ VÕ'
-          : 'NHÀ MÁY GS HÀ NỘI'
+        plantKey === 'quevo_gs5' || plantKey === 'gs5' ? 'NHÀ MÁY GS QUẾ VÕ' : 'NHÀ MÁY GS HÀ NỘI'
 
       const reportTitle = `BÁO CÁO LỆNH THEO TRẠNG THÁI ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT - ${plantDisplayName}`
 
@@ -903,10 +900,7 @@ export function useHanoiGs1PlanLogic({
         const row = [rowIdx + 1]
         validCols.forEach((col) => {
           const colId = col.id
-          const rawVal =
-            item[colId] ??
-            item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
-            ''
+          const rawVal = item[colId] ?? item[colId.charAt(0).toLowerCase() + colId.slice(1)] ?? ''
 
           if (col.kind === 'Boolean') {
             const b =

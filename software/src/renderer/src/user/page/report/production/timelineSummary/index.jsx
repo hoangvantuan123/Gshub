@@ -1,0 +1,233 @@
+import { gridCustomCss } from '../hanoiGs1/stat/components/reportUIComponents'
+import { FormulaHandbookModal } from '../handbook/FormulaHandbookModal'
+import { useTimelineSummaryLogic } from './hooks/useTimelineSummaryLogic'
+import { TopControlBar } from './components/TopControlBar'
+import { HeroKpiCards } from './components/HeroKpiCards'
+import { DailyTimelineProgressSection } from './components/DailyTimelineProgressSection'
+import { MachineRuntimeSection } from './components/MachineRuntimeSection'
+import { TeamOutputSection } from './components/TeamOutputSection'
+import { SyncLatencySection } from './components/SyncLatencySection'
+import { AutoExportSection } from './components/AutoExportSection'
+
+export default function TimelineSummaryReportPage() {
+  const {
+    factoryCode,
+    setFactoryCode,
+    reportType,
+    setReportType,
+    dateRange,
+    handleCustomDateChange,
+    loading,
+    fetchTimelineData,
+    showDailySummaryTable,
+    setShowDailySummaryTable,
+    showMachineSummaryTable,
+    setShowMachineSummaryTable,
+    showTeamSummaryTable,
+    setShowTeamSummaryTable,
+    showSyncTable,
+    setShowSyncTable,
+    showAutoExportTable,
+    setShowAutoExportTable,
+    showManualMachines,
+    setShowManualMachines,
+    machineChartMode,
+    setMachineChartMode,
+    isHandbookModalOpen,
+    setIsHandbookModalOpen,
+    isCapturing,
+    reportRootRef,
+    factoryOptions,
+    kpiMetrics,
+    dailyAggregates,
+    displayMachineList,
+    machineGrandTotal,
+    teamAggregates,
+    teamGrandTotal,
+    missingAutoExportTickets,
+    handleCaptureScreenshot,
+    currentPlantName,
+    totalDays,
+    standardCapacityHours
+  } = useTimelineSummaryLogic()
+
+  return (
+    <div className="w-full h-full flex flex-col overflow-hidden bg-[#f8fafc]">
+      <div className="flex-1 w-full overflow-y-auto">
+        <div
+          style={{
+            width: '100%',
+            minHeight: '100%',
+            background: '#ffffff',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <style>{gridCustomCss}</style>
+
+          {/* 1. TOP CONTROL BAR (STICKY HEADER) */}
+          <TopControlBar
+            factoryCode={factoryCode}
+            setFactoryCode={setFactoryCode}
+            factoryOptions={factoryOptions}
+            reportType={reportType}
+            setReportType={setReportType}
+            dateRange={dateRange}
+            handleCustomDateChange={handleCustomDateChange}
+            loading={loading}
+            fetchTimelineData={fetchTimelineData}
+            setIsHandbookModalOpen={setIsHandbookModalOpen}
+            handleCaptureScreenshot={handleCaptureScreenshot}
+            isCapturing={isCapturing}
+          />
+
+          {/* 2. KHU VỰC NỘI DUNG BÁO CÁO (REPORT ROOT) */}
+          <div
+            ref={reportRootRef}
+            style={{
+              flex: 1,
+              padding: '24px 28px 48px',
+              maxWidth: 1600,
+              margin: '0 auto',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          >
+            {/* DOCUMENT HEADER */}
+            <div
+              style={{
+                borderBottom: '2px solid #0f172a',
+                paddingBottom: 18,
+                marginTop: 12,
+                marginBottom: 36
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 8
+                }}
+              >
+                <h1
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 900,
+                    letterSpacing: '-0.03em',
+                    color: '#0f172a',
+                    margin: 0,
+                    lineHeight: 1.2
+                  }}
+                >
+                  BÁO CÁO TỔNG HỢP TOÀN TRÌNH LỊCH SỬ SẢN XUẤT
+                </h1>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  marginTop: 6,
+                  fontSize: 12.5,
+                  color: '#475569',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <span>
+                  <b>Đơn vị:</b> {currentPlantName}
+                </span>
+                <span>•</span>
+                <span>
+                  <b>Khoảng thời gian:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays} ngày)
+                </span>
+                <span>•</span>
+                <span>
+                  <b>Chế độ:</b>{' '}
+                  {reportType === 'plan'
+                    ? 'Kế hoạch sản xuất điều phối'
+                    : 'Thống kê sản xuất & Năng suất'}
+                </span>
+              </div>
+            </div>
+
+            {/* 3. 4 TOP HERO KPI CARDS */}
+            <HeroKpiCards kpiMetrics={kpiMetrics} />
+
+            {/* 4. MỤC 1: TỔNG GIỜ CHẠY MÁY & PHÂN BỔ TẢI TRỌNG THEO CỤM MÁY */}
+            <MachineRuntimeSection
+              displayMachineList={displayMachineList}
+              machineGrandTotal={machineGrandTotal}
+              showMachineSummaryTable={showMachineSummaryTable}
+              setShowMachineSummaryTable={setShowMachineSummaryTable}
+              showManualMachines={showManualMachines}
+              setShowManualMachines={setShowManualMachines}
+              machineChartMode={machineChartMode}
+              setMachineChartMode={setMachineChartMode}
+              plantName={currentPlantName}
+              totalDays={totalDays}
+              standardCapacityHours={standardCapacityHours}
+            />
+
+            {/* 5. MỤC 2: SẢN LƯỢNG SẢN XUẤT & ĐẠT THEO TỔ SẢN XUẤT */}
+            <TeamOutputSection
+              teamAggregates={teamAggregates}
+              teamGrandTotal={teamGrandTotal}
+              showTeamSummaryTable={showTeamSummaryTable}
+              setShowTeamSummaryTable={setShowTeamSummaryTable}
+              plantName={currentPlantName}
+            />
+
+            {/* 6. MỤC 3: TIẾN TRÌNH SẢN LƯỢNG THEO DÒNG THỜI GIAN */}
+            <DailyTimelineProgressSection
+              dailyAggregates={dailyAggregates}
+              plantName={currentPlantName}
+              totalDays={totalDays}
+              showDailySummaryTable={showDailySummaryTable}
+              setShowDailySummaryTable={setShowDailySummaryTable}
+            />
+
+            {/* 6 & 7. EXECUTIVE ROW: BIỂU ĐỒ III & BIỂU ĐỒ IV (CHIA ĐÔI 1 HÀNG) */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
+                gap: 24,
+                marginBottom: 44,
+                width: '100%',
+                alignItems: 'start'
+              }}
+            >
+              {/* MỤC 3: THỐNG KÊ ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG */}
+              <SyncLatencySection
+                kpiMetrics={kpiMetrics}
+                showSyncTable={showSyncTable}
+                setShowSyncTable={setShowSyncTable}
+                plantName={currentPlantName}
+              />
+
+              {/* MỤC 4: THỐNG KÊ PHÂN BỔ LOẠI CHỨNG TỪ XUẤT/NHẬP TỰ ĐỘNG */}
+              <AutoExportSection
+                kpiMetrics={kpiMetrics}
+                missingAutoExportTickets={missingAutoExportTickets}
+                showAutoExportTable={showAutoExportTable}
+                setShowAutoExportTable={setShowAutoExportTable}
+                plantName={currentPlantName}
+              />
+            </div>
+          </div>
+
+          {/* MODAL CẨM NANG CÔNG THỨC */}
+          <FormulaHandbookModal
+            isOpen={isHandbookModalOpen}
+            open={isHandbookModalOpen}
+            onClose={() => setIsHandbookModalOpen(false)}
+            defaultReportType="stat"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}

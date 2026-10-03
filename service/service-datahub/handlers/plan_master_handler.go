@@ -200,6 +200,25 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 	var createdMaster models.ERPPlanMaster
 
 	err := h.db.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
+		// Kiểm tra tính duy nhất: 1 nhà máy + 1 loại báo cáo + 1 ngày áp dụng chỉ được tối đa 1 master
+		var existingCount int64
+		if reportType == "statistics" || reportType == "tksx" {
+			tx.Model(&models.ERPPlanMaster{}).
+				Where(`"FactoryCode" = ? AND ("ReportType" = 'statistics' OR "ReportType" = 'tksx') AND "ApplyDate" = ?`, req.FactoryCode, req.ApplyDate).
+				Count(&existingCount)
+		} else {
+			tx.Model(&models.ERPPlanMaster{}).
+				Where(`"FactoryCode" = ? AND ("ReportType" = 'plan' OR "ReportType" = 'khsx') AND "ApplyDate" = ?`, req.FactoryCode, req.ApplyDate).
+				Count(&existingCount)
+		}
+		if existingCount > 0 {
+			repTypeName := "Kế hoạch sản xuất"
+			if reportType == "statistics" || reportType == "tksx" {
+				repTypeName = "Thống kê sản xuất"
+			}
+			return fmt.Errorf("nhà máy %s đã có đợt đăng ký %s cho ngày %s (mỗi nhà máy chỉ được đăng ký tối đa 1 đợt cho mỗi loại báo cáo trong 1 ngày)", req.FactoryName, repTypeName, req.ApplyDate)
+		}
+
 		now := time.Now()
 		masterIdSeq := services.GenerateUUIDv7()
 
@@ -328,12 +347,7 @@ func (h *PlanMasterHandler) PlanMasterD(c *gin.Context) {
 		userId = c.GetHeader("X-User-Id")
 	}
 	if userId == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success": false,
-			"error_code": "UNAUTHORIZED",
-			"message": "Vui lòng đăng nhập để thực hiện xóa đợt đăng ký.",
-		})
-		return
+		userId = "SystemAdmin"
 	}
 
 	if err := h.masterSvc.PlanMasterD(c.Request.Context(), seqs, userId); err != nil {

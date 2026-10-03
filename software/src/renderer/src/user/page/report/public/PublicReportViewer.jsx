@@ -1,7 +1,7 @@
-/* eslint-disable react/prop-types */
 import { useState, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
-import { Button, Select, Tooltip, message } from 'antd'
+import { Button } from '../../../../components/ui/button'
+import { Select } from '../../../../components/ui/select'
 import { BarChart3, Calendar, Copy, LogIn, Globe, Building2, Check } from 'lucide-react'
 import ProductionStatisticsReport from '../production/hanoiGs1/stat/components/ProductionStatisticsReport'
 import {
@@ -49,7 +49,6 @@ export default function PublicReportViewer() {
     const fullUrl = window.location.href
     navigator.clipboard.writeText(fullUrl).then(() => {
       setCopied(true)
-      message.success('Đã sao chép đường link báo cáo công khai!')
       setTimeout(() => setCopied(false), 2000)
     })
   }
@@ -88,10 +87,9 @@ export default function PublicReportViewer() {
           <div className="hidden sm:flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
             <Select
-              size="small"
               value={selectedPlant}
               onChange={setSelectedPlant}
-              className="w-48 text-xs font-medium"
+              style={{ width: 220 }}
               options={[
                 { value: 'hanoi_gs1', label: '🏭 GS1 Hà Nội (Bao bì cao cấp)' },
                 { value: 'quevo_gs5', label: '🏭 GS5 Quế Võ (Carton & Sóng)' }
@@ -128,31 +126,28 @@ export default function PublicReportViewer() {
             </button>
           </div>
 
-          <Tooltip title="Sao chép liên kết chia sẻ công khai">
-            <Button
-              size="small"
-              icon={
-                copied ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )
-              }
-              onClick={handleCopyLink}
-              className="text-xs font-medium"
-            >
-              {copied ? 'Đã chép' : 'Sao chép link'}
-            </Button>
-          </Tooltip>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCopyLink}
+            title="Sao chép liên kết chia sẻ công khai"
+          >
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+            <span>{copied ? 'Đã chép' : 'Sao chép link'}</span>
+          </Button>
 
           <Button
-            type="primary"
-            size="small"
-            icon={<LogIn className="w-3.5 h-3.5" />}
+            size="sm"
+            variant="primary"
             onClick={handleGoToLogin}
-            className="bg-[#2B3A42] hover:!bg-[#1F2B32] text-xs font-semibold"
+            style={{ background: '#2B3A42', borderColor: '#2B3A42' }}
           >
-            Đăng nhập ERP
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Đăng nhập ERP</span>
           </Button>
         </div>
       </header>

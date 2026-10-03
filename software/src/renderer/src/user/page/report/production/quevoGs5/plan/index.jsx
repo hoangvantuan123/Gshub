@@ -3,7 +3,8 @@ import { useState, useEffect, useCallback } from 'react'
 import QuevoGs5PlanReport from './components/QuevoGs5PlanReport'
 import {
   queryPlanMaster,
-  queryPlanDetail
+  queryPlanDetail,
+  queryProductionPlanReport
 } from '../../../registration/services/planRegistrationService'
 
 export function parseCleanNumber(val, defaultVal = 0) {
@@ -168,7 +169,8 @@ function mapDBRowToPlanItem(item, idx, master) {
     ItemName: item.ItemName || item.itemName || 'Sản phẩm GS5 Quế Võ',
     OperationName: item.OperationName || item.operationName || '',
     OpTypeName: item.OpTypeName || item.opTypeName || '',
-    MachineName: item.MachineName || item.machineName || item.MachineCode || 'Thiết bị sản xuất GS5',
+    MachineName:
+      item.MachineName || item.machineName || item.MachineCode || 'Thiết bị sản xuất GS5',
     Unit: item.Unit || item.unit || 'Pcs',
     TargetPassQty: parseCleanNumber(item.TargetPassQty, planQty),
     TargetProdQty: parseCleanNumber(item.TargetProdQty, planQty),
@@ -278,6 +280,30 @@ export default function QuevoGs5PlanPage() {
     setLoading(true)
     try {
       let rows = []
+      // 1. Ưu tiên gọi API Tổng Hợp KHSX từ Backend cho GS5 Quế Võ
+      if (regCode || masterSeq) {
+        try {
+          const resAgg = await queryProductionPlanReport({
+            regCode: regCode,
+            masterSeq: masterSeq,
+            factoryCode: 'GS5',
+            pageSize: '10000'
+          })
+          if (resAgg?.data?.items && resAgg.data.items.length > 0) {
+            const beItems = resAgg.data.items
+            const mappedData = beItems.map((item, idx) => mapDBRowToPlanItem(item, idx, master))
+            setCachedDetail(detailKey, mappedData)
+            setPlanDataset(mappedData)
+            setDataSourceType('database')
+            setLoading(false)
+            return
+          }
+        } catch (errAgg) {
+          console.warn('Fallback sang truy vấn chi tiết PlanDetail GS5:', errAgg)
+        }
+      }
+
+      // 2. Fallback sang truy vấn trực tiếp PlanDetail nếu cần
       if (regCode || masterSeq) {
         try {
           const resPlan = await queryPlanDetail({

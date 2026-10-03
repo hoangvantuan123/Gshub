@@ -189,13 +189,7 @@ export const STATISTICS_FIELD_ALIASES = {
     'start time',
     'starttime'
   ],
-  EndDate: [
-    'thoi gian thuc hien|ngay ket thuc',
-    'ngay ket thuc',
-    'ngay kt',
-    'end date',
-    'enddate'
-  ],
+  EndDate: ['thoi gian thuc hien|ngay ket thuc', 'ngay ket thuc', 'ngay kt', 'end date', 'enddate'],
   EndTime: [
     'thoi gian thuc hien|ket thuc',
     'thoi gian thuc hien|gio ket thuc',
@@ -209,7 +203,13 @@ export const STATISTICS_FIELD_ALIASES = {
   ],
 
   // Nhóm 6: Thông tin thống kê
-  StatDate: ['thong tin thong ke|ngay thong ke', 'ngay thong ke', 'ngay tk', 'stat date', 'statdate'],
+  StatDate: [
+    'thong tin thong ke|ngay thong ke',
+    'ngay thong ke',
+    'ngay tk',
+    'stat date',
+    'statdate'
+  ],
   StatTicketNo: [
     'thong tin thong ke|so phieu thong ke',
     'so phieu thong ke',

@@ -4,7 +4,8 @@ import { getCleanDate } from '../../../common/reportUtils'
 import {
   queryPlanMaster,
   queryProdStatsDetail,
-  queryPlanDetail
+  queryPlanDetail,
+  queryProductionStatisticsReport
 } from '../../../registration/services/planRegistrationService'
 import {
   getCachedMasters,
@@ -35,8 +36,16 @@ function parseDurationToMinutes(rawTime, startTime, endTime) {
     }
 
     if (sStr.includes(':') && eStr.includes(':')) {
-      const sParts = sStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
-      const eParts = eStr.split(' ').pop().split(':').map((v) => parseFloat(v) || 0)
+      const sParts = sStr
+        .split(' ')
+        .pop()
+        .split(':')
+        .map((v) => parseFloat(v) || 0)
+      const eParts = eStr
+        .split(' ')
+        .pop()
+        .split(':')
+        .map((v) => parseFloat(v) || 0)
       const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
       const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
       let diff = eMin - sMin
@@ -177,7 +186,7 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     ''
 
   let machineCode = rawMachineCode ? String(rawMachineCode).trim() : ''
-  let machineName = rawMachineName ? String(rawMachineName).trim() : (machineCode || '')
+  let machineName = rawMachineName ? String(rawMachineName).trim() : machineCode || ''
 
   const rawTeam =
     item.TeamName ||
@@ -194,43 +203,23 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
     ''
 
   const team = rawTeam ? String(rawTeam).trim() : ''
-  const teamCode = team ? team.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '') : ''
+  const teamCode = team
+    ? team
+        .toUpperCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^A-Z0-9_]/g, '')
+    : ''
 
   return {
     ...item,
     id: item.IdSeq ? String(item.IdSeq) : item.StatTicketNo || String(idx + 1),
-    ticketNo:
-      item.StatTicketNo ||
-      item.statTicketNo ||
-      item.ticketNo ||
-      item.RegCode ||
-      '',
-    StatTicketNo:
-      item.StatTicketNo ||
-      item.statTicketNo ||
-      item.ticketNo ||
-      item.RegCode ||
-      '',
-    docNo:
-      item.OperationNo ||
-      item.operationNo ||
-      item.RoutingDocNo ||
-      item.routingDocNo ||
-      '',
+    ticketNo: item.StatTicketNo || item.statTicketNo || item.ticketNo || item.RegCode || '',
+    StatTicketNo: item.StatTicketNo || item.statTicketNo || item.ticketNo || item.RegCode || '',
+    docNo: item.OperationNo || item.operationNo || item.RoutingDocNo || item.routingDocNo || '',
     OperationNo:
-      item.OperationNo ||
-      item.operationNo ||
-      item.RoutingDocNo ||
-      item.routingDocNo ||
-      '',
-    OrderNo:
-      item.OrderNo ||
-      item.orderNo ||
-      '',
-    orderNo:
-      item.OrderNo ||
-      item.orderNo ||
-      '',
+      item.OperationNo || item.operationNo || item.RoutingDocNo || item.routingDocNo || '',
+    OrderNo: item.OrderNo || item.orderNo || '',
+    orderNo: item.OrderNo || item.orderNo || '',
     team,
     teamCode,
     TeamName: item.TeamName || item.teamName || team,
@@ -335,7 +324,8 @@ export default function HanoiGs1StatPage() {
   const cacheKey = 'hanoi_stat'
   const cachedInitialMasters = getCachedMasters(cacheKey) || []
   const cachedInitialActiveMaster =
-    getCachedActiveMaster(cacheKey) || (cachedInitialMasters.length > 0 ? cachedInitialMasters[0] : null)
+    getCachedActiveMaster(cacheKey) ||
+    (cachedInitialMasters.length > 0 ? cachedInitialMasters[0] : null)
   const initialDetailKey = cachedInitialActiveMaster
     ? cachedInitialActiveMaster.RegCode || cachedInitialActiveMaster.IdSeq
     : null
@@ -377,7 +367,29 @@ export default function HanoiGs1StatPage() {
       let rows = []
       const apiRegCode = master.RegCode || master.regCode
 
-      // 1. Ưu tiên thử lấy từ _ERPProdStatsDetail (Chi tiết TKSX) theo RegCode
+      // 1. Ưu tiên gọi API Tổng Hợp từ Backend (Backend Aggregated Report API)
+      if (apiRegCode) {
+        try {
+          const resAgg = await queryProductionStatisticsReport({
+            regCode: apiRegCode,
+            factoryCode: 'GS1',
+            pageSize: '10000'
+          })
+          if (resAgg?.data?.items && resAgg.data.items.length > 0) {
+            const beItems = resAgg.data.items
+            const mappedData = beItems.map((item, idx) => mapDBRowToStatItem(item, idx, master))
+            setCachedDetail(detailKey, mappedData)
+            setStatDataset(mappedData)
+            setDataSourceType('database')
+            setLoading(false)
+            return
+          }
+        } catch (errAgg) {
+          console.warn('Fallback sang truy vấn chi tiết TKSX:', errAgg)
+        }
+      }
+
+      // 2. Fallback sang truy vấn trực tiếp bảng _ERPProdStatsDetail nếu cần
       if (apiRegCode) {
         try {
           const resStats = await queryProdStatsDetail({ RegCode: apiRegCode, pageSize: '10000' })
@@ -389,8 +401,8 @@ export default function HanoiGs1StatPage() {
         }
       }
 
-      // 2. Nếu không có ở bảng TKSX, lấy từ _ERPPlanDetail (Chi tiết KHSX)
-      if (rows.length === 0) {
+      // 3. Fallback lấy từ _ERPPlanDetail nếu bảng TKSX chưa có
+      if (rows.length === 0 && apiRegCode) {
         try {
           const resPlan = await queryPlanDetail({ RegCode: apiRegCode, pageSize: '10000' })
           if (resPlan?.data && resPlan.data.length > 0) {
@@ -456,8 +468,12 @@ export default function HanoiGs1StatPage() {
             m.ReportType === 'statistics' ||
             m.ReportType === 'tksx' ||
             m.ReportType === 'Thống kê sản xuất' ||
-            String(m.ReportType || '').toLowerCase().includes('thống kê') ||
-            String(m.ReportType || '').toLowerCase().includes('stat')
+            String(m.ReportType || '')
+              .toLowerCase()
+              .includes('thống kê') ||
+            String(m.ReportType || '')
+              .toLowerCase()
+              .includes('stat')
           return isHanoi && isStat
         })
 

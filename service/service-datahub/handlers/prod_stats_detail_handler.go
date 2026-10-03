@@ -198,3 +198,39 @@ func (h *ProdStatsDetailHandler) ProdStatsDetailD(c *gin.Context) {
 		"message": "Xóa chi tiết TKSX thành công!",
 	})
 }
+
+// GetProductionStatisticsReport - API Endpoint cung cấp dữ liệu báo cáo Thống Kê Sản Xuất hoàn chỉnh cho FE
+func (h *ProdStatsDetailHandler) GetProductionStatisticsReport(c *gin.Context) {
+	filters := make(map[string]string)
+	for k, v := range c.Request.URL.Query() {
+		if len(v) > 0 {
+			filters[k] = v[0]
+		}
+	}
+
+	var bodyFilters map[string]interface{}
+	if err := c.ShouldBindJSON(&bodyFilters); err == nil {
+		for k, v := range bodyFilters {
+			if strVal, ok := v.(string); ok {
+				filters[k] = strVal
+			} else if floatVal, ok := v.(float64); ok {
+				filters[k] = strconv.FormatFloat(floatVal, 'f', -1, 64)
+			}
+		}
+	}
+
+	reportData, err := h.svc.GenerateProductionStatisticsReport(c.Request.Context(), filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "Không thể tạo báo cáo thống kê sản xuất: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    reportData,
+	})
+}
+

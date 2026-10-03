@@ -27,7 +27,46 @@ export const DEFAULT_SETTING_ITEMS = [
   // ── ROOT_REPORT: Module Báo cáo ──────────────────────────────────────────
   // =========================================================================
 
-  // ── Nhóm 1: Báo cáo sản xuất GS Hà Nội ───────────────────────────────────
+  // ── Nhóm 1: Báo cáo tổng hợp toàn thời gian ──────────────────────────────
+  {
+    Id: 'sub_report_consolidated',
+    MenuKey: 'report_consolidated_group',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Báo cáo tổng hợp',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_report_summary_plan',
+    MenuKey: 'report_summary_plan',
+    MenuSubRootId: 'sub_report_consolidated',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Tổng hợp kế hoạch sản xuất',
+    MenuLink: '/erp/u/report/production/summary/plan',
+    MenuType: 'menu',
+    Icon: 'Calendar',
+    MenuIcon: 'Calendar',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_report_summary_stat',
+    MenuKey: 'report_summary_stat',
+    MenuSubRootId: 'sub_report_consolidated',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Tổng hợp thống kê sản xuất',
+    MenuLink: '/erp/u/report/production/summary/statistics',
+    MenuType: 'menu',
+    Icon: 'BarChart3',
+    MenuIcon: 'BarChart3',
+    View: true,
+    OrderSeq: 2
+  },
+
+  // ── Nhóm 2: Báo cáo sản xuất GS Hà Nội ───────────────────────────────────
   {
     Id: 'sub_report_prod_hanoi_gs1',
     MenuKey: 'report_prod_hanoi_gs1',
@@ -36,6 +75,19 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'submenu',
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 2
+  },
+  {
+    Id: 'menu_report_hanoi_gs1_plan',
+    MenuKey: 'report_hanoi_gs1_plan',
+    MenuSubRootId: 'sub_report_prod_hanoi_gs1',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Kế hoạch sản xuất',
+    MenuLink: '/erp/u/report/production/hanoi-gs1/plan',
+    MenuType: 'menu',
+    Icon: 'Calendar',
+    MenuIcon: 'Calendar',
     View: true,
     OrderSeq: 1
   },
@@ -50,23 +102,10 @@ export const DEFAULT_SETTING_ITEMS = [
     Icon: 'BarChart3',
     MenuIcon: 'BarChart3',
     View: true,
-    OrderSeq: 1
-  },
-  {
-    Id: 'menu_report_hanoi_gs1_plan',
-    MenuKey: 'report_hanoi_gs1_plan',
-    MenuSubRootId: 'sub_report_prod_hanoi_gs1',
-    MenuRootId: 'ROOT_REPORT',
-    MenuLabel: 'Kế hoạch sản xuất',
-    MenuLink: '/erp/u/report/production/hanoi-gs1/plan',
-    MenuType: 'menu',
-    Icon: 'Calendar',
-    MenuIcon: 'Calendar',
-    View: true,
     OrderSeq: 2
   },
 
-  // ── Nhóm 2: Báo cáo sản xuất GS Quế Võ 1B ────────────────────────────────
+  // ── Nhóm 3: Báo cáo sản xuất GS Quế Võ 1B ────────────────────────────────
   {
     Id: 'sub_report_prod_quevo_gs5',
     MenuKey: 'report_prod_quevo_gs5',
@@ -76,20 +115,7 @@ export const DEFAULT_SETTING_ITEMS = [
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
     View: true,
-    OrderSeq: 2
-  },
-  {
-    Id: 'menu_report_quevo_gs5_stat',
-    MenuKey: 'report_quevo_gs5_stat',
-    MenuSubRootId: 'sub_report_prod_quevo_gs5',
-    MenuRootId: 'ROOT_REPORT',
-    MenuLabel: 'Thống kê sản xuất',
-    MenuLink: '/erp/u/report/production/quevo-gs5/statistics',
-    MenuType: 'menu',
-    Icon: 'BarChart3',
-    MenuIcon: 'BarChart3',
-    View: true,
-    OrderSeq: 1
+    OrderSeq: 3
   },
   {
     Id: 'menu_report_quevo_gs5_plan',
@@ -102,10 +128,23 @@ export const DEFAULT_SETTING_ITEMS = [
     Icon: 'Calendar',
     MenuIcon: 'Calendar',
     View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_report_quevo_gs5_stat',
+    MenuKey: 'report_quevo_gs5_stat',
+    MenuSubRootId: 'sub_report_prod_quevo_gs5',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Thống kê sản xuất',
+    MenuLink: '/erp/u/report/production/quevo-gs5/statistics',
+    MenuType: 'menu',
+    Icon: 'BarChart3',
+    MenuIcon: 'BarChart3',
+    View: true,
     OrderSeq: 2
   },
 
-  // ── Nhóm 3: Đăng ký báo cáo ──────────────────────────────────────────────
+  // ── Nhóm 4: Đăng ký báo cáo ──────────────────────────────────────────────
   {
     Id: 'sub_report_registration',
     MenuKey: 'report_registration_group',
@@ -115,7 +154,7 @@ export const DEFAULT_SETTING_ITEMS = [
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
     View: true,
-    OrderSeq: 3
+    OrderSeq: 4
   },
   {
     Id: 'menu_report_registration',
@@ -127,6 +166,32 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'menu',
     Icon: 'FileSpreadsheet',
     MenuIcon: 'FileSpreadsheet',
+    View: true,
+    OrderSeq: 1
+  },
+
+  // ── Nhóm 5: Cẩm nang & Tra cứu ───────────────────────────────────────────
+  {
+    Id: 'sub_report_handbook',
+    MenuKey: 'report_handbook_group',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Cẩm nang & Tra cứu',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 5
+  },
+  {
+    Id: 'menu_report_handbook_formula',
+    MenuKey: 'report_handbook_formula',
+    MenuSubRootId: 'sub_report_handbook',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Tra cứu công thức & Cột dữ liệu',
+    MenuLink: '/erp/u/report/handbook/formula',
+    MenuType: 'menu',
+    Icon: 'BookOpen',
+    MenuIcon: 'BookOpen',
     View: true,
     OrderSeq: 1
   }

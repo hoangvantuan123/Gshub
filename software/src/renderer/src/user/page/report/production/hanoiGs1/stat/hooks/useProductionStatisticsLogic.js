@@ -40,8 +40,7 @@ export function isMissingAutoIo(label) {
     s.includes('chua co nktd') ||
     (s.includes('không có') &&
       (s.includes('xktđ') || s.includes('nktđ') || s.includes('xuất') || s.includes('nhập'))) ||
-    (s.includes('chưa sinh') &&
-      (s.includes('xktđ') || s.includes('nktđ') || s.includes('phiếu')))
+    (s.includes('chưa sinh') && (s.includes('xktđ') || s.includes('nktđ') || s.includes('phiếu')))
   )
 }
 
@@ -257,7 +256,6 @@ export const useProductionStatisticsLogic = ({
   const [detailSearchText, setDetailSearchText] = useState('')
   const [showDetailSearch, setShowDetailSearch] = useState(false)
 
-
   // Refs for Screenshot, Chart export and Glide Grids
   const reportRootRef = useRef(null)
   const chart1Ref = useRef(null)
@@ -425,10 +423,11 @@ export const useProductionStatisticsLogic = ({
 
       let finalTeam = rawTeam ? String(rawTeam).trim() : ''
       let finalMachineCode = rawMachineCode ? String(rawMachineCode).trim() : ''
-      let finalMachineName = rawMachineName ? String(rawMachineName).trim() : (finalMachineCode || '')
+      let finalMachineName = rawMachineName ? String(rawMachineName).trim() : finalMachineCode || ''
 
       const rawItemCode = item.ItemCode || item.itemCode || item.partNo || item.PartNo || ''
-      const rawItemName = item.ItemName || item.itemName || item.productName || item.ProductName || ''
+      const rawItemName =
+        item.ItemName || item.itemName || item.productName || item.ProductName || ''
       const rawCustomer = item.Customer || item.customer || item.customerName || item.CustName || ''
       const rawProcess =
         item.ProcessName ||
@@ -439,12 +438,7 @@ export const useProductionStatisticsLogic = ({
         item.opTypeName ||
         ''
       const rawMainWorker =
-        item.MainWorker ||
-        item.mainWorker ||
-        item.operator ||
-        item.supervisor ||
-        item.PicDp ||
-        ''
+        item.MainWorker || item.mainWorker || item.operator || item.supervisor || item.PicDp || ''
       const rawStatStaff = item.StatStaff || item.statStaff || ''
       const rawSalesStaff = item.SalesStaff || item.salesStaff || ''
       const rawUnit = item.Unit || item.unit || item.RoutingUnit || ''
@@ -628,11 +622,7 @@ export const useProductionStatisticsLogic = ({
 
   // Active filter status & reset action
   const hasActiveFilters = useMemo(() => {
-    return (
-      selectedTeam !== 'ALL' ||
-      selectedMachine !== 'ALL' ||
-      selectedDurationAudit !== 'ALL'
-    )
+    return selectedTeam !== 'ALL' || selectedMachine !== 'ALL' || selectedDurationAudit !== 'ALL'
   }, [selectedTeam, selectedMachine, selectedDurationAudit])
 
   const handleResetFilters = useCallback(() => {
@@ -920,6 +910,19 @@ export const useProductionStatisticsLogic = ({
       runtimeOver12hValid: rOver12Valid,
       runtimeOver12hCheck: rOver12Check
     }
+  }, [filteredData])
+
+  const missingAutoExportTickets = useMemo(() => {
+    return filteredData
+      .filter((item) => {
+        const typeKey = getAutoExportType(item)
+        return isMissingAutoIo(typeKey)
+      })
+      .map((item, idx) => ({
+        stt: idx + 1,
+        ...item,
+        autoExportType: getAutoExportType(item)
+      }))
   }, [filteredData])
 
   // Machine Aggregations
@@ -1471,7 +1474,6 @@ export const useProductionStatisticsLogic = ({
     }
   }
 
-
   // Glide Data Grid Column definitions with custom resize state
   const [machineColWidths, setMachineColWidths] = useState({})
   const [teamColWidths, setTeamColWidths] = useState({})
@@ -1857,10 +1859,7 @@ export const useProductionStatisticsLogic = ({
         return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
       }
 
-      const val =
-        item[colId] ??
-        item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
-        ''
+      const val = item[colId] ?? item[colId.charAt(0).toLowerCase() + colId.slice(1)] ?? ''
 
       if (colObj.kind === 'Boolean') {
         const boolVal =
@@ -1931,9 +1930,7 @@ export const useProductionStatisticsLogic = ({
       }
 
       const plantDisplayName =
-        plantKey === 'quevo' || plantKey === 'gs5'
-          ? 'NHÀ MÁY GS QUẾ VÕ'
-          : 'NHÀ MÁY GS HÀ NỘI'
+        plantKey === 'quevo' || plantKey === 'gs5' ? 'NHÀ MÁY GS QUẾ VÕ' : 'NHÀ MÁY GS HÀ NỘI'
 
       const reportTitle = `BÁO CÁO NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT - ${plantDisplayName}`
 
@@ -2013,10 +2010,7 @@ export const useProductionStatisticsLogic = ({
         const row = [rowIdx + 1]
         validCols.forEach((col) => {
           const colId = col.id
-          const rawVal =
-            item[colId] ??
-            item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
-            ''
+          const rawVal = item[colId] ?? item[colId.charAt(0).toLowerCase() + colId.slice(1)] ?? ''
 
           if (col.kind === 'Boolean') {
             const b =
@@ -2131,6 +2125,7 @@ export const useProductionStatisticsLogic = ({
     teamAggregates,
     displayTeamList,
     teamGrandTotal,
+    missingAutoExportTickets,
     displayDetailList,
     executiveVerticalData,
     executiveHorizontalData,

@@ -202,7 +202,9 @@ export default function TitleBar({ title }) {
         ) : null}
         <div className="flex items-center gap-1.5">
           <img src={Logo} alt="GoldSun" className="w-3.5 h-3.5 object-contain" />
-          <span className="font-semibold text-slate-800 text-[11px] tracking-tight">GoldSun Hub</span>
+          <span className="font-semibold text-slate-800 text-[11px] tracking-tight">
+            GoldSun Hub
+          </span>
         </div>
       </div>
 

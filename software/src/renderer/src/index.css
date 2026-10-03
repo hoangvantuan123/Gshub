@@ -120,3 +120,42 @@ html {
 .custom-description .ant-descriptions-item {
   border: none !important;
 }
+
+/* Universal Button & Interactive Element Focus / Outline Reset */
+button,
+button:focus,
+button:focus-visible,
+button:active,
+input:focus,
+input:focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+.pure-button,
+.pure-button:focus,
+.pure-button:focus-visible,
+.pure-button:active,
+.ant-btn,
+.ant-btn:focus,
+.ant-btn:focus-visible,
+.ant-btn:active,
+.p-button,
+.p-button:focus,
+.p-button:focus-visible,
+.p-button:active,
+.p-dropdown:focus,
+.p-dropdown:focus-visible,
+.ant-select-focused .ant-select-selector {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-focus-ring-color: transparent !important;
+}
+
+button:active,
+.pure-button:active,
+.ant-btn:active,
+.p-button:active {
+  transform: translateY(1px);
+}

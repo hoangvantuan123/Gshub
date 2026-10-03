@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package datahub;
+
+option go_package = "service-datahub/pb/datahub";
+
+// ==========================================
+// BÁO CÁO KẾ HOẠCH SẢN XUẤT (PLAN REPORT DTO)
+// ==========================================
+
+message PlanReportProtoRequest {
+  string factory_code = 1;
+  string reg_code = 2;
+  string master_seq = 3;
+  string from_date = 4;
+  string to_date = 5;
+  string pic = 6;
+  string team_name = 7;
+  string machine_code = 8;
+  string status = 9;
+  int32 page = 10;
+  int32 page_size = 11;
+}
+
+message PlanReportSummaryProto {
+  int32 total_orders = 1;
+  int32 total_tickets = 2;
+  double total_plan_qty = 3;
+  double total_actual_qty = 4;
+  double total_pass_qty = 5;
+  double overall_progress = 6;
+  double avg_pass_rate = 7;
+  int32 total_items = 8;
+  int32 sx_sai_ngay_count = 9;
+  double sx_sai_ngay_rate = 10;
+  int32 truot_kh_count = 11;
+  double truot_kh_rate = 12;
+  int32 khop_sl_count = 13;
+  double khop_sl_rate = 14;
+  int32 khop_job_count = 15;
+  double khop_job_rate = 16;
+  int32 total_days = 17;
+  string from_date = 18;
+  string to_date = 19;
+}
+
+message PlanStatusItemProto {
+  string name = 1;
+  int32 count = 2;
+  double rate = 3;
+  string color = 4;
+  string tag = 5;
+}
+
+message PicPlanAggregateProto {
+  string pic = 1;
+  int32 total_orders = 2;
+  double plan_qty = 3;
+  double actual_qty = 4;
+  double pass_rate = 5;
+  int32 sx_sai_ngay_count = 6;
+  int32 truot_kh_count = 7;
+  int32 khop_sl_count = 8;
+  int32 khop_job_count = 9;
+}
+
+message TeamPlanAggregateProto {
+  string team_name = 1;
+  int32 total_orders = 2;
+  double plan_qty = 3;
+  double actual_qty = 4;
+  double pass_rate = 5;
+}
+
+message MachinePlanAggregateProto {
+  string machine_code = 1;
+  string machine_name = 2;
+  string team_name = 3;
+  int32 total_orders = 4;
+  double plan_qty = 5;
+  double actual_qty = 6;
+  double pass_rate = 7;
+}
+
+message DailyPlanAggregateProto {
+  string date = 1;
+  double plan_qty = 2;
+  double actual_qty = 3;
+  int32 order_count = 4;
+  double pass_rate = 5;
+}
+
+message PlanFilterOptionsProto {
+  repeated string pics = 1;
+  repeated string teams = 2;
+  repeated string machines = 3;
+  repeated string dates = 4;
+}
+
+message PlanReportProtoResponse {
+  bool success = 1;
+  string message = 2;
+  PlanReportSummaryProto summary = 3;
+  repeated PlanStatusItemProto dp_status_breakdown = 4;
+  repeated PlanStatusItemProto time_status_breakdown = 5;
+  repeated PlanStatusItemProto capa_status_breakdown = 6;
+  repeated PicPlanAggregateProto pic_breakdown = 7;
+  repeated TeamPlanAggregateProto team_breakdown = 8;
+  repeated MachinePlanAggregateProto machine_breakdown = 9;
+  repeated PlanDetailProtoItem items = 12;
+  int64 total_records = 13;
+  int32 total_pages = 14;
+  int32 page = 15;
+  int32 page_size = 16;
+}

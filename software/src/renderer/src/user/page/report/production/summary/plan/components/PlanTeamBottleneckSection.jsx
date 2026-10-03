@@ -1,8 +1,5 @@
 /* eslint-disable react/prop-types */
-export function PlanTeamBottleneckSection({
-  advancedPlanMetrics = {},
-  teamBreakdown = []
-}) {
+export function PlanTeamBottleneckSection({ advancedPlanMetrics = {}, teamBreakdown = [] }) {
   return (
     <div style={{ marginBottom: 44, width: '100%', background: '#ffffff', padding: '8px 0' }}>
       <div
@@ -28,8 +25,8 @@ export function PlanTeamBottleneckSection({
             <span>5. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ &amp; CÂN BẰNG TẢI CÔNG ĐOẠN</span>
           </div>
           <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
-            Đo lường mức độ tuân thủ tiến độ (Schedule Adherence), độ lệch ngày bình quân và tình trạng
-            cân bằng tải giữa các tổ sản xuất
+            Đo lường mức độ tuân thủ tiến độ (Schedule Adherence), độ lệch ngày bình quân và tình
+            trạng cân bằng tải giữa các tổ sản xuất
           </div>
         </div>
       </div>
@@ -91,9 +88,7 @@ export function PlanTeamBottleneckSection({
           <div style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', margin: '4px 0' }}>
             {advancedPlanMetrics.timeComplianceRate || 0}%
           </div>
-          <div style={{ fontSize: 11.5, color: '#64748b' }}>
-            Đúng/Nhanh hơn định mức thời gian
-          </div>
+          <div style={{ fontSize: 11.5, color: '#64748b' }}>Đúng/Nhanh hơn định mức thời gian</div>
         </div>
 
         <div

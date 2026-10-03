@@ -410,6 +410,73 @@ export const PLAN_FORMULA_DATABASE = [
     source: 'Bảng _ERPPlanDetail (Trường: TargetProdQty)',
     description: 'Định mức sản lượng yêu cầu hoàn thành của lệnh sản xuất.',
     notes: 'Căn cứ đối chiếu tỷ lệ đạt của ca máy.'
+  },
+  {
+    id: 'col_plan_khop_growth_rate',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'passGrowthRate / khopGrowthRate',
+    columnName: 'Tăng trưởng Khớp %',
+    title: 'Tốc độ tăng trưởng lệnh Khớp qua chu kỳ thời gian',
+    scope: 'Mục 2: Bảng Ma trận Tăng trưởng PIC (Cột 7)',
+    formula:
+      '((Tổng Khớp kỳ cuối - Tổng Khớp kỳ đầu) / Tổng Khớp kỳ đầu) × 100% [Tổng Khớp = Khớp SL + Khớp Job]',
+    source: 'Chuỗi dữ liệu thời gian periodList.picStats[PIC]',
+    description:
+      'Đo lường mức độ tăng hoặc giảm về năng lực lập và điều phối các lệnh đạt độ khớp chuẩn (Khớp SL + Khớp Job) giữa kỳ cuối so với kỳ đầu.',
+    notes:
+      'Chỉ số dương (+) thể hiện sự tiến bộ tích cực, chỉ số âm (-) cảnh báo sự suy giảm độ chính xác kế hoạch.'
+  },
+  {
+    id: 'col_plan_total_growth_rate',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'ordersGrowthRate',
+    columnName: 'Tăng trưởng Tổng %',
+    title: 'Tốc độ tăng trưởng tổng số lệnh điều phối',
+    scope: 'Mục 2: Bảng Ma trận Tăng trưởng PIC (Cột 8)',
+    formula: '((Tổng lệnh kỳ cuối - Tổng lệnh kỳ đầu) / Tổng lệnh kỳ đầu) × 100%',
+    source: 'Chuỗi dữ liệu thời gian periodList.picStats[PIC]',
+    description:
+      'Đo lường mức độ biến động khối lượng công việc và số lượng lệnh mà nhân sự PIC đó phụ trách qua các chu kỳ thời gian.',
+    notes:
+      'Dùng đối chiếu tương quan với Tăng trưởng Khớp % để đánh giá năng lực điều phối khi quy mô lệnh tăng lên.'
+  },
+  {
+    id: 'col_plan_khop_sl_rate',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'khopSlRate',
+    columnName: 'Tỷ lệ Khớp SL (%)',
+    title: 'Tỷ lệ lệnh Khớp số lượng trên tổng lệnh',
+    scope: 'Mục 2: Bảng Ma trận (Cột 3) & Mục 3',
+    formula: '(Số lệnh Khớp SL / Tổng số lệnh) × 100%',
+    source: 'Tổng hợp từ StatusDpSx = "Khớp số lượng" / TotalOrders',
+    description:
+      'Tỷ lệ % các lệnh sản xuất đạt chuẩn chính xác về khối lượng sản phẩm kế hoạch giao.',
+    notes: 'Chỉ số đo lường mức độ sát sao của kế hoạch với năng lực thực tế.'
+  },
+  {
+    id: 'col_plan_khop_job_rate',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'khopJobRate',
+    columnName: 'Tỷ lệ Khớp Job (%)',
+    title: 'Tỷ lệ lệnh Khớp Job sản xuất trên tổng lệnh',
+    scope: 'Mục 2: Bảng Ma trận (Cột 4) & Mục 3',
+    formula: '(Số lệnh Khớp Job / Tổng số lệnh) × 100%',
+    source: 'Tổng hợp từ StatusDpSx = "Khớp job" / TotalOrders',
+    description:
+      'Tỷ lệ % các lệnh tuân thủ chính xác thứ tự mặt hàng, quy cách gia công và định tuyến sản xuất.',
+    notes: 'Đánh giá tính kỷ luật trong sắp xếp lịch sản xuất hiện trường.'
   }
 ]
 

@@ -178,6 +178,29 @@ export function useTimelineSummaryLogic() {
     setDateRange([from, to])
   }
 
+function getMasterEffectiveDate(item) {
+  if (!item) return 0
+  if (item.ApplyDate) {
+    const t = new Date(item.ApplyDate).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  const reg = String(item.RegCode || item.regCode || '')
+  const match = reg.match(/_(\d{4})(\d{2})(\d{2})_/)
+  if (match) {
+    const t = new Date(`${match[1]}-${match[2]}-${match[3]}`).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  if (item.Date) {
+    const t = new Date(item.Date).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  if (item.CreatedAt) {
+    const t = new Date(item.CreatedAt).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  return 0
+}
+
   const fetchTimelineData = useCallback(async () => {
     setLoading(true)
     try {
@@ -194,6 +217,15 @@ export function useTimelineSummaryLogic() {
         : Array.isArray(mRes?.data)
           ? mRes.data
           : []
+      mList.sort((a, b) => {
+        const dateA = getMasterEffectiveDate(a)
+        const dateB = getMasterEffectiveDate(b)
+        if (dateB !== dateA) return dateB - dateA
+        const createA = new Date(a.CreatedAt || 0).getTime()
+        const createB = new Date(b.CreatedAt || 0).getTime()
+        if (createB !== createA) return createB - createA
+        return (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
+      })
       setMasterList(mList)
 
       const masterMap = new Map()

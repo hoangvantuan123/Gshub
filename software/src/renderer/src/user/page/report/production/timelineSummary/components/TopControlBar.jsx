@@ -6,8 +6,8 @@ import {
   FileSpreadsheet,
   BookOpen,
   Camera,
-  ExternalLink,
-  AlertTriangle
+  AlertTriangle,
+  Filter
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { openChildWindow } from '@renderer/utils/openChildWindow'
@@ -29,12 +29,38 @@ export function TopControlBar({
   handleExportExcel,
   setIsHandbookModalOpen,
   handleCaptureScreenshot,
-  isCapturing = false
+  isCapturing = false,
+  storageKey,
+  defaultExpanded = true
 }) {
   const { t } = useTranslation()
   const { settings } = useDateFormat()
 
-  // Theo dõi điều kiện đã áp dụng ở lần tìm kiếm gần nhất (lần đầu = điều kiện mặc định khi mở trang)
+  const finalStorageKey = `report_filter_state_${storageKey || `timeline_${reportType || 'stat'}`}`
+
+  // Trạng thái mở/đóng bộ lọc đổ xuống phía dưới (lưu nhớ theo từng form)
+  const [showFilter, setShowFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem(finalStorageKey)
+      return saved !== null ? saved === 'true' : defaultExpanded
+    } catch {
+      return defaultExpanded
+    }
+  })
+
+  const toggleFilter = () => {
+    setShowFilter((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(finalStorageKey, String(next))
+      } catch (e) {
+        console.warn('Lỗi lưu trạng thái bộ lọc:', e)
+      }
+      return next
+    })
+  }
+
+  // Theo dõi điều kiện đã áp dụng ở lần tìm kiếm gần nhất
   const currentKey = `${factoryCode}|${reportType}|${dateRange?.[0] || ''}|${dateRange?.[1] || ''}`
   const [appliedKey, setAppliedKey] = useState(currentKey)
   const isDirty = currentKey !== appliedKey
@@ -71,7 +97,7 @@ export function TopControlBar({
   ]
 
   return (
-    <div className="report-interactive-toolbar screenshot-hide w-full bg-white border-b border-slate-200 px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap mb-4">
+    <div className="report-interactive-toolbar screenshot-hide w-full bg-white border-b border-slate-200 mb-4">
       <style>{`
         .query-date-has-value .ant-picker-input > input {
           color: #1d4ed8 !important;
@@ -86,184 +112,210 @@ export function TopControlBar({
         }
       `}</style>
 
-      {/* 1. Khối ô lọc điều kiện chuẩn ERP (dùng QuerySelectInput & QueryDateInput chuẩn hệ thống) */}
-      <div className="inline-flex items-center border border-slate-300 bg-white divide-x divide-slate-300 shadow-sm flex-wrap">
-        {/* Nhà máy */}
-        <div className="flex items-center h-[28px]">
-          <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
-            {t('Nhà máy')}
-          </div>
-          <div className="px-2 flex items-center h-full" style={{ minWidth: 180 }}>
-            <QuerySelectInput
-              field={{
-                key: 'factoryCode',
-                options: factories,
-                label: 'Nhà máy'
-              }}
-              value={factoryCode || 'GS1'}
-              onChange={(_, val) => setFactoryCode && setFactoryCode(val)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSearch()
-              }}
+      {/* TẦNG 1: THANH ACTION TOOLBAR CHÍNH */}
+      <div className="w-full px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap">
+        {/* Nhóm nút tác vụ bên trái: BỘ LỌC + TÌM KIẾM */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Nút Action BỘ LỌC (Chuẩn ERP Button) */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleFilter}
+            className={`uppercase text-[11px] font-semibold transition-colors ${
+              showFilter
+                ? 'text-blue-700 bg-blue-50 hover:bg-blue-100 hover:text-blue-800'
+                : 'text-slate-700 hover:text-slate-900'
+            }`}
+            title="Bấm để đóng/mở khung bộ lọc đổ xuống phía dưới"
+          >
+            <Filter size={13} className={showFilter ? 'text-blue-600' : 'text-slate-500'} />
+            <span>{showFilter ? t('ĐÓNG BỘ LỌC') : t('BỘ LỌC')}</span>
+          </Button>
+
+          {/* Nút Tìm kiếm (Enter) */}
+          {fetchTimelineData && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSearch}
               disabled={loading}
-            />
-          </div>
+              className={`uppercase text-[11px] font-semibold text-blue-700 hover:text-blue-800 ${
+                isDirty && !loading ? 'bg-amber-50 ring-1 ring-amber-400 animate-pulse' : ''
+              }`}
+              title="Tìm kiếm dữ liệu báo cáo (Enter)"
+            >
+              <Search size={13} className="text-blue-500" />
+              {loading ? t('ĐANG TẢI...') : t('TÌM KIẾM')}
+            </Button>
+          )}
+
+          {/* Cảnh báo: điều kiện lọc đã đổi nhưng chưa bấm Tìm kiếm */}
+          {isDirty && !loading && (
+            <div
+              className="flex items-center gap-1.5 h-[28px] px-2.5 border border-amber-300 bg-amber-50 text-amber-800 text-[11px] font-semibold select-none"
+              role="status"
+            >
+              <AlertTriangle size={13} className="text-amber-500 shrink-0" />
+              <span>
+                Điều kiện lọc đã thay đổi — bấm <b>TÌM KIẾM</b> để cập nhật
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Loại báo cáo (nếu có) */}
-        {setReportType && (
-          <div className="flex items-center h-[28px]">
-            <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
-              {t('Loại báo cáo')}
-            </div>
-            <div className="px-2 flex items-center h-full" style={{ minWidth: 175 }}>
-              <QuerySelectInput
-                field={{
-                  key: 'reportType',
-                  options: [
-                    { value: 'stat', label: 'Thống kê sản xuất (TKSX)' },
-                    { value: 'plan', label: 'Kế hoạch sản xuất (KHSX)' }
-                  ],
-                  label: 'Loại báo cáo'
-                }}
-                value={reportType || 'stat'}
-                onChange={(_, val) => setReportType && setReportType(val)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSearch()
-                }}
-                disabled={loading}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Phạm vi thống kê: từ ngày */}
-        <div className="flex items-center h-[28px]">
-          <div
-            className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap"
-            title={`Ngày bắt đầu của phạm vi dữ liệu ${rangePrefix.toLowerCase()}`}
+        {/* Nhóm nút tác vụ chuẩn ERP bên phải */}
+        <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleOpenHandbook}
+            className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+            title="Mở cẩm nang công thức & từ điển dữ liệu trong cửa sổ mới"
           >
-            {t(`${rangePrefix} từ ngày`)}
-          </div>
-          <div className="px-2 flex items-center h-full" style={{ minWidth: 125 }}>
-            <QueryDateInput
-              field={{
-                key: 'fromDate',
-                placeholder: 'DD/MM/YYYY',
-                format: 'DD/MM/YYYY'
-              }}
-              value={dateRange?.[0] ? dayjs(dateRange[0]) : null}
-              onChange={(_, d) => {
-                const str = d ? d.format('YYYY-MM-DD') : ''
-                handleCustomDateChange && handleCustomDateChange(str, dateRange?.[1] || str)
-              }}
-              parseDate={(v) => (v ? dayjs(v) : null)}
-              settings={settings}
-              disabled={loading}
-              hasValue={Boolean(dateRange?.[0])}
-            />
-          </div>
-        </div>
+            <BookOpen size={13} className="text-emerald-600" />
+            <span>{t('CẨM NANG')}</span>
+          </Button>
 
-        {/* Phạm vi thống kê: đến ngày */}
-        <div className="flex items-center h-[28px]">
-          <div
-            className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap"
-            title={`Ngày kết thúc của phạm vi dữ liệu ${rangePrefix.toLowerCase()}`}
-          >
-            {t(`${rangePrefix} đến ngày`)}
-          </div>
-          <div className="px-2 flex items-center h-full" style={{ minWidth: 125 }}>
-            <QueryDateInput
-              field={{
-                key: 'toDate',
-                placeholder: 'DD/MM/YYYY',
-                format: 'DD/MM/YYYY'
-              }}
-              value={dateRange?.[1] ? dayjs(dateRange[1]) : null}
-              onChange={(_, d) => {
-                const str = d ? d.format('YYYY-MM-DD') : ''
-                handleCustomDateChange && handleCustomDateChange(dateRange?.[0] || str, str)
-              }}
-              parseDate={(v) => (v ? dayjs(v) : null)}
-              settings={settings}
-              disabled={loading}
-              hasValue={Boolean(dateRange?.[1])}
-            />
-          </div>
+          {handleExportExcel && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExportExcel}
+              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+              title="Xuất file Excel báo cáo"
+            >
+              <FileSpreadsheet size={13} className="text-emerald-600" />
+              <span>{t('XUẤT EXCEL')}</span>
+            </Button>
+          )}
+
+          {handleCaptureScreenshot && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCaptureScreenshot}
+              disabled={isCapturing}
+              className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
+              title="Chụp ảnh toàn bộ báo cáo để xuất file PNG"
+            >
+              <Camera size={13} className="text-indigo-600" />
+              <span>{isCapturing ? t('ĐANG CHỤP...') : t('TẢI ẢNH BÁO CÁO')}</span>
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Cảnh báo: điều kiện lọc đã đổi nhưng chưa bấm Tìm kiếm */}
-      {isDirty && !loading && (
-        <div
-          className="flex items-center gap-1.5 h-[28px] px-2.5 border border-amber-300 bg-amber-50 text-amber-800 text-[11px] font-semibold select-none"
-          role="status"
-        >
-          <AlertTriangle size={13} className="text-amber-500 shrink-0" />
-          <span>
-            Điều kiện lọc đã thay đổi — bấm <b>TÌM KIẾM</b> để cập nhật báo cáo
-          </span>
+      {/* TẦNG 2: KHUNG Ô LỌC ĐIỀU KIỆN CHUẨN ERP (ĐỔ XUỐNG DƯỚI KHI MỞ BỘ LỌC) */}
+      {showFilter && (
+        <div className="w-full bg-slate-50/80 border-t border-slate-200 px-3 py-2 flex items-center gap-3 flex-wrap">
+          <div className="inline-flex items-center border border-slate-300 bg-white divide-x divide-slate-300 shadow-sm flex-wrap">
+            {/* Nhà máy */}
+            <div className="flex items-center h-[28px]">
+              <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
+                {t('Nhà máy')}
+              </div>
+              <div className="px-2 flex items-center h-full" style={{ minWidth: 180 }}>
+                <QuerySelectInput
+                  field={{
+                    key: 'factoryCode',
+                    options: factories,
+                    label: 'Nhà máy'
+                  }}
+                  value={factoryCode || 'GS1'}
+                  onChange={(_, val) => setFactoryCode && setFactoryCode(val)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSearch()
+                  }}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            {/* Loại báo cáo (nếu có) */}
+            {setReportType && (
+              <div className="flex items-center h-[28px]">
+                <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
+                  {t('Loại báo cáo')}
+                </div>
+                <div className="px-2 flex items-center h-full" style={{ minWidth: 175 }}>
+                  <QuerySelectInput
+                    field={{
+                      key: 'reportType',
+                      options: [
+                        { value: 'stat', label: 'Thống kê sản xuất (TKSX)' },
+                        { value: 'plan', label: 'Kế hoạch sản xuất (KHSX)' }
+                      ],
+                      label: 'Loại báo cáo'
+                    }}
+                    value={reportType || 'stat'}
+                    onChange={(_, val) => setReportType && setReportType(val)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearch()
+                    }}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Phạm vi thống kê: từ ngày */}
+            <div className="flex items-center h-[28px]">
+              <div
+                className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap"
+                title={`Ngày bắt đầu của phạm vi dữ liệu ${rangePrefix.toLowerCase()}`}
+              >
+                {t(`${rangePrefix} từ ngày`)}
+              </div>
+              <div className="px-2 flex items-center h-full" style={{ minWidth: 125 }}>
+                <QueryDateInput
+                  field={{
+                    key: 'fromDate',
+                    placeholder: 'DD/MM/YYYY',
+                    format: 'DD/MM/YYYY'
+                  }}
+                  value={dateRange?.[0] ? dayjs(dateRange[0]) : null}
+                  onChange={(_, d) => {
+                    const str = d ? d.format('YYYY-MM-DD') : ''
+                    handleCustomDateChange && handleCustomDateChange(str, dateRange?.[1] || str)
+                  }}
+                  parseDate={(v) => (v ? dayjs(v) : null)}
+                  settings={settings}
+                  disabled={loading}
+                  hasValue={Boolean(dateRange?.[0])}
+                />
+              </div>
+            </div>
+
+            {/* Phạm vi thống kê: đến ngày */}
+            <div className="flex items-center h-[28px]">
+              <div
+                className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap"
+                title={`Ngày kết thúc của phạm vi dữ liệu ${rangePrefix.toLowerCase()}`}
+              >
+                {t(`${rangePrefix} đến ngày`)}
+              </div>
+              <div className="px-2 flex items-center h-full" style={{ minWidth: 125 }}>
+                <QueryDateInput
+                  field={{
+                    key: 'toDate',
+                    placeholder: 'DD/MM/YYYY',
+                    format: 'DD/MM/YYYY'
+                  }}
+                  value={dateRange?.[1] ? dayjs(dateRange[1]) : null}
+                  onChange={(_, d) => {
+                    const str = d ? d.format('YYYY-MM-DD') : ''
+                    handleCustomDateChange && handleCustomDateChange(dateRange?.[0] || str, str)
+                  }}
+                  parseDate={(v) => (v ? dayjs(v) : null)}
+                  settings={settings}
+                  disabled={loading}
+                  hasValue={Boolean(dateRange?.[1])}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
-
-      {/* 2. Khối nút tác vụ chuẩn ERP bên phải */}
-      <div className="flex items-center gap-1.5 flex-wrap ml-auto">
-        {fetchTimelineData && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSearch}
-            disabled={loading}
-            className={`uppercase text-[11px] font-semibold text-blue-700 hover:text-blue-800 ${
-              isDirty && !loading ? 'bg-amber-50 ring-1 ring-amber-400 animate-pulse' : ''
-            }`}
-            title="Tìm kiếm dữ liệu báo cáo (Enter)"
-          >
-            <Search size={13} className="text-blue-500" />
-            {loading ? t('ĐANG TẢI...') : t('TÌM KIẾM')}
-          </Button>
-        )}
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleOpenHandbook}
-          className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
-          title="Mở cẩm nang công thức & từ điển dữ liệu trong cửa sổ mới"
-        >
-          <BookOpen size={13} className="text-emerald-600" />
-          <span>{t('CẨM NANG')}</span>
-          <ExternalLink size={11} className="text-slate-400 ml-0.5" />
-        </Button>
-
-        {handleExportExcel && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleExportExcel}
-            className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
-            title="Xuất file Excel báo cáo"
-          >
-            <FileSpreadsheet size={13} className="text-emerald-600" />
-            {t('XUẤT EXCEL')}
-          </Button>
-        )}
-
-        {handleCaptureScreenshot && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCaptureScreenshot}
-            disabled={isCapturing}
-            className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
-            title="Chụp ảnh toàn bộ báo cáo để xuất file PNG"
-          >
-            <Camera size={13} className="text-indigo-600" />
-            {isCapturing ? t('ĐANG CHỤP...') : t('TẢI ẢNH BÁO CÁO')}
-          </Button>
-        )}
-      </div>
     </div>
   )
 }

@@ -54,8 +54,9 @@ export function PlanWorkOrderFulfillmentSection({
               maxWidth: 960
             }}
           >
-            Thống kê cơ cấu trạng thái thực hiện các lệnh sản xuất trong kỳ kế hoạch tại {plantName || 'Nhà máy'}.
-            Theo dõi tỷ lệ lệnh khớp số lượng, khớp job, trượt tiến độ và sản xuất sai ngày.
+            Thống kê cơ cấu trạng thái thực hiện các lệnh sản xuất trong kỳ kế hoạch tại{' '}
+            {plantName || 'Nhà máy'}. Theo dõi tỷ lệ lệnh khớp số lượng, khớp job, trượt tiến độ và
+            sản xuất sai ngày.
           </div>
         </div>
 

@@ -11,7 +11,8 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
   ReferenceLine,
-  Cell
+  Cell,
+  LabelList
 } from 'recharts'
 import { Eye, EyeOff, TableProperties } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
@@ -229,7 +230,20 @@ export function MachineRuntimeSection({
                 }}
               />
               <RechartsTooltip content={<ExecutiveChartTooltip unit="h" />} />
-              <Bar dataKey="totalRuntimeHours" name="Tổng giờ chạy máy" activeBar={false}>
+              <Bar
+                dataKey="totalRuntimeHours"
+                name="Tổng giờ chạy máy"
+                activeBar={false}
+                isAnimationActive={false}
+              >
+                <LabelList
+                  dataKey="totalRuntimeHours"
+                  position="top"
+                  fill="#0f172a"
+                  fontSize={10}
+                  fontWeight={700}
+                  formatter={(v) => (v > 0 ? `${v}h` : '')}
+                />
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-v-${index}`} fill={entry.fill} />
                 ))}
@@ -320,7 +334,17 @@ export function MachineRuntimeSection({
                 name="Tổng giờ chạy máy (h)"
                 fill="#01411b"
                 barSize={20}
-              />
+                isAnimationActive={false}
+              >
+                <LabelList
+                  dataKey="totalRuntimeHours"
+                  position="top"
+                  fill="#01411b"
+                  fontSize={10}
+                  fontWeight={700}
+                  formatter={(v) => (v > 0 ? `${v}h` : '')}
+                />
+              </Bar>
               <Line
                 yAxisId="right"
                 type="monotone"
@@ -329,7 +353,17 @@ export function MachineRuntimeSection({
                 stroke="#d97706"
                 strokeWidth={2.5}
                 dot={{ r: 3, fill: '#d97706' }}
-              />
+                isAnimationActive={false}
+              >
+                <LabelList
+                  dataKey="ticketCount"
+                  position="top"
+                  fill="#d97706"
+                  fontSize={10}
+                  fontWeight={700}
+                  formatter={(v) => (v > 0 ? `${v}` : '')}
+                />
+              </Line>
             </ComposedChart>
           ) : (
             <BarChart data={chartData} margin={{ top: 25, right: 25, left: 10, bottom: 85 }}>
@@ -363,7 +397,22 @@ export function MachineRuntimeSection({
                 }}
               />
               <RechartsTooltip content={<ExecutiveChartTooltip unit=" phiếu" />} />
-              <Bar dataKey="ticketCount" name="Số phiếu thống kê" fill="#01411b" barSize={20} />
+              <Bar
+                dataKey="ticketCount"
+                name="Số phiếu thống kê"
+                fill="#01411b"
+                barSize={20}
+                isAnimationActive={false}
+              >
+                <LabelList
+                  dataKey="ticketCount"
+                  position="top"
+                  fill="#01411b"
+                  fontSize={10}
+                  fontWeight={700}
+                  formatter={(v) => (v > 0 ? `${v} phiếu` : '')}
+                />
+              </Bar>
             </BarChart>
           )}
         </ResponsiveContainer>

@@ -182,6 +182,29 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
     setDateRange([from, to])
   }
 
+function getMasterEffectiveDate(item) {
+  if (!item) return 0
+  if (item.ApplyDate) {
+    const t = new Date(item.ApplyDate).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  const reg = String(item.RegCode || item.regCode || '')
+  const match = reg.match(/_(\d{4})(\d{2})(\d{2})_/)
+  if (match) {
+    const t = new Date(`${match[1]}-${match[2]}-${match[3]}`).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  if (item.Date) {
+    const t = new Date(item.Date).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  if (item.CreatedAt) {
+    const t = new Date(item.CreatedAt).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  return 0
+}
+
   const fetchTimelineData = useCallback(async () => {
     setLoading(true)
     try {
@@ -198,6 +221,15 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
         : Array.isArray(mRes?.data)
           ? mRes.data
           : []
+      mList.sort((a, b) => {
+        const dateA = getMasterEffectiveDate(a)
+        const dateB = getMasterEffectiveDate(b)
+        if (dateB !== dateA) return dateB - dateA
+        const createA = new Date(a.CreatedAt || 0).getTime()
+        const createB = new Date(b.CreatedAt || 0).getTime()
+        if (createB !== createA) return createB - createA
+        return (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
+      })
       setMasterList(mList)
 
       const masterMap = new Map()
@@ -729,7 +761,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       if (st === 'SX_SAI_NGAY' || text.includes('sai ngày')) rec.sxSaiNgay++
       else if (st === 'TRUOT_KH' || text.includes('trượt')) rec.truotKh++
       else if (st === 'KHOP_JOB' || text.includes('khớp job') || text.includes('job')) rec.khopJob++
-      else if (st === 'KHOP_SL' || text.includes('khớp số lượng') || text.includes('khớp sl')) rec.khopSl++
+      else if (st === 'KHOP_SL' || text.includes('khớp số lượng') || text.includes('khớp sl'))
+        rec.khopSl++
       else {
         const pQty = Number(item.planQty || 0)
         const aQty = Number(item.actualQty || 0)
@@ -830,10 +863,7 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
         khopSl: d.khopSl,
         khopJob: d.khopJob,
         passOrders,
-        passRate:
-          d.totalOrders > 0
-            ? Number(((passOrders / d.totalOrders) * 100).toFixed(1))
-            : 0,
+        passRate: d.totalOrders > 0 ? Number(((passOrders / d.totalOrders) * 100).toFixed(1)) : 0,
         picStats: d.picStats
       }
 
@@ -862,73 +892,75 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
     const firstHalfDays = dailyList.slice(0, Math.max(1, midIndex))
     const secondHalfDays = dailyList.slice(Math.max(1, midIndex))
 
-    const picGrowthList = picList.map((p) => {
-      let firstHalf = 0
-      let secondHalf = 0
-      let total = 0
-      let khopSl = 0
-      let khopJob = 0
-      let sxSaiNgay = 0
-      let truotKh = 0
-      const dailySeries = []
+    const picGrowthList = picList
+      .map((p) => {
+        let firstHalf = 0
+        let secondHalf = 0
+        let total = 0
+        let khopSl = 0
+        let khopJob = 0
+        let sxSaiNgay = 0
+        let truotKh = 0
+        const dailySeries = []
 
-      firstHalfDays.forEach((d) => {
-        firstHalf += d[p] || 0
-      })
-      secondHalfDays.forEach((d) => {
-        secondHalf += d[p] || 0
-      })
-
-      dailyList.forEach((d) => {
-        const cnt = d[p] || 0
-        const stat = d.picStats?.[p] || {}
-        total += cnt
-        khopSl += stat.khopSl || 0
-        khopJob += stat.khopJob || 0
-        sxSaiNgay += stat.sxSaiNgay || 0
-        truotKh += stat.truotKh || 0
-        dailySeries.push({
-          date: d.date,
-          shortDate: d.shortDate,
-          orders: cnt,
-          passRate: d[`${p}_passRate`] || 0
+        firstHalfDays.forEach((d) => {
+          firstHalf += d[p] || 0
         })
+        secondHalfDays.forEach((d) => {
+          secondHalf += d[p] || 0
+        })
+
+        dailyList.forEach((d) => {
+          const cnt = d[p] || 0
+          const stat = d.picStats?.[p] || {}
+          total += cnt
+          khopSl += stat.khopSl || 0
+          khopJob += stat.khopJob || 0
+          sxSaiNgay += stat.sxSaiNgay || 0
+          truotKh += stat.truotKh || 0
+          dailySeries.push({
+            date: d.date,
+            shortDate: d.shortDate,
+            orders: cnt,
+            passRate: d[`${p}_passRate`] || 0
+          })
+        })
+
+        const growthDiff = secondHalf - firstHalf
+        let growthRate = 0
+        if (firstHalf > 0) {
+          growthRate = Number((((secondHalf - firstHalf) / firstHalf) * 100).toFixed(1))
+        } else if (secondHalf > 0) {
+          growthRate = 100
+        } else {
+          growthRate = 0
+        }
+
+        const passCount = khopSl + khopJob
+        const passRate = total > 0 ? Number(((passCount / total) * 100).toFixed(1)) : 0
+
+        let trendDirection = 'STABLE'
+        if (growthRate > 5 || growthDiff >= 3) trendDirection = 'UP'
+        else if (growthRate < -5 || growthDiff <= -3) trendDirection = 'DOWN'
+
+        return {
+          pic: p,
+          totalOrders: total,
+          firstHalfOrders: firstHalf,
+          secondHalfOrders: secondHalf,
+          growthDiff,
+          growthRate,
+          trendDirection,
+          passCount,
+          passRate,
+          khopSl,
+          khopJob,
+          sxSaiNgay,
+          truotKh,
+          dailySeries
+        }
       })
-
-      const growthDiff = secondHalf - firstHalf
-      let growthRate = 0
-      if (firstHalf > 0) {
-        growthRate = Number((((secondHalf - firstHalf) / firstHalf) * 100).toFixed(1))
-      } else if (secondHalf > 0) {
-        growthRate = 100
-      } else {
-        growthRate = 0
-      }
-
-      const passCount = khopSl + khopJob
-      const passRate = total > 0 ? Number(((passCount / total) * 100).toFixed(1)) : 0
-
-      let trendDirection = 'STABLE'
-      if (growthRate > 5 || growthDiff >= 3) trendDirection = 'UP'
-      else if (growthRate < -5 || growthDiff <= -3) trendDirection = 'DOWN'
-
-      return {
-        pic: p,
-        totalOrders: total,
-        firstHalfOrders: firstHalf,
-        secondHalfOrders: secondHalf,
-        growthDiff,
-        growthRate,
-        trendDirection,
-        passCount,
-        passRate,
-        khopSl,
-        khopJob,
-        sxSaiNgay,
-        truotKh,
-        dailySeries
-      }
-    }).sort((a, b) => b.growthRate - a.growthRate) // Xếp từ tăng trưởng cao nhất đến giảm nhiều nhất
+      .sort((a, b) => b.growthRate - a.growthRate) // Xếp từ tăng trưởng cao nhất đến giảm nhiều nhất
 
     // Nhóm theo Tháng (Monthly Grouping)
     const monthMap = new Map()
@@ -958,7 +990,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       }
       const mRec = monthMap.get(mKey)
       mRec.totalOrders++
-      if (!mRec.picStats[p]) mRec.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
+      if (!mRec.picStats[p])
+        mRec.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
       mRec.picStats[p].totalOrders++
 
       // Quarterly
@@ -977,7 +1010,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       }
       const qRec = quarterMap.get(qKey)
       qRec.totalOrders++
-      if (!qRec.picStats[p]) qRec.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
+      if (!qRec.picStats[p])
+        qRec.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
       qRec.picStats[p].totalOrders++
 
       const st = item.dpStatusCode || item.dpStatus
@@ -1005,37 +1039,83 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       }
     })
 
-    const monthlyList = Array.from(monthMap.values()).sort((a, b) => a.periodKey.localeCompare(b.periodKey)).map((m) => {
-      const passOrders = m.khopSl + m.khopJob
-      const row = {
-        ...m,
-        passOrders,
-        passRate: m.totalOrders > 0 ? Number(((passOrders / m.totalOrders) * 100).toFixed(1)) : 0
-      }
-      picList.forEach((p) => {
-        const stat = m.picStats[p] || { totalOrders: 0, khopSl: 0, khopJob: 0 }
-        row[p] = stat.totalOrders
-        row[`${p}_orders`] = stat.totalOrders
-        row[`${p}_passRate`] = stat.totalOrders > 0 ? Number((((stat.khopSl + stat.khopJob) / stat.totalOrders) * 100).toFixed(1)) : 0
+    const monthlyList = Array.from(monthMap.values())
+      .sort((a, b) => a.periodKey.localeCompare(b.periodKey))
+      .map((m) => {
+        const passOrders = m.khopSl + m.khopJob
+        const row = {
+          ...m,
+          passOrders,
+          passRate: m.totalOrders > 0 ? Number(((passOrders / m.totalOrders) * 100).toFixed(1)) : 0
+        }
+        picList.forEach((p) => {
+          const stat = m.picStats[p] || {
+            totalOrders: 0,
+            khopSl: 0,
+            khopJob: 0,
+            sxSaiNgay: 0,
+            truotKh: 0
+          }
+          const pass = (stat.khopSl || 0) + (stat.khopJob || 0)
+          row[p] = stat.totalOrders
+          row[`${p}_orders`] = stat.totalOrders
+          row[`${p}_khopSl`] = stat.khopSl || 0
+          row[`${p}_khopJob`] = stat.khopJob || 0
+          row[`${p}_sxSaiNgay`] = stat.sxSaiNgay || 0
+          row[`${p}_truotKh`] = stat.truotKh || 0
+          row[`${p}_pass`] = pass
+          row[`${p}_passRate`] =
+            stat.totalOrders > 0 ? Number(((pass / stat.totalOrders) * 100).toFixed(1)) : 0
+          row[`${p}_khopSlRate`] =
+            stat.totalOrders > 0
+              ? Number((((stat.khopSl || 0) / stat.totalOrders) * 100).toFixed(1))
+              : 0
+          row[`${p}_khopJobRate`] =
+            stat.totalOrders > 0
+              ? Number((((stat.khopJob || 0) / stat.totalOrders) * 100).toFixed(1))
+              : 0
+        })
+        return row
       })
-      return row
-    })
 
-    const quarterlyList = Array.from(quarterMap.values()).sort((a, b) => a.periodKey.localeCompare(b.periodKey)).map((q) => {
-      const passOrders = q.khopSl + q.khopJob
-      const row = {
-        ...q,
-        passOrders,
-        passRate: q.totalOrders > 0 ? Number(((passOrders / q.totalOrders) * 100).toFixed(1)) : 0
-      }
-      picList.forEach((p) => {
-        const stat = q.picStats[p] || { totalOrders: 0, khopSl: 0, khopJob: 0 }
-        row[p] = stat.totalOrders
-        row[`${p}_orders`] = stat.totalOrders
-        row[`${p}_passRate`] = stat.totalOrders > 0 ? Number((((stat.khopSl + stat.khopJob) / stat.totalOrders) * 100).toFixed(1)) : 0
+    const quarterlyList = Array.from(quarterMap.values())
+      .sort((a, b) => a.periodKey.localeCompare(b.periodKey))
+      .map((q) => {
+        const passOrders = q.khopSl + q.khopJob
+        const row = {
+          ...q,
+          passOrders,
+          passRate: q.totalOrders > 0 ? Number(((passOrders / q.totalOrders) * 100).toFixed(1)) : 0
+        }
+        picList.forEach((p) => {
+          const stat = q.picStats[p] || {
+            totalOrders: 0,
+            khopSl: 0,
+            khopJob: 0,
+            sxSaiNgay: 0,
+            truotKh: 0
+          }
+          const pass = (stat.khopSl || 0) + (stat.khopJob || 0)
+          row[p] = stat.totalOrders
+          row[`${p}_orders`] = stat.totalOrders
+          row[`${p}_khopSl`] = stat.khopSl || 0
+          row[`${p}_khopJob`] = stat.khopJob || 0
+          row[`${p}_sxSaiNgay`] = stat.sxSaiNgay || 0
+          row[`${p}_truotKh`] = stat.truotKh || 0
+          row[`${p}_pass`] = pass
+          row[`${p}_passRate`] =
+            stat.totalOrders > 0 ? Number(((pass / stat.totalOrders) * 100).toFixed(1)) : 0
+          row[`${p}_khopSlRate`] =
+            stat.totalOrders > 0
+              ? Number((((stat.khopSl || 0) / stat.totalOrders) * 100).toFixed(1))
+              : 0
+          row[`${p}_khopJobRate`] =
+            stat.totalOrders > 0
+              ? Number((((stat.khopJob || 0) / stat.totalOrders) * 100).toFixed(1))
+              : 0
+        })
+        return row
       })
-      return row
-    })
 
     return {
       dailyList,
@@ -1307,7 +1387,9 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       totalActualQty: planMetrics?.totalActualQty || 0,
       qtyFulfillmentRate:
         (planMetrics?.totalPlanQty || 0) > 0
-          ? Number((((planMetrics?.totalActualQty || 0) / planMetrics.totalPlanQty) * 100).toFixed(1))
+          ? Number(
+              (((planMetrics?.totalActualQty || 0) / planMetrics.totalPlanQty) * 100).toFixed(1)
+            )
           : 0
     }
   }, [filteredData, planMetrics])

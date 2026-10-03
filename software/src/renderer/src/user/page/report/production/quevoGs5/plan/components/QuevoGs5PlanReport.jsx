@@ -18,7 +18,8 @@ import {
   ExternalLink,
   TableProperties,
   Eye,
-  EyeOff
+  EyeOff,
+  Filter
 } from 'lucide-react'
 import { openChildWindow } from '@renderer/utils/openChildWindow'
 import { Button } from '@renderer/components/ui/button'
@@ -48,8 +49,10 @@ import {
   executiveGridTheme,
   gridCustomCss
 } from './reportUIComponents'
+import QuerySelectInput from '@renderer/user/components/query/core/fields/QuerySelectInput'
 import { FormulaHandbookModal } from '../../../handbook/FormulaHandbookModal'
 import { useQuevoGs5PlanLogic } from '../hooks/useQuevoGs5PlanLogic'
+import { PlanPicAnalysisSection } from '../../../summary/plan/components/PlanPicAnalysisSection'
 
 export default function QuevoGs5PlanReport(props) {
   const {
@@ -68,6 +71,28 @@ export default function QuevoGs5PlanReport(props) {
     plantName,
     maskText: (t) => t
   })
+
+  const storageKey = 'report_filter_state_quevo_gs5_plan'
+  const [showFilter, setShowFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey)
+      return saved !== null ? saved === 'true' : true
+    } catch {
+      return true
+    }
+  })
+
+  const toggleFilter = () => {
+    setShowFilter((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(storageKey, String(next))
+      } catch (e) {
+        console.warn('Lỗi lưu trạng thái bộ lọc:', e)
+      }
+      return next
+    })
+  }
 
   const {
     // Filters & State
@@ -200,64 +225,123 @@ export default function QuevoGs5PlanReport(props) {
         </div>
       </div>
 
-      {/* 1. TOP TOOLBAR & CONTROLS (Chuẩn Action Toolbar ERP) */}
-      <div className="report-interactive-toolbar screenshot-hide w-full bg-white border-y border-slate-200 px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap mb-6">
-        <div className="flex items-center gap-2 flex-wrap">
-          {masterList && masterList.length > 0 ? (
-            <MasterBatchSearchSelect
-              masterList={masterList}
-              selectedMasterKey={selectedMasterKey}
-              onSelectMaster={onSelectMaster}
-              onRefreshMaster={onRefreshMaster}
-              loading={loadingMaster}
-            />
-          ) : (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-800 text-[11px] font-semibold">
-              <span>⚠️ Chưa có đợt KHSX nào được đăng ký cho {plantName || 'nhà máy'}</span>
+      {/* 1. TOP TOOLBAR & CONTROLS (Khung truy vấn ERP chuẩn hóa) */}
+      <div className="report-interactive-toolbar screenshot-hide w-full bg-white border-b border-slate-200 mb-4">
+        {/* TẦNG 1: THANH ACTION TOOLBAR CHÍNH */}
+        <div className="w-full px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleFilter}
+              className={`uppercase text-[11px] font-semibold transition-colors ${
+                showFilter
+                  ? 'text-blue-700 bg-blue-50 hover:bg-blue-100 hover:text-blue-800'
+                  : 'text-slate-700 hover:text-slate-900'
+              }`}
+              title="Bấm để đóng/mở khung bộ lọc đổ xuống phía dưới"
+            >
+              <Filter size={13} className={showFilter ? 'text-blue-600' : 'text-slate-500'} />
+              <span>{showFilter ? 'ĐÓNG BỘ LỌC' : 'BỘ LỌC'}</span>
+            </Button>
+          </div>
+
+          {/* Nhóm nút tác vụ chuẩn ERP bên phải */}
+          <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenHandbook}
+              className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+              title="Mở cẩm nang công thức và giải thích thuật ngữ trong cửa sổ mới"
+            >
+              <BookOpen size={13} className="text-emerald-600" />
+              <span>CẨM NANG</span>
+            </Button>
+
+            {handleExportExcel && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExportExcel}
+                className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+                title="Xuất file Excel báo cáo"
+              >
+                <FileSpreadsheet size={13} className="text-emerald-600" />
+                <span>XUẤT EXCEL</span>
+              </Button>
+            )}
+
+            {handleCaptureScreenshot && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCaptureScreenshot}
+                disabled={isCapturing}
+                className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
+                title="Chụp ảnh toàn bộ báo cáo để xuất file PNG"
+              >
+                <Camera size={13} className="text-indigo-600" />
+                <span>{isCapturing ? 'ĐANG CHỤP...' : 'TẢI ẢNH BÁO CÁO'}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* TẦNG 2: KHUNG BỘ LỌC ĐỔ XUỐNG PHÍA DƯỚI */}
+        {showFilter && (
+          <div className="w-full bg-slate-50/80 border-t border-slate-200 px-3 py-2 flex items-center gap-3 flex-wrap">
+            <div className="inline-flex items-center border border-slate-300 bg-white divide-x divide-slate-300 shadow-sm flex-wrap">
+              {/* Nhà máy */}
+              <div className="flex items-center h-[28px]">
+                <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
+                  Nhà máy
+                </div>
+                <div className="px-2 flex items-center h-full" style={{ minWidth: 160 }}>
+                  <span className="text-[11.5px] font-bold text-slate-800">{plantName || 'GS5 Quế Võ'}</span>
+                </div>
+              </div>
+
+              {/* Đợt KHSX */}
+              <div className="flex items-center h-[28px]">
+                <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
+                  Đợt KHSX
+                </div>
+                <div className="px-1 flex items-center h-full">
+                  {masterList && masterList.length > 0 ? (
+                    <MasterBatchSearchSelect
+                      masterList={masterList}
+                      selectedMasterKey={selectedMasterKey}
+                      onSelectMaster={onSelectMaster}
+                      onRefreshMaster={onRefreshMaster}
+                      loading={loadingMaster}
+                      style={{ border: 'none', borderRadius: 0, height: 26 }}
+                    />
+                  ) : (
+                    <span className="text-[11px] text-amber-700 font-semibold px-2">Chưa có đợt nạp</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Nút Làm mới / Refresh Master */}
+              {onRefreshMaster && (
+                <div className="flex items-center h-[28px]">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onRefreshMaster}
+                    disabled={loadingMaster}
+                    className="h-full rounded-none px-3 font-bold text-[11.5px] text-blue-700 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 transition-colors"
+                    title="Làm mới dữ liệu đợt KHSX"
+                  >
+                    <RotateCcw size={12} className={loadingMaster ? 'animate-spin text-blue-600' : 'text-blue-600'} />
+                    <span>LÀM MỚI</span>
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Nhóm nút tác vụ chuẩn ERP */}
-        <div className="flex items-center gap-1.5 flex-wrap ml-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenHandbook}
-            className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
-            title="Mở cẩm nang công thức và giải thích thuật ngữ trong cửa sổ mới"
-          >
-            <BookOpen size={13} className="text-emerald-600" />
-            <span>CẨM NANG</span>
-          </Button>
-
-          {handleExportExcel && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleExportExcel}
-              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
-              title="Xuất file Excel báo cáo"
-            >
-              <FileSpreadsheet size={13} className="text-emerald-600" />
-              <span>XUẤT EXCEL</span>
-            </Button>
-          )}
-
-          {handleCaptureScreenshot && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCaptureScreenshot}
-              disabled={isCapturing}
-              className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
-              title="Chụp ảnh toàn bộ báo cáo để xuất file PNG"
-            >
-              <Camera size={13} className="text-indigo-600" />
-              <span>{isCapturing ? 'ĐANG CHỤP...' : 'TẢI ẢNH BÁO CÁO'}</span>
-            </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* 2. MAIN REPORT HEADER */}
@@ -567,681 +651,18 @@ export default function QuevoGs5PlanReport(props) {
         </div>
       </div>
 
-      {/* 5. THEO PIC ĐIỀU PHỐI (BẢNG OPENAI & BIỂU ĐỒ CỘT NGANG XẾP HẠNG TỶ LỆ ĐẠT CHUẨN) */}
-      <div
-        ref={chart4Ref}
-        style={{
-          marginBottom: 44,
-          width: '100%',
-          background: '#ffffff',
-          padding: '8px 0'
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-            marginBottom: 16
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 16,
-                fontWeight: 800,
-                color: '#0f172a',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8
-              }}
-            >
-              <span>1. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
-            </div>
-            <div
-              style={{
-                fontSize: 12.5,
-                color: '#475569',
-                marginTop: 4,
-                lineHeight: 1.5,
-                maxWidth: 960
-              }}
-            >
-              Bảng theo dõi và biểu đồ phân tích năng lực điều hành chi tiết theo từng nhân sự điều
-              phối (PIC), bao gồm khối lượng, tỷ lệ lệch ngày, tỷ lệ trượt và tỷ lệ đạt chuẩn.
-            </div>
-          </div>
-        </div>
-        {/* Switcher & Biểu đồ phân tích chi tiết */}
-        <div
-          style={{
-            marginButton: 20,
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: 6,
-            padding: '16px'
-          }}
-        >
-          {/* Chart Header & Mode Controls */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 10,
-              marginBottom: 16,
-              paddingBottom: 12,
-              borderBottom: '1px solid #f1f5f9'
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
-                {picChartMode === 'rate'
-                  ? 'Biểu đồ Tỷ lệ cơ cấu trạng thái điều phối theo PIC (%)'
-                  : picChartMode === 'pass'
-                    ? 'Xếp hạng Tỷ lệ đạt chuẩn điều phối (Benchmark 20%)'
-                    : 'Cơ cấu khối lượng và trạng thái điều phối theo từng PIC (Lệnh)'}
-              </div>
-              <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                {picChartMode === 'rate'
-                  ? 'So sánh tương quan tỷ lệ % Đạt chuẩn, Lệch ngày và Trượt kế hoạch của từng nhân sự'
-                  : picChartMode === 'pass'
-                    ? 'Đánh giá tỷ lệ lệnh đạt chuẩn (Khớp SL + Khớp Job) so với mục tiêu 20%'
-                    : 'Khối lượng lệnh phân bổ theo: Khớp job, Khớp SL, SX sai ngày và Trượt kế hoạch'}
-              </div>
-            </div>
-
-            {/* Mode Switcher */}
-            <div className="screenshot-hide">
-              <Tabs
-                value={picChartMode}
-                onValueChange={(val) => setPicChartMode(val)}
-                className="w-auto"
-              >
-                <TabsList variant="line">
-                  <TabsTrigger value="volume" variant="line">
-                    Khối lượng (Lệnh)
-                  </TabsTrigger>
-                  <TabsTrigger value="rate" variant="line">
-                    Tỷ lệ cơ cấu (%)
-                  </TabsTrigger>
-                  <TabsTrigger value="pass" variant="line">
-                    Xếp hạng Đạt chuẩn (%)
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </div>
-
-          <div style={{ height: Math.max(260, picBreakdown.length * 48 + 50), width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              {picChartMode === 'rate' ? (
-                <BarChart
-                  layout="vertical"
-                  data={[...picBreakdown].map((r) => ({
-                    ...r,
-                    name: r.pic
-                  }))}
-                  margin={{ top: 10, right: 30, left: 16, bottom: 10 }}
-                  barSize={24}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis
-                    type="number"
-                    domain={[0, 100]}
-                    stroke="#64748b"
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    tickFormatter={(v) => `${v}%`}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    stroke="#64748b"
-                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
-                    width={130}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <RechartsTooltip content={<ExecutiveChartTooltip unit="%" />} />
-                  <Legend
-                    verticalAlign="top"
-                    align="right"
-                    wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
-                  />
-                  <Bar
-                    dataKey="khopJobRate"
-                    name="Khớp job (%)"
-                    stackId="picRate"
-                    fill="#059669"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="khopSlRate"
-                    name="Khớp số lượng (%)"
-                    stackId="picRate"
-                    fill="#01411b"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="sxSaiNgayRate"
-                    name="SX sai ngày (%)"
-                    stackId="picRate"
-                    fill="#ea580c"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="truotKhRate"
-                    name="Trượt KH (%)"
-                    stackId="picRate"
-                    fill="#dc2626"
-                    radius={[0, 4, 4, 0]}
-                    isAnimationActive={false}
-                  />
-                </BarChart>
-              ) : picChartMode === 'pass' ? (
-                <BarChart
-                  layout="vertical"
-                  data={(() => {
-                    const sorted = [...picBreakdown]
-                      .map((r) => {
-                        const totalPass = (r.khopSl || 0) + (r.khopJob || 0)
-                        const passRate =
-                          r.totalOrders > 0
-                            ? Number(((totalPass / r.totalOrders) * 100).toFixed(1))
-                            : 0
-                        return { ...r, totalPass, passRate, name: r.pic }
-                      })
-                      .sort((a, b) => b.passRate - a.passRate)
-                    return sorted
-                  })()}
-                  margin={{ top: 20, right: 180, left: 16, bottom: 10 }}
-                  barSize={24}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis
-                    type="number"
-                    domain={[0, 100]}
-                    stroke="#64748b"
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    tickFormatter={(v) => `${v}%`}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    stroke="#64748b"
-                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
-                    width={130}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <ReferenceLine
-                    x={20}
-                    stroke="#dc2626"
-                    strokeDasharray="4 4"
-                    strokeWidth={1.5}
-                    label={{
-                      value: 'Mục tiêu (20%)',
-                      position: 'top',
-                      fill: '#dc2626',
-                      fontSize: 11.5,
-                      fontWeight: 700
-                    }}
-                  />
-                  <RechartsTooltip content={<ExecutiveChartTooltip />} />
-                  <Bar
-                    dataKey="passRate"
-                    name="Tỷ lệ đạt chuẩn (%)"
-                    radius={[0, 4, 4, 0]}
-                    isAnimationActive={false}
-                  >
-                    <LabelList
-                      dataKey="passRate"
-                      position="right"
-                      fill="#0f172a"
-                      fontSize={11.5}
-                      fontWeight={700}
-                      offset={10}
-                      isAnimationActive={false}
-                      formatter={(val, entry) => {
-                        const row = entry?.payload || {}
-                        return `${val}% (${row.totalPass || 0}/${row.totalOrders || 0} lệnh)`
-                      }}
-                    />
-                    {[...picBreakdown]
-                      .map((r) => {
-                        const totalPass = (r.khopSl || 0) + (r.khopJob || 0)
-                        const passRate =
-                          r.totalOrders > 0
-                            ? Number(((totalPass / r.totalOrders) * 100).toFixed(1))
-                            : 0
-                        return { ...r, totalPass, passRate }
-                      })
-                      .sort((a, b) => b.passRate - a.passRate)
-                      .map((entry, index) => {
-                        const rate = entry.passRate
-                        return (
-                          <Cell
-                            key={`cell-pass-${index}`}
-                            fill={rate >= 20 ? '#01411b' : rate >= 10 ? '#059669' : '#ea580c'}
-                          />
-                        )
-                      })}
-                  </Bar>
-                </BarChart>
-              ) : (
-                <BarChart
-                  layout="vertical"
-                  data={[...picBreakdown].map((r) => ({
-                    ...r,
-                    name: r.pic
-                  }))}
-                  margin={{ top: 10, right: 90, left: 16, bottom: 10 }}
-                  barSize={24}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis
-                    type="number"
-                    stroke="#64748b"
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    stroke="#64748b"
-                    tick={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}
-                    width={130}
-                    axisLine={{ stroke: '#cbd5e1' }}
-                    tickLine={false}
-                  />
-                  <RechartsTooltip content={<ExecutiveChartTooltip unit=" lệnh" />} />
-                  <Legend
-                    verticalAlign="top"
-                    align="right"
-                    wrapperStyle={{ paddingBottom: 10, fontSize: 11.5 }}
-                  />
-                  <Bar
-                    dataKey="khopJob"
-                    name="Khớp job"
-                    stackId="picVol"
-                    fill="#059669"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="khopSl"
-                    name="Khớp số lượng"
-                    stackId="picVol"
-                    fill="#01411b"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="sxSaiNgay"
-                    name="SX sai ngày KH"
-                    stackId="picVol"
-                    fill="#ea580c"
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="truotKh"
-                    name="Trượt KH"
-                    stackId="picVol"
-                    fill="#dc2626"
-                    radius={[0, 4, 4, 0]}
-                    isAnimationActive={false}
-                  >
-                    <LabelList
-                      dataKey="totalOrders"
-                      position="right"
-                      fill="#0f172a"
-                      fontSize={11.5}
-                      fontWeight={700}
-                      offset={10}
-                      isAnimationActive={false}
-                      formatter={(val) => (val > 0 ? `${val} lệnh` : '')}
-                    />
-                  </Bar>
-                </BarChart>
-              )}
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Bảng Gom nhóm theo PIC ĐP Phong Cách OpenAI Technical Table */}
-        <div style={{ width: '100%', marginTop: 28, marginBottom: 24 }}>
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              borderTop: '2px solid #0f172a',
-              borderBottom: '2px solid #0f172a',
-              fontSize: 12,
-              textAlign: 'left',
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              fontVariantNumeric: 'tabular-nums'
-            }}
-          >
-            <thead>
-              <tr style={{ borderBottom: '1px solid #0f172a' }}>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  PIC Điều phối
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Tổng lệnh
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  SX sai ngày KH
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Trượt KH
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Khớp số lượng
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Khớp job
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    textAlign: 'right',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em'
-                  }}
-                >
-                  Tỷ lệ đạt chuẩn
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {picBreakdown.map((row, idx) => {
-                const totalPass = (row.khopSl || 0) + (row.khopJob || 0)
-                const passRate =
-                  row.totalOrders > 0 ? ((totalPass / row.totalOrders) * 100).toFixed(1) : '0.0'
-                const isSelected = selectedPic === row.pic
-                return (
-                  <tr
-                    key={idx}
-                    style={{
-                      borderBottom: '1px solid #e2e8f0',
-                      background: isSelected ? '#f8fafc' : 'transparent'
-                    }}
-                  >
-                    {/* Cột 1: Tên PIC */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        fontWeight: 600,
-                        color: '#0f172a'
-                      }}
-                    >
-                      <span
-                        onClick={() => setSelectedPic(isSelected ? 'ALL' : row.pic)}
-                        style={{
-                          cursor: 'pointer',
-                          color: isSelected ? '#0369a1' : '#0f172a',
-                          fontWeight: isSelected ? 800 : 600,
-                          textDecoration: isSelected ? 'underline' : 'none'
-                        }}
-                        title={isSelected ? 'Bấm để hủy chọn' : 'Bấm để lọc theo PIC này'}
-                      >
-                        {row.pic || 'Không xác định'}
-                      </span>
-                    </td>
-
-                    {/* Cột 2: Tổng lệnh */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 700,
-                        color: '#0f172a'
-                      }}
-                    >
-                      {row.totalOrders.toLocaleString('vi-VN')}
-                    </td>
-
-                    {/* Cột 3: SX sai ngày KH */}
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>
-                        {row.sxSaiNgay.toLocaleString('vi-VN')}
-                      </span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.sxSaiNgayRate}%)</span>
-                    </td>
-
-                    {/* Cột 4: Trượt KH */}
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>{row.truotKh.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.truotKhRate}%)</span>
-                    </td>
-
-                    {/* Cột 5: Khớp số lượng */}
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>{row.khopSl.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.khopSlRate}%)</span>
-                    </td>
-
-                    {/* Cột 6: Khớp job */}
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#334155' }}>
-                      <span style={{ fontWeight: 600 }}>{row.khopJob.toLocaleString('vi-VN')}</span>{' '}
-                      <span style={{ color: '#64748b', fontSize: 12 }}>({row.khopJobRate}%)</span>
-                    </td>
-
-                    {/* Cột 7: Tỷ lệ đạt chuẩn */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 700,
-                        color: Number(passRate) >= 20 ? '#0f172a' : '#475569'
-                      }}
-                    >
-                      {passRate}%
-                    </td>
-                  </tr>
-                )
-              })}
-
-              {/* DÒNG TỔNG CỘNG TOÀN BỘ PIC */}
-              {picBreakdown.length > 0 && (
-                <tr
-                  style={{
-                    borderTop: '1.5px solid #0f172a',
-                    background: '#fafafa'
-                  }}
-                >
-                  <td style={{ padding: '10px 12px', fontWeight: 800, color: '#0f172a' }}>
-                    TỔNG CỘNG
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 800,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {picBreakdown
-                      .reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      .toLocaleString('vi-VN')}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      const count = picBreakdown.reduce((sum, r) => sum + (r.sxSaiNgay || 0), 0)
-                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
-                      return (
-                        <>
-                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
-                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
-                        </>
-                      )
-                    })()}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      const count = picBreakdown.reduce((sum, r) => sum + (r.truotKh || 0), 0)
-                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
-                      return (
-                        <>
-                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
-                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
-                        </>
-                      )
-                    })()}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      const count = picBreakdown.reduce((sum, r) => sum + (r.khopSl || 0), 0)
-                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
-                      return (
-                        <>
-                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
-                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
-                        </>
-                      )
-                    })()}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 700,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const total = picBreakdown.reduce((sum, r) => sum + (r.totalOrders || 0), 0)
-                      const count = picBreakdown.reduce((sum, r) => sum + (r.khopJob || 0), 0)
-                      const rate = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
-                      return (
-                        <>
-                          <span>{count.toLocaleString('vi-VN')}</span>{' '}
-                          <span style={{ color: '#64748b', fontSize: 11 }}>({rate}%)</span>
-                        </>
-                      )
-                    })()}
-                  </td>
-                  <td
-                    style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      fontWeight: 800,
-                      color: '#0f172a'
-                    }}
-                  >
-                    {(() => {
-                      const totalOrders = picBreakdown.reduce(
-                        (sum, r) => sum + (r.totalOrders || 0),
-                        0
-                      )
-                      const totalPass = picBreakdown.reduce(
-                        (sum, r) => sum + (r.khopSl || 0) + (r.khopJob || 0),
-                        0
-                      )
-                      return totalOrders > 0
-                        ? `${((totalPass / totalOrders) * 100).toFixed(1)}%`
-                        : '0.0%'
-                    })()}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* 1. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI) */}
+      <div ref={chart4Ref}>
+        <PlanPicAnalysisSection
+          picBreakdown={picBreakdown || []}
+          plantName={plantName}
+          selectedPic={selectedPic}
+          onSelectPic={setSelectedPic}
+          picChartMode={picChartMode}
+          setPicChartMode={setPicChartMode}
+        />
       </div>
+
       {/* 2 & 3. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (BIỂU ĐỒ CỘT) */}
       <div
         style={{
@@ -1329,7 +750,6 @@ export default function QuevoGs5PlanReport(props) {
                   dataKey={timeChartMode === 'rate' ? 'rate' : 'count'}
                   name={timeChartMode === 'rate' ? 'Tỷ lệ' : 'Số lệnh'}
                   barSize={24}
-                  radius={[0, 4, 4, 0]}
                   isAnimationActive={false}
                 >
                   <LabelList
@@ -1428,7 +848,6 @@ export default function QuevoGs5PlanReport(props) {
                   dataKey={capaChartMode === 'rate' ? 'rate' : 'count'}
                   name={capaChartMode === 'rate' ? 'Tỷ lệ' : 'Số lệnh'}
                   barSize={24}
-                  radius={[0, 4, 4, 0]}
                   isAnimationActive={false}
                 >
                   <LabelList

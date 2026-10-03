@@ -17,6 +17,12 @@ export default function TimelineSummaryReportPage() {
     setReportType,
     dateRange,
     handleCustomDateChange,
+    selectedPreset,
+    handleApplyPreset,
+    presets,
+    selectedMasterKey,
+    setSelectedMasterKey,
+    masterOptions,
     loading,
     fetchTimelineData,
     showDailySummaryTable,
@@ -74,6 +80,12 @@ export default function TimelineSummaryReportPage() {
             setReportType={setReportType}
             dateRange={dateRange}
             handleCustomDateChange={handleCustomDateChange}
+            selectedPreset={selectedPreset}
+            handleApplyPreset={handleApplyPreset}
+            presets={presets}
+            selectedMasterKey={selectedMasterKey}
+            setSelectedMasterKey={setSelectedMasterKey}
+            masterOptions={masterOptions}
             loading={loading}
             fetchTimelineData={fetchTimelineData}
             setIsHandbookModalOpen={setIsHandbookModalOpen}

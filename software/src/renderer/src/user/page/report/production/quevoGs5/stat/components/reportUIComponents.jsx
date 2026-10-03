@@ -1,3 +1,30 @@
+function getMasterEffectiveDate(item) {
+  if (!item) return 0
+  // 1. Ưu tiên 1: ApplyDate (Ngày áp dụng thực tế của đợt KHSX / TKSX)
+  if (item.ApplyDate) {
+    const t = new Date(item.ApplyDate).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  // 2. Ưu tiên 2: Trích xuất từ mã RegCode (ví dụ: KHSX_20261003_8800 hoặc TKSX_20261003_...)
+  const reg = String(item.RegCode || item.regCode || '')
+  const match = reg.match(/_(\d{4})(\d{2})(\d{2})_/)
+  if (match) {
+    const t = new Date(`${match[1]}-${match[2]}-${match[3]}`).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  // 3. Ưu tiên 3: Trường Date
+  if (item.Date) {
+    const t = new Date(item.Date).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  // 4. Ưu tiên 4: CreatedAt (Thời điểm tạo/nạp phiếu)
+  if (item.CreatedAt) {
+    const t = new Date(item.CreatedAt).getTime()
+    if (!isNaN(t) && t > 0) return t
+  }
+  return 0
+}
+
 /* eslint-disable react/prop-types */
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { RotateCw, Search, ChevronDown, Check, X } from 'lucide-react'
@@ -80,10 +107,14 @@ export const MasterBatchSearchSelect = ({
     if (!masterList || masterList.length === 0) return []
     const list = [...masterList]
     return list.sort((a, b) => {
-      const dateA = new Date(a.CreatedAt || a.ApplyDate || a.Date || 0).getTime()
-      const dateB = new Date(b.CreatedAt || b.ApplyDate || b.Date || 0).getTime()
-      return dateB - dateA || (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
-    })
+          const dateA = getMasterEffectiveDate(a)
+          const dateB = getMasterEffectiveDate(b)
+          if (dateB !== dateA) return dateB - dateA
+          const createA = new Date(a.CreatedAt || 0).getTime()
+          const createB = new Date(b.CreatedAt || 0).getTime()
+          if (createB !== createA) return createB - createA
+          return (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
+        })
   }, [masterList])
 
   // Luôn tự động chọn đợt nạp mới nhất nếu chưa có đợt nào được chọn

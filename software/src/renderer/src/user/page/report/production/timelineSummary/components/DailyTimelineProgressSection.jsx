@@ -10,7 +10,8 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   Legend,
-  ReferenceLine
+  ReferenceLine,
+  LabelList
 } from 'recharts'
 import { TableProperties } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
@@ -56,9 +57,7 @@ export function DailyTimelineProgressSection({
       const runtime = Number(d.runtimeHours ?? d.RuntimeHours ?? 0)
       const tickets = Number(d.ticketCount ?? d.TicketCount ?? 0)
       const passRate =
-        actual > 0
-          ? Number(Math.min(100, Math.max(0, (pass / actual) * 100)).toFixed(2))
-          : 100
+        actual > 0 ? Number(Math.min(100, Math.max(0, (pass / actual) * 100)).toFixed(2)) : 100
       const speedPerHour = runtime > 0 ? Math.round(actual / runtime) : 0
 
       totalActual += actual
@@ -84,8 +83,7 @@ export function DailyTimelineProgressSection({
     const activeDays = formatted.filter((f) => f.actualQty > 0 || f.runtimeHours > 0).length || 1
     const avgDailyOutput = Math.round(totalActual / activeDays)
     const avgSpeedPerHour = totalRuntime > 0 ? Math.round(totalActual / totalRuntime) : 0
-    const avgPassRate =
-      totalActual > 0 ? Number(((totalPass / totalActual) * 100).toFixed(2)) : 100
+    const avgPassRate = totalActual > 0 ? Number(((totalPass / totalActual) * 100).toFixed(2)) : 100
 
     return {
       chartData: formatted,
@@ -141,8 +139,8 @@ export function DailyTimelineProgressSection({
             Thống kê diễn biến tổng sản lượng sản xuất thực tế, sản lượng đạt chuẩn KCS và tỷ lệ đạt
             qua từng ngày ghi nhận trong chu kỳ (<b>{chartData.length} ngày</b> tại{' '}
             {plantName || 'Nhà máy'}). Biểu đồ cung cấp đường tham chiếu mức bình quân (
-            <b>{grandTotal.avgDailyOutput.toLocaleString('vi-VN')} SP/ngày</b>) giúp theo dõi trực quan
-            sự ổn định về khối lượng và chất lượng theo thời gian.
+            <b>{grandTotal.avgDailyOutput.toLocaleString('vi-VN')} SP/ngày</b>) giúp theo dõi trực
+            quan sự ổn định về khối lượng và chất lượng theo thời gian.
           </div>
         </div>
 
@@ -154,9 +152,7 @@ export function DailyTimelineProgressSection({
             variant="ghost"
             size="sm"
             onClick={() =>
-              setShowDailySummaryTable
-                ? setShowDailySummaryTable(!showDailySummaryTable)
-                : null
+              setShowDailySummaryTable ? setShowDailySummaryTable(!showDailySummaryTable) : null
             }
             className={`uppercase text-[11px] font-semibold ${
               showDailySummaryTable
@@ -244,17 +240,31 @@ export function DailyTimelineProgressSection({
               dataKey="actualQty"
               name="SL Sản Xuất (Thực tế)"
               fill="#01411b"
-              radius={[3, 3, 0, 0]}
               barSize={chartData.length > 20 ? 10 : 16}
-            />
+              isAnimationActive={false}
+            >
+              <LabelList
+                dataKey="actualQty"
+                position="top"
+                formatter={(v) => (v && chartData.length <= 15 ? Number(v).toLocaleString('vi-VN') : '')}
+                style={{ fill: '#01411b', fontSize: 9.5, fontWeight: 700 }}
+              />
+            </Bar>
             <Bar
               yAxisId="left"
               dataKey="passQty"
               name="SL Đạt Chuẩn KCS"
               fill="#166534"
-              radius={[3, 3, 0, 0]}
               barSize={chartData.length > 20 ? 10 : 16}
-            />
+              isAnimationActive={false}
+            >
+              <LabelList
+                dataKey="passQty"
+                position="top"
+                formatter={(v) => (v && chartData.length <= 15 ? Number(v).toLocaleString('vi-VN') : '')}
+                style={{ fill: '#166534', fontSize: 9.5, fontWeight: 700 }}
+              />
+            </Bar>
             <Line
               yAxisId="right"
               type="monotone"
@@ -264,7 +274,15 @@ export function DailyTimelineProgressSection({
               strokeWidth={2.5}
               dot={{ r: 3, fill: '#10b981' }}
               activeDot={{ r: 5 }}
-            />
+              isAnimationActive={false}
+            >
+              <LabelList
+                dataKey="passRate"
+                position="top"
+                formatter={(v) => (v !== undefined && v !== null && chartData.length <= 15 ? `${v}%` : '')}
+                style={{ fill: '#10b981', fontSize: 10, fontWeight: 700 }}
+              />
+            </Line>
             {grandTotal.avgDailyOutput > 0 && (
               <ReferenceLine
                 yAxisId="left"
@@ -477,7 +495,12 @@ export function DailyTimelineProgressSection({
                         padding: '8px 12px',
                         textAlign: 'right',
                         fontWeight: 700,
-                        color: row.passRate >= 95 ? '#166534' : row.passRate >= 85 ? '#d97706' : '#dc2626'
+                        color:
+                          row.passRate >= 95
+                            ? '#166534'
+                            : row.passRate >= 85
+                              ? '#d97706'
+                              : '#dc2626'
                       }}
                     >
                       {row.passRate.toFixed(1)}%

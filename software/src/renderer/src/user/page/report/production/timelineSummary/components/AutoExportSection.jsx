@@ -304,7 +304,7 @@ export function AutoExportSection({
                     return null
                   }}
                 />
-                <Bar dataKey="count" barSize={18} radius={[0, 2, 2, 0]}>
+                <Bar dataKey="count" barSize={18} isAnimationActive={false}>
                   <LabelList
                     dataKey="count"
                     position="right"

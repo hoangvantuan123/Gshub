@@ -9,12 +9,87 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   Legend,
-  ReferenceLine
+  LabelList
 } from 'recharts'
 import { TableProperties } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { ExecutiveChartTooltip } from '../../../hanoiGs1/stat/components/reportUIComponents'
+
+// Custom SVG Label Renderers đảm bảo 100% hiển thị trên mọi đoạn cột ngang
+const renderHBarLabel = (props) => {
+  const { x, y, width, height, value } = props
+  if (!value || Number(value) <= 0 || width < 16) return null
+  return (
+    <text
+      x={x + width / 2}
+      y={y + height / 2 + 1}
+      fill="#ffffff"
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fontSize={10.5}
+      fontWeight={700}
+    >
+      {typeof value === 'number' ? value.toLocaleString('vi-VN') : value}
+    </text>
+  )
+}
+
+const renderHRateLabel = (props) => {
+  const { x, y, width, height, value } = props
+  if (!value || Number(value) < 4 || width < 18) return null
+  return (
+    <text
+      x={x + width / 2}
+      y={y + height / 2 + 1}
+      fill="#ffffff"
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fontSize={10}
+      fontWeight={700}
+    >
+      {`${value}%`}
+    </text>
+  )
+}
+
+const renderHTotalLabel = (props) => {
+  const { x, y, width, height, value } = props
+  if (!value || Number(value) <= 0) return null
+  return (
+    <text
+      x={x + width + 8}
+      y={y + height / 2 + 1}
+      fill="#0f172a"
+      textAnchor="start"
+      dominantBaseline="middle"
+      fontSize={11.5}
+      fontWeight={700}
+    >
+      {`${Number(value).toLocaleString('vi-VN')} lệnh`}
+    </text>
+  )
+}
+
+const renderHKhopLabel = (props) => {
+  const { x, y, width, height, value, payload } = props
+  if (value === undefined || value === null) return null
+  const total = payload?.totalOrders || 0
+  const pass = (payload?.khopSl || 0) + (payload?.khopJob || 0)
+  return (
+    <text
+      x={x + width + 8}
+      y={y + height / 2 + 1}
+      fill="#0f172a"
+      textAnchor="start"
+      dominantBaseline="middle"
+      fontSize={11.5}
+      fontWeight={700}
+    >
+      {`${value}% (${pass}/${total} lệnh)`}
+    </text>
+  )
+}
 
 export function PlanPicAnalysisSection({
   picBreakdown = [],
@@ -109,7 +184,7 @@ export function PlanPicAnalysisSection({
           >
             Bảng theo dõi và biểu đồ phân tích năng lực điều hành chi tiết theo{' '}
             <b>{picBreakdown.length} nhân sự điều phối (PIC)</b> tại {plantName || 'Nhà máy'}, bao
-            gồm khối lượng lệnh, tỷ lệ lệch ngày, tỷ lệ trượt và tỷ lệ đạt chuẩn.
+            gồm khối lượng lệnh, độ khớp số lượng, khớp công việc, sai ngày và trượt kế hoạch.
           </div>
         </div>
 
@@ -164,16 +239,16 @@ export function PlanPicAnalysisSection({
             <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>
               {currentMode === 'rate'
                 ? 'Biểu đồ Tỷ lệ cơ cấu trạng thái điều phối theo PIC (%)'
-                : currentMode === 'pass'
-                  ? 'Xếp hạng Tỷ lệ đạt chuẩn điều phối (Benchmark 20%)'
+                : currentMode === 'khop'
+                  ? 'Biểu đồ Xếp hạng Tỷ lệ Khớp theo PIC (%)'
                   : 'Cơ cấu khối lượng và trạng thái điều phối theo từng PIC (Lệnh)'}
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
               {currentMode === 'rate'
-                ? 'So sánh tương quan tỷ lệ % Đạt chuẩn, Lệch ngày và Trượt kế hoạch của từng nhân sự'
-                : currentMode === 'pass'
-                  ? 'Đánh giá tỷ lệ lệnh đạt chuẩn (Khớp SL + Khớp Job) so với mục tiêu 20%'
-                  : 'Khối lượng lệnh phân bổ theo: Khớp job, Khớp SL, SX sai ngày và Trượt kế hoạch'}
+                ? 'So sánh tương quan tỷ lệ % Khớp SL, Khớp Job, Sai ngày và Trượt kế hoạch của từng nhân sự'
+                : currentMode === 'khop'
+                  ? 'Đánh giá tỷ lệ lệnh khớp (Khớp SL + Khớp Job) của từng nhân sự điều phối'
+                  : 'Khối lượng lệnh phân bổ theo: Khớp SL, Khớp Job, SX sai ngày và Trượt kế hoạch'}
             </div>
           </div>
 
@@ -186,8 +261,8 @@ export function PlanPicAnalysisSection({
                 <TabsTrigger value="rate" variant="line">
                   Tỷ lệ cơ cấu (%)
                 </TabsTrigger>
-                <TabsTrigger value="pass" variant="line">
-                  Xếp hạng Đạt chuẩn (%)
+                <TabsTrigger value="khop" variant="line">
+                  Tỷ lệ Khớp (%)
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -202,7 +277,7 @@ export function PlanPicAnalysisSection({
                 layout="vertical"
                 data={[...picBreakdown].map((r) => ({ ...r, name: r.pic }))}
                 margin={{ top: 10, right: 30, left: 16, bottom: 10 }}
-                barSize={20}
+                barSize={24}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis
@@ -234,41 +309,53 @@ export function PlanPicAnalysisSection({
                   name="Khớp số lượng (%)"
                   stackId="picRate"
                   fill="#01411b"
-                />
+                  isAnimationActive={false}
+                >
+                  <LabelList dataKey="khopSlRate" content={renderHRateLabel} />
+                </Bar>
                 <Bar
                   dataKey="khopJobRate"
                   name="Khớp job (%)"
                   stackId="picRate"
                   fill="#059669"
-                />
+                  isAnimationActive={false}
+                >
+                  <LabelList dataKey="khopJobRate" content={renderHRateLabel} />
+                </Bar>
                 <Bar
                   dataKey="sxSaiNgayRate"
                   name="SX sai ngày KH (%)"
                   stackId="picRate"
                   fill="#ea580c"
-                />
+                  isAnimationActive={false}
+                >
+                  <LabelList dataKey="sxSaiNgayRate" content={renderHRateLabel} />
+                </Bar>
                 <Bar
                   dataKey="truotKhRate"
                   name="Trượt KH (%)"
                   stackId="picRate"
                   fill="#dc2626"
-                />
+                  isAnimationActive={false}
+                >
+                  <LabelList dataKey="truotKhRate" content={renderHRateLabel} />
+                </Bar>
               </BarChart>
-            ) : currentMode === 'pass' ? (
+            ) : currentMode === 'khop' ? (
               <BarChart
                 layout="vertical"
                 data={[...picBreakdown].map((r) => ({
                   ...r,
                   name: r.pic,
-                  passRateVal: r.passBenchmarkRate || 0
+                  khopRateVal: r.passBenchmarkRate || 0
                 }))}
-                margin={{ top: 10, right: 40, left: 16, bottom: 10 }}
-                barSize={20}
+                margin={{ top: 10, right: 130, left: 16, bottom: 10 }}
+                barSize={24}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis
                   type="number"
-                  domain={[0, (dataMax) => Math.max(30, Math.ceil(dataMax * 1.15))]}
+                  domain={[0, 100]}
                   stroke="#64748b"
                   tick={{ fontSize: 11, fill: '#64748b' }}
                   tickFormatter={(v) => `${v}%`}
@@ -290,32 +377,21 @@ export function PlanPicAnalysisSection({
                   align="right"
                   wrapperStyle={{ paddingBottom: 10, fontSize: 11.5, fontWeight: 700 }}
                 />
-                <ReferenceLine
-                  x={20}
-                  stroke="#d97706"
-                  strokeDasharray="4 4"
-                  strokeWidth={2}
-                  label={{
-                    value: 'Mục tiêu: 20%',
-                    position: 'top',
-                    fill: '#d97706',
-                    fontSize: 11,
-                    fontWeight: 700
-                  }}
-                />
                 <Bar
-                  dataKey="passRateVal"
-                  name="Tỷ lệ đạt chuẩn (%)"
+                  dataKey="khopRateVal"
+                  name="Tỷ lệ Khớp (SL + Job) (%)"
                   fill="#01411b"
-                  radius={[0, 3, 3, 0]}
-                />
+                  isAnimationActive={false}
+                >
+                  <LabelList dataKey="khopRateVal" content={renderHKhopLabel} />
+                </Bar>
               </BarChart>
             ) : (
               <BarChart
                 layout="vertical"
                 data={[...picBreakdown].map((r) => ({ ...r, name: r.pic }))}
-                margin={{ top: 10, right: 40, left: 16, bottom: 10 }}
-                barSize={20}
+                margin={{ top: 10, right: 100, left: 16, bottom: 10 }}
+                barSize={24}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis
@@ -346,25 +422,38 @@ export function PlanPicAnalysisSection({
                   name="Khớp số lượng"
                   stackId="picVolume"
                   fill="#01411b"
-                />
+                  isAnimationActive={false}
+                >
+                  <LabelList dataKey="khopSl" content={renderHBarLabel} />
+                </Bar>
                 <Bar
                   dataKey="khopJob"
                   name="Khớp job"
                   stackId="picVolume"
                   fill="#059669"
-                />
+                  isAnimationActive={false}
+                >
+                  <LabelList dataKey="khopJob" content={renderHBarLabel} />
+                </Bar>
                 <Bar
                   dataKey="sxSaiNgay"
                   name="SX sai ngày KH"
                   stackId="picVolume"
                   fill="#ea580c"
-                />
+                  isAnimationActive={false}
+                >
+                  <LabelList dataKey="sxSaiNgay" content={renderHBarLabel} />
+                </Bar>
                 <Bar
                   dataKey="truotKh"
                   name="Trượt KH"
                   stackId="picVolume"
                   fill="#dc2626"
-                />
+                  isAnimationActive={false}
+                >
+                  <LabelList dataKey="truotKh" content={renderHBarLabel} />
+                  <LabelList dataKey="totalOrders" content={renderHTotalLabel} />
+                </Bar>
               </BarChart>
             )}
           </ResponsiveContainer>
@@ -469,14 +558,14 @@ export function PlanPicAnalysisSection({
                   style={{
                     padding: '10px 12px',
                     fontWeight: 700,
-                    color: '#0f172a',
+                    color: '#01411b',
                     fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
                   }}
                 >
-                  Đạt chuẩn (%)
+                  Tỷ lệ Khớp (%)
                 </th>
                 <th
                   style={{
@@ -508,41 +597,19 @@ export function PlanPicAnalysisSection({
             </thead>
             <tbody>
               {picBreakdown.map((row, idx) => {
-                const isSelected = selectedPic === row.pic
                 const isGood = row.passBenchmarkRate >= 20 || row.khopSlRate >= 50
 
                 return (
                   <tr
                     key={idx}
-                    onClick={() =>
-                      onSelectPic && onSelectPic(row.pic === selectedPic ? 'ALL' : row.pic)
-                    }
                     style={{
                       borderBottom: '1px solid #e2e8f0',
-                      background: isSelected
-                        ? '#eff6ff'
-                        : idx % 2 === 1
-                          ? '#fafafa'
-                          : 'transparent',
-                      cursor: onSelectPic ? 'pointer' : 'default',
+                      background: idx % 2 === 1 ? '#fafafa' : 'transparent',
                       transition: 'background 0.15s ease'
                     }}
-                    title={onSelectPic ? `Nhấp để lọc nhanh theo PIC: ${row.pic}` : undefined}
                   >
                     <td style={{ padding: '9px 12px', fontWeight: 700, color: '#0f172a' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {isSelected && (
-                          <span
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: '50%',
-                              background: '#2563eb'
-                            }}
-                          />
-                        )}
-                        <span>{row.pic || 'Chưa phân công'}</span>
-                      </div>
+                      <span>{row.pic || 'Chưa phân công'}</span>
                     </td>
                     <td
                       style={{
@@ -628,7 +695,7 @@ export function PlanPicAnalysisSection({
                       }}
                     >
                       {row.passBenchmarkRate >= 20
-                        ? 'Đạt benchmark'
+                        ? 'Tốt'
                         : row.passBenchmarkRate >= 10
                           ? 'Khá'
                           : 'Cần cải thiện'}
@@ -671,7 +738,7 @@ export function PlanPicAnalysisSection({
                     {grandProgressRate}%
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: '#01411b' }}>
-                    {grandPassBenchmarkRate >= 20 ? 'Đạt chuẩn' : 'Chưa đạt 20%'}
+                    {grandPassBenchmarkRate >= 20 ? 'Tốt' : 'Trung bình'}
                   </td>
                 </tr>
               )}

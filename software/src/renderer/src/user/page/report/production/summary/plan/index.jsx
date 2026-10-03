@@ -15,6 +15,12 @@ export default function SummaryPlanReportPage() {
     setFactoryCode,
     dateRange,
     handleCustomDateChange,
+    selectedPreset,
+    handleApplyPreset,
+    presets,
+    selectedMasterKey,
+    setSelectedMasterKey,
+    masterOptions,
     selectedPic,
     setSelectedPic,
     picBreakdown,
@@ -72,6 +78,12 @@ export default function SummaryPlanReportPage() {
               reportTypeName="Kế hoạch SX"
               handleCustomDateChange={handleCustomDateChange}
               dateRange={dateRange}
+              selectedPreset={selectedPreset}
+              handleApplyPreset={handleApplyPreset}
+              presets={presets}
+              selectedMasterKey={selectedMasterKey}
+              setSelectedMasterKey={setSelectedMasterKey}
+              masterOptions={masterOptions}
               selectedPic={selectedPic}
               setSelectedPic={setSelectedPic}
               picOptions={filterOptions?.pics || []}

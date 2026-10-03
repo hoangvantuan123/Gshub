@@ -162,12 +162,12 @@ export function PlanTeamProgressSection({
               name="SL Kế hoạch (Target)"
               fill="#64748b"
               barSize={14}
-              radius={[0, 2, 2, 0]}
+              isAnimationActive={false}
             >
               <LabelList
                 dataKey="planQty"
                 position="right"
-                formatter={(v) => (v ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) => (v !== undefined && v !== null ? Number(v).toLocaleString('vi-VN') : '')}
                 style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>
@@ -176,12 +176,12 @@ export function PlanTeamProgressSection({
               name="SL Thực tế (Actual)"
               fill="#01411b"
               barSize={14}
-              radius={[0, 2, 2, 0]}
+              isAnimationActive={false}
             >
               <LabelList
                 dataKey="actualQty"
                 position="right"
-                formatter={(v) => (v ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) => (v !== undefined && v !== null ? Number(v).toLocaleString('vi-VN') : '')}
                 style={{ fill: '#01411b', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>
@@ -288,7 +288,8 @@ export function PlanTeamProgressSection({
             <tbody>
               {teamChartData.map((row, idx) => {
                 const diff = (row.actualQty || 0) - (row.planQty || 0)
-                const rate = row.passRate ?? (row.planQty > 0 ? (row.actualQty / row.planQty) * 100 : 100)
+                const rate =
+                  row.passRate ?? (row.planQty > 0 ? (row.actualQty / row.planQty) * 100 : 100)
                 const isOver = rate >= 100
                 const isGood = rate >= 95
 
@@ -405,7 +406,11 @@ export function PlanTeamProgressSection({
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 800 }}>
                   <span style={{ color: grandPassRate >= 95 ? '#01411b' : '#dc2626' }}>
-                    {grandPassRate >= 100 ? 'Vượt chỉ tiêu' : grandPassRate >= 95 ? 'Đạt chỉ tiêu' : 'Chưa đạt'}
+                    {grandPassRate >= 100
+                      ? 'Vượt chỉ tiêu'
+                      : grandPassRate >= 95
+                        ? 'Đạt chỉ tiêu'
+                        : 'Chưa đạt'}
                   </span>
                 </td>
               </tr>

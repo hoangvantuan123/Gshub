@@ -1433,7 +1433,6 @@ export default function ProductionStatisticsReport(props) {
                 name="SL Sản xuất thực tế"
                 fill="#01411b"
                 barSize={14}
-                radius={[0, 2, 2, 0]}
               >
                 <LabelList
                   dataKey="actualQty"
@@ -1447,7 +1446,6 @@ export default function ProductionStatisticsReport(props) {
                 name="SL Đạt KCS"
                 fill="#166534"
                 barSize={14}
-                radius={[0, 2, 2, 0]}
               >
                 <LabelList
                   dataKey="passQty"
@@ -1461,7 +1459,6 @@ export default function ProductionStatisticsReport(props) {
                 name="SL Lỗi / Phế phẩm"
                 fill="#be123c"
                 barSize={14}
-                radius={[0, 2, 2, 0]}
               >
                 <LabelList
                   dataKey="defectQty"
@@ -1940,7 +1937,7 @@ export default function ProductionStatisticsReport(props) {
                     return null
                   }}
                 />
-                <Bar dataKey="count" barSize={18} radius={[0, 2, 2, 0]}>
+                <Bar dataKey="count" barSize={18}>
                   <LabelList
                     dataKey="count"
                     position="right"
@@ -2358,7 +2355,7 @@ export default function ProductionStatisticsReport(props) {
                         return null
                       }}
                     />
-                    <Bar dataKey="count" barSize={18} radius={[0, 2, 2, 0]}>
+                    <Bar dataKey="count" barSize={18}>
                       <LabelList
                         dataKey="count"
                         position="right"

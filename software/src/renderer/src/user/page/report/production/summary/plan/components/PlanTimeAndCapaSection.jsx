@@ -14,10 +14,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { ExecutiveChartTooltip } from '../../../hanoiGs1/stat/components/reportUIComponents'
 
-export function PlanTimeAndCapaSection({
-  timeStatusBreakdown = [],
-  capaStatusBreakdown = []
-}) {
+export function PlanTimeAndCapaSection({ timeStatusBreakdown = [], capaStatusBreakdown = [] }) {
   const [timeChartMode, setTimeChartMode] = useState('count')
   const [capaChartMode, setCapaChartMode] = useState('count')
 
@@ -106,7 +103,6 @@ export function PlanTimeAndCapaSection({
                 dataKey={timeChartMode === 'rate' ? 'rate' : 'count'}
                 name={timeChartMode === 'rate' ? 'Tỷ lệ' : 'Số lệnh'}
                 barSize={22}
-                radius={[0, 4, 4, 0]}
               >
                 <LabelList
                   dataKey={timeChartMode === 'rate' ? 'rate' : 'count'}
@@ -202,7 +198,7 @@ export function PlanTimeAndCapaSection({
                 dataKey={capaChartMode === 'rate' ? 'rate' : 'count'}
                 name={capaChartMode === 'rate' ? 'Tỷ lệ' : 'Số lệnh'}
                 barSize={22}
-                radius={[0, 4, 4, 0]}
+                isAnimationActive={false}
               >
                 <LabelList
                   dataKey={capaChartMode === 'rate' ? 'rate' : 'count'}

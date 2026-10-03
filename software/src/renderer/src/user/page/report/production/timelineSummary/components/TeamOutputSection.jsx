@@ -147,12 +147,12 @@ export function TeamOutputSection({
               name="SL Sản xuất thực tế"
               fill="#01411b"
               barSize={14}
-              radius={[0, 2, 2, 0]}
+              isAnimationActive={false}
             >
               <LabelList
                 dataKey="actualQty"
                 position="right"
-                formatter={(v) => (v ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) => (v !== undefined && v !== null && v > 0 ? Number(v).toLocaleString('vi-VN') : '')}
                 style={{ fill: '#01411b', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>
@@ -161,12 +161,12 @@ export function TeamOutputSection({
               name="SL Đạt KCS"
               fill="#166534"
               barSize={14}
-              radius={[0, 2, 2, 0]}
+              isAnimationActive={false}
             >
               <LabelList
                 dataKey="passQty"
                 position="right"
-                formatter={(v) => (v ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) => (v !== undefined && v !== null && v > 0 ? Number(v).toLocaleString('vi-VN') : '')}
                 style={{ fill: '#166534', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>
@@ -175,12 +175,12 @@ export function TeamOutputSection({
               name="SL Lỗi / Phế phẩm"
               fill="#be123c"
               barSize={14}
-              radius={[0, 2, 2, 0]}
+              isAnimationActive={false}
             >
               <LabelList
                 dataKey="defectQty"
                 position="right"
-                formatter={(v) => (v > 0 ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) => (v !== undefined && v !== null && v > 0 ? Number(v).toLocaleString('vi-VN') : '')}
                 style={{ fill: '#be123c', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>

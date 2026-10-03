@@ -199,8 +199,8 @@ export function PlanHeroKpiCards({ planMetrics = {} }) {
           <span style={{ fontSize: 16, fontWeight: 600, color: '#01411b' }}>lệnh</span>
         </div>
         <div style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>
-          Tỷ lệ: <span style={{ color: '#01411b', fontWeight: 700 }}>{khopSlRate}%</span> • Đạt chuẩn
-          sản lượng
+          Tỷ lệ: <span style={{ color: '#01411b', fontWeight: 700 }}>{khopSlRate}%</span> • Đạt
+          chuẩn sản lượng
         </div>
       </div>
 

@@ -16,6 +16,12 @@ export default function SummaryStatisticsReportPage() {
     setFactoryCode,
     dateRange,
     handleCustomDateChange,
+    selectedPreset,
+    handleApplyPreset,
+    presets,
+    selectedMasterKey,
+    setSelectedMasterKey,
+    masterOptions,
     loading,
     fetchTimelineData,
     showDailySummaryTable,
@@ -81,6 +87,12 @@ export default function SummaryStatisticsReportPage() {
               reportTypeName="Thống kê SX"
               handleCustomDateChange={handleCustomDateChange}
               dateRange={dateRange}
+              selectedPreset={selectedPreset}
+              handleApplyPreset={handleApplyPreset}
+              presets={presets}
+              selectedMasterKey={selectedMasterKey}
+              setSelectedMasterKey={setSelectedMasterKey}
+              masterOptions={masterOptions}
               loading={loading}
               fetchData={fetchTimelineData}
               handleExportExcel={

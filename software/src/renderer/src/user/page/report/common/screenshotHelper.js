@@ -17,17 +17,6 @@ function triggerDownload(dataUrl, fileName) {
 }
 
 /**
- * Filter function to automatically exclude `.screenshot-hide` elements
- */
-function defaultFilter(node) {
-  if (!node) return true
-  if (node.classList && node.classList.contains('screenshot-hide')) {
-    return false
-  }
-  return true
-}
-
-/**
  * Inline computed styles onto SVG text, paths, and containers to guarantee
  * flawless rendering in Chromium/Electron SVG rasterizer without losing characters.
  */
@@ -169,13 +158,19 @@ function prepareSvgAndCanvasForCapture(rootEl) {
  * - Renders complete DOM tree with html2canvas (2x Retina)
  * - Preserves all Recharts axis labels, metric values, reference lines, legends, and table contents
  */
-export async function captureReportScreenshot({
-  targetEl,
-  fileName = 'BaoCao_SanXuat',
-  onStart,
-  onEnd,
-  onError
-}) {
+export async function captureReportScreenshot(optionsOrEl, maybeFileName) {
+  let targetEl, fileName, onStart, onEnd, onError
+  if (optionsOrEl instanceof HTMLElement || optionsOrEl?.nodeType === 1) {
+    targetEl = optionsOrEl
+    fileName = maybeFileName || 'BaoCao_SanXuat'
+  } else if (optionsOrEl && typeof optionsOrEl === 'object') {
+    targetEl = optionsOrEl.targetEl
+    fileName = optionsOrEl.fileName || 'BaoCao_SanXuat'
+    onStart = optionsOrEl.onStart
+    onEnd = optionsOrEl.onEnd
+    onError = optionsOrEl.onError
+  }
+
   if (!targetEl) return
   onStart?.()
 

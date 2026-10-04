@@ -23,6 +23,7 @@ var knownBadBots = []string{
 	"wfuzz",
 	"hydra",
 	"python-requests",
+	"python",
 	"go-http-client",
 	"curl/",
 	"wget/",
@@ -31,6 +32,17 @@ var knownBadBots = []string{
 	"scrapy",
 	"mechanize",
 	"httpclient",
+	"axios",
+	"postman",
+	"insomnia",
+	"node-fetch",
+	"got/",
+	"undici",
+	"aiohttp",
+	"urllib",
+	"apache-httpclient",
+	"okhttp",
+	"java/",
 }
 
 func IsPrivateIP(ipStr string) bool {

@@ -6,6 +6,11 @@ const api = {
   saveDataToFile: (filePath, data) => ipcRenderer.invoke('save-to-file', filePath, data),
   saveBinaryFile: (filePath, bufferBase64) =>
     ipcRenderer.invoke('save-binary-file', filePath, bufferBase64),
+  saveFileAbsolute: (fullFilePath, base64Data, options) =>
+    ipcRenderer.invoke('file:save-file-absolute', fullFilePath, base64Data, options),
+  getDefaultDownloadPath: () => ipcRenderer.invoke('system:get-download-path'),
+  selectDirectory: (defaultPath) => ipcRenderer.invoke('dialog:select-directory', defaultPath),
+  showSaveDialog: (options) => ipcRenderer.invoke('dialog:show-save-dialog', options),
   getTemplatePath: (folderName, fileName) =>
     ipcRenderer.invoke('get-template-path', folderName, fileName),
   convertDocxToPdf: (docxRelativePath, pdfRelativePath) =>

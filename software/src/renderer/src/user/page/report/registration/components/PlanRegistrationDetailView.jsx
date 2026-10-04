@@ -37,6 +37,13 @@ import {
 import { usePageHotkeys } from '../../../../hooks/usePageHotkeys'
 import { usePageData } from '../../../../../context/PageDataContext'
 import DataPageContainer from '../../../../components/layout/DataPageContainer'
+import ExportExcelModal from '../../../../components/modal/ExportExcelModal'
+import {
+  generateExcelWorkbook,
+  saveWorkbookToFile,
+  formatFilterSummary
+} from '../../../../../utils/exportExcelUtils'
+import { useDateFormat } from '../../../../hooks/useDateFormat'
 
 const executiveGridTheme = {
   accentColor: '#01411b',
@@ -59,8 +66,11 @@ export default function PlanRegistrationDetailView() {
   const { regCode } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { formatDate } = useDateFormat()
   const { setStatusMessage, setPageData } = usePageData() || {}
   const loadingBarRef = useRef(null)
+
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
   // ── Khởi tạo Master Data (ưu tiên lấy từ Cache storage cho tốc độ 0ms) ──
   const [masterInfo, setMasterInfo] = useState(() => {
@@ -346,139 +356,94 @@ export default function PlanRegistrationDetailView() {
     }
   }, [displayList, currentColumns, setStatusMessage])
 
-  // ── Xuất file Excel chuẩn Quản Trị với Multi-level Group Headers ──
-  const handleExportExcel = useCallback(() => {
-    try {
-      if (!displayList || displayList.length === 0) {
-        setStatusMessage?.({ type: 'warning', text: 'Không có dữ liệu để xuất file Excel' })
-        return
-      }
-
-      const plantDisplayName = factoryCode === 'GS5' ? 'NHÀ MÁY GS QUẾ VÕ' : 'NHÀ MÁY GS HÀ NỘI'
-      const isPlan = reportType === 'plan' || !reportType?.includes('stat')
-      const reportTitle = isPlan
-        ? `BÁO CÁO LỆNH THEO TRẠNG THÁI ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT - ${plantDisplayName}`
-        : `NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT - ${plantDisplayName}`
-
-      const validCols = rawBaseCols.filter((c) => c.id && c.id !== 'WorkingTag')
-
-      const row1_Title = [reportTitle]
-      const row2_Group = ['STT']
-      const row3_ColName = ['STT']
-
-      const merges = []
-      const totalCols = validCols.length + 1 // +1 cho cột STT
-
-      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } })
-
-      let currentGroup = null
-      let groupStartIndex = -1
-
-      validCols.forEach((col, idx) => {
-        const colIdx = idx + 1
-        const groupName = col.group || ''
-        const colTitle = col.title || col.id
-
-        row2_Group.push(groupName)
-        row3_ColName.push(colTitle)
-
-        if (groupName) {
-          if (groupName !== currentGroup) {
-            if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
-              merges.push({
-                s: { r: 1, c: groupStartIndex },
-                e: { r: 1, c: colIdx - 1 }
-              })
-            }
-            currentGroup = groupName
-            groupStartIndex = colIdx
-          }
-        } else {
-          if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
-            merges.push({
-              s: { r: 1, c: groupStartIndex },
-              e: { r: 1, c: colIdx - 1 }
-            })
-          }
-          currentGroup = null
-          groupStartIndex = -1
-          merges.push({
-            s: { r: 1, c: colIdx },
-            e: { r: 2, c: colIdx }
-          })
-        }
-      })
-
-      if (currentGroup && groupStartIndex !== -1 && totalCols - 1 > groupStartIndex) {
-        merges.push({
-          s: { r: 1, c: groupStartIndex },
-          e: { r: 1, c: totalCols - 1 }
-        })
-      }
-
-      merges.push({
-        s: { r: 1, c: 0 },
-        e: { r: 2, c: 0 }
-      })
-
-      const dataRows = displayList.map((item, rowIdx) => {
-        const row = [rowIdx + 1]
-        validCols.forEach((col) => {
-          const colId = col.id
-          const rawVal = item[colId] ?? item[colId.charAt(0).toLowerCase() + colId.slice(1)] ?? ''
-
-          if (col.kind === 'Boolean') {
-            const b =
-              typeof rawVal === 'boolean'
-                ? rawVal
-                : rawVal === 1 || rawVal === '1' || rawVal === 'true' || rawVal === 'Có'
-            row.push(b ? 'Có' : '')
-          } else if (col.kind === 'Number') {
-            if (rawVal !== '' && rawVal !== null && rawVal !== undefined) {
-              const num = typeof rawVal === 'number' ? rawVal : Number(rawVal)
-              row.push(!isNaN(num) ? num : rawVal)
-            } else {
-              row.push('')
-            }
-          } else {
-            row.push(rawVal !== null && rawVal !== undefined ? rawVal : '')
-          }
-        })
-        return row
-      })
-
-      const aoa = [row1_Title, row2_Group, row3_ColName, ...dataRows]
-      const ws = XLSX.utils.aoa_to_sheet(aoa)
-      ws['!merges'] = merges
-
-      const colWidths = [
-        { wch: 8 },
-        ...validCols.map((col) => ({
-          wch: Math.max(12, Math.min(50, Math.round((col.width || 120) / 7.5)))
-        }))
-      ]
-      ws['!cols'] = colWidths
-
-      const wb = XLSX.utils.book_new()
-      const sheetName = isPlan ? 'ChiTiet_DieuPhoi_KHSX' : 'ChiTiet_ThongKe_TKSX'
-      XLSX.utils.book_append_sheet(wb, ws, sheetName)
-
-      const filePrefix = isPlan ? 'KHSX_ChiTiet' : 'TKSX_ChiTiet'
-      const fileName = `${filePrefix}_${regCode || 'export'}_${Date.now()}.xlsx`
-      XLSX.writeFile(wb, fileName)
-
-      setStatusMessage?.({
-        type: 'success',
-        text: `Đã xuất ${displayList.length.toLocaleString('vi-VN')} dòng ra tệp ${fileName}`
-      })
-    } catch (err) {
-      console.error('Export excel error:', err)
-      setStatusMessage?.({
-        type: 'error',
-        text: 'Lỗi xuất file Excel: ' + (err?.message || err)
-      })
+  // ── Mở modal xuất Excel ──
+  const handleOpenExportModal = useCallback(() => {
+    if (!displayList || displayList.length === 0) {
+      setStatusMessage?.({ type: 'warning', text: 'Không có dữ liệu để xuất file Excel' })
+      return
     }
-  }, [displayList, rawBaseCols, reportType, factoryCode, regCode, setStatusMessage])
+    setIsExportModalOpen(true)
+  }, [displayList, setStatusMessage])
+
+  // ── Thực hiện xuất file Excel chuẩn Quản Trị ERP ──
+  const executeExportDetailExcel = useCallback(
+    async ({
+      scope,
+      fileName,
+      saveDirectory,
+      overwriteExisting,
+      includeHeaders,
+      exportableCols
+    }) => {
+      try {
+        let dataToExport = displayList
+        if (scope === 'selected') {
+          const selectedRows = selection?.rows?.items || []
+          if (selectedRows.length > 0) {
+            const indices = []
+            selectedRows.forEach(([start, end]) => {
+              for (let i = start; i < Math.min(displayList.length, end); i++) {
+                indices.push(i)
+              }
+            })
+            dataToExport = indices.map((idx) => displayList[idx]).filter(Boolean)
+          } else if (selection?.current?.range) {
+            const { y, height } = selection.current.range
+            dataToExport = displayList.slice(y, Math.min(displayList.length, y + height))
+          }
+        }
+
+        if (dataToExport.length === 0) {
+          throw new Error('Không có dòng dữ liệu nào để xuất Excel!')
+        }
+
+        const plantDisplayName = factoryCode === 'GS5' ? 'NHÀ MÁY GS QUẾ VÕ' : 'NHÀ MÁY GS HÀ NỘI'
+        const isPlan = reportType === 'plan' || !reportType?.includes('stat')
+        const reportTitle = isPlan
+          ? `BÁO CÁO LỆNH THEO TRẠNG THÁI ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT - ${plantDisplayName}`
+          : `NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT - ${plantDisplayName}`
+
+        const filterSummary = `Mã đợt ĐK: ${regCode || ''} | Nhà máy: ${plantDisplayName} | Ngày áp dụng: ${applyDate ? formatDate(applyDate) : ''}`
+
+        const wb = generateExcelWorkbook({
+          data: dataToExport,
+          columns: exportableCols || rawBaseCols,
+          sheetName: isPlan ? 'ChiTiet_KHSX' : 'ChiTiet_TKSX',
+          reportTitle,
+          filterInfo: filterSummary,
+          includeHeaders: includeHeaders !== false,
+          formatDateFn: formatDate
+        })
+
+        const saveResult = await saveWorkbookToFile(wb, fileName, saveDirectory, {
+          overwriteExisting
+        })
+
+        setStatusMessage?.({
+          type: 'success',
+          text: `Đã xuất thành công ${dataToExport.length.toLocaleString('vi-VN')} dòng dữ liệu ra file [${saveResult?.filePath || fileName}]!`
+        })
+      } catch (err) {
+        console.error('Export excel error:', err)
+        setStatusMessage?.({
+          type: 'error',
+          text: 'Lỗi xuất file Excel: ' + (err?.message || err)
+        })
+        throw err
+      }
+    },
+    [
+      displayList,
+      selection,
+      factoryCode,
+      reportType,
+      regCode,
+      applyDate,
+      formatDate,
+      rawBaseCols,
+      setStatusMessage
+    ]
+  )
 
   usePageHotkeys({
     onSearch: fetchDetailData
@@ -534,201 +499,225 @@ export default function PlanRegistrationDetailView() {
   }, [displayList, isPlanType])
 
   return (
-    <DataPageContainer
-      loadingBarRef={loadingBarRef}
-      actions={
-        <div className="flex items-center justify-between w-full h-5  max-w-full">
-          {/* Nút tác vụ chuẩn đồng bộ với Modal Đăng Ký */}
-          <div className="flex items-center gap-1.5">
-            <Button
-              key="Reload"
-              size="sm"
-              variant="ghost"
-              onClick={fetchDetailData}
-              className="uppercase text-[10px] whitespace-nowrap  text-indigo-700 hover:text-indigo-800"
-              title="Tải lại dữ liệu từ hệ thống"
-            >
-              <RotateCw size={12} className="text-indigo-500" />
-              {t('Truy vấn')}
-            </Button>
+    <>
+      <DataPageContainer
+        loadingBarRef={loadingBarRef}
+        actions={
+          <div className="flex items-center justify-between w-full h-5  max-w-full">
+            {/* Nút tác vụ chuẩn đồng bộ với Modal Đăng Ký */}
+            <div className="flex items-center gap-1.5">
+              <Button
+                key="Reload"
+                size="sm"
+                variant="ghost"
+                onClick={fetchDetailData}
+                className="uppercase text-[10px] whitespace-nowrap  text-indigo-700 hover:text-indigo-800"
+                title="Tải lại dữ liệu từ hệ thống"
+              >
+                <RotateCw size={12} className="text-indigo-500" />
+                {t('Truy vấn')}
+              </Button>
 
-            <Button
-              key="CopyTable"
-              size="sm"
-              variant="ghost"
-              onClick={handleCopyTable}
-              className="uppercase text-[10px] whitespace-nowrap  text-blue-700 hover:text-blue-800"
-              title="Sao chép toàn bộ dữ liệu bảng vào Clipboard"
-            >
-              <Copy size={12} className="text-blue-600" />
-              {t('SAO CHÉP')}
-            </Button>
+              <Button
+                key="CopyTable"
+                size="sm"
+                variant="ghost"
+                onClick={handleCopyTable}
+                className="uppercase text-[10px] whitespace-nowrap  text-blue-700 hover:text-blue-800"
+                title="Sao chép toàn bộ dữ liệu bảng vào Clipboard"
+              >
+                <Copy size={12} className="text-blue-600" />
+                {t('SAO CHÉP')}
+              </Button>
 
-            <Button
-              key="ExportExcel"
-              size="sm"
-              variant="ghost"
-              onClick={handleExportExcel}
-              className="uppercase text-[10px] whitespace-nowrap text-emerald-700 hover:text-emerald-800"
-              title="Xuất dữ liệu chi tiết ra Excel"
-            >
-              <FileSpreadsheet size={12} className="text-emerald-600" />
-              {t('Xuất excel')}
-            </Button>
+              <Button
+                key="ExportExcel"
+                size="sm"
+                variant="ghost"
+                onClick={handleOpenExportModal}
+                className="uppercase text-[10px] whitespace-nowrap text-emerald-700 hover:text-emerald-800"
+                title="Xuất dữ liệu chi tiết ra Excel"
+              >
+                <FileSpreadsheet size={12} className="text-emerald-600" />
+                {t('Xuất excel')}
+              </Button>
+            </div>
           </div>
-        </div>
-      }
-      queryTitle="Thông tin đăng ký báo cáo"
-      query={
-        <div className="w-full bg-white">
-          {/* 1. KHUNG THÔNG TIN MASTER ĐĂNG KÝ (GIỐNG 100% FORM ĐĂNG KÝ) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 w-full border-b border-slate-200 bg-white">
-            {/* Ô 1: Mã đăng ký báo cáo */}
-            <div className="flex items-center h-[28px] border-r border-slate-200 bg-white min-w-0">
+        }
+        queryTitle="Thông tin đăng ký báo cáo"
+        query={
+          <div className="w-full bg-white">
+            {/* 1. KHUNG THÔNG TIN MASTER ĐĂNG KÝ (GIỐNG 100% FORM ĐĂNG KÝ) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 w-full border-b border-slate-200 bg-white">
+              {/* Ô 1: Mã đăng ký báo cáo */}
+              <div className="flex items-center h-[28px] border-r border-slate-200 bg-white min-w-0">
+                <div className="bg-slate-50 border-r border-slate-200 h-full flex items-center px-2.5 shrink-0 font-semibold text-[10px] text-slate-700 min-w-[110px] select-none">
+                  <span>Mã đăng ký</span>
+                </div>
+                <div className="flex-1 h-full flex items-center px-2 bg-slate-50/40">
+                  <span className="text-xs font-mono font-bold text-indigo-700 truncate">
+                    {masterInfo?.RegCode || regCode}
+                  </span>
+                </div>
+              </div>
+
+              {/* Ô 2: Loại báo cáo */}
+              <div className="flex items-center h-[28px] border-r border-slate-200 bg-white min-w-0">
+                <div className="bg-slate-50 border-r border-slate-200 h-full flex items-center px-2.5 shrink-0 font-semibold text-[10px] text-slate-700 min-w-[100px] select-none">
+                  <span>Loại báo cáo</span>
+                </div>
+                <div className="flex-1 h-full flex items-center px-2">
+                  <span className="text-xs font-medium text-slate-800 truncate">
+                    {reportType === 'statistics'
+                      ? 'Thống kê sản xuất (TKSX)'
+                      : 'Kế hoạch sản xuất (KHSX)'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Ô 3: Nhà máy sản xuất */}
+              <div className="flex items-center h-[28px] border-r border-slate-200 bg-white min-w-0">
+                <div className="bg-slate-50 border-r border-slate-200 h-full flex items-center px-2.5 shrink-0 font-semibold text-[10px] text-slate-700 min-w-[95px] select-none">
+                  <span>Nhà máy SX</span>
+                </div>
+                <div className="flex-1 h-full flex items-center px-2">
+                  <span className="text-xs font-medium text-slate-800 truncate">
+                    {factoryCode === 'GS5' ? 'GS5 - GS5 Quế Võ 1B' : 'GS1 - GS1 Hà Nội'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Ô 4: Ngày áp dụng / Ngày báo cáo */}
+              <div className="flex items-center h-[28px] bg-white min-w-0">
+                <div className="bg-slate-50 border-r border-slate-200 h-full flex items-center px-2.5 shrink-0 font-semibold text-[10px] text-slate-700 min-w-[95px] select-none">
+                  <span>Ngày báo cáo</span>
+                </div>
+                <div className="flex-1 h-full flex items-center px-1">
+                  <input
+                    type="date"
+                    value={applyDate ? String(applyDate).slice(0, 10) : ''}
+                    disabled={true}
+                    className="w-full text-xs font-mono font-medium bg-transparent border-none outline-none cursor-default text-slate-800"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Hàng 2: Ghi chú mô tả (Toàn bộ chiều rộng) */}
+            <div className="flex items-center h-[28px] border-b border-slate-200 bg-white min-w-0 w-full">
               <div className="bg-slate-50 border-r border-slate-200 h-full flex items-center px-2.5 shrink-0 font-semibold text-[10px] text-slate-700 min-w-[110px] select-none">
-                <span>Mã đăng ký</span>
+                <span>Ghi chú</span>
               </div>
-              <div className="flex-1 h-full flex items-center px-2 bg-slate-50/40">
-                <span className="text-xs font-mono font-bold text-indigo-700 truncate">
-                  {masterInfo?.RegCode || regCode}
-                </span>
-              </div>
-            </div>
-
-            {/* Ô 2: Loại báo cáo */}
-            <div className="flex items-center h-[28px] border-r border-slate-200 bg-white min-w-0">
-              <div className="bg-slate-50 border-r border-slate-200 h-full flex items-center px-2.5 shrink-0 font-semibold text-[10px] text-slate-700 min-w-[100px] select-none">
-                <span>Loại báo cáo</span>
-              </div>
-              <div className="flex-1 h-full flex items-center px-1">
-                <select
-                  value={reportType}
-                  disabled={true}
-                  className="w-full text-xs font-medium bg-transparent border-none outline-none cursor-default text-slate-800"
-                >
-                  <option value="statistics">Thống kê sản xuất (TKSX)</option>
-                  <option value="plan">Kế hoạch sản xuất (KHSX)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Ô 3: Nhà máy sản xuất */}
-            <div className="flex items-center h-[28px] border-r border-slate-200 bg-white min-w-0">
-              <div className="bg-slate-50 border-r border-slate-200 h-full flex items-center px-2.5 shrink-0 font-semibold text-[10px] text-slate-700 min-w-[95px] select-none">
-                <span>Nhà máy SX</span>
-              </div>
-              <div className="flex-1 h-full flex items-center px-1">
-                <select
-                  value={factoryCode}
-                  disabled={true}
-                  className="w-full text-xs font-medium bg-transparent border-none outline-none cursor-default text-slate-800"
-                >
-                  <option value="GS1">GS1 - GS1 Hà Nội</option>
-                  <option value="GS5">GS5 - GS5 Quế Võ 1B</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Ô 4: Ngày áp dụng / Ngày báo cáo */}
-            <div className="flex items-center h-[28px] bg-white min-w-0">
-              <div className="bg-slate-50 border-r border-slate-200 h-full flex items-center px-2.5 shrink-0 font-semibold text-[10px] text-slate-700 min-w-[95px] select-none">
-                <span>Ngày báo cáo</span>
-              </div>
-              <div className="flex-1 h-full flex items-center px-1">
+              <div className="flex-1 h-full flex items-center px-1.5">
                 <input
-                  type="date"
-                  value={applyDate ? String(applyDate).slice(0, 10) : ''}
+                  type="text"
+                  value={remark || ''}
                   disabled={true}
-                  className="w-full text-xs font-mono font-medium bg-transparent border-none outline-none cursor-default text-slate-800"
+                  placeholder="Không có ghi chú"
+                  className="w-full text-xs bg-transparent border-none outline-none cursor-default text-slate-700"
                 />
               </div>
             </div>
           </div>
-
-          {/* Hàng 2: Ghi chú mô tả (Toàn bộ chiều rộng) */}
-          <div className="flex items-center h-[28px] border-b border-slate-200 bg-white min-w-0 w-full">
-            <div className="bg-slate-50 border-r border-slate-200 h-full flex items-center px-2.5 shrink-0 font-semibold text-[10px] text-slate-700 min-w-[110px] select-none">
-              <span>Ghi chú</span>
+        }
+        table={
+          <div className="flex-1 w-full h-full min-h-0 bg-white flex flex-col overflow-hidden relative">
+            {/* Header bảng dữ liệu chi tiết & Toolbar Thống kê */}
+            <div
+              style={{
+                background: '#f8fafc',
+                borderBottom: '1px solid #e2e8f0',
+                padding: '6px 12px',
+                fontSize: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 12
+              }}
+              className="shrink-0"
+            >
+              {/* Tóm tắt số liệu nhanh */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 16,
+                  color: '#334155',
+                  fontWeight: 700,
+                  flexWrap: 'wrap',
+                  alignItems: 'center'
+                }}
+              >
+                <span className="text-[11px] uppercase font-bold text-emerald-800 flex items-center gap-1.5 mr-1">
+                  <span className="w-1.5 h-3.5 bg-emerald-700 rounded-full inline-block shrink-0" />
+                  {isPlanType
+                    ? '6. LỆNH THEO TRẠNG THÁI ĐP – SX (CHI TIẾT TỪNG LỆNH)'
+                    : '5. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT'}
+                </span>
+              </div>
             </div>
-            <div className="flex-1 h-full flex items-center px-1.5">
-              <input
-                type="text"
-                value={remark || ''}
-                disabled={true}
-                placeholder="Không có ghi chú"
-                className="w-full text-xs bg-transparent border-none outline-none cursor-default text-slate-700"
+
+            {/* Glide Data Grid Bảng dữ liệu */}
+            <div className="flex-1 w-full h-full min-h-0 relative">
+              <DataEditor
+                ref={gridRef}
+                columns={currentColumns}
+                rows={displayList.length}
+                getCellContent={getCellContent}
+                gridSelection={selection}
+                onGridSelectionChange={setSelection}
+                onHeaderClicked={onHeaderClicked}
+                onColumnResize={onColumnResize}
+                getCellsForSelection={true}
+                rangeSelect="rect"
+                columnSelect="multi"
+                rowSelect="multi"
+                rowMarkers="both"
+                headerHeight={23}
+                rowHeight={23}
+                smoothScrollX
+                smoothScrollY
+                showSearch={showSearch}
+                onSearchClose={() => setShowSearch(false)}
+                keybindings={{ search: true, copy: true, downFill: true, rightFill: true }}
+                theme={executiveGridTheme}
+                width="100%"
+                height="100%"
               />
             </div>
           </div>
-        </div>
-      }
-      table={
-        <div className="flex-1 w-full h-full min-h-0 bg-white flex flex-col overflow-hidden relative">
-          {/* Header bảng dữ liệu chi tiết & Toolbar Thống kê */}
-          <div
-            style={{
-              background: '#f8fafc',
-              borderBottom: '1px solid #e2e8f0',
-              padding: '6px 12px',
-              fontSize: 12,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 12
-            }}
-            className="shrink-0"
-          >
-            {/* Tóm tắt số liệu nhanh */}
-            <div
-              style={{
-                display: 'flex',
-                gap: 16,
-                color: '#334155',
-                fontWeight: 700,
-                flexWrap: 'wrap',
-                alignItems: 'center'
-              }}
-            >
-              <span className="text-[11px] uppercase font-bold text-emerald-800 flex items-center gap-1.5 mr-1">
-                <span className="w-1.5 h-3.5 bg-emerald-700 rounded-full inline-block shrink-0" />
-                {isPlanType
-                  ? '6. LỆNH THEO TRẠNG THÁI ĐP – SX (CHI TIẾT TỪNG LỆNH)'
-                  : '5. NHẬT TRÌNH CHI TIẾT TOÀN BỘ PHIẾU THỐNG KÊ SẢN XUẤT'}
-              </span>
-            </div>
-          </div>
+        }
+      />
 
-          {/* Glide Data Grid Bảng dữ liệu */}
-          <div className="flex-1 w-full h-full min-h-0 relative">
-            <DataEditor
-              ref={gridRef}
-              columns={currentColumns}
-              rows={displayList.length}
-              getCellContent={getCellContent}
-              gridSelection={selection}
-              onGridSelectionChange={setSelection}
-              onHeaderClicked={onHeaderClicked}
-              onColumnResize={onColumnResize}
-              getCellsForSelection={true}
-              rangeSelect="rect"
-              columnSelect="multi"
-              rowSelect="multi"
-              rowMarkers="both"
-              headerHeight={23}
-              rowHeight={23}
-              smoothScrollX
-              smoothScrollY
-              showSearch={showSearch}
-              onSearchClose={() => setShowSearch(false)}
-              keybindings={{ search: true, copy: true, downFill: true, rightFill: true }}
-              theme={executiveGridTheme}
-              width="100%"
-              height="100%"
-            />
-          </div>
-        </div>
-      }
-    />
+      {/* Modal xác nhận xuất Excel */}
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title={t(
+          reportType === 'plan' || !reportType?.includes('stat')
+            ? 'XÁC NHẬN XUẤT EXCEL - CHI TIẾT ĐĂNG KÝ KHSX'
+            : 'XÁC NHẬN XUẤT EXCEL - CHI TIẾT ĐĂNG KÝ TKSX'
+        )}
+        reportName={t(
+          reportType === 'plan' || !reportType?.includes('stat')
+            ? `Chi tiết ĐK Kế hoạch sản xuất (${regCode || ''})`
+            : `Chi tiết ĐK Thống kê sản xuất (${regCode || ''})`
+        )}
+        totalRows={displayList.length}
+        loadedCount={displayList.length}
+        selectedCount={
+          selection?.rows?.items?.reduce((acc, [s, e]) => acc + (e - s), 0) ||
+          (selection?.current?.range?.height ? selection.current.range.height : 0)
+        }
+        columns={currentColumns}
+        activeFilters={{
+          RegCode: regCode,
+          FactoryName: factoryName,
+          ApplyDate: applyDate
+        }}
+        defaultFileName={`${reportType === 'plan' || !reportType?.includes('stat') ? 'KHSX_ChiTiet' : 'TKSX_ChiTiet'}_${regCode || 'export'}_${new Date().toISOString().slice(0, 10)}.xlsx`}
+        onConfirmExport={executeExportDetailExcel}
+      />
+    </>
   )
 }

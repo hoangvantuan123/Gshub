@@ -110,12 +110,18 @@ export const request = async ({
       parsedData = safeParseData(parsedData)
     }
 
-    let parsedPage = resData.page ? safeParseData(resData.page) : null
+    let parsedPage = resData.page
+      ? safeParseData(resData.page)
+      : resData.pageInfo
+        ? safeParseData(resData.pageInfo)
+        : null
+    let pageInfoObj = resData.pageInfo || resData.page || parsedPage
 
     return {
       success: isSuccess,
       data: parsedData,
       page: parsedPage,
+      pageInfo: pageInfoObj,
       message: resData.message || (isSuccess ? 'Thành công' : 'Thao tác không thành công'),
       error: resData.error || null,
       code: resData.code || resData.error?.code || null,

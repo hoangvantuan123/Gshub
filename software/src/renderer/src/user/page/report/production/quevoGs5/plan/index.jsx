@@ -30,8 +30,7 @@ import { useState, useEffect, useCallback } from 'react'
 import QuevoGs5PlanReport from './components/QuevoGs5PlanReport'
 import {
   queryPlanMaster,
-  queryPlanDetail,
-  queryProductionPlanReport
+  queryQuevoGs5PlanReport
 } from '../../../registration/services/planRegistrationService'
 
 export function parseCleanNumber(val, defaultVal = 0) {
@@ -306,55 +305,29 @@ export default function QuevoGs5PlanPage() {
 
     setLoading(true)
     try {
-      let rows = []
-      // 1. Ưu tiên gọi API Tổng Hợp KHSX từ Backend cho GS5 Quế Võ
       if (regCode || masterSeq) {
-        try {
-          const resAgg = await queryProductionPlanReport({
-            regCode: regCode,
-            masterSeq: masterSeq,
-            factoryCode: 'GS5',
-            pageSize: '10000'
-          })
-          if (resAgg?.data?.items && resAgg.data.items.length > 0) {
-            const beItems = resAgg.data.items
-            const mappedData = beItems.map((item, idx) => mapDBRowToPlanItem(item, idx, master))
-            setCachedDetail(detailKey, mappedData)
-            setPlanDataset(mappedData)
-            setDataSourceType('database')
-            setLoading(false)
-            return
-          }
-        } catch (errAgg) {
-          console.warn('Fallback sang truy vấn chi tiết PlanDetail GS5:', errAgg)
+        const resAgg = await queryQuevoGs5PlanReport({
+          regCode: regCode,
+          masterSeq: masterSeq,
+          factoryCode: 'GS5',
+          pageSize: '10000'
+        })
+        const beItems =
+          resAgg?.data?.items ||
+          resAgg?.data?.data?.items ||
+          (Array.isArray(resAgg?.data) ? resAgg.data : [])
+        if (beItems && beItems.length > 0) {
+          const mappedData = beItems.map((item, idx) => mapDBRowToPlanItem(item, idx, master))
+          setCachedDetail(detailKey, mappedData)
+          setPlanDataset(mappedData)
+          setDataSourceType('database')
+          setLoading(false)
+          return
         }
       }
 
-      // 2. Fallback sang truy vấn trực tiếp PlanDetail nếu cần
-      if (regCode || masterSeq) {
-        try {
-          const resPlan = await queryPlanDetail({
-            RegCode: regCode,
-            MasterSeq: masterSeq,
-            pageSize: '10000'
-          })
-          if (resPlan?.data && resPlan.data.length > 0) {
-            rows = resPlan.data
-          }
-        } catch (errPlan) {
-          console.warn('Không tìm thấy trong PlanDetail GS5:', errPlan)
-        }
-      }
-
-      if (rows.length > 0) {
-        const mappedData = rows.map((item, idx) => mapDBRowToPlanItem(item, idx, master))
-        setCachedDetail(detailKey, mappedData)
-        setPlanDataset(mappedData)
-        setDataSourceType('database')
-      } else {
-        setPlanDataset([])
-        setDataSourceType('empty')
-      }
+      setPlanDataset([])
+      setDataSourceType('empty')
     } catch (err) {
       console.error(`Lỗi tải chi tiết đợt ${regCode}:`, err)
       setPlanDataset([])

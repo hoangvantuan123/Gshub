@@ -116,6 +116,14 @@ type ERPProdStatsDetail struct {
 	UpdatedBy              *string    `gorm:"column:UpdatedBy;type:text" db:"UpdatedBy" json:"UpdatedBy"`
 	UpdatedByName          *string    `gorm:"column:UpdatedByName;type:text" db:"UpdatedByName" json:"UpdatedByName"`
 	UpdatedAt              *time.Time `gorm:"column:UpdatedAt;autoUpdateTime" db:"UpdatedAt" json:"UpdatedAt"`
+
+	// Joined Master fields from _ERPPlanMaster
+	FactoryCode            *string    `gorm:"->;column:FactoryCode" json:"FactoryCode,omitempty"`
+	FactoryName            *string    `gorm:"->;column:FactoryName" json:"FactoryName,omitempty"`
+	ApplyDate              *string    `gorm:"->;column:ApplyDate" json:"ApplyDate,omitempty"`
+	MasterStatus           *string    `gorm:"->;column:MasterStatus" json:"MasterStatus,omitempty"`
+	MasterRemark           *string    `gorm:"->;column:MasterRemark" json:"MasterRemark,omitempty"`
+	ReportType             *string    `gorm:"->;column:ReportType" json:"ReportType,omitempty"`
 }
 
 func (ERPProdStatsDetail) TableName() string {

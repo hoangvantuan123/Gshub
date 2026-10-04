@@ -21,6 +21,8 @@ func SetupRouter(
 	planDetailHandler *handlers.PlanDetailHandler,
 	prodStatsDetailHandler *handlers.ProdStatsDetailHandler,
 	planReportHandler *handlers.PlanReportHandler,
+	summaryPlanReportHandler *handlers.SummaryPlanReportHandler,
+	summaryStatReportHandler *handlers.SummaryStatReportHandler,
 	healthHandler *handlers.HealthHandler,
 	logger *zap.Logger,
 ) *gin.Engine {
@@ -98,13 +100,52 @@ func SetupRouter(
 
 			// TKSX Detail (A/U/D/Q)
 			planV2.POST("/ProdStatsDetailQ", prodStatsDetailHandler.ProdStatsDetailQ)
+			planV2.GET("/ProdStatsDetailQ", prodStatsDetailHandler.ProdStatsDetailQ)
+			planV2.POST("/ProdStatsDetailA", prodStatsDetailHandler.ProdStatsDetailA)
 			planV2.POST("/ProdStatsDetailU", prodStatsDetailHandler.ProdStatsDetailU)
 			planV2.POST("/ProdStatsDetailD", prodStatsDetailHandler.ProdStatsDetailD)
 		}
 
-		// Aggregated Production Report (V2)
+		statV2 := v2.Group("/report/stat")
+		{
+			statV2.POST("/ProdStatsDetailQ", prodStatsDetailHandler.ProdStatsDetailQ)
+			statV2.GET("/ProdStatsDetailQ", prodStatsDetailHandler.ProdStatsDetailQ)
+			statV2.POST("/ProdStatsDetailA", prodStatsDetailHandler.ProdStatsDetailA)
+			statV2.POST("/ProdStatsDetailU", prodStatsDetailHandler.ProdStatsDetailU)
+			statV2.POST("/ProdStatsDetailD", prodStatsDetailHandler.ProdStatsDetailD)
+		}
+
+		// Production Reports (V2) - Tách biệt rõ ràng từng đầu API cho từng nhà máy & báo cáo tổng
 		prodReportsV2 := v2.Group("/report/production")
 		{
+			// 1. GS1 Hà Nội riêng biệt
+			hanoiV2 := prodReportsV2.Group("/hanoi-gs1")
+			{
+				hanoiV2.POST("/plan", planReportHandler.GetHanoiGs1PlanReport)
+				hanoiV2.GET("/plan", planReportHandler.GetHanoiGs1PlanReport)
+				hanoiV2.POST("/statistics", prodStatsDetailHandler.GetHanoiGs1StatReport)
+				hanoiV2.GET("/statistics", prodStatsDetailHandler.GetHanoiGs1StatReport)
+			}
+
+			// 2. GS5 Quế Võ riêng biệt
+			quevoV2 := prodReportsV2.Group("/quevo-gs5")
+			{
+				quevoV2.POST("/plan", planReportHandler.GetQuevoGs5PlanReport)
+				quevoV2.GET("/plan", planReportHandler.GetQuevoGs5PlanReport)
+				quevoV2.POST("/statistics", prodStatsDetailHandler.GetQuevoGs5StatReport)
+				quevoV2.GET("/statistics", prodStatsDetailHandler.GetQuevoGs5StatReport)
+			}
+
+			// 3. Báo Cáo Tổng Hợp Toàn Công Ty (Summary) - Dùng Handler riêng biệt, KHÔNG trả mảng items
+			summaryV2 := prodReportsV2.Group("/summary")
+			{
+				summaryV2.POST("/plan", summaryPlanReportHandler.GetSummaryPlanReport)
+				summaryV2.GET("/plan", summaryPlanReportHandler.GetSummaryPlanReport)
+				summaryV2.POST("/statistics", summaryStatReportHandler.GetSummaryStatReport)
+				summaryV2.GET("/statistics", summaryStatReportHandler.GetSummaryStatReport)
+			}
+
+			// Fallback alias chung
 			prodReportsV2.GET("/statistics", prodStatsDetailHandler.GetProductionStatisticsReport)
 			prodReportsV2.POST("/statistics", prodStatsDetailHandler.GetProductionStatisticsReport)
 			prodReportsV2.GET("/plan", planReportHandler.GetProductionPlanReport)

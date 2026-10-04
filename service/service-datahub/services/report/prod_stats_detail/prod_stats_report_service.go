@@ -250,11 +250,12 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 
 	query := s.db.WithContext(ctx).Model(&models.ERPProdStatsDetail{})
 
-	// 1. Áp dụng điều kiện RegCode / MasterSeq
-	if regCode != "" && regCode != "ALL" {
+	// 1. Áp dụng điều kiện RegCode / MasterSeq (sử dụng OR để bao phủ cả trường hợp MasterSeq hoặc RegCode khớp)
+	if regCode != "" && regCode != "ALL" && masterSeq != "" && masterSeq != "ALL" {
+		query = query.Where(`"RegCode" = ? OR "MasterSeq" = ? OR "RegCode" ILIKE ?`, regCode, masterSeq, "%"+regCode+"%")
+	} else if regCode != "" && regCode != "ALL" {
 		query = query.Where(`"RegCode" = ? OR "RegCode" ILIKE ?`, regCode, "%"+regCode+"%")
-	}
-	if masterSeq != "" && masterSeq != "ALL" {
+	} else if masterSeq != "" && masterSeq != "ALL" {
 		query = query.Where(`"MasterSeq" = ?`, masterSeq)
 	}
 
@@ -269,35 +270,57 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 
 	// 3. Lọc ngày và thời gian linh hoạt (hỗ trợ cả StatDate, StartDate, RoutingDate, TicketCreatedDate và Master.ApplyDate)
 	if statDateFrom != "" && statDateTo != "" {
+		from10 := statDateFrom
+		if len(from10) > 10 {
+			from10 = from10[:10]
+		}
+		to10 := statDateTo
+		if len(to10) > 10 {
+			to10 = to10[:10]
+		}
+		toEnd := to10 + "T23:59:59.999Z"
+		toEndSpace := to10 + " 23:59:59"
+
 		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
-			Where(`"ApplyDate" >= ? AND "ApplyDate" <= ?`, statDateFrom, statDateTo)
+			Where(`(LEFT("ApplyDate", 10) >= ? AND LEFT("ApplyDate", 10) <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?)`,
+				from10, to10, from10, toEnd, from10, toEndSpace)
 		if factoryCode != "" && factoryCode != "ALL" {
 			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`("StatDate" >= ? AND "StatDate" <= ?) OR ("StartDate" >= ? AND "StartDate" <= ?) OR ("RegCode" IN (?))`,
-			statDateFrom, statDateTo, statDateFrom, statDateTo, subDateMaster)
+		query = query.Where(`(LEFT("StatDate", 10) >= ? AND LEFT("StatDate", 10) <= ?) OR (LEFT("StartDate", 10) >= ? AND LEFT("StartDate", 10) <= ?) OR ("RegCode" IN (?))`,
+			from10, to10, from10, to10, subDateMaster)
 	} else if statDateFrom != "" {
+		from10 := statDateFrom
+		if len(from10) > 10 {
+			from10 = from10[:10]
+		}
 		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
-			Where(`"ApplyDate" >= ?`, statDateFrom)
+			Where(`LEFT("ApplyDate", 10) >= ? OR "ApplyDate" >= ?`, from10, from10)
 		if factoryCode != "" && factoryCode != "ALL" {
 			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`"StatDate" >= ? OR "StartDate" >= ? OR ("RegCode" IN (?))`,
-			statDateFrom, statDateFrom, subDateMaster)
+		query = query.Where(`LEFT("StatDate", 10) >= ? OR LEFT("StartDate", 10) >= ? OR ("RegCode" IN (?))`,
+			from10, from10, subDateMaster)
 	} else if statDateTo != "" {
+		to10 := statDateTo
+		if len(to10) > 10 {
+			to10 = to10[:10]
+		}
+		toEnd := to10 + "T23:59:59.999Z"
+		toEndSpace := to10 + " 23:59:59"
 		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
-			Where(`"ApplyDate" <= ?`, statDateTo)
+			Where(`LEFT("ApplyDate", 10) <= ? OR "ApplyDate" <= ? OR "ApplyDate" <= ?`, to10, toEnd, toEndSpace)
 		if factoryCode != "" && factoryCode != "ALL" {
 			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`"StatDate" <= ? OR "StartDate" <= ? OR ("RegCode" IN (?))`,
-			statDateTo, statDateTo, subDateMaster)
+		query = query.Where(`LEFT("StatDate", 10) <= ? OR LEFT("StartDate", 10) <= ? OR ("RegCode" IN (?))`,
+			to10, to10, subDateMaster)
 	}
 	if fromTime != "" {
 		query = query.Where(`"StartTime" >= ?`, fromTime)
@@ -397,6 +420,25 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		}
 	}
 
+	// Tải danh sách Master TKSX (đợt thống kê) trước để ánh xạ ngày áp dụng chuẩn
+	var masterList []models.ERPPlanMaster
+	mQuery := s.db.WithContext(ctx).Model(&models.ERPPlanMaster{}).
+		Where(`"ReportType" ILIKE '%stat%' OR "ReportType" ILIKE '%thống kê%' OR "ReportType" ILIKE '%thong_ke%' OR "ReportType" = 'Thống kê sản xuất'`)
+	if factoryCode != "" && factoryCode != "ALL" {
+		mQuery = mQuery.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+	}
+	_ = mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(300).Find(&masterList).Error
+
+	masterMap := make(map[string]models.ERPPlanMaster)
+	for _, m := range masterList {
+		if m.RegCode != "" {
+			masterMap[m.RegCode] = m
+		}
+		if m.IdSeq != "" {
+			masterMap[m.IdSeq] = m
+		}
+	}
+
 	// 5. Khởi tạo mảng kết quả
 	items := make([]models.ProdStatsDetailReportItem, 0)
 	chartByTeam := make([]models.TeamStatAggregate, 0)
@@ -469,12 +511,24 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			machineNameVal = "Máy / Dây chuyền khác"
 		}
 
-		prodDate := ""
-		if row.StatDate != nil && strings.TrimSpace(*row.StatDate) != "" {
-			prodDate = strings.TrimSpace(*row.StatDate)
-		} else if row.StartDate != nil && strings.TrimSpace(*row.StartDate) != "" {
-			prodDate = strings.TrimSpace(*row.StartDate)
+		effectiveDate := ""
+		if row.RegCode != "" {
+			if m, ok := masterMap[row.RegCode]; ok && m.ApplyDate != nil && *m.ApplyDate != "" {
+				effectiveDate = cleanDateString(m.ApplyDate)
+			}
 		}
+		if effectiveDate == "" && row.MasterSeq != "" {
+			if m, ok := masterMap[row.MasterSeq]; ok && m.ApplyDate != nil && *m.ApplyDate != "" {
+				effectiveDate = cleanDateString(m.ApplyDate)
+			}
+		}
+		if effectiveDate == "" && row.StatDate != nil && strings.TrimSpace(*row.StatDate) != "" {
+			effectiveDate = cleanDateString(row.StatDate)
+		}
+		if effectiveDate == "" && row.StartDate != nil && strings.TrimSpace(*row.StartDate) != "" {
+			effectiveDate = cleanDateString(row.StartDate)
+		}
+		prodDate := effectiveDate
 		shiftVal := ""
 		if row.Shift != nil {
 			shiftVal = strings.TrimSpace(*row.Shift)
@@ -897,8 +951,14 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 
 	totalRecords := int64(len(items))
 	pagedItems := make([]models.ProdStatsDetailReportItem, 0)
-	if includeItems != "false" && includeItems != "0" && withoutItems != "true" && withoutItems != "1" && pageSize > 0 {
+	if withoutItems != "true" && withoutItems != "1" {
+		if pageSize <= 0 {
+			pageSize = 10000
+		}
 		startIdx := (page - 1) * pageSize
+		if startIdx < 0 {
+			startIdx = 0
+		}
 		endIdx := startIdx + pageSize
 		if startIdx > len(items) {
 			startIdx = len(items)
@@ -917,8 +977,12 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 	return &models.ProdStatsReportResponse{
 		Summary:             summary,
 		ChartByTeam:         chartByTeam,
+		TeamBreakdown:       chartByTeam,
 		ChartByMachine:      chartByMachine,
+		MachineBreakdown:    chartByMachine,
 		ChartByDay:          chartByDay,
+		DailyTrendData:      chartByDay,
+		DailyAggregates:     chartByDay,
 		SyncDelayBreakdown:  syncBreakdown,
 		AutoExportBreakdown: autoExportBreakdown,
 		FilterOptions:       filterOpts,
@@ -942,4 +1006,51 @@ func getKeysFromMap(m map[string]bool) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func cleanDateString(dateVal *string) string {
+	if dateVal == nil || strings.TrimSpace(*dateVal) == "" {
+		return ""
+	}
+	s := strings.TrimSpace(*dateVal)
+	if len(s) >= 10 && s[4] == '-' && s[7] == '-' {
+		return s[:10]
+	}
+	if strings.Contains(s, "T") {
+		parts := strings.Split(s, "T")
+		return parts[0]
+	}
+	if strings.Contains(s, "/") {
+		parts := strings.Split(strings.Split(s, " ")[0], "/")
+		if len(parts) == 3 {
+			m, d, y := parts[0], parts[1], parts[2]
+			if len(y) == 2 {
+				y = "20" + y
+			}
+			if len(m) == 1 {
+				m = "0" + m
+			}
+			if len(d) == 1 {
+				d = "0" + d
+			}
+			return y + "-" + m + "-" + d
+		}
+	}
+	if strings.Contains(s, "-") {
+		parts := strings.Split(strings.Split(s, " ")[0], "-")
+		if len(parts) == 3 && len(parts[0]) <= 2 && len(parts[2]) == 4 {
+			d, m, y := parts[0], parts[1], parts[2]
+			if len(m) == 1 {
+				m = "0" + m
+			}
+			if len(d) == 1 {
+				d = "0" + d
+			}
+			return y + "-" + m + "-" + d
+		}
+	}
+	if len(s) >= 10 {
+		return s[:10]
+	}
+	return s
 }

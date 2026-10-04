@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
 import { useState } from 'react'
 import {
   ResponsiveContainer,
@@ -275,7 +275,29 @@ export function PlanPicAnalysisSection({
             {currentMode === 'rate' ? (
               <BarChart
                 layout="vertical"
-                data={[...picBreakdown].map((r) => ({ ...r, name: r.pic }))}
+                data={[...picBreakdown].map((r) => {
+                  const total = r.totalOrders || 1
+                  return {
+                    ...r,
+                    name: r.pic,
+                    khopSlRate:
+                      r.khopSlRate !== undefined && r.khopSlRate !== null
+                        ? r.khopSlRate
+                        : Number((((r.khopSl || 0) / total) * 100).toFixed(1)),
+                    khopJobRate:
+                      r.khopJobRate !== undefined && r.khopJobRate !== null
+                        ? r.khopJobRate
+                        : Number((((r.khopJob || 0) / total) * 100).toFixed(1)),
+                    sxSaiNgayRate:
+                      r.sxSaiNgayRate !== undefined && r.sxSaiNgayRate !== null
+                        ? r.sxSaiNgayRate
+                        : Number((((r.sxSaiNgay || 0) / total) * 100).toFixed(1)),
+                    truotKhRate:
+                      r.truotKhRate !== undefined && r.truotKhRate !== null
+                        ? r.truotKhRate
+                        : Number((((r.truotKh || 0) / total) * 100).toFixed(1))
+                  }
+                })}
                 margin={{ top: 10, right: 30, left: 16, bottom: 10 }}
                 barSize={24}
               >
@@ -344,11 +366,23 @@ export function PlanPicAnalysisSection({
             ) : currentMode === 'khop' ? (
               <BarChart
                 layout="vertical"
-                data={[...picBreakdown].map((r) => ({
-                  ...r,
-                  name: r.pic,
-                  khopRateVal: r.passBenchmarkRate || 0
-                }))}
+                data={[...picBreakdown].map((r) => {
+                  const totalOrders = r.totalOrders || 0
+                  const khopTotal = (r.khopSl || 0) + (r.khopJob || 0)
+                  const rateVal =
+                    r.passBenchmarkRate !== undefined && r.passBenchmarkRate !== null
+                      ? r.passBenchmarkRate
+                      : r.khopRate !== undefined && r.khopRate !== null
+                        ? r.khopRate
+                        : totalOrders > 0
+                          ? Number(((khopTotal / totalOrders) * 100).toFixed(1))
+                          : 0
+                  return {
+                    ...r,
+                    name: r.pic,
+                    khopRateVal: rateVal
+                  }
+                })}
                 margin={{ top: 10, right: 130, left: 16, bottom: 10 }}
                 barSize={24}
               >
@@ -597,7 +631,29 @@ export function PlanPicAnalysisSection({
             </thead>
             <tbody>
               {picBreakdown.map((row, idx) => {
-                const isGood = row.passBenchmarkRate >= 20 || row.khopSlRate >= 50
+                const totalOrders = row.totalOrders || 0
+                const khopTotal = (row.khopSl || 0) + (row.khopJob || 0)
+                const passBenchmarkRate =
+                  row.passBenchmarkRate !== undefined && row.passBenchmarkRate !== null
+                    ? row.passBenchmarkRate
+                    : row.khopRate !== undefined && row.khopRate !== null
+                      ? row.khopRate
+                      : totalOrders > 0
+                        ? Number(((khopTotal / totalOrders) * 100).toFixed(1))
+                        : 0
+                const khopSlRate =
+                  row.khopSlRate !== undefined && row.khopSlRate !== null
+                    ? row.khopSlRate
+                    : totalOrders > 0
+                      ? Number((((row.khopSl || 0) / totalOrders) * 100).toFixed(1))
+                      : 0
+                const progressRate =
+                  row.progressRate !== undefined && row.progressRate !== null
+                    ? row.progressRate
+                    : (row.totalPlanQty || 0) > 0
+                      ? Number((((row.totalActualQty || 0) / row.totalPlanQty) * 100).toFixed(1))
+                      : 100
+                const isGood = passBenchmarkRate >= 20 || khopSlRate >= 50
 
                 return (
                   <tr
@@ -669,7 +725,7 @@ export function PlanPicAnalysisSection({
                         color: isGood ? '#01411b' : '#d97706'
                       }}
                     >
-                      {row.passBenchmarkRate}%
+                      {passBenchmarkRate}%
                     </td>
                     <td
                       style={{
@@ -679,7 +735,7 @@ export function PlanPicAnalysisSection({
                         color: '#0f172a'
                       }}
                     >
-                      {row.progressRate}%
+                      {progressRate}%
                     </td>
                     <td
                       style={{
@@ -687,16 +743,16 @@ export function PlanPicAnalysisSection({
                         textAlign: 'right',
                         fontWeight: 700,
                         color:
-                          row.passBenchmarkRate >= 20
+                          passBenchmarkRate >= 20
                             ? '#01411b'
-                            : row.passBenchmarkRate >= 10
+                            : passBenchmarkRate >= 10
                               ? '#059669'
                               : '#ea580c'
                       }}
                     >
-                      {row.passBenchmarkRate >= 20
+                      {passBenchmarkRate >= 20
                         ? 'Tốt'
-                        : row.passBenchmarkRate >= 10
+                        : passBenchmarkRate >= 10
                           ? 'Khá'
                           : 'Cần cải thiện'}
                     </td>

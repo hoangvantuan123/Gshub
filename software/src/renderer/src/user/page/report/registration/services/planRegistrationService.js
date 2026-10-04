@@ -209,7 +209,67 @@ export const deletePlanMaster = async (masterSeqs = [], signal = null) => {
   })
 }
 
-// 6. Truy vấn Báo Cáo Thống Kê Sản Xuất ĐÃ ĐƯỢC BE TỔNG HỢP (Aggregated KPIs & Charts)
+// 6. Truy vấn Báo Cáo KHSX riêng cho GS1 Hà Nội
+export const queryHanoiGs1PlanReport = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/production/hanoi-gs1/plan',
+    method: 'POST',
+    data: { includeItems: 'true', pageSize: '10000', ...filters },
+    signal
+  })
+}
+
+// 7. Truy vấn Báo Cáo TKSX riêng cho GS1 Hà Nội
+export const queryHanoiGs1StatReport = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/production/hanoi-gs1/statistics',
+    method: 'POST',
+    data: { includeItems: 'true', pageSize: '10000', ...filters },
+    signal
+  })
+}
+
+// 8. Truy vấn Báo Cáo KHSX riêng cho GS5 Quế Võ
+export const queryQuevoGs5PlanReport = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/production/quevo-gs5/plan',
+    method: 'POST',
+    data: { includeItems: 'true', pageSize: '10000', ...filters },
+    signal
+  })
+}
+
+// 9. Truy vấn Báo Cáo TKSX riêng cho GS5 Quế Võ
+export const queryQuevoGs5StatReport = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/production/quevo-gs5/statistics',
+    method: 'POST',
+    data: { includeItems: 'true', pageSize: '10000', ...filters },
+    signal
+  })
+}
+
+// 10. Truy vấn Báo Cáo KHSX Tổng Hợp Toàn Công Ty (Summary - Không cần lấy items chi tiết)
+export const querySummaryPlanReport = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/production/summary/plan',
+    method: 'POST',
+    data: { withoutItems: 'true', ...filters },
+    signal
+  })
+}
+
+// 11. Truy vấn Báo Cáo TKSX Tổng Hợp Toàn Công Ty (Summary - Không cần lấy items chi tiết)
+export const querySummaryStatReport = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/production/summary/statistics',
+    method: 'POST',
+    data: { withoutItems: 'true', ...filters },
+    signal
+  })
+}
+
+// Fallback methods (tương thích ngược)
 export const queryProductionStatisticsReport = async (filters = {}, signal = null) => {
   return request({
     url: '/report/production/statistics',
@@ -219,7 +279,6 @@ export const queryProductionStatisticsReport = async (filters = {}, signal = nul
   })
 }
 
-// 7. Truy vấn Báo Cáo Kế Hoạch Sản Xuất ĐÃ ĐƯỢC BE TỔNG HỢP (Aggregated KPIs & Charts KHSX)
 export const queryProductionPlanReport = async (filters = {}, signal = null) => {
   return request({
     url: '/report/production/plan',
@@ -234,6 +293,12 @@ export default {
   queryPlanMaster,
   queryPlanDetail,
   queryProdStatsDetail,
+  queryHanoiGs1PlanReport,
+  queryHanoiGs1StatReport,
+  queryQuevoGs5PlanReport,
+  queryQuevoGs5StatReport,
+  querySummaryPlanReport,
+  querySummaryStatReport,
   queryProductionStatisticsReport,
   queryProductionPlanReport,
   deletePlanMaster

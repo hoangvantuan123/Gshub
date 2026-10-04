@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CompactSelection } from '@glideapps/glide-data-grid'
 import LoadingBar from 'react-top-loading-bar'
+import ExportExcelModal from '../../../../components/modal/ExportExcelModal'
 import { useProductionPlanReportColumns } from './columns/productionPlanReportColumns'
 import ProductionPlanReportTable from './components/ProductionPlanReportTable'
 import ProductionPlanReportQuery from './components/ProductionPlanReportQuery'
@@ -46,6 +47,9 @@ export default function ProductionPlanReportView({
     handleSaveData,
     handleDeleteData,
     handleExportExcel,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportPlanExcel,
     kpiStats
   } = useProductionPlanReport({
     plantKey,
@@ -110,6 +114,17 @@ export default function ProductionPlanReportView({
           onAddQueryField={onAddQueryField}
         />
       </div>
+
+      {/* Modal Xuất Excel Chuẩn ERP */}
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={executeExportPlanExcel}
+        defaultFileName={`BaoCao_KeHoach_SX_${plantKey}_${new Date().toISOString().slice(0, 10)}`}
+        totalRows={gridData.length}
+        selectedCount={getSelectedRows().length}
+        columns={cols}
+      />
     </div>
   )
 }

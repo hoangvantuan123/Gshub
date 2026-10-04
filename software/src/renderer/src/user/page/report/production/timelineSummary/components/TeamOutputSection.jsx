@@ -152,7 +152,9 @@ export function TeamOutputSection({
               <LabelList
                 dataKey="actualQty"
                 position="right"
-                formatter={(v) => (v !== undefined && v !== null && v > 0 ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) =>
+                  v !== undefined && v !== null && v > 0 ? Number(v).toLocaleString('vi-VN') : ''
+                }
                 style={{ fill: '#01411b', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>
@@ -166,7 +168,9 @@ export function TeamOutputSection({
               <LabelList
                 dataKey="passQty"
                 position="right"
-                formatter={(v) => (v !== undefined && v !== null && v > 0 ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) =>
+                  v !== undefined && v !== null && v > 0 ? Number(v).toLocaleString('vi-VN') : ''
+                }
                 style={{ fill: '#166534', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>
@@ -180,7 +184,9 @@ export function TeamOutputSection({
               <LabelList
                 dataKey="defectQty"
                 position="right"
-                formatter={(v) => (v !== undefined && v !== null && v > 0 ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) =>
+                  v !== undefined && v !== null && v > 0 ? Number(v).toLocaleString('vi-VN') : ''
+                }
                 style={{ fill: '#be123c', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>

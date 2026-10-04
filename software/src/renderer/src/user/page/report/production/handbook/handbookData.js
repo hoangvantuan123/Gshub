@@ -103,6 +103,52 @@ export const STAT_FORMULA_DATABASE = [
     notes:
       'Toàn bộ phân loại trạng thái chứng từ tự động được tổng hợp linh động từ cột AutoIoStatus thực tế.'
   },
+  {
+    id: 'kpi_total_actual_qty',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'KPI',
+    categoryName: 'I. Thẻ KPI Điều hành',
+    columnId: 'totalActualQty / actualQty',
+    columnName: 'Tổng sản lượng sản xuất thực tế',
+    title: 'Tổng sản lượng sản xuất thực tế (Total Actual Qty)',
+    scope: 'Thẻ KPI Tổng quan & Header Báo cáo',
+    formula: 'SUM(ProdQty) trong kỳ lọc',
+    source: 'CSDL _ERPProdStatsDetail (Trường: ProdQty, ActualMeters)',
+    description: 'Tổng khối lượng hoặc số lượng sản phẩm toàn bộ các máy/tổ đã gia công trong kỳ.',
+    notes: 'Bao gồm cả sản phẩm đạt chuẩn và phế phẩm.'
+  },
+  {
+    id: 'kpi_total_pass_qty',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'KPI',
+    categoryName: 'I. Thẻ KPI Điều hành',
+    columnId: 'totalPassQty / passQty',
+    columnName: 'Tổng sản lượng đạt chuẩn KCS',
+    title: 'Tổng sản lượng đạt chuẩn KCS (Total Pass Qty)',
+    scope: 'Thẻ KPI Tổng quan & Header Báo cáo',
+    formula: 'SUM(PassQty) trong kỳ lọc',
+    source: 'CSDL _ERPProdStatsDetail (Trường: PassQty, StatPassQty)',
+    description:
+      'Tổng sản lượng sản phẩm đạt tiêu chuẩn chất lượng xuất xưởng hoặc chuyển công đoạn tiếp theo.',
+    notes: 'Là cơ sở tính toán doanh thu và năng suất thực tế.'
+  },
+  {
+    id: 'kpi_total_runtime_hours',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'KPI',
+    categoryName: 'I. Thẻ KPI Điều hành',
+    columnId: 'totalRuntimeHours / runtimeHours',
+    columnName: 'Tổng giờ chạy máy tích lũy (h)',
+    title: 'Tổng giờ chạy máy tích lũy toàn hệ thống',
+    scope: 'Thẻ KPI Tổng quan & Header Báo cáo',
+    formula: 'SUM(DurationMinutes / 60) trong kỳ lọc',
+    source: 'CSDL _ERPProdStatsDetail (Trường: DurationMinutes, ActualRunTime)',
+    description: 'Tổng số giờ máy hoạt động thực tế trên toàn bộ các dây chuyền và xưởng sản xuất.',
+    notes: 'Căn cứ đánh giá khấu hao thiết bị, bảo trì và hiệu suất OEE.'
+  },
 
   // ==================== II. BIỂU ĐỒ PHÂN TÍCH (TKSX) ====================
   {
@@ -139,6 +185,21 @@ export const STAT_FORMULA_DATABASE = [
     notes: 'Trục Y tự động co giãn tối thiểu 26h để đảm bảo đường 24h luôn hiển thị rõ ràng.'
   },
   {
+    id: 'chart_runtime_vs_capacity',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'CHARTS',
+    categoryName: 'II. Biểu đồ Phân tích',
+    columnId: 'runtimeVsCapacity / Tải trọng (%)',
+    columnName: 'Tải trọng chạy máy (% so với chuẩn 24h)',
+    title: 'Phân bổ tải trọng vận hành máy',
+    scope: 'Mục 1: Biểu đồ Phân bổ Tải trọng Máy',
+    formula: '(Tổng giờ chạy thực tế / (Số ngày lọc × 24h)) × 100%',
+    source: 'Tính toán từ totalRuntimeHours và khoảng thời gian lọc',
+    description: 'Đo lường tỷ lệ tận dụng công suất khả dụng tối đa của từng máy.',
+    notes: '>100% cảnh báo quá tải hoặc ghi nhận trùng giờ chạy máy.'
+  },
+  {
     id: 'chart_team_output_quality',
     reportType: 'stat',
     reportTypeName: 'Thống kê SX (TKSX)',
@@ -154,8 +215,56 @@ export const STAT_FORMULA_DATABASE = [
       'Trực quan hóa đối chiếu khối lượng sản xuất thực tế, số lượng đạt tiêu chuẩn và lượng phế phẩm/lỗi của từng tổ sản xuất trong kỳ lọc.',
     notes: 'Biểu đồ cột 3 thành phần: SL Sản xuất, SL Đạt và SL Lỗi.'
   },
+  {
+    id: 'chart_daily_trend_stat',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'CHARTS',
+    categoryName: 'II. Biểu đồ Phân tích',
+    columnId: 'dailyTrendData / chartByDay',
+    columnName: 'Diễn biến sản lượng & Tỷ lệ Đạt theo ngày',
+    title: 'Biểu đồ Diễn biến sản lượng và Tỷ lệ Đạt hàng ngày',
+    scope: 'Mục 2 & Mục Tổng hợp: Biểu đồ dòng thời gian theo ngày',
+    formula:
+      'Theo từng ngày: SL SX = SUM(ProdQty), SL Đạt = SUM(PassQty), Tỷ lệ = (Đạt / SX) * 100%',
+    source: 'CSDL _ERPProdStatsDetail (Nhóm theo ProdDate)',
+    description:
+      'Theo dõi nhịp độ sản xuất từng ngày và biến động chất lượng KCS trong suốt chu kỳ.',
+    notes: 'Biểu đồ kết hợp cột (Sản lượng) và đường (Tỷ lệ Đạt %).'
+  },
+  {
+    id: 'chart_sync_delay_breakdown',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'CHARTS',
+    categoryName: 'II. Biểu đồ Phân tích',
+    columnId: 'syncDelayBreakdown',
+    columnName: 'Phân nhóm độ trễ đồng bộ MES - ERP',
+    title: 'Phân bổ tiến trình độ trễ đồng bộ dữ liệu',
+    scope: 'Mục III: Biểu đồ Phân nhóm Đồng bộ',
+    formula: 'Phân chia các khoảng: ≤10s, 11–30s, 31–60s, >60s',
+    source: 'CSDL _ERPProdStatsDetail (Trường: SyncDelayMinutes)',
+    description: 'Đo lường mức độ ổn định của đường truyền và tiến trình tích hợp hệ thống.',
+    notes: 'Tỷ lệ nhóm ≤10s càng cao thể hiện hệ thống vận hành thời gian thực càng tốt.'
+  },
+  {
+    id: 'chart_auto_export_breakdown',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'CHARTS',
+    categoryName: 'II. Biểu đồ Phân tích',
+    columnId: 'autoExportBreakdown',
+    columnName: 'Phân loại chứng từ tự động (Auto-Logistics)',
+    title: 'Phân bổ trạng thái chứng từ tự động xuất/nhập kho',
+    scope: 'Mục III: Biểu đồ Tròn Phân bổ Chứng từ',
+    formula: 'COUNT(Tickets) phân theo AutoIoStatus (Có XKTĐ, Có NKTĐ, v.v.)',
+    source: 'CSDL _ERPProdStatsDetail (Trường: AutoIoStatus)',
+    description:
+      'Giám sát tỷ lệ tự động liên kết kho vật tư và thành phẩm mà không cần can thiệp thủ công.',
+    notes: 'Bấm vào từng cung biểu đồ để lọc các phiếu tương ứng.'
+  },
 
-  // ==================== IV. BẢNG BIỂU CHI TIẾT (TKSX) ====================
+  // ==================== IV. BẢNG BIỂU CHI TIẾT & MA TRẬN (TKSX) ====================
   {
     id: 'col_machine_name',
     reportType: 'stat',
@@ -185,6 +294,36 @@ export const STAT_FORMULA_DATABASE = [
     source: 'CSDL _ERPProdStatsDetail (Trường: MachineCode)',
     description: 'Mã máy chuẩn hóa dùng để liên kết dữ liệu thống kê, bảo trì và kế hoạch.',
     notes: 'Ví dụ: IN01, IN02, BE01, CL01, TC01...'
+  },
+  {
+    id: 'col_team_name',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'teamName / TeamName',
+    columnName: 'Tổ sản xuất phụ trách',
+    title: 'Tên tổ sản xuất (Production Team)',
+    scope: 'Mục 4.1, 4.2 & 4.3',
+    formula: 'Tên đơn vị tổ quản lý máy/ca sản xuất',
+    source: 'CSDL _ERPProdStatsDetail (Trường: TeamName)',
+    description: 'Phân loại dữ liệu theo tổ chịu trách nhiệm gia công trực tiếp.',
+    notes: 'Hỗ trợ bộ lọc nhanh theo từng tổ.'
+  },
+  {
+    id: 'col_runtime_hours_stat',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'runtimeHours / totalRuntimeHours',
+    columnName: 'Tổng giờ chạy máy (h)',
+    title: 'Thời gian chạy máy thực tế tích lũy',
+    scope: 'Mục 4.1: Cột 4 | Mục 4.2: Cột 7',
+    formula: 'SUM(DurationMinutes / 60)',
+    source: 'CSDL _ERPProdStatsDetail (Trường: DurationMinutes)',
+    description: 'Tổng thời lượng máy vận hành thực tế phục vụ sản xuất.',
+    notes: 'Định dạng hiển thị 1-2 chữ số thập phân (VD: 18.5h).'
   },
   {
     id: 'col_actual_qty',
@@ -263,6 +402,81 @@ export const STAT_FORMULA_DATABASE = [
     description:
       'Đo lường năng lực tạo ra sản phẩm đạt chuẩn KCS trên mỗi giờ vận hành thực tế của từng máy.',
     notes: 'Định mức tính theo đơn vị sản phẩm trên giờ (SP/h).'
+  },
+  {
+    id: 'col_ticket_count',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'tickets / ticketCount',
+    columnName: 'Số phiếu thống kê thực hiện',
+    title: 'Số lượng phiếu thống kê ghi nhận',
+    scope: 'Mục 4.1 (Cột 9) & Mục 4.2 (Cột 2)',
+    formula: 'COUNT(Tickets) của máy hoặc tổ đó',
+    source: 'CSDL _ERPProdStatsDetail',
+    description: 'Tổng số lần lập phiếu xác nhận sản lượng cho máy/tổ.',
+    notes: 'Phản ánh tần suất vận hành và chuyển giao lệnh sản xuất.'
+  },
+  {
+    id: 'col_duration_minutes',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'durationMinutes / DurationMinutes',
+    columnName: 'Thời gian chạy máy (phút)',
+    title: 'Thời gian chạy máy tính theo phút',
+    scope: 'Mục 4.3: Bảng chi tiết phiếu (Cột 8)',
+    formula: 'DATEDIFF(minute, StartTime, EndTime)',
+    source: 'CSDL _ERPProdStatsDetail (Trường: DurationMinutes)',
+    description: 'Thời gian thực tế máy hoạt động trên từng phiếu thống kê.',
+    notes: 'Dùng để phân loại phiếu >12h hoặc <5 phút.'
+  },
+  {
+    id: 'col_supervisor_stat',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'supervisor / statPerson',
+    columnName: 'Người thống kê / Giám sát',
+    title: 'Nhân sự lập phiếu / Giám sát ca',
+    scope: 'Mục 4.3: Bảng chi tiết phiếu (Cột 13)',
+    formula: 'Tên hoặc mã nhân viên ghi nhận sản lượng',
+    source: 'CSDL _ERPProdStatsDetail (Trường: Supervisor, StatPerson)',
+    description: 'Xác định trách nhiệm ca kíp và người thao tác nhập liệu trên MES/ERP.',
+    notes: 'Hỗ trợ lọc và tìm kiếm theo nhân sự.'
+  },
+  {
+    id: 'col_created_source',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'createdSource / TicketCreationLocation',
+    columnName: 'Nguồn tạo phiếu (MES / ERP)',
+    title: 'Nguồn phát sinh dữ liệu phiếu thống kê',
+    scope: 'Mục 4.3: Bảng chi tiết phiếu (Cột 14)',
+    formula: 'MES Terminal / Web Portal / ERP Import',
+    source: 'CSDL _ERPProdStatsDetail (Trường: CreatedSource, TicketCreationLocation)',
+    description: 'Xác định phiếu được tạo trực tiếp tại máy trạm MES hay nhập liệu bổ sung.',
+    notes: 'Căn cứ tính toán Tỷ lệ số hóa MES (MES Rate).'
+  },
+  {
+    id: 'col_auto_io_status',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'autoIoStatus / AutoIoStatus',
+    columnName: 'Trạng thái Auto IO (Kho tự động)',
+    title: 'Trạng thái liên kết chứng từ kho tự động',
+    scope: 'Mục 4.3: Bảng chi tiết phiếu (Cột 15)',
+    formula: 'Có XKTĐ & NKTĐ | Có XKTĐ | Không có XKTĐ/NKTĐ',
+    source: 'CSDL _ERPProdStatsDetail (Trường: AutoIoStatus)',
+    description: 'Xác nhận trạng thái tạo phiếu xuất kho tự động và nhập kho tự động.',
+    notes: 'Liên kết trực tiếp với hệ thống quản lý kho WMS/ERP.'
   }
 ]
 
@@ -276,10 +490,10 @@ export const PLAN_FORMULA_DATABASE = [
     categoryName: 'I. Thẻ KPI Điều hành',
     columnId: 'totalOrders / IdSeq',
     columnName: 'Tổng số lệnh thao tác',
-    title: 'Tổng số lệnh thao tác',
-    scope: 'Thẻ KPI 1 & Toàn bộ báo cáo',
+    title: 'Tổng số lệnh thao tác điều phối',
+    scope: 'Thẻ KPI 1 & Toàn bộ báo cáo KHSX',
     formula: 'COUNT(IdSeq) trong phạm vi bộ lọc',
-    source: 'Bảng _ERPPlanDetail (OperationNo / DocNo)',
+    source: 'CSDL _ERPPlanDetail (Trường: OperationNo, DocNo, IdSeq)',
     description:
       'Tổng số lệnh điều phối sản xuất nằm trong phạm vi ngày và các điều kiện lọc được chọn.',
     notes: 'Tổng hợp số lượng phân bổ theo từng công đoạn.'
@@ -346,6 +560,51 @@ export const PLAN_FORMULA_DATABASE = [
     description: 'Các lệnh hoàn thành đúng quy cách job mặt hàng và thời điểm sản xuất.',
     notes: 'Phản ánh độ tuân thủ quy trình sắp xếp thứ tự ca máy.'
   },
+  {
+    id: 'kpi_khop_rate',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'KPI',
+    categoryName: 'I. Thẻ KPI Điều hành',
+    columnId: 'khopRate / passRate',
+    columnName: 'Tỷ lệ Khớp Lệnh Tổng thể (%)',
+    title: 'Tỷ lệ Lệnh Khớp Chuẩn Kế Hoạch (Pass Rate)',
+    scope: 'Thẻ KPI Tổng hợp & Bảng Ma trận PIC',
+    formula: '((Khớp SL + Khớp Job) / Tổng số lệnh) × 100%',
+    source: 'Tổng hợp từ StatusDpSx trong _ERPPlanDetail',
+    description: 'Đo lường độ chính xác tổng thể của kế hoạch điều phối sản xuất.',
+    notes: 'Chỉ tiêu chất lượng quan trọng hàng đầu của bộ phận Lập kế hoạch.'
+  },
+  {
+    id: 'kpi_total_plan_qty',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'KPI',
+    categoryName: 'I. Thẻ KPI Điều hành',
+    columnId: 'totalPlanQty / TargetProdQty',
+    columnName: 'Tổng sản lượng kế hoạch giao',
+    title: 'Tổng sản lượng kế hoạch mục tiêu (Total Plan Qty)',
+    scope: 'Header Báo cáo & Thẻ KPI KHSX',
+    formula: 'SUM(TargetProdQty) trong kỳ lọc',
+    source: 'CSDL _ERPPlanDetail (Trường: TargetProdQty, PlanQty)',
+    description: 'Tổng khối lượng sản phẩm được giao khoán sản xuất theo lệnh.',
+    notes: 'Dùng làm mẫu số để tính Tỷ lệ hoàn thành kế hoạch sản lượng.'
+  },
+  {
+    id: 'kpi_plan_completion_rate',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'KPI',
+    categoryName: 'I. Thẻ KPI Điều hành',
+    columnId: 'completionRate / planCompletionRate',
+    columnName: 'Tỷ lệ hoàn thành kế hoạch (%)',
+    title: 'Tỷ lệ hoàn thành sản lượng theo kế hoạch',
+    scope: 'Header Báo cáo & Thống kê Sản lượng KHSX',
+    formula: '(Tổng SL Thực tế Đạt / Tổng SL Kế hoạch) × 100%',
+    source: 'Tính toán từ totalActualQty và totalPlanQty',
+    description: 'Đo lường mức độ đáp ứng chỉ tiêu sản lượng thực tế so với cam kết kế hoạch.',
+    notes: '≥100%: Hoàn thành vượt mức kế hoạch; <100%: Chưa đạt chỉ tiêu.'
+  },
 
   // ==================== II. BIỂU ĐỒ PHÂN TÍCH (KHSX) ====================
   {
@@ -364,52 +623,83 @@ export const PLAN_FORMULA_DATABASE = [
       'So sánh tương quan giữa sản lượng được phân bổ theo kế hoạch và sản lượng thực tế máy/tổ đạt được.',
     notes: 'Biểu đồ dạng cột kép trực quan tỷ lệ hoàn thành %.'
   },
+  {
+    id: 'chart_plan_vs_actual_machine',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'CHARTS',
+    categoryName: 'II. Biểu đồ Phân tích',
+    columnId: 'machineBreakdown / chartByMachine',
+    columnName: 'Sản lượng Kế hoạch vs Thực tế theo cụm máy',
+    title: 'Tiến độ thực hiện kế hoạch theo từng cụm máy',
+    scope: 'Mục 2: Biểu đồ Tiến độ theo Máy',
+    formula: 'SL Kế hoạch = Sum(TargetProdQty) | SL Thực tế = Sum(StatPassQty) của từng máy',
+    source: 'CSDL _ERPPlanDetail (Trường: MachineCode, TargetProdQty, StatPassQty)',
+    description: 'Phân tích hiệu suất hoàn thành kế hoạch tại từng đầu máy công đoạn.',
+    notes: 'Giúp phát hiện ngay điểm nghẽn công đoạn (bottleneck).'
+  },
+  {
+    id: 'chart_plan_daily_trend',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'CHARTS',
+    categoryName: 'II. Biểu đồ Phân tích',
+    columnId: 'dailyTrendData / chartByDay',
+    columnName: 'Diễn biến tiến độ KHSX theo ngày',
+    title: 'Biểu đồ Tiến độ Kế hoạch vs Thực tế hàng ngày',
+    scope: 'Mục 2 & Mục Tổng hợp: Tiến độ thời gian theo ngày',
+    formula:
+      'Theo từng ngày: SL KH = SUM(TargetProdQty), SL TT = SUM(StatPassQty), Tỷ lệ = (TT / KH) * 100%',
+    source: 'CSDL _ERPPlanDetail (Nhóm theo OpDate / RoutingDocDate)',
+    description: 'Theo dõi nhịp độ giao hàng và thực hiện kế hoạch từng ngày trong chu kỳ.',
+    notes: 'Đối chiếu trực quan giữa lượng đặt kế hoạch và năng lực đáp ứng thực tế.'
+  },
+  {
+    id: 'chart_dp_status_breakdown',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'CHARTS',
+    categoryName: 'II. Biểu đồ Phân tích',
+    columnId: 'dpStatusBreakdown',
+    columnName: 'Phân bổ trạng thái điều phối sản xuất',
+    title: 'Phân tích cơ cấu trạng thái điều phối (DP Status Breakdown)',
+    scope: 'Mục 3: Biểu đồ Cơ cấu Điều phối',
+    formula: 'COUNT(Orders) phân theo: Khớp SL, Khớp Job, SX sai ngày KH, Trượt KH',
+    source: 'CSDL _ERPPlanDetail (Trường: StatusDpSx)',
+    description: 'Trực quan hóa tỷ trọng các trạng thái thực hiện kế hoạch.',
+    notes: 'Các mảng màu trực quan giúp lãnh đạo nắm nhanh tỷ lệ tuân thủ lịch sản xuất.'
+  },
+  {
+    id: 'chart_capa_status_breakdown',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'CHARTS',
+    categoryName: 'II. Biểu đồ Phân tích',
+    columnId: 'capaStatusBreakdown',
+    columnName: 'Phân bổ đánh giá định mức Capa',
+    title: 'Phân tích năng lực thực thi so với Định mức (Capa Breakdown)',
+    scope: 'Mục 4: Biểu đồ Đánh giá Định mức Capa',
+    formula: 'COUNT(Orders) phân theo: Nhanh hơn ĐM, Đúng ĐM, Chậm hơn ĐM, Chưa có ĐM',
+    source: 'CSDL _ERPPlanDetail (So sánh tốc độ thực tế vs định mức thiết kế)',
+    description: 'Đánh giá độ chính xác của định mức công suất máy được cài đặt trên hệ thống.',
+    notes: 'Cơ sở quan trọng để bộ phận Kỹ thuật cập nhật lại định mức cho phù hợp thực tế.'
+  },
 
-  // ==================== IV. BẢNG BIỂU CHI TIẾT (KHSX) ====================
+  // ==================== IV. BẢNG BIỂU CHI TIẾT & MA TRẬN (KHSX) ====================
   {
-    id: 'col_plan_work_order',
+    id: 'col_plan_master_pic',
     reportType: 'plan',
     reportTypeName: 'Kế hoạch SX (KHSX)',
     category: 'TABLES',
     categoryName: 'IV. Bảng biểu Chi tiết',
-    columnId: 'WorkOrderNo / DocNo',
-    columnName: 'Số lệnh sản xuất (LSX)',
-    title: 'Số lệnh sản xuất điều phối',
-    scope: 'Mục 6: Bảng Chi tiết Lệnh',
-    formula: 'Số lệnh điều phối định danh từ phòng Kế hoạch',
-    source: 'Bảng _ERPPlanDetail (Trường: WorkOrderNo, DocNo)',
-    description: 'Mã số chứng từ kế hoạch ban hành cho xưởng sản xuất thực hiện.',
-    notes: 'Mỗi lệnh tương ứng với 1 công đoạn gia công.'
-  },
-  {
-    id: 'col_plan_item_name',
-    reportType: 'plan',
-    reportTypeName: 'Kế hoạch SX (KHSX)',
-    category: 'TABLES',
-    categoryName: 'IV. Bảng biểu Chi tiết',
-    columnId: 'ItemName / ProductName',
-    columnName: 'Tên sản phẩm / Mặt hàng',
-    title: 'Tên sản phẩm trong kế hoạch',
-    scope: 'Mục 6: Bảng Chi tiết Lệnh',
-    formula: 'Tên mặt hàng thành phẩm hoặc bán thành phẩm',
-    source: 'Bảng _ERPPlanDetail (Trường: ItemName, ItemCode)',
-    description: 'Quy cách sản phẩm gia công theo đơn hàng của khách hàng.',
-    notes: 'Hiển thị kèm mã mặt hàng ItemCode.'
-  },
-  {
-    id: 'col_plan_target_qty',
-    reportType: 'plan',
-    reportTypeName: 'Kế hoạch SX (KHSX)',
-    category: 'TABLES',
-    categoryName: 'IV. Bảng biểu Chi tiết',
-    columnId: 'TargetProdQty / PlanQty',
-    columnName: 'Sản lượng mục tiêu kế hoạch',
-    title: 'Sản lượng mục tiêu kế hoạch (Target Qty)',
-    scope: 'Mục 6: Bảng Chi tiết Lệnh',
-    formula: 'Số lượng sản phẩm giao khoán theo kế hoạch',
-    source: 'Bảng _ERPPlanDetail (Trường: TargetProdQty)',
-    description: 'Định mức sản lượng yêu cầu hoàn thành của lệnh sản xuất.',
-    notes: 'Căn cứ đối chiếu tỷ lệ đạt của ca máy.'
+    columnId: 'planMaster / picName',
+    columnName: 'Nhân sự phụ trách Kế hoạch (PIC)',
+    title: 'Nhân sự lập kế hoạch / PIC điều phối',
+    scope: 'Mục 2: Bảng Ma trận PIC (Cột 1)',
+    formula: 'Tên nhân sự được phân công lập lịch sản xuất',
+    source: 'CSDL _ERPPlanDetail (Trường: PlanMaster, Supervisor, PicName)',
+    description: 'Phân bổ trách nhiệm điều hành kế hoạch theo từng chuyên viên điều phối.',
+    notes: 'Hỗ trợ lọc và phân tích đánh giá năng lực từng PIC.'
   },
   {
     id: 'col_plan_khop_growth_rate',
@@ -477,6 +767,111 @@ export const PLAN_FORMULA_DATABASE = [
     description:
       'Tỷ lệ % các lệnh tuân thủ chính xác thứ tự mặt hàng, quy cách gia công và định tuyến sản xuất.',
     notes: 'Đánh giá tính kỷ luật trong sắp xếp lịch sản xuất hiện trường.'
+  },
+  {
+    id: 'col_plan_sx_sai_ngay_rate',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'sxSaiNgayRate',
+    columnName: 'Tỷ lệ SX Sai Ngày (%)',
+    title: 'Tỷ lệ lệnh sản xuất lệch ngày kế hoạch',
+    scope: 'Mục 2: Bảng Ma trận (Cột 5)',
+    formula: '(Số lệnh SX sai ngày KH / Tổng số lệnh) × 100%',
+    source: 'StatusDpSx = "SX sai ngày KH" / TotalOrders',
+    description: 'Tỷ trọng các lệnh bị điều chỉnh hoặc đổi lịch thực hiện.',
+    notes: 'Càng thấp càng thể hiện tính ổn định cao của lịch sản xuất.'
+  },
+  {
+    id: 'col_plan_truot_kh_rate',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'truotKhRate',
+    columnName: 'Tỷ lệ Trượt KH (%)',
+    title: 'Tỷ lệ lệnh bị trượt kế hoạch sản xuất',
+    scope: 'Mục 2: Bảng Ma trận (Cột 6)',
+    formula: '(Số lệnh Trượt KH / Tổng số lệnh) × 100%',
+    source: 'StatusDpSx = "Trượt KH" / TotalOrders',
+    description: 'Tỷ trọng các lệnh bị lỡ tiến độ hoặc thiếu hụt sản lượng cam kết.',
+    notes: 'Chỉ số cảnh báo nguy cơ trễ hẹn giao hàng cho khách.'
+  },
+  {
+    id: 'col_plan_work_order',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'WorkOrderNo / DocNo',
+    columnName: 'Số lệnh sản xuất (LSX)',
+    title: 'Số lệnh sản xuất điều phối',
+    scope: 'Mục 6: Bảng Chi tiết Lệnh',
+    formula: 'Số lệnh điều phối định danh từ phòng Kế hoạch',
+    source: 'Bảng _ERPPlanDetail (Trường: WorkOrderNo, DocNo)',
+    description: 'Mã số chứng từ kế hoạch ban hành cho xưởng sản xuất thực hiện.',
+    notes: 'Mỗi lệnh tương ứng với 1 công đoạn gia công.'
+  },
+  {
+    id: 'col_plan_item_name',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'ItemName / ProductName',
+    columnName: 'Tên sản phẩm / Mặt hàng',
+    title: 'Tên sản phẩm trong kế hoạch',
+    scope: 'Mục 6: Bảng Chi tiết Lệnh',
+    formula: 'Tên mặt hàng thành phẩm hoặc bán thành phẩm',
+    source: 'Bảng _ERPPlanDetail (Trường: ItemName, ItemCode)',
+    description: 'Quy cách sản phẩm gia công theo đơn hàng của khách hàng.',
+    notes: 'Hiển thị kèm mã mặt hàng ItemCode.'
+  },
+  {
+    id: 'col_plan_target_qty',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'TargetProdQty / PlanQty',
+    columnName: 'Sản lượng mục tiêu kế hoạch',
+    title: 'Sản lượng mục tiêu kế hoạch (Target Qty)',
+    scope: 'Mục 6: Bảng Chi tiết Lệnh',
+    formula: 'Số lượng sản phẩm giao khoán theo kế hoạch',
+    source: 'Bảng _ERPPlanDetail (Trường: TargetProdQty)',
+    description: 'Định mức sản lượng yêu cầu hoàn thành của lệnh sản xuất.',
+    notes: 'Căn cứ đối chiếu tỷ lệ đạt của ca máy.'
+  },
+  {
+    id: 'col_plan_stat_pass_qty',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'StatPassQty / ActualQty',
+    columnName: 'Sản lượng thực tế đạt',
+    title: 'Sản lượng thực tế đạt KCS (Actual Pass Qty)',
+    scope: 'Mục 6: Bảng Chi tiết Lệnh',
+    formula: 'Số lượng thực tế đạt từ phiếu thống kê tương ứng',
+    source: 'Bảng _ERPPlanDetail (Trường: StatPassQty)',
+    description: 'Số lượng sản phẩm thực tế đã hoàn thành và đạt chuẩn kiểm tra.',
+    notes: 'Đối chiếu trực tiếp với TargetProdQty.'
+  },
+  {
+    id: 'col_plan_date_diff',
+    reportType: 'plan',
+    reportTypeName: 'Kế hoạch SX (KHSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'dateDiffDays / OpDate - RoutingDocDate',
+    columnName: 'Số ngày chênh lệch kế hoạch',
+    title: 'Độ lệch ngày giữa Kế hoạch và Thực tế',
+    scope: 'Mục 6: Bảng Chi tiết Lệnh',
+    formula: 'DATEDIFF(day, RoutingDocDate, OpDate)',
+    source: 'So khớp ngày thực hiện OpDate và ngày điều phối RoutingDocDate',
+    description: 'Số ngày làm sớm hơn (-) hoặc muộn hơn (+) so với ngày kế hoạch.',
+    notes: '=0: Đúng ngày kế hoạch; >0: Làm muộn; <0: Làm sớm.'
   }
 ]
 

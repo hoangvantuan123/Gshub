@@ -107,14 +107,14 @@ export const MasterBatchSearchSelect = ({
     if (!masterList || masterList.length === 0) return []
     const list = [...masterList]
     return list.sort((a, b) => {
-          const dateA = getMasterEffectiveDate(a)
-          const dateB = getMasterEffectiveDate(b)
-          if (dateB !== dateA) return dateB - dateA
-          const createA = new Date(a.CreatedAt || 0).getTime()
-          const createB = new Date(b.CreatedAt || 0).getTime()
-          if (createB !== createA) return createB - createA
-          return (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
-        })
+      const dateA = getMasterEffectiveDate(a)
+      const dateB = getMasterEffectiveDate(b)
+      if (dateB !== dateA) return dateB - dateA
+      const createA = new Date(a.CreatedAt || 0).getTime()
+      const createB = new Date(b.CreatedAt || 0).getTime()
+      if (createB !== createA) return createB - createA
+      return (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
+    })
   }, [masterList])
 
   // Luôn tự động chọn đợt nạp mới nhất nếu chưa có đợt nào được chọn
@@ -209,40 +209,14 @@ export const MasterBatchSearchSelect = ({
         position: 'relative',
         display: 'inline-flex',
         alignItems: 'center',
-        height: 28,
-        border: isOpen ? '1px solid #0f766e' : '1px solid #cbd5e1',
-        borderRadius: 4,
-        background: '#ffffff',
+        height: '100%',
+        background: 'transparent',
         boxSizing: 'border-box',
         overflow: 'visible',
         verticalAlign: 'middle',
-        transition: 'border-color 0.15s ease',
         ...style
       }}
     >
-      {/* Label Prefix */}
-      <div
-        style={{
-          height: '100%',
-          fontSize: 11.5,
-          fontWeight: 700,
-          color: '#1e293b',
-          background: '#f1f5f9',
-          padding: '0 8px',
-          borderRight: isOpen ? '1px solid #0f766e' : '1px solid #cbd5e1',
-          borderTopLeftRadius: 3,
-          borderBottomLeftRadius: 3,
-          display: 'inline-flex',
-          alignItems: 'center',
-          userSelect: 'none',
-          whiteSpace: 'nowrap',
-          boxSizing: 'border-box',
-          letterSpacing: '0.01em'
-        }}
-      >
-        Đợt nạp:
-      </div>
-
       {/* Main Trigger Button */}
       <button
         type="button"
@@ -251,15 +225,15 @@ export const MasterBatchSearchSelect = ({
           height: '100%',
           border: 'none',
           borderRadius: 0,
-          background: isOpen ? '#f8fafc' : '#ffffff',
-          padding: '0 10px',
+          background: 'transparent',
+          padding: '0 8px',
           display: 'inline-flex',
           alignItems: 'center',
           gap: 8,
           cursor: 'pointer',
           outline: 'none',
           fontFamily: 'inherit',
-          minWidth: 260,
+          minWidth: 220,
           justifyContent: 'space-between',
           textAlign: 'left',
           boxSizing: 'border-box'
@@ -272,19 +246,13 @@ export const MasterBatchSearchSelect = ({
           {isCurrentNewest && (
             <span
               style={{
-                fontSize: 9.5,
-                fontWeight: 800,
-                color: '#065f46',
-                background: '#ecfdf5',
-                border: '1px solid #a7f3d0',
-                padding: '1px 5px',
-                borderRadius: 2,
-                lineHeight: 1,
-                letterSpacing: '0.02em',
+                fontSize: 10,
+                fontWeight: 700,
+                color: '#059669',
                 whiteSpace: 'nowrap'
               }}
             >
-              MỚI NHẤT
+              (Mới nhất)
             </span>
           )}
           {currentDate && (
@@ -494,17 +462,13 @@ export const MasterBatchSearchSelect = ({
                         {isNewest && (
                           <span
                             style={{
-                              fontSize: 9.5,
-                              fontWeight: 800,
-                              color: '#047857',
-                              background: '#ecfdf5',
-                              border: '1px solid #a7f3d0',
-                              padding: '1px 4px',
-                              borderRadius: 0,
-                              lineHeight: 1
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: '#059669',
+                              whiteSpace: 'nowrap'
                             }}
                           >
-                            MỚI NHẤT
+                            (Mới nhất)
                           </span>
                         )}
                         <span

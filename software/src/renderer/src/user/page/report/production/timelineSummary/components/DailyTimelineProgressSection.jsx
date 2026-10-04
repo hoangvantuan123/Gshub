@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
 import { useMemo } from 'react'
 import {
   ResponsiveContainer,
@@ -246,7 +246,9 @@ export function DailyTimelineProgressSection({
               <LabelList
                 dataKey="actualQty"
                 position="top"
-                formatter={(v) => (v && chartData.length <= 15 ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) =>
+                  v && chartData.length <= 15 ? Number(v).toLocaleString('vi-VN') : ''
+                }
                 style={{ fill: '#01411b', fontSize: 9.5, fontWeight: 700 }}
               />
             </Bar>
@@ -261,7 +263,9 @@ export function DailyTimelineProgressSection({
               <LabelList
                 dataKey="passQty"
                 position="top"
-                formatter={(v) => (v && chartData.length <= 15 ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) =>
+                  v && chartData.length <= 15 ? Number(v).toLocaleString('vi-VN') : ''
+                }
                 style={{ fill: '#166534', fontSize: 9.5, fontWeight: 700 }}
               />
             </Bar>
@@ -279,7 +283,9 @@ export function DailyTimelineProgressSection({
               <LabelList
                 dataKey="passRate"
                 position="top"
-                formatter={(v) => (v !== undefined && v !== null && chartData.length <= 15 ? `${v}%` : '')}
+                formatter={(v) =>
+                  v !== undefined && v !== null && chartData.length <= 15 ? `${v}%` : ''
+                }
                 style={{ fill: '#10b981', fontSize: 10, fontWeight: 700 }}
               />
             </Line>

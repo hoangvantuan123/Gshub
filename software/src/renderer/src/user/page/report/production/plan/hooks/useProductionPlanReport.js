@@ -3,6 +3,11 @@ import { message, notification } from 'antd'
 import { useTranslation } from 'react-i18next'
 import * as XLSX from 'xlsx'
 import { initialHanoiGs1Plans, initialQuevoGs5Plans } from '../../../common/reportUtils'
+import {
+  generateExcelWorkbook,
+  saveWorkbookToFile,
+  formatFilterSummary
+} from '../../../../../../utils/exportExcelUtils'
 
 export function useProductionPlanReport({
   plantKey = 'hanoi_gs1',
@@ -262,31 +267,82 @@ export function useProductionPlanReport({
     message.success(t('Đã xóa {{count}} dòng được chọn', { count: selected.length }))
   }, [canDelete, getSelectedRows, gridData, setGridData, setNumRows, t])
 
-  // Xuất Excel
-  const handleExportExcel = useCallback(() => {
+  // ── Quản lý Modal Xuất Excel ──
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+
+  const handleOpenExportModal = useCallback(() => {
     if (!gridData || gridData.length === 0) {
       message.warning(t('Không có dữ liệu để xuất'))
       return
     }
-    try {
-      const exportData = gridData.map((row) => {
-        const copy = { ...row }
-        delete copy.WorkingTag
-        return copy
-      })
-      const ws = XLSX.utils.json_to_sheet(exportData)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'KeHoachSanXuat')
-      XLSX.writeFile(
-        wb,
-        `BaoCao_KeHoach_SX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`
-      )
-      message.success(t('Đã xuất file Excel thành công'))
-    } catch (err) {
-      console.error(err)
-      message.error(t('Xuất Excel thất bại'))
-    }
-  }, [gridData, plantKey, t])
+    setIsExportModalOpen(true)
+  }, [gridData, t])
+
+  const executeExportPlanExcel = useCallback(
+    async ({
+      fileName,
+      saveDirectory,
+      overwriteExisting,
+      includeHeaders,
+      exportScope = 'all',
+      exportableCols
+    }) => {
+      try {
+        const selectedIndices = getSelectedRows?.() || []
+        let targetData = gridData
+        if (exportScope === 'selected' && selectedIndices.length > 0) {
+          targetData = selectedIndices.map((idx) => gridData[idx]).filter(Boolean)
+        }
+
+        const plantDisplayName = plantKey === 'quevo_gs5' ? 'GS5 Quế Võ' : 'GS1 Hà Nội'
+        const reportTitle = `BÁO CÁO KẾ HOẠCH SẢN XUẤT - ${plantDisplayName.toUpperCase()}`
+        const filterSummary = formatFilterSummary(searchValues)
+
+        const defaultColsToExport = [
+          { id: 'OpDate', name: 'Ngày KH', width: 110, group: 'Thông tin chung' },
+          { id: 'PicDp', name: 'Người ĐP', width: 140, group: 'Thông tin chung' },
+          { id: 'OperationNo', name: 'Mã Lệnh ĐP', width: 150, group: 'Lệnh sản xuất' },
+          { id: 'RoutingDocNo', name: 'Số Lệnh Công Đoạn', width: 150, group: 'Lệnh sản xuất' },
+          { id: 'ItemCode', name: 'Mã Sản Phẩm', width: 130, group: 'Sản phẩm' },
+          { id: 'ItemName', name: 'Tên Sản Phẩm', width: 220, group: 'Sản phẩm' },
+          { id: 'OperationName', name: 'Công Đoạn', width: 160, group: 'Công đoạn & Máy' },
+          { id: 'MachineName', name: 'Thiết Bị / Máy', width: 200, group: 'Công đoạn & Máy' },
+          { id: 'Unit', name: 'ĐVT', width: 80, group: 'Sản lượng' },
+          { id: 'TargetPassQty', name: 'SL Đạt KH', width: 110, group: 'Sản lượng' },
+          { id: 'TargetProdQty', name: 'SL Tổng KH', width: 110, group: 'Sản lượng' },
+          { id: 'StatPassQty', name: 'SL Thực Đạt', width: 110, group: 'Sản lượng' },
+          { id: 'StartTime', name: 'Bắt Đầu', width: 90, group: 'Thời gian & Tiến độ' },
+          { id: 'EndTime', name: 'Kết Thúc', width: 90, group: 'Thời gian & Tiến độ' },
+          { id: 'StandardProdTime', name: 'Giờ ĐM (h)', width: 100, group: 'Thời gian & Tiến độ' },
+          { id: 'ActualProdTime', name: 'Giờ TT (h)', width: 100, group: 'Thời gian & Tiến độ' },
+          { id: 'StandardCapa', name: 'Capa ĐM', width: 100, group: 'Năng lực sản xuất' },
+          { id: 'ActualCapa', name: 'Capa TT', width: 100, group: 'Năng lực sản xuất' },
+          { id: 'StatusDpSx', name: 'Trạng Thái ĐP', width: 130, group: 'Đánh giá' },
+          { id: 'TimeStatus', name: 'Tiến Độ Thời Gian', width: 130, group: 'Đánh giá' },
+          { id: 'CapaStatus', name: 'Đánh Giá Capa', width: 130, group: 'Đánh giá' }
+        ]
+
+        const validCols = exportableCols || defaultColsToExport
+
+        const wb = generateExcelWorkbook({
+          data: targetData,
+          columns: validCols,
+          sheetName: 'KeHoachSanXuat',
+          reportTitle,
+          filterInfo: filterSummary,
+          includeHeaders: includeHeaders !== false
+        })
+
+        await saveWorkbookToFile(wb, fileName, saveDirectory, { overwriteExisting })
+        message.success(t('Xuất dữ liệu Excel thành công!'))
+      } catch (err) {
+        console.error('Export Excel failed:', err)
+        message.error(t('Xuất file thất bại: ') + (err?.message || 'Lỗi không xác định'))
+        throw err
+      }
+    },
+    [gridData, getSelectedRows, plantKey, searchValues, t]
+  )
 
   return {
     searchValues,
@@ -299,7 +355,10 @@ export function useProductionPlanReport({
     handleRowAppend,
     handleSaveData,
     handleDeleteData,
-    handleExportExcel,
+    handleExportExcel: handleOpenExportModal,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportPlanExcel,
     kpiStats
   }
 }

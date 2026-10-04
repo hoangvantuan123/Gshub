@@ -5,9 +5,28 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	models "service-datahub/models/report"
 )
+
+// normalizeDateString chuẩn hóa các định dạng ngày (bao gồm cả ISO timestamp UTC như 2026-10-01T17:00:00.000Z) về YYYY-MM-DD theo giờ Việt Nam
+func normalizeDateString(val string) string {
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return ""
+	}
+	if strings.Contains(val, "T") {
+		t, err := time.Parse(time.RFC3339, val)
+		if err == nil {
+			loc := time.FixedZone("Asia/Ho_Chi_Minh", 7*3600)
+			return t.In(loc).Format("2006-01-02")
+		}
+		parts := strings.Split(val, "T")
+		return parts[0]
+	}
+	return val
+}
 
 // PlanMasterQ - Truy vấn Master đăng ký báo cáo theo bộ lọc
 func (s *PlanMasterService) PlanMasterQ(ctx context.Context, filters map[string]string) ([]models.ERPPlanMaster, *models.PlanPageInfo, error) {
@@ -73,13 +92,22 @@ func (s *PlanMasterService) PlanMasterQ(ctx context.Context, filters map[string]
 
 	// 3. Lọc khoảng ngày áp dụng
 	if fromDate, ok := filters["ApplyDateFrom"]; ok && fromDate != "" {
-		query = query.Where(`"ApplyDate" >= ?`, fromDate)
+		cleanFrom := normalizeDateString(fromDate)
+		if cleanFrom != "" {
+			query = query.Where(`"ApplyDate" >= ?`, cleanFrom)
+		}
 	}
 	if toDate, ok := filters["ApplyDateTo"]; ok && toDate != "" {
-		query = query.Where(`"ApplyDate" <= ?`, toDate)
+		cleanTo := normalizeDateString(toDate)
+		if cleanTo != "" {
+			query = query.Where(`"ApplyDate" <= ?`, cleanTo)
+		}
 	}
 	if exactDate, ok := filters["ApplyDate"]; ok && exactDate != "" {
-		query = query.Where(`"ApplyDate" = ?`, exactDate)
+		cleanExact := normalizeDateString(exactDate)
+		if cleanExact != "" {
+			query = query.Where(`"ApplyDate" = ?`, cleanExact)
+		}
 	}
 
 	// 4. Lọc ngày tạo CreatedAt

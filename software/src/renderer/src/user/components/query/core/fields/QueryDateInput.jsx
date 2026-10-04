@@ -23,7 +23,15 @@ const QueryDateInput = memo(function QueryDateInput({
     <DatePicker
       locale={viVN}
       value={parsedVal}
-      onChange={(d) => onChange && onChange(field.key, d)}
+      onChange={(d, dateString) => {
+        if (!onChange) return
+        if (!d) {
+          onChange(field.key, '')
+          return
+        }
+        const formatted = d?.format ? d.format('YYYY-MM-DD') : (dateString || '')
+        onChange(field.key, formatted)
+      }}
       disabled={disabled}
       format={displayFormat}
       placeholder={field.placeholder ? t(field.placeholder) : displayFormat}

@@ -8,25 +8,51 @@ import * as XLSX from 'xlsx'
 
 import DataPageContainer from '../../../../components/layout/DataPageContainer'
 import DynamicQueryBar from '../../../../components/query/core/DynamicQueryBar'
+import ExportExcelModal from '../../../../components/modal/ExportExcelModal'
+import {
+  generateExcelWorkbook,
+  saveWorkbookToFile,
+  formatFilterSummary
+} from '../../../../../utils/exportExcelUtils'
 import { Button } from '../../../../../components/ui/button'
 import { DEFAULT_GRID_THEME } from '../../../../components/hooks/sheet/useTableCellTheme'
+import { usePageData } from '../../../../../context/PageDataContext'
 import { ALL_HANDBOOK_DATABASE } from './handbookData'
 
 const DEFAULT_HANDBOOK_COLUMNS = [
-  { id: 'stt', title: 'STT', width: 55 },
-  { id: 'reportTypeName', title: 'Phân hệ Báo cáo', width: 150 },
-  { id: 'categoryName', title: 'Phân loại Hạng mục', width: 170 },
-  { id: 'columnId', title: 'Mã Cột / Field ID', width: 180 },
-  { id: 'columnName', title: 'Tên hiển thị / Tiếng Việt', width: 220 },
-  { id: 'scope', title: 'Vị trí áp dụng', width: 180 },
-  { id: 'formula', title: 'Công thức tính toán (Formula Logic)', width: 330 },
-  { id: 'source', title: 'Nguồn CSDL & Trường gốc', width: 250 },
-  { id: 'description', title: 'Ý nghĩa & Quy tắc nghiệp vụ', width: 360 },
-  { id: 'notes', title: 'Ghi chú & Lưu ý', width: 260 }
+  { id: 'stt', title: 'STT', width: 55, readonly: true, isReadOnly: true },
+  { id: 'reportTypeName', title: 'Phân hệ Báo cáo', width: 150, readonly: true, isReadOnly: true },
+  { id: 'categoryName', title: 'Phân loại Hạng mục', width: 170, readonly: true, isReadOnly: true },
+  { id: 'columnId', title: 'Mã Cột / Field ID', width: 180, readonly: true, isReadOnly: true },
+  {
+    id: 'columnName',
+    title: 'Tên hiển thị / Tiếng Việt',
+    width: 220,
+    readonly: true,
+    isReadOnly: true
+  },
+  { id: 'scope', title: 'Vị trí áp dụng', width: 180, readonly: true, isReadOnly: true },
+  {
+    id: 'formula',
+    title: 'Công thức tính toán (Formula Logic)',
+    width: 330,
+    readonly: true,
+    isReadOnly: true
+  },
+  { id: 'source', title: 'Nguồn CSDL & Trường gốc', width: 250, readonly: true, isReadOnly: true },
+  {
+    id: 'description',
+    title: 'Ý nghĩa & Quy tắc nghiệp vụ',
+    width: 360,
+    readonly: true,
+    isReadOnly: true
+  },
+  { id: 'notes', title: 'Ghi chú & Lưu ý', width: 260, readonly: true, isReadOnly: true }
 ]
 
 export function FormulaHandbookSheet({ isStandalone = false, defaultReportType = 'all' }) {
   const { t } = useTranslation()
+  const { setPageData } = usePageData() || {}
   const [columns, setColumns] = useState(DEFAULT_HANDBOOK_COLUMNS)
   const [selection, setSelection] = useState({
     columns: CompactSelection.empty(),
@@ -206,12 +232,31 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
     })
   }, [searchValues])
 
+  // Đồng bộ số lượng dòng và cột về Status Bar của hệ thống
+  useEffect(() => {
+    if (typeof setPageData === 'function') {
+      setPageData((prev) => ({
+        ...prev,
+        total: filteredData.length,
+        totalAll: ALL_HANDBOOK_DATABASE.length,
+        loadedCount: filteredData.length,
+        totalColumns: columns.length
+      }))
+    }
+  }, [filteredData.length, columns.length, setPageData])
+
   // Cell Content Callback using standard library styles
   const getCellContent = useCallback(
     ([colIdx, rowIdx]) => {
       const row = filteredData[rowIdx]
       if (!row) {
-        return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
+        return {
+          kind: GridCellKind.Text,
+          data: '',
+          displayData: '',
+          readonly: true,
+          allowOverlay: false
+        }
       }
 
       const colKey = columns[colIdx]?.id
@@ -224,6 +269,7 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
+            readonly: true,
             allowOverlay: false,
             themeOverride: {
               textDark: '#475569',
@@ -237,7 +283,8 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
-            allowOverlay: true,
+            readonly: true,
+            allowOverlay: false,
             themeOverride: {
               textDark: '#1e293b',
               baseFontStyle: '500 12px Inter, sans-serif'
@@ -250,7 +297,8 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
-            allowOverlay: true,
+            readonly: true,
+            allowOverlay: false,
             themeOverride: {
               textDark: '#1e293b',
               baseFontStyle: '600 12px Inter, sans-serif'
@@ -263,7 +311,8 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
-            allowOverlay: true,
+            readonly: true,
+            allowOverlay: false,
             themeOverride: {
               textDark: '#1e293b',
               baseFontStyle: '500 12px Consolas, Monaco, monospace'
@@ -276,7 +325,8 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
-            allowOverlay: true,
+            readonly: true,
+            allowOverlay: false,
             themeOverride: {
               textDark: '#0f172a',
               baseFontStyle: '600 12px Inter, sans-serif'
@@ -289,7 +339,8 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
-            allowOverlay: true,
+            readonly: true,
+            allowOverlay: false,
             themeOverride: {
               textDark: '#334155',
               baseFontStyle: '500 12px Inter, sans-serif'
@@ -302,7 +353,8 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
-            allowOverlay: true,
+            readonly: true,
+            allowOverlay: false,
             themeOverride: {
               textDark: '#1e293b',
               baseFontStyle: '500 12px Consolas, Monaco, monospace'
@@ -315,7 +367,8 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
-            allowOverlay: true,
+            readonly: true,
+            allowOverlay: false,
             themeOverride: {
               textDark: '#334155',
               baseFontStyle: '12px Inter, sans-serif'
@@ -328,7 +381,8 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
-            allowOverlay: true,
+            readonly: true,
+            allowOverlay: false,
             themeOverride: {
               textDark: '#1e293b',
               baseFontStyle: '12px Inter, sans-serif'
@@ -341,7 +395,8 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: text,
             displayData: text,
-            allowOverlay: true,
+            readonly: true,
+            allowOverlay: false,
             themeOverride: {
               textDark: '#64748b',
               baseFontStyle: '12px Inter, sans-serif'
@@ -353,6 +408,7 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
             kind: GridCellKind.Text,
             data: '',
             displayData: '',
+            readonly: true,
             allowOverlay: false
           }
       }
@@ -375,41 +431,67 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
     setColumns((prev) => prev.map((c) => (c.id === column.id ? { ...c, width: newSize } : c)))
   }, [])
 
-  // 3. Export to Excel
-  const handleExportExcel = () => {
-    const exportRows = filteredData.map((item, idx) => ({
-      STT: idx + 1,
-      'Phân hệ':
-        item.reportTypeName || (item.reportType === 'stat' ? 'Thống kê SX' : 'Kế hoạch SX'),
-      'Phân loại': item.categoryName || item.category,
-      'Mã Cột / Field ID': item.columnId || item.id,
-      'Tên Cột / Tiêu đề': item.columnName || item.title,
-      'Vị trí áp dụng': item.scope,
-      'Công thức tính toán': item.formula,
-      'Nguồn CSDL & Trường gốc': item.source,
-      'Ý nghĩa & Quy tắc nghiệp vụ': item.description,
-      'Ghi chú & Lưu ý': item.notes || ''
-    }))
+  // 3. Export to Excel Modal & Execution
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
-    const worksheet = XLSX.utils.json_to_sheet(exportRows)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Tu_Dien_Cong_Thuc')
+  const handleOpenExportModal = () => {
+    if (!filteredData || filteredData.length === 0) {
+      alert('Không có dữ liệu sổ tay công thức để xuất!')
+      return
+    }
+    setIsExportModalOpen(true)
+  }
 
-    worksheet['!cols'] = [
-      { wch: 6 },
-      { wch: 18 },
-      { wch: 22 },
-      { wch: 24 },
-      { wch: 32 },
-      { wch: 26 },
-      { wch: 45 },
-      { wch: 35 },
-      { wch: 50 },
-      { wch: 35 }
+  const executeExportHandbookExcel = async ({
+    fileName,
+    saveDirectory,
+    overwriteExisting,
+    includeHeaders,
+    exportScope = 'all',
+    exportableCols
+  }) => {
+    const selectedRows = selection.rows.toArray()
+    let targetData = filteredData
+    if (exportScope === 'selected' && selectedRows.length > 0) {
+      targetData = selectedRows.map((idx) => filteredData[idx]).filter(Boolean)
+    }
+
+    const reportTitle = 'SỔ TAY QUY CHUẨN ĐỊNH NGHĨA & CÔNG THỨC BÁO CÁO SẢN XUẤT'
+    const filterSummary = formatFilterSummary(searchValues)
+
+    const colsToExport = [
+      { id: 'reportTypeName', name: 'Phân hệ Báo cáo', width: 130, group: 'Phân loại' },
+      { id: 'categoryName', name: 'Phân loại Hạng mục', width: 140, group: 'Phân loại' },
+      { id: 'columnId', name: 'Mã Cột / Field ID', width: 140, group: 'Định danh' },
+      { id: 'columnName', name: 'Tên Tiếng Việt', width: 180, group: 'Định danh' },
+      { id: 'scope', name: 'Vị trí áp dụng', width: 150, group: 'Quy chuẩn' },
+      { id: 'formula', name: 'Công thức tính toán', width: 250, group: 'Quy chuẩn' },
+      { id: 'source', name: 'Nguồn CSDL & Trường gốc', width: 200, group: 'Kỹ thuật' },
+      { id: 'description', name: 'Ý nghĩa & Quy tắc', width: 250, group: 'Kỹ thuật' },
+      { id: 'notes', name: 'Ghi chú & Lưu ý', width: 180, group: 'Kỹ thuật' }
     ]
 
-    const filename = `Tu_Dien_Cong_Thuc_${new Date().toISOString().slice(0, 10)}.xlsx`
-    XLSX.writeFile(workbook, filename)
+    const validCols = exportableCols || colsToExport
+
+    const formattedData = targetData.map((item) => ({
+      ...item,
+      reportTypeName:
+        item.reportTypeName || (item.reportType === 'stat' ? 'Thống kê SX' : 'Kế hoạch SX'),
+      categoryName: item.categoryName || item.category,
+      columnId: item.columnId || item.id,
+      columnName: item.columnName || item.title
+    }))
+
+    const wb = generateExcelWorkbook({
+      data: formattedData,
+      columns: validCols,
+      sheetName: 'Tu_Dien_Cong_Thuc',
+      reportTitle,
+      filterInfo: filterSummary,
+      includeHeaders: includeHeaders !== false
+    })
+
+    await saveWorkbookToFile(wb, fileName, saveDirectory, { overwriteExisting })
   }
 
   // 4. Reset columns & filters
@@ -444,75 +526,67 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
   }
 
   return (
-    <DataPageContainer
-      actions={
-        <div className="flex items-center justify-between w-full py-0.5 overflow-x-auto max-w-full">
-          {/* Nút tác vụ chuẩn DataPageContainer */}
-          <div className="flex items-center gap-1.5">
-            <Button
-              key="Search"
-              variant="ghost"
-              size="sm"
-              onClick={() => {}}
-              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
-              title="Tìm kiếm"
-            >
-              <Search size={13} className="text-blue-500" />
-              <span>{t('TÌM KIẾM')}</span>
-            </Button>
+    <>
+      <DataPageContainer
+        actions={
+          <div className="flex items-center justify-between w-full py-0.5 overflow-x-auto max-w-full">
+            {/* Nút tác vụ chuẩn DataPageContainer */}
+            <div className="flex items-center gap-1.5">
+              <Button
+                key="Search"
+                variant="ghost"
+                size="sm"
+                onClick={() => {}}
+                className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+                title="Tìm kiếm"
+              >
+                <Search size={13} className="text-blue-500" />
+                <span>{t('TÌM KIẾM')}</span>
+              </Button>
 
-            <Button
-              key="Reset"
-              variant="ghost"
-              size="sm"
-              onClick={handleResetQuery}
-              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
-              title="Khôi phục bộ lọc và thứ tự cột mặc định"
-            >
-              <RotateCw size={13} className="text-amber-500" />
-              <span>{t('LÀM MỚI')}</span>
-            </Button>
+              <Button
+                key="Reset"
+                variant="ghost"
+                size="sm"
+                onClick={handleResetQuery}
+                className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+                title="Khôi phục bộ lọc và thứ tự cột mặc định"
+              >
+                <RotateCw size={13} className="text-amber-500" />
+                <span>{t('LÀM MỚI')}</span>
+              </Button>
 
-            <Button
-              key="ExportExcel"
-              variant="ghost"
-              size="sm"
-              onClick={handleExportExcel}
-              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
-              title="Xuất bảng dữ liệu ra file Excel (.xlsx)"
-            >
-              <FileSpreadsheet size={13} className="text-emerald-600" />
-              <span>{t('XUẤT EXCEL')}</span>
-            </Button>
+              <Button
+                key="ExportExcel"
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenExportModal}
+                className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+                title="Xuất bảng dữ liệu ra file Excel (.xlsx)"
+              >
+                <FileSpreadsheet size={13} className="text-emerald-600" />
+                <span>{t('XUẤT EXCEL')}</span>
+              </Button>
+            </div>
           </div>
-        </div>
-      }
-      query={
-        <DynamicQueryBar
-          fields={defaultFields}
-          dynamicFields={dynamicQueryFields}
-          allAvailableFields={allAvailableFields}
-          values={searchValues}
-          onChange={handleFieldChange}
-          onSearch={() => {}}
-          onReset={handleResetQuery}
-          onAddField={onAddQueryField}
-          onRemoveField={onRemoveQueryField}
-          disabled={false}
-          storageKey="query_report_formula_handbook"
-        />
-      }
-      table={
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
-        >
-          <div style={{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}>
+        }
+        query={
+          <DynamicQueryBar
+            fields={defaultFields}
+            dynamicFields={dynamicQueryFields}
+            allAvailableFields={allAvailableFields}
+            values={searchValues}
+            onChange={handleFieldChange}
+            onSearch={() => {}}
+            onReset={handleResetQuery}
+            onAddField={onAddQueryField}
+            onRemoveField={onRemoveQueryField}
+            disabled={false}
+            storageKey="query_report_formula_handbook"
+          />
+        }
+        table={
+          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
             <DataEditor
               ref={gridRef}
               width="100%"
@@ -534,34 +608,25 @@ export function FormulaHandbookSheet({ isStandalone = false, defaultReportType =
               columnSelect="multi"
               rowSelect="multi"
               getCellsForSelection={true}
-              keybindings={{ search: true, copy: true, downFill: true, rightFill: true }}
+              keybindings={{ search: true, copy: true, downFill: false, rightFill: false }}
               fillHandle={false}
               isDraggable={false}
+              onPaste={() => false}
             />
           </div>
+        }
+      />
 
-          {/* Bottom Count Bar */}
-          <div
-            style={{
-              padding: '4px 12px',
-              background: '#f8fafc',
-              borderTop: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: 11,
-              color: '#64748b',
-              flexShrink: 0
-            }}
-          >
-            <span>
-              Tổng số dòng: <b>{filteredData.length}</b> / <b>{ALL_HANDBOOK_DATABASE.length}</b>
-            </span>
-            <span>Kéo thả đổi vị trí cột • Kéo giãn độ rộng cột • Copy ô (Ctrl+C)</span>
-          </div>
-        </div>
-      }
-    />
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={executeExportHandbookExcel}
+        defaultFileName={`SoTay_CongThuc_BaoCao_${new Date().toISOString().slice(0, 10)}`}
+        totalRows={filteredData.length}
+        selectedCount={selection.rows.toArray().length}
+        columns={columns}
+      />
+    </>
   )
 }
 

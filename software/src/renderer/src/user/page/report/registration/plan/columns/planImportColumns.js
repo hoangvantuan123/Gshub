@@ -18,6 +18,40 @@ export const usePlanImportColumns = ({ isFieldVisible, isFieldReadOnly } = {}) =
         themeOverride: { textDark: '#225588', baseFontStyle: '600 12px' }
       },
 
+      // ── Đợt đăng ký & Nhà máy (Master Kế hoạch)
+      {
+        title: t('report.factoryName', 'Nhà máy'),
+        id: 'FactoryName',
+        group: 'Đợt đăng ký & Nhà máy',
+        kind: 'Text',
+        readonly: true,
+        width: 130,
+        hasMenu: true,
+        visible: true,
+        themeOverride: { textDark: '#0369a1', baseFontStyle: '600 12px' }
+      },
+      {
+        title: t('report.regCode', 'Mã đợt đăng ký'),
+        id: 'RegCode',
+        group: 'Đợt đăng ký & Nhà máy',
+        kind: 'Text',
+        readonly: true,
+        width: 170,
+        hasMenu: true,
+        visible: true,
+        themeOverride: { textDark: '#4338ca', baseFontStyle: '600 12px' }
+      },
+      {
+        title: t('report.applyDate', 'Ngày áp dụng ĐK'),
+        id: 'ApplyDate',
+        group: 'Đợt đăng ký & Nhà máy',
+        kind: 'Text',
+        readonly: true,
+        width: 130,
+        hasMenu: true,
+        visible: true
+      },
+
       // ── Thông tin Điều Phối & Lệnh
       {
         title: t('report.picDp', 'PIC ĐP'),

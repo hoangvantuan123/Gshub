@@ -5,35 +5,68 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	models "service-datahub/models/report"
 )
 
-// PlanDetailQ - Truy vấn 24 cột dữ liệu KHSX của Điều Phối
+// normalizeDateString chuẩn hóa các định dạng ngày về YYYY-MM-DD theo giờ Việt Nam
+func normalizeDateString(val string) string {
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return ""
+	}
+	if strings.Contains(val, "T") {
+		t, err := time.Parse(time.RFC3339, val)
+		if err == nil {
+			loc := time.FixedZone("Asia/Ho_Chi_Minh", 7*3600)
+			return t.In(loc).Format("2006-01-02")
+		}
+		parts := strings.Split(val, "T")
+		return parts[0]
+	}
+	return val
+}
+
+// PlanDetailQ - Truy vấn 24 cột dữ liệu KHSX của Điều Phối kèm LEFT JOIN Master Kế hoạch
 func (s *PlanDetailService) PlanDetailQ(ctx context.Context, filters map[string]string) ([]models.ERPPlanDetail, *models.PlanPageInfo, error) {
-	query := s.db.WithContext(ctx).Model(&models.ERPPlanDetail{})
+	query := s.db.WithContext(ctx).Table(`"_ERPPlanDetail" AS d`).
+		Joins(`LEFT JOIN "_ERPPlanMaster" AS m ON d."MasterSeq" = m."IdSeq" OR d."RegCode" = m."RegCode"`)
 
 	// 1. Lọc theo MasterSeq hoặc RegCode
 	if val, ok := filters["MasterSeq"]; ok && val != "" {
-		query = query.Where(`"MasterSeq" = ?`, val)
+		query = query.Where(`d."MasterSeq" = ?`, val)
 	}
 	if val, ok := filters["RegCode"]; ok && val != "" {
-		query = query.Where(`"RegCode" = ?`, val)
+		query = query.Where(`d."RegCode" ILIKE ?`, "%"+strings.TrimSpace(val)+"%")
 	}
 
-	// 2. Lọc chuỗi tương đối ILIKE trên các cột KHSX
+	// 2. Lọc chuỗi tương đối ILIKE trên tất cả các cột KHSX
 	likeFields := map[string]string{
-		"PicDp":         `"PicDp"`,
-		"OperationNo":   `"OperationNo"`,
-		"RoutingDocNo":  `"RoutingDocNo"`,
-		"ItemCode":      `"ItemCode"`,
-		"ItemName":      `"ItemName"`,
-		"OperationName": `"OperationName"`,
-		"OpTypeName":    `"OpTypeName"`,
-		"MachineName":   `"MachineName"`,
-		"StatusDpSx":    `"StatusDpSx"`,
-		"TimeStatus":    `"TimeStatus"`,
-		"CapaStatus":    `"CapaStatus"`,
+		"PicDp":            `d."PicDp"`,
+		"OperationNo":      `d."OperationNo"`,
+		"RoutingDocNo":     `d."RoutingDocNo"`,
+		"RoutingDocDate":   `d."RoutingDocDate"`,
+		"ItemCode":         `d."ItemCode"`,
+		"ItemName":         `d."ItemName"`,
+		"OperationName":    `d."OperationName"`,
+		"OpTypeName":       `d."OpTypeName"`,
+		"MachineName":      `d."MachineName"`,
+		"Unit":             `d."Unit"`,
+		"TargetPassQty":    `d."TargetPassQty"`,
+		"TargetProdQty":    `d."TargetProdQty"`,
+		"StatPassQty":      `d."StatPassQty"`,
+		"StartTime":        `d."StartTime"`,
+		"EndTime":          `d."EndTime"`,
+		"StandardProdTime": `d."StandardProdTime"`,
+		"ActualProdTime":   `d."ActualProdTime"`,
+		"StandardCapa":     `d."StandardCapa"`,
+		"ActualCapa":       `d."ActualCapa"`,
+		"StatusDpSx":       `d."StatusDpSx"`,
+		"TimeStatus":       `d."TimeStatus"`,
+		"CapaStatus":       `d."CapaStatus"`,
+		"UserMemo":         `d."UserMemo"`,
+		"CreatedByName":    `d."CreatedByName"`,
 	}
 
 	for filterKey, colName := range likeFields {
@@ -64,23 +97,76 @@ func (s *PlanDetailService) PlanDetailQ(ctx context.Context, filters map[string]
 		}
 	}
 
-	// 3. Lọc ngày thao tác OpDate
+	// 2.1 Lọc từ khóa tổng quát Keyword
+	if kw, ok := filters["Keyword"]; ok && kw != "" {
+		kwTrim := strings.TrimSpace(kw)
+		if kwTrim != "" {
+			query = query.Where(`(d."PicDp" ILIKE ? OR d."OperationNo" ILIKE ? OR d."RoutingDocNo" ILIKE ? OR d."ItemCode" ILIKE ? OR d."ItemName" ILIKE ? OR d."MachineName" ILIKE ? OR d."OperationName" ILIKE ? OR d."StatusDpSx" ILIKE ? OR d."RegCode" ILIKE ? OR m."FactoryName" ILIKE ?)`,
+				"%"+kwTrim+"%", "%"+kwTrim+"%", "%"+kwTrim+"%", "%"+kwTrim+"%", "%"+kwTrim+"%", "%"+kwTrim+"%", "%"+kwTrim+"%", "%"+kwTrim+"%", "%"+kwTrim+"%", "%"+kwTrim+"%")
+		}
+	}
+
+	// 2.2 Lọc theo Nhà máy (FactoryName / FactoryCode từ Master & Detail)
+	if fc, ok := filters["FactoryCode"]; ok && fc != "" {
+		fcTrim := strings.ToUpper(strings.TrimSpace(fc))
+		if strings.Contains(fcTrim, "GS5") {
+			query = query.Where(`m."FactoryCode" ILIKE '%GS5%' OR d."MachineName" ILIKE '%GS5%' OR d."RegCode" ILIKE '%GS5%'`)
+		} else if strings.Contains(fcTrim, "GS1") {
+			query = query.Where(`(m."FactoryCode" ILIKE '%GS1%' OR m."FactoryCode" IS NULL) AND d."MachineName" NOT ILIKE '%GS5%' AND d."RegCode" NOT ILIKE '%GS5%'`)
+		}
+	} else if fn, ok := filters["FactoryName"]; ok && fn != "" {
+		fnUpper := strings.ToUpper(fn)
+		if strings.Contains(fnUpper, "GS5") || strings.Contains(fn, "Quế Võ") {
+			query = query.Where(`m."FactoryName" ILIKE '%Quế Võ%' OR m."FactoryName" ILIKE '%GS5%' OR d."MachineName" ILIKE '%GS5%' OR d."RegCode" ILIKE '%GS5%'`)
+		} else if strings.Contains(fnUpper, "GS1") || strings.Contains(fn, "Hà Nội") {
+			query = query.Where(`(m."FactoryName" ILIKE '%Hà Nội%' OR m."FactoryName" ILIKE '%GS1%' OR m."FactoryName" IS NULL) AND d."MachineName" NOT ILIKE '%GS5%' AND d."RegCode" NOT ILIKE '%GS5%'`)
+		}
+	}
+
+	// 3. Lọc ngày thao tác OpDate / RoutingDocDate / ApplyDate
+	if val, ok := filters["ApplyDate"]; ok && val != "" {
+		cleanDate := normalizeDateString(val)
+		if cleanDate != "" {
+			query = query.Where(`m."ApplyDate" = ?`, cleanDate)
+		}
+	}
 	if val, ok := filters["OpDate"]; ok && val != "" {
-		query = query.Where(`"OpDate" = ?`, val)
+		cleanDate := normalizeDateString(val)
+		if cleanDate != "" {
+			query = query.Where(`d."OpDate" = ?`, cleanDate)
+		}
 	}
 	if fromDate, ok := filters["OpDateFrom"]; ok && fromDate != "" {
-		query = query.Where(`"OpDate" >= ?`, fromDate)
+		cleanFrom := normalizeDateString(fromDate)
+		if cleanFrom != "" {
+			query = query.Where(`d."OpDate" >= ?`, cleanFrom)
+		}
 	}
 	if toDate, ok := filters["OpDateTo"]; ok && toDate != "" {
-		query = query.Where(`"OpDate" <= ?`, toDate)
+		cleanTo := normalizeDateString(toDate)
+		if cleanTo != "" {
+			query = query.Where(`d."OpDate" <= ?`, cleanTo)
+		}
+	}
+	if fromDate, ok := filters["FromDate"]; ok && fromDate != "" {
+		cleanFrom := normalizeDateString(fromDate)
+		if cleanFrom != "" {
+			query = query.Where(`(d."OpDate" >= ? OR m."ApplyDate" >= ?)`, cleanFrom, cleanFrom)
+		}
+	}
+	if toDate, ok := filters["ToDate"]; ok && toDate != "" {
+		cleanTo := normalizeDateString(toDate)
+		if cleanTo != "" {
+			query = query.Where(`(d."OpDate" <= ? OR m."ApplyDate" <= ?)`, cleanTo, cleanTo)
+		}
 	}
 
 	// 4. Lọc IsActive
 	if val, ok := filters["IsActive"]; ok && val != "" {
 		if val == "1" || strings.EqualFold(val, "true") {
-			query = query.Where(`"IsActive" = true`)
+			query = query.Where(`d."IsActive" = true`)
 		} else if val == "0" || strings.EqualFold(val, "false") {
-			query = query.Where(`"IsActive" = false`)
+			query = query.Where(`d."IsActive" = false`)
 		}
 	}
 
@@ -114,17 +200,22 @@ func (s *PlanDetailService) PlanDetailQ(ctx context.Context, filters map[string]
 	}
 
 	// 7. Sắp xếp
-	sortField := `"RowSeq"`
+	sortField := `d."RowSeq"`
 	sortOrder := "ASC"
 	if sf, ok := filters["sortField"]; ok && sf != "" {
-		sortField = `"` + sf + `"`
+		sortField = `d."` + sf + `"`
 	}
 	if so, ok := filters["sortOrder"]; ok && strings.ToUpper(so) == "DESC" {
 		sortOrder = "DESC"
 	}
 
 	var details []models.ERPPlanDetail
-	err := query.Order(sortField + " " + sortOrder + `, "IdSeq" ASC`).Offset(offset).Limit(pageSize).Find(&details).Error
+	err := query.
+		Select(`d.*, m."FactoryCode", m."FactoryName", m."ApplyDate", m."Status" AS "MasterStatus", m."Remark" AS "MasterRemark", m."ReportType"`).
+		Order(sortField + " " + sortOrder + `, d."IdSeq" ASC`).
+		Offset(offset).
+		Limit(pageSize).
+		Find(&details).Error
 	if err != nil {
 		return nil, nil, err
 	}

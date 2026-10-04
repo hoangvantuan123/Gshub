@@ -1,11 +1,6 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
 import { useState, useRef, useEffect, useMemo } from 'react'
-import {
-  TableProperties,
-  TrendingUp,
-  RotateCcw,
-  ChevronDown
-} from 'lucide-react'
+import { TableProperties, RotateCcw, ChevronDown } from 'lucide-react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -63,9 +58,7 @@ function CleanSparkline({ data = [], color = '#059669', width = 90, height = 22 
         {data.length > 0 && (
           <circle
             cx={(data.length - 1) * step}
-            cy={
-              height - Math.round(((vals[vals.length - 1] - minVal) / range) * (height - 6)) - 3
-            }
+            cy={height - Math.round(((vals[vals.length - 1] - minVal) / range) * (height - 6)) - 3}
             r="3"
             fill={color}
           />
@@ -76,11 +69,7 @@ function CleanSparkline({ data = [], color = '#059669', width = 90, height = 22 
 }
 
 // Custom Executive Dropdown chuẩn ERP cho "Soi PIC" (Chỉ hiển thị tên, không icon, không thông số)
-function PicSelectorDropdown({
-  selectedPic = 'ALL',
-  onSelectPic,
-  picList = []
-}) {
+function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchKey, setSearchKey] = useState('')
   const dropdownRef = useRef(null)
@@ -213,7 +202,8 @@ function PicSelectorDropdown({
             background: '#ffffff',
             border: '1px solid #cbd5e1',
             borderRadius: 5,
-            boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08)',
+            boxShadow:
+              '0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08)',
             overflow: 'hidden',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
           }}
@@ -541,16 +531,16 @@ export function PlanPicTimelineSection({
       })
 
       const totalPass = totalKhopSl + totalKhopJob
-      const firstPeriodPass = series.length > 0 ? series[0].passOrders : 0
-      const lastPeriodPass = series.length > 0 ? series[series.length - 1].passOrders : 0
-      const passDiff = lastPeriodPass - firstPeriodPass
+      const firstPeriodKhopSl = series.length > 0 ? series[0].khopSl : 0
+      const lastPeriodKhopSl = series.length > 0 ? series[series.length - 1].khopSl : 0
+      const khopSlDiff = lastPeriodKhopSl - firstPeriodKhopSl
 
-      let passGrowthRate = 0
-      if (firstPeriodPass > 0) {
+      let passGrowthRate = 0 // Tốc độ tăng trưởng Khớp Số Lượng (%)
+      if (firstPeriodKhopSl > 0) {
         passGrowthRate = Number(
-          (((lastPeriodPass - firstPeriodPass) / firstPeriodPass) * 100).toFixed(1)
+          (((lastPeriodKhopSl - firstPeriodKhopSl) / firstPeriodKhopSl) * 100).toFixed(1)
         )
-      } else if (lastPeriodPass > 0) {
+      } else if (lastPeriodKhopSl > 0) {
         passGrowthRate = 100
       }
 
@@ -565,15 +555,14 @@ export function PlanPicTimelineSection({
         ordersGrowthRate = 100
       }
 
-      const passRate =
-        totalOrders > 0 ? Number(((totalPass / totalOrders) * 100).toFixed(1)) : 0
+      const passRate = totalOrders > 0 ? Number(((totalPass / totalOrders) * 100).toFixed(1)) : 0
       const khopSlRate =
         totalOrders > 0 ? Number(((totalKhopSl / totalOrders) * 100).toFixed(1)) : 0
       const khopJobRate =
         totalOrders > 0 ? Number(((totalKhopJob / totalOrders) * 100).toFixed(1)) : 0
 
-      const isUp = passGrowthRate > 5 || passDiff >= 2
-      const isDown = passGrowthRate < -5 || passDiff <= -2
+      const isUp = passGrowthRate > 5 || khopSlDiff >= 2
+      const isDown = passGrowthRate < -5 || khopSlDiff <= -2
       const trend = isUp ? 'UP' : isDown ? 'DOWN' : 'STABLE'
 
       return {
@@ -587,9 +576,9 @@ export function PlanPicTimelineSection({
         khopSlRate,
         khopJobRate,
         passRate,
-        firstPeriodPass,
-        lastPeriodPass,
-        passDiff,
+        firstPeriodKhopSl,
+        lastPeriodKhopSl,
+        khopSlDiff,
         passGrowthRate,
         ordersGrowthRate,
         trend,
@@ -597,7 +586,7 @@ export function PlanPicTimelineSection({
       }
     })
 
-    return list.sort((a, b) => b.totalPass - a.totalPass || b.totalOrders - a.totalOrders)
+    return list.sort((a, b) => b.khopSl - a.khopSl || b.totalOrders - a.totalOrders)
   }, [picList, periodList])
 
   // Tổng hợp toàn xưởng
@@ -609,11 +598,11 @@ export function PlanPicTimelineSection({
     const sxSaiNgay = matrixData.reduce((sum, r) => sum + r.sxSaiNgay, 0)
     const truotKh = matrixData.reduce((sum, r) => sum + r.truotKh, 0)
 
-    const firstPass = matrixData.reduce((sum, r) => sum + r.firstPeriodPass, 0)
-    const lastPass = matrixData.reduce((sum, r) => sum + r.lastPeriodPass, 0)
-    const passDiff = lastPass - firstPass
+    const firstKhopSl = matrixData.reduce((sum, r) => sum + r.firstPeriodKhopSl, 0)
+    const lastKhopSl = matrixData.reduce((sum, r) => sum + r.lastPeriodKhopSl, 0)
+    const khopSlDiff = lastKhopSl - firstKhopSl
     const passGrowthRate =
-      firstPass > 0 ? Number((((lastPass - firstPass) / firstPass) * 100).toFixed(1)) : 0
+      firstKhopSl > 0 ? Number((((lastKhopSl - firstKhopSl) / firstKhopSl) * 100).toFixed(1)) : 0
 
     const passRate = totalOrders > 0 ? Number(((totalPass / totalOrders) * 100).toFixed(1)) : 0
     const khopSlRate = totalOrders > 0 ? Number(((khopSl / totalOrders) * 100).toFixed(1)) : 0
@@ -626,9 +615,9 @@ export function PlanPicTimelineSection({
       totalPass,
       sxSaiNgay,
       truotKh,
-      firstPass,
-      lastPass,
-      passDiff,
+      firstKhopSl,
+      lastKhopSl,
+      khopSlDiff,
       passGrowthRate,
       passRate,
       khopSlRate,
@@ -668,8 +657,8 @@ export function PlanPicTimelineSection({
             <span>2. TỐC ĐỘ TĂNG TRƯỞNG PIC THEO THÁNG & DIỄN BIẾN ĐỘ KHỚP KHSX</span>
           </div>
           <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
-            Theo dõi tốc độ tăng trưởng, độ <b>Khớp số lượng</b> và <b>Khớp công việc (Job)</b> của từng
-            nhân sự điều phối (PIC) trải dài qua {periodList.length} {periodType.toLowerCase()}{' '}
+            Theo dõi tốc độ tăng trưởng, độ <b>Khớp số lượng</b> và <b>Khớp công việc (Job)</b> của
+            từng nhân sự điều phối (PIC) trải dài qua {periodList.length} {periodType.toLowerCase()}{' '}
             tại {plantName || 'Nhà máy'}.
           </div>
         </div>
@@ -678,25 +667,14 @@ export function PlanPicTimelineSection({
           className="screenshot-hide"
           style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
         >
-          {selectedChartPic !== 'ALL' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedChartPic('ALL')}
-              className="text-[11.5px] h-7 px-2.5 font-bold text-blue-700 bg-blue-50 border-blue-300 hover:bg-blue-100"
-              title="Quay lại hiển thị toàn xưởng"
-            >
-              <RotateCcw size={12} className="mr-1 text-blue-600" />
-              Đang soi: <b>{selectedChartPic}</b> (Xem toàn xưởng)
-            </Button>
-          )}
-
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowTable(!showTable)}
             className={`uppercase text-[11px] font-semibold ${
-              showTable ? 'text-blue-700 hover:text-blue-800' : 'text-slate-600 hover:text-slate-800'
+              showTable
+                ? 'text-blue-700 hover:text-blue-800'
+                : 'text-slate-600 hover:text-slate-800'
             }`}
             title="Bật/tắt xem bảng tổng hợp ma trận tăng trưởng"
           >
@@ -731,8 +709,16 @@ export function PlanPicTimelineSection({
           }}
         >
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <TrendingUp size={15} className="text-emerald-700" />
+            <div
+              style={{
+                fontSize: 13.5,
+                fontWeight: 700,
+                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
               <span>
                 {selectedChartPic === 'ALL'
                   ? `Diễn biến độ khớp & tăng trưởng toàn xưởng theo ${periodType.toLowerCase()}`
@@ -746,7 +732,10 @@ export function PlanPicTimelineSection({
             </div>
           </div>
 
-          <div className="screenshot-hide" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            className="screenshot-hide"
+            style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+          >
             {/* Bộ chọn PIC Dropdown chuẩn ERP tinh giản */}
             <PicSelectorDropdown
               selectedPic={selectedChartPic}
@@ -772,10 +761,7 @@ export function PlanPicTimelineSection({
         <div style={{ height: 320, width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
             {chartMode === 'rate' ? (
-              <ComposedChart
-                data={chartData}
-                margin={{ top: 15, right: 30, left: 10, bottom: 10 }}
-              >
+              <ComposedChart data={chartData} margin={{ top: 15, right: 30, left: 10, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
                   dataKey="name"
@@ -852,10 +838,7 @@ export function PlanPicTimelineSection({
                 </Line>
               </ComposedChart>
             ) : (
-              <ComposedChart
-                data={chartData}
-                margin={{ top: 20, right: 30, left: 10, bottom: 10 }}
-              >
+              <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
                   dataKey="name"
@@ -1050,7 +1033,7 @@ export function PlanPicTimelineSection({
                     minWidth: 125
                   }}
                 >
-                  Tăng trưởng Khớp %
+                  Tăng trưởng Khớp SL %
                 </th>
                 <th
                   style={{
@@ -1119,7 +1102,7 @@ export function PlanPicTimelineSection({
                     <td
                       style={{
                         padding: '9px 12px',
-                        fontWeight: isSelected ? 800 : 600,
+                        fontWeight: 600,
                         color: isSelected ? '#1d4ed8' : '#0f172a'
                       }}
                     >
@@ -1143,7 +1126,7 @@ export function PlanPicTimelineSection({
                       style={{
                         padding: '9px 12px',
                         textAlign: 'right',
-                        fontWeight: 700,
+                        fontWeight: 600,
                         color: '#0f172a'
                       }}
                     >
@@ -1205,11 +1188,12 @@ export function PlanPicTimelineSection({
                       style={{
                         padding: '9px 12px',
                         textAlign: 'right',
-                        fontWeight: 800,
+                        fontWeight: 600,
                         color: rateColor
                       }}
                     >
-                      {sign}{row.passGrowthRate}%
+                      {sign}
+                      {row.passGrowthRate}%
                     </td>
 
                     {/* Cột 8: Tăng trưởng Tổng lệnh % */}
@@ -1228,12 +1212,7 @@ export function PlanPicTimelineSection({
 
                     {/* Cột 9: Đồ thị Sparkline diễn biến độ khớp */}
                     <td style={{ padding: '6px 12px', textAlign: 'center' }}>
-                      <CleanSparkline
-                        data={row.series}
-                        color={sparkColor}
-                        width={85}
-                        height={20}
-                      />
+                      <CleanSparkline data={row.series} color={sparkColor} width={85} height={20} />
                     </td>
 
                     {/* Cột 10: Đánh giá (Hiển thị thuần chữ) */}
@@ -1242,7 +1221,7 @@ export function PlanPicTimelineSection({
                         padding: '9px 12px',
                         textAlign: 'center',
                         fontSize: 11.5,
-                        fontWeight: 700,
+                        fontWeight: 600,
                         color: rateColor
                       }}
                     >
@@ -1269,11 +1248,15 @@ export function PlanPicTimelineSection({
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: '#01411b' }}>
                     <div>{grandSummary.khopSl.toLocaleString('vi-VN')}</div>
-                    <div style={{ fontSize: 10.5, color: '#64748b' }}>{grandSummary.khopSlRate}%</div>
+                    <div style={{ fontSize: 10.5, color: '#64748b' }}>
+                      {grandSummary.khopSlRate}%
+                    </div>
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: '#059669' }}>
                     <div>{grandSummary.khopJob.toLocaleString('vi-VN')}</div>
-                    <div style={{ fontSize: 10.5, color: '#64748b' }}>{grandSummary.khopJobRate}%</div>
+                    <div style={{ fontSize: 10.5, color: '#64748b' }}>
+                      {grandSummary.khopJobRate}%
+                    </div>
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: '#ea580c' }}>
                     {grandSummary.sxSaiNgay.toLocaleString('vi-VN')}
@@ -1292,9 +1275,7 @@ export function PlanPicTimelineSection({
                       ? `+${grandSummary.passGrowthRate}%`
                       : `${grandSummary.passGrowthRate}%`}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#475569' }}>
-                    —
-                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#475569' }}>—</td>
                   <td style={{ padding: '10px 12px', textAlign: 'center', color: '#475569' }}>
                     {(grandSummary.khopSl + grandSummary.khopJob).toLocaleString('vi-VN')} Khớp
                   </td>

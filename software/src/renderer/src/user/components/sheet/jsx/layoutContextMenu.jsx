@@ -23,7 +23,8 @@ const LayoutContextMenuSheet = ({
   handleRowAppend,
   cols = [],
   selection = null,
-  canCreate = true
+  canCreate = true,
+  onExportExcel = null
 }) => {
   const { t } = useTranslation()
   const { openInNewWindow } = useOpenInNewWindow()
@@ -142,7 +143,7 @@ const LayoutContextMenuSheet = ({
       <div
         onClick={() => {
           if (copySelection) {
-            copySelection(false)
+            copySelection({ includeHeaders: false })
           }
           setShowMenu(null)
         }}
@@ -156,7 +157,7 @@ const LayoutContextMenuSheet = ({
       <div
         onClick={() => {
           if (copySelection) {
-            copySelection(true)
+            copySelection({ includeHeaders: true })
           }
           setShowMenu(null)
         }}
@@ -168,7 +169,14 @@ const LayoutContextMenuSheet = ({
 
       {/* 5. Xuất file Excel (.xlsx) chuẩn ERP */}
       <div
-        onClick={() => exportExcel()}
+        onClick={() => {
+          if (typeof onExportExcel === 'function') {
+            onExportExcel()
+          } else {
+            exportExcel()
+          }
+          setShowMenu(null)
+        }}
         className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-slate-100 rounded-none cursor-pointer transition-colors text-slate-800"
       >
         <FileSpreadsheet size={14} className="text-emerald-600 shrink-0" />

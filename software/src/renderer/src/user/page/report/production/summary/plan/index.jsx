@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types */
 import { gridCustomCss } from '../../hanoiGs1/stat/components/reportUIComponents'
 import { FormulaHandbookModal } from '../../handbook/FormulaHandbookModal'
+import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import { useSummaryPlanLogic } from './hooks/useSummaryPlanLogic'
 import { SummaryTopControlBar } from '../common/SummaryTopControlBar'
 import { PlanHeroKpiCards } from './components/PlanHeroKpiCards'
@@ -21,6 +22,10 @@ export default function SummaryPlanReportPage() {
     selectedMasterKey,
     setSelectedMasterKey,
     masterOptions,
+    selectedTeam,
+    setSelectedTeam,
+    selectedMachine,
+    setSelectedMachine,
     selectedPic,
     setSelectedPic,
     picBreakdown,
@@ -42,7 +47,12 @@ export default function SummaryPlanReportPage() {
     capaStatusBreakdown,
     planTeamBreakdown,
     advancedPlanMetrics,
+    displayDetailList,
+    detailGridCols,
     handleExportExcel,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportSummaryExcel,
     handleCaptureScreenshot,
     currentPlantName,
     totalDays
@@ -68,7 +78,7 @@ export default function SummaryPlanReportPage() {
         >
           <style>{gridCustomCss}</style>
 
-          {/* TOP CONTROL BAR CHUẨN ACTION & BỘ LỌC ERP (Bao gồm lọc PIC Điều phối) */}
+          {/* TOP CONTROL BAR CHUẨN ACTION & BỘ LỌC ERP (Bao gồm lọc PIC Điều phối, Tổ SX, Máy SX) */}
           <div className="screenshot-hide" style={{ marginBottom: 24 }}>
             <SummaryTopControlBar
               factoryCode={factoryCode}
@@ -84,6 +94,12 @@ export default function SummaryPlanReportPage() {
               selectedMasterKey={selectedMasterKey}
               setSelectedMasterKey={setSelectedMasterKey}
               masterOptions={masterOptions}
+              selectedTeam={selectedTeam}
+              setSelectedTeam={setSelectedTeam}
+              teamOptions={filterOptions?.teams || []}
+              selectedMachine={selectedMachine}
+              setSelectedMachine={setSelectedMachine}
+              machineOptions={filterOptions?.machines || []}
               selectedPic={selectedPic}
               setSelectedPic={setSelectedPic}
               picOptions={filterOptions?.pics || []}
@@ -150,7 +166,7 @@ export default function SummaryPlanReportPage() {
                 <>
                   <span>•</span>
                   <span>
-                    <b>Phạm vi kế hoạch:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays} ngày)
+                    <b>Phạm vi ngày đăng ký:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays} ngày)
                   </span>
                 </>
               )}
@@ -207,6 +223,25 @@ export default function SummaryPlanReportPage() {
             open={isHandbookModalOpen}
             onClose={() => setIsHandbookModalOpen(false)}
             defaultReportType="plan"
+          />
+
+          {/* MODAL XUẤT EXCEL CHUẨN */}
+          <ExportExcelModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            title="XÁC NHẬN XUẤT EXCEL - TỔNG HỢP KẾ HOẠCH SẢN XUẤT"
+            reportName={`Báo cáo Tổng hợp KHSX (${factoryCode === 'GS5' ? 'GS Quế Võ' : 'GS Hà Nội'})`}
+            totalRows={(displayDetailList || []).length}
+            loadedCount={(displayDetailList || []).length}
+            columns={detailGridCols}
+            activeFilters={{
+              FactoryName: factoryCode === 'GS5' ? 'GS Quế Võ' : 'GS Hà Nội',
+              FromDate: dateRange?.[0] || '',
+              ToDate: dateRange?.[1] || '',
+              PicDp: selectedPic !== 'ALL' ? selectedPic : ''
+            }}
+            defaultFileName={`BaoCao_TongHop_KHSX_${factoryCode === 'GS5' ? 'GS5_QueVo' : 'GS1_HaNoi'}_${new Date().toISOString().slice(0, 10)}.xlsx`}
+            onConfirmExport={executeExportSummaryExcel}
           />
         </div>
       </div>

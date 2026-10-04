@@ -169,6 +169,32 @@ export const DEFAULT_SETTING_ITEMS = [
     View: true,
     OrderSeq: 1
   },
+  {
+    Id: 'menu_report_plan_query',
+    MenuKey: 'report_plan_query',
+    MenuSubRootId: 'sub_report_registration',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Truy vấn chi tiết KHSX',
+    MenuLink: '/erp/u/report/plan-query',
+    MenuType: 'menu',
+    Icon: 'Calendar',
+    MenuIcon: 'Calendar',
+    View: true,
+    OrderSeq: 2
+  },
+  {
+    Id: 'menu_report_stat_query',
+    MenuKey: 'report_stat_query',
+    MenuSubRootId: 'sub_report_registration',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Truy vấn chi tiết Thống kê SX',
+    MenuLink: '/erp/u/report/stat-query',
+    MenuType: 'menu',
+    Icon: 'BarChart3',
+    MenuIcon: 'BarChart3',
+    View: true,
+    OrderSeq: 3
+  },
 
   // ── Nhóm 5: Cẩm nang & Tra cứu ───────────────────────────────────────────
   {

@@ -1,19 +1,14 @@
 /* eslint-disable react/prop-types */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  Search,
-  FileSpreadsheet,
-  BookOpen,
-  Camera,
-  AlertTriangle,
-  Filter
-} from 'lucide-react'
+import { message } from 'antd'
+import { Search, FileSpreadsheet, BookOpen, Camera, AlertTriangle, Filter } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { openChildWindow } from '@renderer/utils/openChildWindow'
 import QuerySelectInput from '@renderer/user/components/query/core/fields/QuerySelectInput'
 import QueryDateInput from '@renderer/user/components/query/core/fields/QueryDateInput'
 import { useDateFormat } from '@renderer/user/hooks/useDateFormat'
+import { SearchableMultiSelectDropdown } from '../../summary/common/SearchableMultiSelectDropdown'
 import dayjs from 'dayjs'
 
 export function TopControlBar({
@@ -24,6 +19,12 @@ export function TopControlBar({
   setReportType,
   dateRange = ['', ''],
   handleCustomDateChange,
+  selectedTeam = [],
+  setSelectedTeam,
+  teamOptions = [],
+  selectedMachine = [],
+  setSelectedMachine,
+  machineOptions = [],
   loading = false,
   fetchTimelineData,
   handleExportExcel,
@@ -60,8 +61,20 @@ export function TopControlBar({
     })
   }
 
+  const selectedTeamValues = useMemo(() => {
+    if (!selectedTeam || selectedTeam === 'ALL') return []
+    return Array.isArray(selectedTeam) ? selectedTeam : [selectedTeam]
+  }, [selectedTeam])
+
+  const selectedMachineValues = useMemo(() => {
+    if (!selectedMachine || selectedMachine === 'ALL') return []
+    return Array.isArray(selectedMachine) ? selectedMachine : [selectedMachine]
+  }, [selectedMachine])
+
   // Theo dõi điều kiện đã áp dụng ở lần tìm kiếm gần nhất
-  const currentKey = `${factoryCode}|${reportType}|${dateRange?.[0] || ''}|${dateRange?.[1] || ''}`
+  const teamKey = selectedTeamValues.slice().sort().join(',')
+  const machineKey = selectedMachineValues.slice().sort().join(',')
+  const currentKey = `${factoryCode}|${reportType}|${teamKey}|${machineKey}|${dateRange?.[0] || ''}|${dateRange?.[1] || ''}`
   const [appliedKey, setAppliedKey] = useState(currentKey)
   const isDirty = currentKey !== appliedKey
 
@@ -70,6 +83,10 @@ export function TopControlBar({
 
   const handleSearch = () => {
     if (!fetchTimelineData || loading) return
+    if (!dateRange?.[0] || !dateRange?.[1]) {
+      message.warning(t('Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc'))
+      return
+    }
     setAppliedKey(currentKey)
     fetchTimelineData()
   }
@@ -96,6 +113,98 @@ export function TopControlBar({
     { value: 'GS5', label: 'GS5 Quế Võ 1B (Carton & Sóng)' }
   ]
 
+  const formattedTeamOptions = useMemo(() => {
+    if (!teamOptions || teamOptions.length === 0) return []
+    return teamOptions
+      .filter((opt) => {
+        const val = typeof opt === 'object' ? opt.value : opt
+        return val !== 'ALL' && val !== ''
+      })
+      .map((item) => {
+        if (typeof item === 'object') {
+          return {
+            value: item.value,
+            label: item.label || item.value,
+            searchKey: `${item.value} ${item.label || ''}`
+          }
+        }
+        return {
+          value: item,
+          label: item,
+          searchKey: item
+        }
+      })
+  }, [teamOptions])
+
+  const formattedMachineOptions = useMemo(() => {
+    if (!machineOptions || machineOptions.length === 0) return []
+    return machineOptions
+      .filter((opt) => {
+        const val = typeof opt === 'object' ? opt.value : opt
+        return val !== 'ALL' && val !== ''
+      })
+      .map((item) => {
+        if (typeof item === 'object') {
+          const code = item.machineCode || item.value
+          const name = item.machineName || ''
+          const hasDiffName = name && name !== code
+          const label = item.label || (hasDiffName ? `${code} - ${name}` : code)
+          return {
+            value: item.value,
+            label,
+            machineCode: code,
+            machineName: name,
+            searchKey: item.searchKey || `${code} ${name} ${label}`
+          }
+        }
+        return {
+          value: item,
+          label: item,
+          machineCode: item,
+          machineName: '',
+          searchKey: item
+        }
+      })
+  }, [machineOptions])
+
+  // Tính toán danh sách và số lượng bộ lọc đang được áp dụng (kiểu GitHub)
+  const activeFilterList = useMemo(() => {
+    const list = []
+    if (factoryCode) {
+      const fLabel = factories.find((f) => f.value === factoryCode)?.label || factoryCode
+      list.push({ key: 'factory', label: t('Nhà máy'), value: fLabel.split(' ')[0] || fLabel })
+    }
+    if (reportType) {
+      list.push({
+        key: 'type',
+        label: t('Phân hệ'),
+        value: reportType === 'plan' ? 'KHSX' : 'TKSX'
+      })
+    }
+    if (dateRange?.[0] || dateRange?.[1]) {
+      const fromStr = dateRange[0] ? dayjs(dateRange[0]).format('DD/MM/YYYY') : '...'
+      const toStr = dateRange[1] ? dayjs(dateRange[1]).format('DD/MM/YYYY') : '...'
+      list.push({ key: 'date', label: t('Thời gian'), value: `${fromStr} → ${toStr}` })
+    }
+    if (selectedTeamValues.length > 0) {
+      const val =
+        selectedTeamValues.length === 1
+          ? selectedTeamValues[0]
+          : `${selectedTeamValues[0]} (+${selectedTeamValues.length - 1})`
+      list.push({ key: 'team', label: t('Tổ SX'), value: val })
+    }
+    if (selectedMachineValues.length > 0) {
+      const val =
+        selectedMachineValues.length === 1
+          ? selectedMachineValues[0]
+          : `${selectedMachineValues[0]} (+${selectedMachineValues.length - 1})`
+      list.push({ key: 'machine', label: t('Máy SX'), value: val })
+    }
+    return list
+  }, [factoryCode, reportType, dateRange, selectedTeamValues, selectedMachineValues, factories, t])
+
+  const activeFilterCount = activeFilterList.length
+
   return (
     <div className="report-interactive-toolbar screenshot-hide w-full bg-white border-b border-slate-200 mb-4">
       <style>{`
@@ -116,48 +225,56 @@ export function TopControlBar({
       <div className="w-full px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap">
         {/* Nhóm nút tác vụ bên trái: BỘ LỌC + TÌM KIẾM */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Nút Action BỘ LỌC (Chuẩn ERP Button) */}
+          {/* Nút Action BỘ LỌC (Ghost button thuần túy: không bg, không viền) */}
           <Button
             variant="ghost"
             size="sm"
             onClick={toggleFilter}
-            className={`uppercase text-[11px] font-semibold transition-colors ${
-              showFilter
-                ? 'text-blue-700 bg-blue-50 hover:bg-blue-100 hover:text-blue-800'
+            className={`uppercase text-[11px] font-semibold gap-1.5 transition-colors ${
+              showFilter || activeFilterCount > 0
+                ? 'text-blue-700 hover:text-blue-800'
                 : 'text-slate-700 hover:text-slate-900'
             }`}
             title="Bấm để đóng/mở khung bộ lọc đổ xuống phía dưới"
           >
-            <Filter size={13} className={showFilter ? 'text-blue-600' : 'text-slate-500'} />
+            <Filter
+              size={13}
+              className={activeFilterCount > 0 || showFilter ? 'text-blue-600' : 'text-slate-500'}
+            />
             <span>{showFilter ? t('ĐÓNG BỘ LỌC') : t('BỘ LỌC')}</span>
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 text-[9.5px] font-mono font-bold bg-blue-600 text-white rounded-none leading-none shadow-xs">
+                {activeFilterCount}
+              </span>
+            )}
           </Button>
 
-          {/* Nút Tìm kiếm (Enter) */}
+          {/* NÚT TÌM KIẾM (Ghost button thuần túy: không bg, không viền) */}
           {fetchTimelineData && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleSearch}
               disabled={loading}
-              className={`uppercase text-[11px] font-semibold text-blue-700 hover:text-blue-800 ${
-                isDirty && !loading ? 'bg-amber-50 ring-1 ring-amber-400 animate-pulse' : ''
-              }`}
-              title="Tìm kiếm dữ liệu báo cáo (Enter)"
+              className="uppercase text-[11px] font-semibold gap-1.5 text-blue-700 hover:text-blue-800 transition-colors"
+              title="Tìm kiếm / Cập nhật dữ liệu báo cáo (Enter)"
             >
-              <Search size={13} className="text-blue-500" />
-              {loading ? t('ĐANG TẢI...') : t('TÌM KIẾM')}
+              <Search size={13} className="text-blue-600" />
+              <span>{loading ? t('ĐANG TẢI...') : t('TÌM KIẾM')}</span>
             </Button>
           )}
 
-          {/* Cảnh báo: điều kiện lọc đã đổi nhưng chưa bấm Tìm kiếm */}
+          {/* Thông báo điều kiện đã đổi (chỉ text + icon, KHÔNG background, KHÔNG border) */}
           {isDirty && !loading && (
             <div
-              className="flex items-center gap-1.5 h-[28px] px-2.5 border border-amber-300 bg-amber-50 text-amber-800 text-[11px] font-semibold select-none"
+              className="flex items-center gap-1.5 px-2 text-[11px] font-medium text-amber-600 select-none cursor-pointer hover:text-amber-700 transition-colors"
+              onClick={handleSearch}
+              title="Bấm để tải lại dữ liệu với điều kiện mới"
               role="status"
             >
-              <AlertTriangle size={13} className="text-amber-500 shrink-0" />
+              <AlertTriangle size={12} className="text-amber-500 shrink-0" />
               <span>
-                Điều kiện lọc đã thay đổi — bấm <b>TÌM KIẾM</b> để cập nhật
+                {t('Điều kiện đã đổi — bấm')} <b className="underline font-semibold">{t('TÌM KIẾM')}</b> {t('để cập nhật')}
               </span>
             </div>
           )}
@@ -205,16 +322,49 @@ export function TopControlBar({
         </div>
       </div>
 
-      {/* TẦNG 2: KHUNG Ô LỌC ĐIỀU KIỆN CHUẨN ERP (ĐỔ XUỐNG DƯỚI KHI MỞ BỘ LỌC) */}
+      {/* TẦNG 2: KHUNG Ô LỌC ĐIỀU KIỆN (PHONG CÁCH FLOATING SEGMENTED BAR - MỀM MẠI, HIỆN ĐẠI) */}
       {showFilter && (
-        <div className="w-full bg-slate-50/80 border-t border-slate-200 px-3 py-2 flex items-center gap-3 flex-wrap">
-          <div className="inline-flex items-center border border-slate-300 bg-white divide-x divide-slate-300 shadow-sm flex-wrap">
-            {/* Nhà máy */}
-            <div className="flex items-center h-[28px]">
-              <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
+        <div className="w-full bg-slate-100/75 border-t border-slate-200 px-3 py-2.5 flex flex-col gap-2">
+          {/* Tiêu đề & Xóa lọc dạng text tinh gọn */}
+          <div className="w-full flex items-center justify-between gap-2 flex-wrap text-xs select-none">
+            <div className="flex items-center gap-1.5 text-[10px] italic text-indigo-600 font-bold uppercase py-0.5">
+              <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />
+              <span>{t('Điều kiện lọc dữ liệu')}</span>
+              {activeFilterCount > 0 && (
+                <span className="text-[10px] font-normal text-slate-500 lowercase not-italic ml-1">
+                  ({activeFilterCount} điều kiện đang bật)
+                </span>
+              )}
+            </div>
+
+            {/* Nút Xóa nhanh bộ lọc */}
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFactoryCode && setFactoryCode('GS1')
+                  setReportType && setReportType('stat')
+                  handleCustomDateChange && handleCustomDateChange('', '')
+                  setSelectedTeam && setSelectedTeam([])
+                  setSelectedMachine && setSelectedMachine([])
+                }}
+                className="text-[10.5px] font-semibold text-slate-500 hover:text-rose-600 underline cursor-pointer shrink-0 transition-colors"
+                title="Khôi phục tất cả bộ lọc về mặc định"
+              >
+                {t('Xóa bộ lọc')}
+              </button>
+            )}
+          </div>
+
+          {/* Danh sách các khối lọc dạng Floating Card bo tròn mềm mại */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Khối 1: Nhà máy */}
+            <div className="inline-flex items-center bg-white rounded-md border border-slate-200/90 shadow-2xs h-[30px] px-1 hover:border-slate-300 transition-colors">
+              <span className="text-[11px] font-semibold text-slate-500 px-2 select-none whitespace-nowrap">
                 {t('Nhà máy')}
-              </div>
-              <div className="px-2 flex items-center h-full" style={{ minWidth: 180 }}>
+              </span>
+              <span className="w-px h-3.5 bg-slate-200 shrink-0" />
+              <div className="px-1.5 flex items-center h-full min-w-[170px]">
                 <QuerySelectInput
                   field={{
                     key: 'factoryCode',
@@ -231,13 +381,14 @@ export function TopControlBar({
               </div>
             </div>
 
-            {/* Loại báo cáo (nếu có) */}
+            {/* Khối 2: Loại báo cáo (nếu có) */}
             {setReportType && (
-              <div className="flex items-center h-[28px]">
-                <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
+              <div className="inline-flex items-center bg-white rounded-md border border-slate-200/90 shadow-2xs h-[30px] px-1 hover:border-slate-300 transition-colors">
+                <span className="text-[11px] font-semibold text-slate-500 px-2 select-none whitespace-nowrap">
                   {t('Loại báo cáo')}
-                </div>
-                <div className="px-2 flex items-center h-full" style={{ minWidth: 175 }}>
+                </span>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" />
+                <div className="px-1.5 flex items-center h-full min-w-[175px]">
                   <QuerySelectInput
                     field={{
                       key: 'reportType',
@@ -258,15 +409,15 @@ export function TopControlBar({
               </div>
             )}
 
-            {/* Phạm vi thống kê: từ ngày */}
-            <div className="flex items-center h-[28px]">
-              <div
-                className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap"
-                title={`Ngày bắt đầu của phạm vi dữ liệu ${rangePrefix.toLowerCase()}`}
+            {/* Khối 3: Khoảng ngày thống kê/kế hoạch */}
+            <div className="inline-flex items-center bg-white rounded-md border border-slate-200/90 shadow-2xs h-[30px] px-1 hover:border-slate-300 transition-colors">
+              <span
+                className="text-[11px] font-semibold text-slate-600 px-2 select-none whitespace-nowrap"
+                title={`Ngày đăng ký / áp dụng bắt đầu của đợt báo cáo (Bắt buộc)`}
               >
-                {t(`${rangePrefix} từ ngày`)}
-              </div>
-              <div className="px-2 flex items-center h-full" style={{ minWidth: 125 }}>
+                {t('Ngày đăng ký từ')} <span className="text-rose-500 font-bold">*</span>
+              </span>
+              <div className={`px-1 flex items-center h-full min-w-[115px] ${!dateRange?.[0] ? 'ring-1 ring-rose-400 rounded-xs' : ''}`}>
                 <QueryDateInput
                   field={{
                     key: 'fromDate',
@@ -284,17 +435,14 @@ export function TopControlBar({
                   hasValue={Boolean(dateRange?.[0])}
                 />
               </div>
-            </div>
-
-            {/* Phạm vi thống kê: đến ngày */}
-            <div className="flex items-center h-[28px]">
-              <div
-                className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap"
-                title={`Ngày kết thúc của phạm vi dữ liệu ${rangePrefix.toLowerCase()}`}
+              <span className="text-[11px] font-medium text-slate-400 px-1 select-none">→</span>
+              <span
+                className="text-[11px] font-semibold text-slate-600 px-1 select-none whitespace-nowrap"
+                title={`Ngày đăng ký / áp dụng kết thúc của đợt báo cáo (Bắt buộc)`}
               >
-                {t(`${rangePrefix} đến ngày`)}
-              </div>
-              <div className="px-2 flex items-center h-full" style={{ minWidth: 125 }}>
+                {t('đến')} <span className="text-rose-500 font-bold">*</span>
+              </span>
+              <div className={`px-1 flex items-center h-full min-w-[115px] ${!dateRange?.[1] ? 'ring-1 ring-rose-400 rounded-xs' : ''}`}>
                 <QueryDateInput
                   field={{
                     key: 'toDate',
@@ -313,6 +461,70 @@ export function TopControlBar({
                 />
               </div>
             </div>
+
+            {/* Khối 4: Tổ sản xuất (Tìm kiếm & Chọn 1 hoặc nhiều tổ) */}
+            {formattedTeamOptions && formattedTeamOptions.length > 0 && (
+              <div className="inline-flex items-center bg-white rounded-md border border-slate-200/90 shadow-2xs h-[30px] px-1 hover:border-slate-300 transition-colors">
+                <span className="text-[11px] font-semibold text-slate-500 px-2 select-none whitespace-nowrap">
+                  {t('Tổ sản xuất')}
+                </span>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" />
+                <div className="px-1 flex items-center h-full">
+                  <SearchableMultiSelectDropdown
+                    label="Tổ sản xuất"
+                    placeholder={t('Tất cả tổ SX')}
+                    options={formattedTeamOptions}
+                    value={selectedTeamValues}
+                    onChange={(vals) => setSelectedTeam && setSelectedTeam(vals)}
+                    disabled={loading}
+                    minWidth="140px"
+                    maxWidth="220px"
+                    dropdownWidth="280px"
+                    renderItem={(opt) => (
+                      <span className="text-[11.5px] font-medium text-slate-800 truncate block">
+                        {opt.label || opt.value}
+                      </span>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Khối 5: Máy sản xuất (Tìm kiếm theo Mã/Tên máy & Chọn 1 hoặc nhiều máy) */}
+            {formattedMachineOptions && formattedMachineOptions.length > 0 && (
+              <div className="inline-flex items-center bg-white rounded-md border border-slate-200/90 shadow-2xs h-[30px] px-1 hover:border-slate-300 transition-colors">
+                <span className="text-[11px] font-semibold text-slate-500 px-2 select-none whitespace-nowrap">
+                  {t('Máy sản xuất')}
+                </span>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" />
+                <div className="px-1 flex items-center h-full">
+                  <SearchableMultiSelectDropdown
+                    label="Máy sản xuất"
+                    placeholder={t('Tất cả máy SX')}
+                    options={formattedMachineOptions}
+                    value={selectedMachineValues}
+                    onChange={(vals) => setSelectedMachine && setSelectedMachine(vals)}
+                    disabled={loading}
+                    minWidth="160px"
+                    maxWidth="260px"
+                    dropdownWidth="360px"
+                    renderItem={(opt) => (
+                      <div className="flex items-center justify-between gap-2 w-full">
+                        <span className="font-semibold text-slate-800 font-mono text-[11.5px] shrink-0">
+                          {opt.machineCode || opt.value}
+                        </span>
+                        {opt.machineName && opt.machineName !== opt.machineCode && (
+                          <span className="text-[11px] text-slate-500 truncate text-right font-sans">
+                            {opt.machineName}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}

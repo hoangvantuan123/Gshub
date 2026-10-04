@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 
 	models "service-datahub/models/report"
@@ -41,11 +40,12 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 
 	query := s.db.WithContext(ctx).Model(&models.ERPPlanDetail{})
 
-	// 1. Áp dụng điều kiện RegCode / MasterSeq
-	if regCode != "" && regCode != "ALL" {
+	// 1. Áp dụng điều kiện RegCode / MasterSeq (sử dụng OR để bao phủ cả trường hợp MasterSeq hoặc RegCode khớp)
+	if regCode != "" && regCode != "ALL" && masterSeq != "" && masterSeq != "ALL" {
+		query = query.Where(`"RegCode" = ? OR "MasterSeq" = ? OR "RegCode" ILIKE ?`, regCode, masterSeq, "%"+regCode+"%")
+	} else if regCode != "" && regCode != "ALL" {
 		query = query.Where(`"RegCode" = ? OR "RegCode" ILIKE ?`, regCode, "%"+regCode+"%")
-	}
-	if masterSeq != "" && masterSeq != "ALL" {
+	} else if masterSeq != "" && masterSeq != "ALL" {
 		query = query.Where(`"MasterSeq" = ?`, masterSeq)
 	}
 
@@ -60,35 +60,57 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 
 	// 3. Lọc ngày điều phối & ngày kế hoạch
 	if planDateFrom != "" && planDateTo != "" {
+		from10 := planDateFrom
+		if len(from10) > 10 {
+			from10 = from10[:10]
+		}
+		to10 := planDateTo
+		if len(to10) > 10 {
+			to10 = to10[:10]
+		}
+		toEnd := to10 + "T23:59:59.999Z"
+		toEndSpace := to10 + " 23:59:59"
+
 		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
-			Where(`"ApplyDate" >= ? AND "ApplyDate" <= ?`, planDateFrom, planDateTo)
+			Where(`(LEFT("ApplyDate", 10) >= ? AND LEFT("ApplyDate", 10) <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?)`,
+				from10, to10, from10, toEnd, from10, toEndSpace)
 		if factoryCode != "" && factoryCode != "ALL" {
 			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`("OpDate" >= ? AND "OpDate" <= ?) OR ("RoutingDocDate" >= ? AND "RoutingDocDate" <= ?) OR ("RegCode" IN (?))`,
-			planDateFrom, planDateTo, planDateFrom, planDateTo, subDateMaster)
+		query = query.Where(`(LEFT("OpDate", 10) >= ? AND LEFT("OpDate", 10) <= ?) OR (LEFT("RoutingDocDate", 10) >= ? AND LEFT("RoutingDocDate", 10) <= ?) OR ("RegCode" IN (?))`,
+			from10, to10, from10, to10, subDateMaster)
 	} else if planDateFrom != "" {
+		from10 := planDateFrom
+		if len(from10) > 10 {
+			from10 = from10[:10]
+		}
 		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
-			Where(`"ApplyDate" >= ?`, planDateFrom)
+			Where(`LEFT("ApplyDate", 10) >= ? OR "ApplyDate" >= ?`, from10, from10)
 		if factoryCode != "" && factoryCode != "ALL" {
 			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`"OpDate" >= ? OR "RoutingDocDate" >= ? OR ("RegCode" IN (?))`,
-			planDateFrom, planDateFrom, subDateMaster)
+		query = query.Where(`LEFT("OpDate", 10) >= ? OR LEFT("RoutingDocDate", 10) >= ? OR ("RegCode" IN (?))`,
+			from10, from10, subDateMaster)
 	} else if planDateTo != "" {
+		to10 := planDateTo
+		if len(to10) > 10 {
+			to10 = to10[:10]
+		}
+		toEnd := to10 + "T23:59:59.999Z"
+		toEndSpace := to10 + " 23:59:59"
 		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
-			Where(`"ApplyDate" <= ?`, planDateTo)
+			Where(`LEFT("ApplyDate", 10) <= ? OR "ApplyDate" <= ? OR "ApplyDate" <= ?`, to10, toEnd, toEndSpace)
 		if factoryCode != "" && factoryCode != "ALL" {
 			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`"OpDate" <= ? OR "RoutingDocDate" <= ? OR ("RegCode" IN (?))`,
-			planDateTo, planDateTo, subDateMaster)
+		query = query.Where(`LEFT("OpDate", 10) <= ? OR LEFT("RoutingDocDate", 10) <= ? OR ("RegCode" IN (?))`,
+			to10, to10, subDateMaster)
 	}
 
 	// 4. Lọc PIC, Tổ, Máy, Item, Order, Status
@@ -127,6 +149,25 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		}
 		if errM := masterQuery.Order(`"CreatedAt" DESC`).First(&latestMaster).Error; errM == nil && latestMaster.RegCode != "" {
 			_ = s.db.Where(`"RegCode" = ? OR "MasterSeq" = ?`, latestMaster.RegCode, latestMaster.IdSeq).Find(&rawList).Error
+		}
+	}
+
+	// Tải danh sách Master KHSX (đợt kế hoạch) trước để ánh xạ ngày áp dụng chuẩn
+	var masterList []models.ERPPlanMaster
+	mQuery := s.db.WithContext(ctx).Model(&models.ERPPlanMaster{}).
+		Where(`"ReportType" ILIKE '%plan%' OR "ReportType" ILIKE '%khsx%' OR "ReportType" = 'Kế hoạch sản xuất'`)
+	if factoryCode != "" && factoryCode != "ALL" {
+		mQuery = mQuery.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+	}
+	_ = mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(200).Find(&masterList).Error
+
+	masterMap := make(map[string]models.ERPPlanMaster)
+	for _, m := range masterList {
+		if m.RegCode != "" {
+			masterMap[m.RegCode] = m
+		}
+		if m.IdSeq != "" {
+			masterMap[m.IdSeq] = m
 		}
 	}
 
@@ -176,7 +217,22 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 
 		planDate := cleanDateString(row.RoutingDocDate)
 		actualDate := cleanDateString(row.OpDate)
-		effectiveDate := planDate
+		effectiveDate := ""
+
+		// Ưu tiên lấy theo ngày đăng ký báo cáo ApplyDate của Master
+		if row.MasterSeq != "" {
+			if m, ok := masterMap[row.MasterSeq]; ok && m.ApplyDate != nil && *m.ApplyDate != "" {
+				effectiveDate = cleanDateString(m.ApplyDate)
+			}
+		}
+		if effectiveDate == "" && row.RegCode != "" {
+			if m, ok := masterMap[row.RegCode]; ok && m.ApplyDate != nil && *m.ApplyDate != "" {
+				effectiveDate = cleanDateString(m.ApplyDate)
+			}
+		}
+		if effectiveDate == "" {
+			effectiveDate = planDate
+		}
 		if effectiveDate == "" {
 			effectiveDate = actualDate
 		}
@@ -250,14 +306,6 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 	teamBreakdown := accumulator.BuildTeamBreakdown()
 	machineBreakdown := accumulator.BuildMachineBreakdown()
 	dailyTrendData := accumulator.BuildDailyTrendData()
-
-	// Tải danh sách Master KHSX (đợt kế hoạch)
-	var masterList []models.ERPPlanMaster
-	mQuery := s.db.WithContext(ctx).Model(&models.ERPPlanMaster{}).
-		Where(`"ReportType" ILIKE '%plan%' OR "ReportType" ILIKE '%khsx%' OR "ReportType" = 'Kế hoạch sản xuất'`)
-	if factoryCode != "" && factoryCode != "ALL" {
-		mQuery = mQuery.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
-	}
 	_ = mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(100).Find(&masterList).Error
 
 	planMasterOpts := make([]models.PlanMasterOption, 0, len(masterList))
@@ -308,17 +356,14 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		Dates:       datesList,
 	}
 
-	// Phân trang
-	page := 1
-	pageSize := len(items)
-	if pageSize == 0 {
-		pageSize = 50
+	withoutItems := getFilterValue(filters, "withoutItems", "WithoutItems", "without_items")
+
+	pagedItems := make([]models.PlanDetailReportItem, 0)
+	if withoutItems != "true" && withoutItems != "1" {
+		pagedItems = items
 	}
-	if p := getFilterValue(filters, "page", "Page"); p != "" {
-		if val, err := strconv.Atoi(p); err == nil && val > 0 {
-			page = val
-		}
-	}
+
+	totalRecords := int64(len(items))
 
 	return &models.PlanReportResponse{
 		Summary:             summary,
@@ -330,15 +375,15 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		MachineBreakdown:    machineBreakdown,
 		DailyTrendData:      dailyTrendData,
 		FilterOptions:       filterOpts,
-		Items:               items,
+		Items:               pagedItems,
 		Pagination: models.PlanPageInfo{
-			Page:        page,
-			PageSize:    pageSize,
-			TotalRows:   len(items),
-			Total:       int64(len(items)),
+			Page:        1,
+			PageSize:    len(pagedItems),
+			TotalRows:   int(totalRecords),
+			Total:       totalRecords,
 			TotalPages:  1,
-			TotalAll:    int64(len(items)),
-			LoadedCount: len(items),
+			TotalAll:    totalRecords,
+			LoadedCount: len(pagedItems),
 		},
 	}, nil
 }

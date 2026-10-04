@@ -3,14 +3,18 @@ import * as XLSX from 'xlsx'
 import { GridCellKind } from '@glideapps/glide-data-grid'
 import {
   queryPlanMaster,
-  queryProdStatsDetail,
-  queryPlanDetail,
-  queryProductionStatisticsReport
+  queryProductionStatisticsReport,
+  queryProductionPlanReport
 } from '../../../registration/services/planRegistrationService'
 import { useStatisticsImportColumns } from '../../../registration/statistics/columns/statisticsImportColumns'
 import { usePlanImportColumns } from '../../../registration/plan/columns/planImportColumns'
 import { captureReportScreenshot } from '../../../common/screenshotHelper'
 import { getCleanDate } from '../../../common/reportUtils'
+import {
+  generateExcelWorkbook,
+  saveWorkbookToFile,
+  formatFilterSummary
+} from '../../../../../../utils/exportExcelUtils'
 import {
   parseSyncDelayToSeconds,
   formatSecondsToTime,
@@ -69,6 +73,111 @@ const formatLocalDate = (d) => {
   return `${year}-${month}-${day}`
 }
 
+const build3TierDetailSheet = (reportTitle, validCols, list) => {
+  const row1_Title = [reportTitle]
+  const row2_Group = ['STT']
+  const row3_ColName = ['STT']
+
+  const merges = []
+  const totalCols = validCols.length + 1 // +1 cho cột STT
+
+  // Dòng 1 merge toàn bộ độ rộng các cột
+  merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } })
+
+  let currentGroup = null
+  let groupStartIndex = -1
+
+  validCols.forEach((col, idx) => {
+    const colIdx = idx + 1 // +1 do col 0 là STT
+    const groupName = col.group || ''
+    const colTitle = col.title || col.id
+
+    row2_Group.push(groupName)
+    row3_ColName.push(colTitle)
+
+    if (groupName) {
+      if (groupName !== currentGroup) {
+        if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
+          merges.push({
+            s: { r: 1, c: groupStartIndex },
+            e: { r: 1, c: colIdx - 1 }
+          })
+        }
+        currentGroup = groupName
+        groupStartIndex = colIdx
+      }
+    } else {
+      if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
+        merges.push({
+          s: { r: 1, c: groupStartIndex },
+          e: { r: 1, c: colIdx - 1 }
+        })
+      }
+      currentGroup = null
+      groupStartIndex = -1
+      merges.push({
+        s: { r: 1, c: colIdx },
+        e: { r: 2, c: colIdx }
+      })
+    }
+  })
+
+  if (currentGroup && groupStartIndex !== -1 && totalCols - 1 > groupStartIndex) {
+    merges.push({
+      s: { r: 1, c: groupStartIndex },
+      e: { r: 1, c: totalCols - 1 }
+    })
+  }
+
+  merges.push({
+    s: { r: 1, c: 0 },
+    e: { r: 2, c: 0 }
+  })
+
+  const dataRows = list.map((item, rowIdx) => {
+    const row = [rowIdx + 1]
+    validCols.forEach((col) => {
+      const colId = col.id
+      const rawVal =
+        item[colId] ??
+        item[colId.charAt(0).toLowerCase() + colId.slice(1)] ??
+        (item.raw
+          ? (item.raw[colId] ?? item.raw[colId.charAt(0).toLowerCase() + colId.slice(1)])
+          : '') ??
+        ''
+
+      if (col.kind === 'Boolean') {
+        const b =
+          typeof rawVal === 'boolean'
+            ? rawVal
+            : rawVal === 1 || rawVal === '1' || rawVal === 'true' || rawVal === 'Có'
+        row.push(b ? 'Có' : '')
+      } else if (col.kind === 'Number') {
+        if (rawVal !== '' && rawVal !== null && rawVal !== undefined) {
+          const num = typeof rawVal === 'number' ? rawVal : Number(rawVal)
+          row.push(!isNaN(num) ? num : rawVal)
+        } else {
+          row.push('')
+        }
+      } else {
+        row.push(rawVal !== null && rawVal !== undefined ? rawVal : '')
+      }
+    })
+    return row
+  })
+
+  const aoa = [row1_Title, row2_Group, row3_ColName, ...dataRows]
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!merges'] = merges
+  ws['!cols'] = [
+    { wch: 8 },
+    ...validCols.map((col) => ({
+      wch: Math.max(12, Math.min(50, Math.round((col.width || 120) / 7.5)))
+    }))
+  ]
+  return ws
+}
+
 export function useTimelineSummaryLogic() {
   const [factoryCode, setFactoryCode] = useState('GS1')
   const [reportType, setReportType] = useState('stat')
@@ -82,11 +191,12 @@ export function useTimelineSummaryLogic() {
   const [selectedMasterKey, setSelectedMasterKey] = useState('')
 
   const [loading, setLoading] = useState(false)
+  const [backendReportData, setBackendReportData] = useState(null)
   const [rawDataset, setRawDataset] = useState([])
   const [masterList, setMasterList] = useState([])
 
-  const [selectedTeam, setSelectedTeam] = useState('ALL')
-  const [selectedMachine, setSelectedMachine] = useState('ALL')
+  const [selectedTeam, setSelectedTeam] = useState([])
+  const [selectedMachine, setSelectedMachine] = useState([])
   const [detailSearchText, setDetailSearchText] = useState('')
 
   const [showMachineSummaryTable, setShowMachineSummaryTable] = useState(true)
@@ -178,28 +288,28 @@ export function useTimelineSummaryLogic() {
     setDateRange([from, to])
   }
 
-function getMasterEffectiveDate(item) {
-  if (!item) return 0
-  if (item.ApplyDate) {
-    const t = new Date(item.ApplyDate).getTime()
-    if (!isNaN(t) && t > 0) return t
+  function getMasterEffectiveDate(item) {
+    if (!item) return 0
+    if (item.ApplyDate) {
+      const t = new Date(item.ApplyDate).getTime()
+      if (!isNaN(t) && t > 0) return t
+    }
+    const reg = String(item.RegCode || item.regCode || '')
+    const match = reg.match(/_(\d{4})(\d{2})(\d{2})_/)
+    if (match) {
+      const t = new Date(`${match[1]}-${match[2]}-${match[3]}`).getTime()
+      if (!isNaN(t) && t > 0) return t
+    }
+    if (item.Date) {
+      const t = new Date(item.Date).getTime()
+      if (!isNaN(t) && t > 0) return t
+    }
+    if (item.CreatedAt) {
+      const t = new Date(item.CreatedAt).getTime()
+      if (!isNaN(t) && t > 0) return t
+    }
+    return 0
   }
-  const reg = String(item.RegCode || item.regCode || '')
-  const match = reg.match(/_(\d{4})(\d{2})(\d{2})_/)
-  if (match) {
-    const t = new Date(`${match[1]}-${match[2]}-${match[3]}`).getTime()
-    if (!isNaN(t) && t > 0) return t
-  }
-  if (item.Date) {
-    const t = new Date(item.Date).getTime()
-    if (!isNaN(t) && t > 0) return t
-  }
-  if (item.CreatedAt) {
-    const t = new Date(item.CreatedAt).getTime()
-    if (!isNaN(t) && t > 0) return t
-  }
-  return 0
-}
 
   const fetchTimelineData = useCallback(async () => {
     setLoading(true)
@@ -236,37 +346,33 @@ function getMasterEffectiveDate(item) {
 
       const params = {
         FactoryCode: factoryCode,
+        factoryCode: factoryCode,
         ReportType: reportType === 'plan' ? 'plan' : 'statistics',
+        reportType: reportType === 'plan' ? 'plan' : 'statistics',
         FromDate: dateRange[0],
         ToDate: dateRange[1],
+        fromDate: dateRange[0],
+        toDate: dateRange[1],
         StatDateFrom: dateRange[0],
         StatDateTo: dateRange[1],
         Page: 1,
-        Limit: 100000
+        Limit: 100000,
+        pageSize: '10000'
       }
       if (selectedMasterKey) {
         params.MasterSeq = selectedMasterKey
         params.RegCode = selectedMasterKey
+        params.regCode = selectedMasterKey
       }
 
       if (reportType === 'plan') {
-        const detailRes = await queryPlanDetail(params)
-        let rawRows = detailRes?.data?.items || detailRes?.data || []
-        let rowsArray = Array.isArray(rawRows) ? rawRows : []
+        const planAggRes = await queryProductionPlanReport(params)
+        const repData = planAggRes?.data || planAggRes || {}
+        setBackendReportData(repData)
 
-        if (rowsArray.length === 0 && mList.length > 0 && !selectedMasterKey) {
-          // Fallback fetch each master
-          const allBatchPromises = mList.slice(0, 50).map((m) =>
-            queryPlanDetail({
-              RegCode: m.RegCode || m.regCode,
-              pageSize: '10000'
-            }).catch(() => null)
-          )
-          const results = await Promise.all(allBatchPromises)
-          results.forEach((r) => {
-            const items = r?.data?.items || r?.data || []
-            if (Array.isArray(items)) rowsArray.push(...items)
-          })
+        let rowsArray = []
+        if (repData.items && Array.isArray(repData.items) && repData.items.length > 0) {
+          rowsArray = repData.items
         }
 
         const mappedItems = rowsArray.map((row, idx) => {
@@ -314,40 +420,13 @@ function getMasterEffectiveDate(item) {
         })
         setRawDataset(mappedItems)
       } else {
+        const reportRes = await queryProductionStatisticsReport(params)
+        const repData = reportRes?.data || reportRes || {}
+        setBackendReportData(repData)
+
         let rowsArray = []
-        try {
-          const reportRes = await queryProductionStatisticsReport(params)
-          const repData = reportRes?.data || reportRes
-          if (
-            repData &&
-            repData.items &&
-            Array.isArray(repData.items) &&
-            repData.items.length > 0
-          ) {
-            rowsArray = repData.items
-          }
-        } catch (e) {
-          console.warn('Backend GenerateProductionStatisticsReport fallback to detail query:', e)
-        }
-
-        if (rowsArray.length === 0) {
-          const detailRes = await queryProdStatsDetail(params)
-          const rawRows = detailRes?.data?.items || detailRes?.data || []
-          rowsArray = Array.isArray(rawRows) ? rawRows : []
-        }
-
-        if (rowsArray.length === 0 && mList.length > 0 && !selectedMasterKey) {
-          const allBatchPromises = mList.slice(0, 50).map((m) =>
-            queryProdStatsDetail({
-              RegCode: m.RegCode || m.regCode,
-              pageSize: '10000'
-            }).catch(() => null)
-          )
-          const results = await Promise.all(allBatchPromises)
-          results.forEach((r) => {
-            const items = r?.data?.items || r?.data || []
-            if (Array.isArray(items)) rowsArray.push(...items)
-          })
+        if (repData.items && Array.isArray(repData.items) && repData.items.length > 0) {
+          rowsArray = repData.items
         }
 
         const mappedItems = rowsArray.map((row, idx) => {
@@ -379,10 +458,10 @@ function getMasterEffectiveDate(item) {
           const runtimeHours = Number((durationMinutes / 60).toFixed(2))
 
           const regDateRaw =
-            row.prodDate ||
-            row.ProdDate ||
             mInfo?.ApplyDate ||
             row.ApplyDate ||
+            row.prodDate ||
+            row.ProdDate ||
             row.StatDate ||
             row.StartDate ||
             row.OpDate ||
@@ -457,9 +536,23 @@ function getMasterEffectiveDate(item) {
   }, [fetchTimelineData])
 
   const filteredData = useMemo(() => {
+    const hasTeamFilter = Array.isArray(selectedTeam)
+      ? selectedTeam.length > 0 && !selectedTeam.includes('ALL')
+      : selectedTeam && selectedTeam !== 'ALL'
+    const teamSet = hasTeamFilter
+      ? new Set(Array.isArray(selectedTeam) ? selectedTeam : [selectedTeam])
+      : null
+
+    const hasMachineFilter = Array.isArray(selectedMachine)
+      ? selectedMachine.length > 0 && !selectedMachine.includes('ALL')
+      : selectedMachine && selectedMachine !== 'ALL'
+    const machineSet = hasMachineFilter
+      ? new Set(Array.isArray(selectedMachine) ? selectedMachine : [selectedMachine])
+      : null
+
     return rawDataset.filter((item) => {
-      if (selectedTeam !== 'ALL' && item.team !== selectedTeam) return false
-      if (selectedMachine !== 'ALL' && item.machineCode !== selectedMachine) return false
+      if (teamSet && !teamSet.has(item.team)) return false
+      if (machineSet && !machineSet.has(item.machineCode)) return false
       if (detailSearchText.trim()) {
         const q = detailSearchText.toLowerCase().trim()
         const match =
@@ -484,6 +577,9 @@ function getMasterEffectiveDate(item) {
           String(item.machineCode || '')
             .toLowerCase()
             .includes(q) ||
+          String(item.machineName || '')
+            .toLowerCase()
+            .includes(q) ||
           String(item.regCode || '')
             .toLowerCase()
             .includes(q)
@@ -494,22 +590,49 @@ function getMasterEffectiveDate(item) {
   }, [rawDataset, selectedTeam, selectedMachine, detailSearchText])
 
   const filterOptions = useMemo(() => {
+    if (rawDataset.length === 0 && backendReportData?.filterOptions) {
+      const bFo = backendReportData.filterOptions
+      return {
+        teams: (bFo.teams || []).map((t) => ({ value: t, label: t, searchKey: t })),
+        machines: (bFo.machines || []).map((m) => ({
+          value: m,
+          label: m,
+          machineCode: m,
+          machineName: m,
+          searchKey: m
+        }))
+      }
+    }
     const teams = new Set()
-    const machines = new Set()
+    const machineMap = new Map()
     rawDataset.forEach((item) => {
       if (item.team) teams.add(item.team)
-      if (item.machineCode) machines.add(item.machineCode)
+      const code = item.machineCode
+      const name = item.machineName || ''
+      if (code) {
+        if (!machineMap.has(code) || (!machineMap.get(code) && name)) {
+          machineMap.set(code, name || code)
+        }
+      }
     })
     return {
-      teams: [
-        { value: 'ALL', label: 'Tất cả tổ SX' },
-        ...Array.from(teams)
-          .sort()
-          .map((t) => ({ value: t, label: t }))
-      ],
-      machines: Array.from(machines).sort()
+      teams: Array.from(teams)
+        .sort()
+        .map((t) => ({ value: t, label: t, searchKey: t })),
+      machines: Array.from(machineMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([code, name]) => {
+          const hasDiffName = name && name !== code
+          return {
+            value: code,
+            label: hasDiffName ? `${code} - ${name}` : code,
+            machineCode: code,
+            machineName: name,
+            searchKey: `${code} ${name}`
+          }
+        })
     }
-  }, [rawDataset])
+  }, [rawDataset, backendReportData])
 
   const masterOptions = useMemo(() => {
     const defaultLabel =
@@ -528,6 +651,41 @@ function getMasterEffectiveDate(item) {
 
   // KPI Metrics
   const kpiMetrics = useMemo(() => {
+    if (filteredData.length === 0 && backendReportData?.summary) {
+      const s = backendReportData.summary
+      return {
+        totalTickets: s.totalTickets || s.totalOrders || 0,
+        totalActualQty: s.totalActualQty || 0,
+        totalPassQty: s.totalPassQty || 0,
+        totalDefectQty: s.totalDefectQty || 0,
+        overallPassRate: s.overallPassRate ?? s.avgPassRate ?? 0,
+        totalRuntimeHours: s.totalRuntimeHours || 0,
+        totalDurationMinutes: s.totalDurationMinutes || 0,
+        avgRuntimeHours: s.avgRuntimeHours || 0,
+        mesCreatedCount: s.mesCreatedCount ?? s.mesCount ?? 0,
+        bravoCreatedCount: s.bravoCreatedCount ?? 0,
+        runtimeOver12hCheck: s.runtimeOver12hCheck ?? s.over12hCount ?? 0,
+        runtimeUnder5Min: s.runtimeUnder5Min ?? s.under5MinCount ?? 0,
+        mesCount: s.mesCount ?? 0,
+        mesRate: s.mesRate ?? 100,
+        over12hCount: s.over12hCount ?? 0,
+        under5MinCount: s.under5MinCount ?? 0,
+        under5MinRate: s.under5MinRate ?? 0,
+        syncDelayCount: s.syncDelayCount ?? 0,
+        avgSyncDelaySeconds: s.avgSyncDelaySeconds ?? 0,
+        syncLatencyFormatted: s.syncLatencyFormatted || '00:00:00',
+        maxSyncDelayFormatted: s.maxSyncDelayFormatted || '00:00:00',
+        syncSuccessRate: s.syncSuccessRate || '100%',
+        syncBreakdown: backendReportData.syncDelayBreakdown || [],
+        autoExportBreakdown: backendReportData.autoExportBreakdown || [],
+        autoExportRate: s.autoExportRate ?? 0,
+        noAutoExportRate: s.noAutoExportRate ?? 0,
+        autoExportCount: s.autoExportCount ?? 0,
+        noAutoExportCount: s.noAutoExportCount ?? 0,
+        noMaterialAutoIoCount: s.noMaterialAutoIoCount ?? 0,
+        totalApplicableAutoIo: s.totalApplicableAutoIo ?? 0
+      }
+    }
     const total = filteredData.length
     let actualQty = 0
     let passQty = 0
@@ -735,6 +893,67 @@ function getMasterEffectiveDate(item) {
 
   // Machine Aggregates
   const machineAggregates = useMemo(() => {
+    const list = backendReportData?.machineBreakdown || backendReportData?.chartByMachine || []
+    if (filteredData.length === 0 && list.length > 0) {
+      const hasTeamFilter = Array.isArray(selectedTeam)
+        ? selectedTeam.length > 0 && !selectedTeam.includes('ALL')
+        : selectedTeam && selectedTeam !== 'ALL'
+      const teamSet = hasTeamFilter
+        ? new Set(Array.isArray(selectedTeam) ? selectedTeam : [selectedTeam])
+        : null
+
+      const hasMachineFilter = Array.isArray(selectedMachine)
+        ? selectedMachine.length > 0 && !selectedMachine.includes('ALL')
+        : selectedMachine && selectedMachine !== 'ALL'
+      const machineSet = hasMachineFilter
+        ? new Set(Array.isArray(selectedMachine) ? selectedMachine : [selectedMachine])
+        : null
+
+      return list
+        .filter((m) => {
+          if (teamSet && !teamSet.has(m.teamName) && !teamSet.has(m.team)) return false
+          if (machineSet && !machineSet.has(m.machineCode)) return false
+          return true
+        })
+        .map((m) => {
+          const actualQty = m.actualQty ?? m.totalActualQty ?? m.ProdQty ?? 0
+          const passQty = m.passQty ?? m.totalPassQty ?? m.PassQty ?? actualQty
+          const defectQty = m.defectQty ?? m.totalDefectQty ?? 0
+          const runtimeHours = m.runtimeHours ?? m.totalRuntimeHours ?? 0
+          const tickets = m.tickets ?? m.ticketCount ?? m.totalTickets ?? 0
+          const passRate = actualQty > 0 ? (passQty / actualQty) * 100 : m.passRate || 100
+          const runtimeVsCapacity = Number(
+            (((runtimeHours || 0) / standardCapacityHours) * 100).toFixed(1)
+          )
+          const avgDailyHours = Number(((runtimeHours || 0) / Math.max(1, totalDays)).toFixed(1))
+          const speed = (runtimeHours || 0) > 0 ? Math.round(passQty / runtimeHours) : 0
+          return {
+            machineCode: m.machineCode,
+            machineName: m.machineName || m.machineCode,
+            machineGroup: m.machineGroup || m.teamName || 'Khác',
+            team: m.team || m.teamName || 'Khác',
+            unit: m.unit || 'Chiếc',
+            ticketCount: tickets,
+            totalActualQty: actualQty,
+            totalPassQty: passQty,
+            totalDefectQty: defectQty,
+            totalRuntimeHours: Number((runtimeHours || 0).toFixed(1)),
+            runtimeHours: Number((runtimeHours || 0).toFixed(1)),
+            runtimeVsCapacity,
+            avgDailyHours,
+            passRate: Number(passRate.toFixed(1)),
+            speed,
+            speedPerHour: speed,
+            actualQty: actualQty,
+            passQty: passQty,
+            defectQty: defectQty,
+            tickets: tickets,
+            mesRate: m.mesRate || 0,
+            over12hCount: m.over12hCount ?? m.anomalies ?? 0
+          }
+        })
+        .sort((a, b) => b.totalRuntimeHours - a.totalRuntimeHours)
+    }
     const map = new Map()
     filteredData.forEach((item) => {
       const code = item.machineCode || 'M-UNKNOWN'
@@ -770,7 +989,7 @@ function getMasterEffectiveDate(item) {
       if (orig.includes('MES')) rec.mesCount++
     })
 
-    const list = Array.from(map.values()).map((m) => {
+    const listFinal = Array.from(map.values()).map((m) => {
       const passRate = m.totalActualQty > 0 ? (m.totalPassQty / m.totalActualQty) * 100 : 100
       const runtimeVsCapacity = Number(
         ((m.totalRuntimeHours / standardCapacityHours) * 100).toFixed(1)
@@ -794,8 +1013,15 @@ function getMasterEffectiveDate(item) {
       }
     })
 
-    return list.sort((a, b) => b.totalRuntimeHours - a.totalRuntimeHours)
-  }, [filteredData, totalDays, standardCapacityHours])
+    return listFinal.sort((a, b) => b.totalRuntimeHours - a.totalRuntimeHours)
+  }, [
+    filteredData,
+    totalDays,
+    standardCapacityHours,
+    backendReportData,
+    selectedTeam,
+    selectedMachine
+  ])
 
   const displayMachineList = useMemo(() => {
     let list = [...machineAggregates]
@@ -853,6 +1079,50 @@ function getMasterEffectiveDate(item) {
 
   // Team Aggregates
   const teamAggregates = useMemo(() => {
+    const list = backendReportData?.teamBreakdown || backendReportData?.chartByTeam || []
+    if (filteredData.length === 0 && list.length > 0) {
+      const hasTeamFilter = Array.isArray(selectedTeam)
+        ? selectedTeam.length > 0 && !selectedTeam.includes('ALL')
+        : selectedTeam && selectedTeam !== 'ALL'
+      const teamSet = hasTeamFilter
+        ? new Set(Array.isArray(selectedTeam) ? selectedTeam : [selectedTeam])
+        : null
+
+      return list
+        .filter((t) => {
+          if (teamSet && !teamSet.has(t.teamName) && !teamSet.has(t.team)) return false
+          return true
+        })
+        .map((t) => {
+          const actualQty = t.actualQty ?? t.totalActualQty ?? t.ProdQty ?? 0
+          const passQty = t.passQty ?? t.totalPassQty ?? t.PassQty ?? actualQty
+          const defectQty = t.defectQty ?? t.totalDefectQty ?? 0
+          const runtimeHours = t.runtimeHours ?? t.totalRuntimeHours ?? 0
+          const tickets = t.tickets ?? t.ticketCount ?? t.totalTickets ?? 0
+          const passRate = actualQty > 0 ? (passQty / actualQty) * 100 : t.passRate || 100
+          return {
+            team: t.team || t.teamName,
+            teamName: t.teamName || t.team,
+            teamCode: t.teamCode || '',
+            ticketCount: tickets,
+            tickets: tickets,
+            actualQty: actualQty,
+            totalActualQty: actualQty,
+            passQty: passQty,
+            totalPassQty: passQty,
+            defectQty: defectQty,
+            totalDefectQty: defectQty,
+            runtimeHours: Number((runtimeHours || 0).toFixed(1)),
+            totalRuntimeHours: Number((runtimeHours || 0).toFixed(1)),
+            passRate: Number(passRate.toFixed(1)),
+            mesRate: t.mesRate || 0,
+            under5Min: t.under5Min || 0,
+            anomalies: t.anomalies || 0,
+            mesCount: t.mesCount || 0
+          }
+        })
+        .sort((a, b) => b.totalActualQty - a.totalActualQty)
+    }
     const map = new Map()
     filteredData.forEach((item) => {
       const team = item.team || item.teamName || item.TeamName || 'Tổ Khác'
@@ -903,7 +1173,7 @@ function getMasterEffectiveDate(item) {
         }
       })
       .sort((a, b) => b.totalActualQty - a.totalActualQty)
-  }, [filteredData])
+  }, [filteredData, backendReportData, selectedTeam])
 
   const teamGrandTotal = useMemo(() => {
     const totalTickets = teamAggregates.reduce((acc, t) => acc + t.ticketCount, 0)
@@ -930,6 +1200,44 @@ function getMasterEffectiveDate(item) {
 
   // Daily Aggregates for Timeline Evolution
   const dailyAggregates = useMemo(() => {
+    const list =
+      backendReportData?.dailyAggregates ||
+      backendReportData?.dailyTrendData ||
+      backendReportData?.chartByDay ||
+      []
+    if (filteredData.length === 0 && list.length > 0) {
+      return list
+        .map((d) => {
+          const actualQty = d.actualQty ?? d.totalActualQty ?? d.ProdQty ?? 0
+          const planQty = d.planQty ?? d.targetProdQty ?? 0
+          const passQty = d.passQty ?? d.totalPassQty ?? actualQty
+          const defectQty = d.defectQty ?? d.totalDefectQty ?? 0
+          const runtimeHours = d.runtimeHours ?? d.totalRuntimeHours ?? 0
+          const tickets = d.ticketCount ?? d.orderCount ?? d.tickets ?? 0
+          const passRate = actualQty > 0 ? (passQty / actualQty) * 100 : d.passRate || 100
+          return {
+            date: d.date,
+            ticketCount: tickets,
+            tickets: tickets,
+            orderCount: tickets,
+            planQty: planQty,
+            actualQty: actualQty,
+            totalActualQty: actualQty,
+            passQty: passQty,
+            totalPassQty: passQty,
+            defectQty: defectQty,
+            totalDefectQty: defectQty,
+            runtimeHours: Number((runtimeHours || 0).toFixed(1)),
+            totalRuntimeHours: Number((runtimeHours || 0).toFixed(1)),
+            passRate: Number(passRate.toFixed(1))
+          }
+        })
+        .sort((a, b) => {
+          if (a.date === 'Khác') return 1
+          if (b.date === 'Khác') return -1
+          return String(a.date).localeCompare(String(b.date))
+        })
+    }
     const map = new Map()
     filteredData.forEach((item) => {
       const dateKey = item.date || item.StatDate || item.prodDate || 'Khác'
@@ -958,7 +1266,7 @@ function getMasterEffectiveDate(item) {
       if (b.date === 'Khác') return -1
       return String(a.date).localeCompare(String(b.date))
     })
-  }, [filteredData])
+  }, [filteredData, backendReportData])
 
   // Data Grid configuration for Section 5
   const detailGridCols = useMemo(() => {
@@ -1157,105 +1465,132 @@ function getMasterEffectiveDate(item) {
     return displayDetailList.reduce((acc, d) => acc + (Number(d.runtimeHours) || 0), 0)
   }, [displayDetailList])
 
-  const handleExportExcel = () => {
-    try {
-      const wb = XLSX.utils.book_new()
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
-      const wsMachine = XLSX.utils.json_to_sheet(
-        displayMachineList.map((m) => ({
-          'Mã máy': m.machineCode,
-          'Tên máy': m.machineName,
-          'Tổ phụ trách': m.team,
-          'Số phiếu': m.tickets,
-          'Tổng giờ chạy (h)': m.runtimeHours,
-          'Tỷ lệ tải / 24h (%)': m.runtimeVs24h,
-          'Lần > 12h': m.over12hCount,
-          'Sản lượng SX': m.actualQty,
-          'Sản lượng đạt': m.passQty,
-          'Tỷ lệ đạt (%)': m.passRate,
-          'Tốc độ (SP/h)': m.speedPerHour
+  const handleOpenExportModal = () => {
+    if (!displayDetailList || displayDetailList.length === 0) {
+      alert('Không có dữ liệu báo cáo để xuất!')
+      return
+    }
+    setIsExportModalOpen(true)
+  }
+
+  const executeExportTimelineExcel = async ({
+    fileName,
+    saveDirectory,
+    overwriteExisting,
+    exportableCols
+  }) => {
+    const plantDisplayName = factoryCode === 'GS5' ? 'NHÀ MÁY GS QUẾ VÕ 1B' : 'NHÀ MÁY GS HÀ NỘI'
+    const wb = XLSX.utils.book_new()
+    const validCols = exportableCols || (rawCols || []).filter((c) => c.id && c.id !== 'WorkingTag')
+
+    // Sheet 1: Nhật trình chi tiết với tiêu đề merge 3 tầng chuẩn ERP
+    const reportTitle = `BÁO CÁO TOÀN TRÌNH DIỄN BIẾN SẢN XUẤT - ${plantDisplayName}`
+    const wsDetail = build3TierDetailSheet(reportTitle, validCols, displayDetailList)
+    XLSX.utils.book_append_sheet(wb, wsDetail, 'NhatTrinh_ChiTiet')
+
+    // Sheet 2: Tiến độ tổng hợp theo ngày
+    if (dailyAggregates && dailyAggregates.length > 0) {
+      const wsDaily = XLSX.utils.json_to_sheet(
+        dailyAggregates.map((d, idx) => ({
+          STT: idx + 1,
+          'Ngày sản xuất': d.date,
+          'Số phiếu': d.ticketCount,
+          'Sản lượng SX': d.actualQty,
+          'Đạt KCS': d.passQty,
+          'Phế phẩm': d.defectQty,
+          'Tổng giờ chạy (h)': Number((d.runtimeHours || 0).toFixed(1)),
+          'Tỷ lệ đạt (%)':
+            d.actualQty > 0 ? Number(((d.passQty / d.actualQty) * 100).toFixed(1)) : 100
         }))
       )
-      XLSX.utils.book_append_sheet(wb, wsMachine, 'Theo_May')
+      XLSX.utils.book_append_sheet(wb, wsDaily, 'TienDo_Theo_Ngay')
+    }
 
-      const wsTeam = XLSX.utils.json_to_sheet(
-        teamAggregates.map((t) => ({
-          'Tổ sản xuất': t.team,
-          'Số phiếu': t.tickets,
-          'Sản lượng SX': t.actualQty,
-          'Sản lượng đạt': t.passQty,
-          'Phế phẩm': t.defectQty,
-          'Tỷ lệ đạt (%)': t.passRate,
-          'Giờ máy chạy (h)': t.runtimeHours,
-          'Tốc độ (SP/h)': t.speedPerHour
-        }))
-      )
-      XLSX.utils.book_append_sheet(wb, wsTeam, 'Theo_To_SX')
+    // Sheet 3: Tổng hợp theo máy
+    const wsMachine = XLSX.utils.json_to_sheet(
+      displayMachineList.map((m, idx) => ({
+        STT: idx + 1,
+        'Mã máy': m.machineCode,
+        'Tên máy': m.machineName,
+        'Tổ phụ trách': m.team,
+        'Số phiếu': m.tickets,
+        'Tổng giờ chạy (h)': m.runtimeHours,
+        'Tỷ lệ tải / 24h (%)': m.runtimeVs24h,
+        'Số lần > 12h': m.over12hCount,
+        'Sản lượng SX': m.actualQty,
+        'Sản lượng đạt': m.passQty,
+        'Phế phẩm': m.defectQty,
+        'Tỷ lệ đạt (%)': m.passRate,
+        'Tỷ lệ MES (%)': m.mesRate,
+        'Tốc độ (SP/h)': m.speedPerHour
+      }))
+    )
+    XLSX.utils.book_append_sheet(wb, wsMachine, 'TongHop_Theo_May')
 
+    // Sheet 4: Tổng hợp theo tổ sản xuất
+    const wsTeam = XLSX.utils.json_to_sheet(
+      teamAggregates.map((t, idx) => ({
+        STT: idx + 1,
+        'Tổ sản xuất': t.teamName || t.team,
+        'Số phiếu': t.ticketCount || t.tickets,
+        'Sản lượng SX': t.totalActualQty || t.actualQty,
+        'Sản lượng đạt': t.totalPassQty || t.passQty,
+        'Phế phẩm': t.totalDefectQty || t.defectQty,
+        'Tỷ lệ đạt (%)':
+          (t.totalActualQty > 0
+            ? Number(((t.totalPassQty / t.totalActualQty) * 100).toFixed(1))
+            : t.passRate) || 100,
+        'Giờ máy chạy (h)': Number((t.totalRuntimeHours || t.runtimeHours || 0).toFixed(1))
+      }))
+    )
+    XLSX.utils.book_append_sheet(wb, wsTeam, 'TongHop_Theo_To_SX')
+
+    // Sheet 5: Phân tích độ trễ đồng bộ
+    if (kpiMetrics.syncBreakdown && kpiMetrics.syncBreakdown.length > 0) {
       const wsSync = XLSX.utils.json_to_sheet(
-        (kpiMetrics.syncBreakdown || []).map((s) => ({
+        kpiMetrics.syncBreakdown.map((s) => ({
           'Dải thời gian đồng bộ': s.group,
           'Số phiếu': s.count,
           'Tỷ lệ (%)': s.rate
         }))
       )
       XLSX.utils.book_append_sheet(wb, wsSync, 'Do_Tre_Dong_Bo')
+    }
 
+    // Sheet 6: Trạng thái tự động xuất kho
+    if (kpiMetrics.autoExportBreakdown && kpiMetrics.autoExportBreakdown.length > 0) {
       const wsAuto = XLSX.utils.json_to_sheet(
-        (kpiMetrics.autoExportBreakdown || []).map((a) => ({
+        kpiMetrics.autoExportBreakdown.map((a) => ({
           'Loại trạng thái': a.label,
           'Số phiếu': a.count,
           'Tỷ lệ (%)': a.rate
         }))
       )
       XLSX.utils.book_append_sheet(wb, wsAuto, 'Chung_Tu_Tu_Dong')
-
-      const wsDetail = XLSX.utils.json_to_sheet(
-        filteredData.map((r, i) => ({
-          STT: i + 1,
-          'Mã đợt': r.regCode,
-          'Ngày SX': r.date,
-          'Lệnh SX / WO': r.docNo,
-          'Số phiếu': r.ticketNo,
-          'Mã hàng': r.itemCode,
-          'Tên hàng': r.itemName,
-          'Tổ SX': r.team,
-          'Mã máy': r.machineCode,
-          'Kế hoạch': r.planQty,
-          'Thực tế': r.actualQty,
-          'Đạt KCS': r.passQty,
-          'Phế phẩm': r.defectQty,
-          'Tỷ lệ đạt (%)': r.passRate,
-          'Thời gian (phút)': r.durationMinutes,
-          'Giờ chạy (h)': r.runtimeHours,
-          'Nguồn ghi nhận': r.source,
-          'Trạng thái': r.status
-        }))
-      )
-      XLSX.utils.book_append_sheet(wb, wsDetail, 'Chi_Tiet_Toan_Trinh')
-
-      const fName = `BaoCao_ToanTrinh_${reportType.toUpperCase()}_${factoryCode}_${dateRange[0]}_${dateRange[1]}.xlsx`
-      XLSX.writeFile(wb, fName)
-    } catch (err) {
-      console.error('Lỗi xuất Excel:', err)
-      alert('Không thể xuất file Excel: ' + err.message)
     }
+
+    await saveWorkbookToFile(wb, fileName, saveDirectory, { overwriteExisting })
   }
 
+  const handleExportExcel = handleOpenExportModal
+
   const handleCaptureScreenshot = async () => {
-    if (!reportRootRef.current) return
-    setIsCapturing(true)
-    try {
-      const plantTitle = factoryCode === 'GS5' ? 'GS5_QueVo' : 'GS1_HaNoi'
-      await captureReportScreenshot(
-        reportRootRef.current,
-        `BaoCao_ToanTrinh_${plantTitle}_${dateRange[0]}_${dateRange[1]}`
-      )
-    } catch (err) {
-      console.error('Lỗi chụp ảnh:', err)
-    } finally {
-      setIsCapturing(false)
-    }
+    const el = reportRootRef.current
+    if (!el) return
+    const plantTitle = factoryCode === 'GS5' ? 'GS5_QueVo' : 'GS1_HaNoi'
+    const dateStr =
+      dateRange?.[0] && dateRange?.[1]
+        ? `${dateRange[0]}_${dateRange[1]}`
+        : new Date().toISOString().slice(0, 10)
+    await captureReportScreenshot({
+      targetEl: el,
+      fileName: `BaoCao_ToanTrinh_${plantTitle}_${dateStr}`,
+      onStart: () => setIsCapturing(true),
+      onEnd: () => setIsCapturing(false),
+      onError: (err) => alert('Không thể xuất ảnh: ' + (err?.message || 'Lỗi chụp màn hình'))
+    })
   }
 
   const currentPlantName = useMemo(() => {
@@ -1326,6 +1661,9 @@ function getMasterEffectiveDate(item) {
     detailTotalStdMeters,
     detailTotalRuntime,
     handleExportExcel,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportTimelineExcel,
     handleCaptureScreenshot,
     currentPlantName,
     fetchTimelineData,

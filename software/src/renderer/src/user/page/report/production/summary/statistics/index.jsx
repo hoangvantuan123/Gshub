@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types */
 import { gridCustomCss } from '../../hanoiGs1/stat/components/reportUIComponents'
 import { FormulaHandbookModal } from '../../handbook/FormulaHandbookModal'
+import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import { useSummaryStatisticsLogic } from './hooks/useSummaryStatisticsLogic'
 import { SummaryTopControlBar } from '../common/SummaryTopControlBar'
 import { HeroKpiCards } from '../../timelineSummary/components/HeroKpiCards'
@@ -22,6 +23,13 @@ export default function SummaryStatisticsReportPage() {
     selectedMasterKey,
     setSelectedMasterKey,
     masterOptions,
+    selectedTeam,
+    setSelectedTeam,
+    selectedMachine,
+    setSelectedMachine,
+    selectedPic,
+    setSelectedPic,
+    filterOptions,
     loading,
     fetchTimelineData,
     showDailySummaryTable,
@@ -50,6 +58,12 @@ export default function SummaryStatisticsReportPage() {
     teamAggregates,
     teamGrandTotal,
     missingAutoExportTickets,
+    displayDetailList,
+    detailGridCols,
+    handleExportExcel,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportSummaryExcel,
     handleCaptureScreenshot,
     handleDownloadSingleChart,
     currentPlantName,
@@ -93,11 +107,18 @@ export default function SummaryStatisticsReportPage() {
               selectedMasterKey={selectedMasterKey}
               setSelectedMasterKey={setSelectedMasterKey}
               masterOptions={masterOptions}
+              selectedTeam={selectedTeam}
+              setSelectedTeam={setSelectedTeam}
+              teamOptions={filterOptions?.teams || []}
+              selectedMachine={selectedMachine}
+              setSelectedMachine={setSelectedMachine}
+              machineOptions={filterOptions?.machines || []}
+              selectedPic={selectedPic}
+              setSelectedPic={setSelectedPic}
+              picOptions={filterOptions?.pics || []}
               loading={loading}
               fetchData={fetchTimelineData}
-              handleExportExcel={
-                handleDownloadSingleChart ? () => handleDownloadSingleChart('report-excel') : null
-              }
+              handleExportExcel={handleExportExcel}
               setIsHandbookModalOpen={setIsHandbookModalOpen}
               handleCaptureScreenshot={handleCaptureScreenshot}
               isCapturing={isCapturing}
@@ -158,7 +179,7 @@ export default function SummaryStatisticsReportPage() {
                 <>
                   <span>•</span>
                   <span>
-                    <b>Phạm vi thống kê:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays} ngày)
+                    <b>Phạm vi ngày đăng ký:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays} ngày)
                   </span>
                 </>
               )}
@@ -235,6 +256,24 @@ export default function SummaryStatisticsReportPage() {
             open={isHandbookModalOpen}
             onClose={() => setIsHandbookModalOpen(false)}
             defaultReportType="stat"
+          />
+
+          {/* MODAL XUẤT EXCEL CHUẨN */}
+          <ExportExcelModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            title="XÁC NHẬN XUẤT EXCEL - TỔNG HỢP THỐNG KÊ SẢN XUẤT"
+            reportName={`Báo cáo Tổng hợp TKSX (${factoryCode === 'GS5' ? 'GS Quế Võ' : 'GS Hà Nội'})`}
+            totalRows={(displayDetailList || []).length}
+            loadedCount={(displayDetailList || []).length}
+            columns={detailGridCols}
+            activeFilters={{
+              FactoryName: factoryCode === 'GS5' ? 'GS Quế Võ' : 'GS Hà Nội',
+              FromDate: dateRange?.[0] || '',
+              ToDate: dateRange?.[1] || ''
+            }}
+            defaultFileName={`BaoCao_TongHop_TKSX_${factoryCode === 'GS5' ? 'GS5_QueVo' : 'GS1_HaNoi'}_${new Date().toISOString().slice(0, 10)}.xlsx`}
+            onConfirmExport={executeExportSummaryExcel}
           />
         </div>
       </div>

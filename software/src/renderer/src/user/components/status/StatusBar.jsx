@@ -202,6 +202,8 @@ const StatusBar = ({ rootMenu, menuTransForm, userName }) => {
 
       {/* Khối bên phải: Thống kê trạng thái A U E + Chỉ số dữ liệu & Hệ thống */}
       <div className="flex items-center text-[9px] font-medium uppercase h-full shrink-0 ml-2">
+       
+
         {/* Thống kê trạng thái dòng dữ liệu trên bảng (A, U, E) */}
         <div className="flex items-center gap-2 px-2.5 h-full border-l border-gray-200 select-none text-[9.5px]">
           <span

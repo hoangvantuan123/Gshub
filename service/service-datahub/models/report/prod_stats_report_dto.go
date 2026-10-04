@@ -163,8 +163,12 @@ type ProdStatsDetailReportItem struct {
 type ProdStatsReportResponse struct {
 	Summary             ProdStatsSummary            `json:"summary"`
 	ChartByTeam         []TeamStatAggregate         `json:"chartByTeam"`
+	TeamBreakdown       []TeamStatAggregate         `json:"teamBreakdown"`
 	ChartByMachine      []MachineStatAggregate      `json:"chartByMachine"`
+	MachineBreakdown    []MachineStatAggregate      `json:"machineBreakdown"`
 	ChartByDay          []DailyStatAggregate        `json:"chartByDay"`
+	DailyTrendData      []DailyStatAggregate        `json:"dailyTrendData"`
+	DailyAggregates     []DailyStatAggregate        `json:"dailyAggregates"`
 	SyncDelayBreakdown  []SyncDelayGroupItem        `json:"syncDelayBreakdown"`
 	AutoExportBreakdown []AutoExportGroupItem       `json:"autoExportBreakdown"`
 	FilterOptions       FilterOptionList            `json:"filterOptions"`

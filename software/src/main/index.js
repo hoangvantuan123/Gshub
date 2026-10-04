@@ -1,4 +1,13 @@
-import { app, shell, BrowserWindow, ipcMain, screen, globalShortcut, clipboard } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  screen,
+  globalShortcut,
+  clipboard,
+  dialog
+} from 'electron'
 import { join } from 'path'
 import path from 'path'
 import fs from 'fs'
@@ -575,6 +584,94 @@ ipcMain.handle('save-binary-file', async (event, filePath, bufferBase64) => {
     return 'Binary file saved successfully'
   } catch (error) {
     throw new Error(`Failed to save binary file: ${error.message}`)
+  }
+})
+
+ipcMain.handle('system:get-download-path', async () => {
+  try {
+    return app.getPath('downloads')
+  } catch {
+    return app.getPath('desktop')
+  }
+})
+
+ipcMain.handle('dialog:select-directory', async (event, defaultPath) => {
+  try {
+    const win =
+      BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow() || mainWindow
+    let safeDefault = defaultPath
+    if (!safeDefault || typeof safeDefault !== 'string' || !fs.existsSync(safeDefault)) {
+      try {
+        safeDefault = app.getPath('downloads')
+      } catch {
+        safeDefault = app.getPath('desktop')
+      }
+    }
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Chọn thư mục lưu file kết xuất',
+      defaultPath: safeDefault,
+      properties: ['openDirectory', 'createDirectory', 'promptToCreate']
+    })
+    if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+      return result.filePaths[0]
+    }
+    return null
+  } catch (err) {
+    console.error('Error selecting directory:', err)
+    return null
+  }
+})
+
+ipcMain.handle('dialog:show-save-dialog', async (event, options) => {
+  try {
+    const win =
+      BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow() || mainWindow
+    const result = await dialog.showSaveDialog(win, {
+      title: options?.title || 'Lưu file kết xuất',
+      defaultPath:
+        options?.defaultPath ||
+        path.join(app.getPath('downloads'), options?.defaultFileName || 'export.xlsx'),
+      filters: options?.filters || [
+        { name: 'Excel Workbook (*.xlsx)', extensions: ['xlsx'] },
+        { name: 'Excel 97-2003 (*.xls)', extensions: ['xls'] },
+        { name: 'All Files (*.*)', extensions: ['*'] }
+      ]
+    })
+    if (!result.canceled && result.filePath) {
+      return result.filePath
+    }
+    return null
+  } catch (err) {
+    console.error('Error in showSaveDialog:', err)
+    return null
+  }
+})
+
+ipcMain.handle('file:save-file-absolute', async (event, fullFilePath, base64Data, options = {}) => {
+  try {
+    let targetPath = fullFilePath
+    const dir = path.dirname(targetPath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+
+    const { overwriteExisting = true } = options || {}
+    if (!overwriteExisting && fs.existsSync(targetPath)) {
+      const ext = path.extname(targetPath)
+      const base = path.basename(targetPath, ext)
+      let counter = 1
+      while (fs.existsSync(path.join(dir, `${base} (${counter})${ext}`))) {
+        counter++
+      }
+      targetPath = path.join(dir, `${base} (${counter})${ext}`)
+    }
+
+    const buffer = Buffer.from(base64Data, 'base64')
+    await fs.promises.writeFile(targetPath, buffer)
+    return { success: true, filePath: targetPath }
+  } catch (error) {
+    console.error('Failed to save absolute file:', error)
+    return { success: false, error: error.message }
   }
 })
 

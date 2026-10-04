@@ -1,5 +1,6 @@
 import { gridCustomCss } from '../hanoiGs1/stat/components/reportUIComponents'
 import { FormulaHandbookModal } from '../handbook/FormulaHandbookModal'
+import ExportExcelModal from '../../../../components/modal/ExportExcelModal'
 import { useTimelineSummaryLogic } from './hooks/useTimelineSummaryLogic'
 import { TopControlBar } from './components/TopControlBar'
 import { HeroKpiCards } from './components/HeroKpiCards'
@@ -23,6 +24,11 @@ export default function TimelineSummaryReportPage() {
     selectedMasterKey,
     setSelectedMasterKey,
     masterOptions,
+    selectedTeam,
+    setSelectedTeam,
+    selectedMachine,
+    setSelectedMachine,
+    filterOptions,
     loading,
     fetchTimelineData,
     showDailySummaryTable,
@@ -51,6 +57,12 @@ export default function TimelineSummaryReportPage() {
     teamAggregates,
     teamGrandTotal,
     missingAutoExportTickets,
+    displayDetailList,
+    detailGridCols,
+    handleExportExcel,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportTimelineExcel,
     handleCaptureScreenshot,
     currentPlantName,
     totalDays,
@@ -86,8 +98,15 @@ export default function TimelineSummaryReportPage() {
             selectedMasterKey={selectedMasterKey}
             setSelectedMasterKey={setSelectedMasterKey}
             masterOptions={masterOptions}
+            selectedTeam={selectedTeam}
+            setSelectedTeam={setSelectedTeam}
+            teamOptions={filterOptions?.teams || []}
+            selectedMachine={selectedMachine}
+            setSelectedMachine={setSelectedMachine}
+            machineOptions={filterOptions?.machines || []}
             loading={loading}
             fetchTimelineData={fetchTimelineData}
+            handleExportExcel={handleExportExcel}
             setIsHandbookModalOpen={setIsHandbookModalOpen}
             handleCaptureScreenshot={handleCaptureScreenshot}
             isCapturing={isCapturing}
@@ -237,6 +256,24 @@ export default function TimelineSummaryReportPage() {
             open={isHandbookModalOpen}
             onClose={() => setIsHandbookModalOpen(false)}
             defaultReportType="stat"
+          />
+
+          {/* MODAL XUẤT EXCEL CHUẨN */}
+          <ExportExcelModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            title="XÁC NHẬN XUẤT EXCEL - BÁO CÁO TOÀN TRÌNH SẢN XUẤT"
+            reportName={`Báo cáo Toàn trình Diễn biến SX (${factoryCode === 'GS5' ? 'GS Quế Võ' : 'GS Hà Nội'})`}
+            totalRows={(displayDetailList || []).length}
+            loadedCount={(displayDetailList || []).length}
+            columns={detailGridCols}
+            activeFilters={{
+              FactoryName: factoryCode === 'GS5' ? 'GS Quế Võ' : 'GS Hà Nội',
+              FromDate: dateRange?.[0] || '',
+              ToDate: dateRange?.[1] || ''
+            }}
+            defaultFileName={`BaoCao_ToanTrinh_${reportType?.toUpperCase() || 'STAT'}_${factoryCode === 'GS5' ? 'GS5_QueVo' : 'GS1_HaNoi'}_${new Date().toISOString().slice(0, 10)}.xlsx`}
+            onConfirmExport={executeExportTimelineExcel}
           />
         </div>
       </div>

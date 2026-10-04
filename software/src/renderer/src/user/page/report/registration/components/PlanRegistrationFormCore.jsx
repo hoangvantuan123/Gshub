@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { Button } from '../../../../../components/ui/button'
 import {
   Loader2,
@@ -8,7 +8,9 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   Save,
-  RotateCw
+  RotateCw,
+  ChevronDown,
+  Check
 } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/vi'
@@ -24,6 +26,87 @@ import { parseStatisticsExcelFast } from '../statistics/utils/statisticsExcelPar
 import { parsePlanExcelFast } from '../plan/utils/planExcelParser'
 import { savePlanRegistration, queryPlanMaster } from '../services/planRegistrationService'
 import { usePageHotkeys } from '../../../../hooks/usePageHotkeys'
+
+const REPORT_TYPE_OPTIONS = [
+  { value: 'statistics', label: 'Thống kê sản xuất (TKSX)' },
+  { value: 'plan', label: 'Kế hoạch sản xuất (KHSX)' }
+]
+
+const FACTORY_OPTIONS = [
+  { value: 'GS1', label: 'GS1 - GS1 Hà Nội' },
+  { value: 'GS5', label: 'GS5 - GS5 Quế Võ 1B' }
+]
+
+/**
+ * ErpSelect - Custom dropdown phẳng chuẩn phong cách ERP, đồng bộ giao diện toàn hệ thống
+ */
+function ErpSelect({ value, onChange, options = [], disabled = false, placeholder = 'Chọn...' }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  const selectedOption = options.find((opt) => String(opt.value) === String(value)) || options[0]
+
+  return (
+    <div ref={containerRef} className="w-full h-full flex items-center relative min-w-0">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setIsOpen((prev) => !prev)}
+        className={`w-full h-full flex items-center justify-between text-xs bg-transparent border-none outline-none px-1 select-none font-sans ${
+          disabled ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:bg-slate-50'
+        }`}
+      >
+        <span className="truncate text-left font-medium text-slate-800">
+          {selectedOption?.label || placeholder}
+        </span>
+        {!disabled && (
+          <ChevronDown
+            size={13}
+            className={`text-slate-400 shrink-0 ml-1.5 transition-transform duration-150 stroke-[2] ${
+              isOpen ? 'rotate-180 text-blue-600' : ''
+            }`}
+          />
+        )}
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="absolute left-0 top-full mt-[1px] min-w-full w-max max-w-[360px] bg-white border border-slate-300 shadow-xl z-[99999] rounded-none py-0.5 overflow-y-auto select-none font-sans animate-in fade-in zoom-in-95 duration-75">
+          {options.map((opt) => {
+            const isSelected = String(opt.value) === String(value)
+            return (
+              <div
+                key={String(opt.value)}
+                onClick={() => {
+                  setIsOpen(false)
+                  onChange && onChange(opt.value)
+                }}
+                className={`px-3 py-1.5 text-xs cursor-pointer flex items-center justify-between gap-4 transition-colors whitespace-nowrap ${
+                  isSelected
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : 'text-slate-700 hover:bg-slate-100 font-normal'
+                }`}
+              >
+                <span>{opt.label}</span>
+                {isSelected && <Check size={12} className="text-white shrink-0 ml-2" />}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 /**
  * PlanRegistrationFormCore - Component Lõi Đăng ký & Nạp báo cáo (KHSX & TKSX)
@@ -481,6 +564,14 @@ export default function PlanRegistrationFormCore({
 
       {/* Query Header Form */}
       <div className="w-full bg-white border-b border-slate-200">
+        {/* Section Header đồng bộ với giao diện Bảng dữ liệu */}
+        <div className="flex items-center justify-between px-2 py-0.5 border-b border-slate-200 text-gray-900 select-none relative bg-white shrink-0">
+          <h2 className="text-[10px] italic text-indigo-600 font-bold uppercase flex items-center gap-1.5 py-0.5">
+            <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />
+            <span>Thông tin đăng ký báo cáo</span>
+          </h2>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 w-full border-b border-slate-200 bg-white">
           {/* Ô 1: Mã đăng ký */}
           <div className="flex items-center h-[28px] border-r border-slate-200 bg-white min-w-0">
@@ -507,15 +598,12 @@ export default function PlanRegistrationFormCore({
               {!isSaved && <span className="text-red-500 ml-0.5">*</span>}
             </div>
             <div className="flex-1 h-full flex items-center px-1">
-              <select
+              <ErpSelect
                 value={reportType}
                 disabled={isSaved}
-                onChange={(e) => handleReportTypeChange(e.target.value)}
-                className="w-full text-xs font-medium bg-transparent border-none outline-none cursor-pointer text-slate-800"
-              >
-                <option value="statistics">Thống kê sản xuất (TKSX)</option>
-                <option value="plan">Kế hoạch sản xuất (KHSX)</option>
-              </select>
+                options={REPORT_TYPE_OPTIONS}
+                onChange={handleReportTypeChange}
+              />
             </div>
           </div>
 
@@ -526,15 +614,12 @@ export default function PlanRegistrationFormCore({
               {!isSaved && <span className="text-red-500 ml-0.5">*</span>}
             </div>
             <div className="flex-1 h-full flex items-center px-1">
-              <select
+              <ErpSelect
                 value={factoryCode}
                 disabled={isSaved}
-                onChange={(e) => handleFactoryChange(e.target.value)}
-                className="w-full text-xs font-medium bg-transparent border-none outline-none cursor-pointer text-slate-800"
-              >
-                <option value="GS1">GS1 - GS1 Hà Nội</option>
-                <option value="GS5">GS5 - GS5 Quế Võ 1B</option>
-              </select>
+                options={FACTORY_OPTIONS}
+                onChange={handleFactoryChange}
+              />
             </div>
           </div>
 

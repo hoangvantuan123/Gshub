@@ -10,6 +10,12 @@ import { useDateFormat } from '../../../hooks/useDateFormat'
 import { usePageData } from '../../../../context/PageDataContext'
 import DataPageContainer from '../../../components/layout/DataPageContainer'
 import WindowsConfirmModal from '../../../components/modal/WindowsConfirmModal'
+import ExportExcelModal from '../../../components/modal/ExportExcelModal'
+import {
+  generateExcelWorkbook,
+  saveWorkbookToFile,
+  formatFilterSummary
+} from '../../../../utils/exportExcelUtils'
 import { openChildWindow } from '../../../../utils/openChildWindow'
 
 import { useProductionPlanColumns } from './columns/productionPlanColumns'
@@ -17,6 +23,7 @@ import PlanRegistrationTable from './components/PlanRegistrationTable'
 import PlanRegistrationActions from './components/PlanRegistrationActions'
 import PlanRegistrationQuery from './components/PlanRegistrationQuery'
 import AddPlanRegistrationModal from './components/AddPlanRegistrationModal'
+import { calculateSelectionStats } from '../../../hooks/useDataGridSheet'
 import {
   queryPlanMaster,
   savePlanRegistration,
@@ -36,9 +43,10 @@ export default function DailyPlanRegistrationPage({
 }) {
   const { t } = useTranslation()
   const { formatDate, formatDateTime } = useDateFormat()
-  const { setStatusMessage, setPageData } = usePageData()
+  const { setStatusMessage, setPageData, setSelectionStats } = usePageData() || {}
   const loadingBarRef = useRef(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
   const pagePerms = usePagePermissions({
     permissions,
@@ -115,17 +123,39 @@ export default function DailyPlanRegistrationPage({
       try {
         const res = await queryPlanMaster(filters)
         const dataList = res?.data || []
+        const pageInfo = res?.pageInfo || res?.raw?.pageInfo || {}
+        const total = Number(pageInfo?.total ?? pageInfo?.totalRows ?? dataList.length)
+        const totalAll = Number(pageInfo?.totalAll || total)
+
         setMasterGridData(dataList)
         setMasterNumRows(dataList.length)
         originalDataRef.current = dataList
 
+        const aCount = dataList.filter((r) => r.WorkingTag === 'A').length
+        const uCount = dataList.filter((r) => r.WorkingTag === 'U').length
+        const dCount = dataList.filter((r) => r.WorkingTag === 'D').length
+
         setPageData?.((prev) => ({
           ...prev,
-          total: dataList.length,
-          totalAll: res?.pageInfo?.totalAll || dataList.length,
+          total,
+          totalAll,
           loadedCount: dataList.length,
-          totalColumns: masterCols.length
+          totalColumns: masterCols.length,
+          page: pageInfo?.page || 1,
+          pageSize: pageInfo?.pageSize || dataList.length,
+          totalPages: pageInfo?.totalPages || 1,
+          rowStatusCounts: { aCount, uCount, dCount, eCount: 0 }
         }))
+
+        if (typeof setStatusMessage === 'function') {
+          setStatusMessage({
+            type: 'success',
+            text: t('Đã tải thành công {{loaded}} / {{total}} đợt đăng ký báo cáo', {
+              loaded: dataList.length.toLocaleString('vi-VN'),
+              total: total.toLocaleString('vi-VN')
+            })
+          })
+        }
 
         return dataList
       } catch (err) {
@@ -136,15 +166,77 @@ export default function DailyPlanRegistrationPage({
           ...prev,
           total: 0,
           totalAll: 0,
-          loadedCount: 0
+          loadedCount: 0,
+          rowStatusCounts: { aCount: 0, uCount: 0, dCount: 0, eCount: 0 }
         }))
+        if (typeof setStatusMessage === 'function') {
+          setStatusMessage({
+            type: 'error',
+            text: t('Lỗi nạp danh sách đăng ký báo cáo từ máy chủ!')
+          })
+        }
         return []
       } finally {
         loadingBarRef?.current?.complete?.()
       }
     },
-    [loadingBarRef, masterCols.length, setPageData]
+    [loadingBarRef, masterCols.length, setPageData, setStatusMessage, t]
   )
+
+  // Tự động tính toán chỉ số thống kê kiểu Excel khi bôi đen / chọn ô trên bảng Master
+  const statsRafRef = useRef(null)
+  useEffect(() => {
+    if (!setSelectionStats) return
+
+    if (statsRafRef.current) {
+      cancelAnimationFrame(statsRafRef.current)
+    }
+
+    statsRafRef.current = requestAnimationFrame(() => {
+      const stats = calculateSelectionStats(masterSelection, masterGridData, masterCols)
+      setSelectionStats(stats)
+    })
+
+    return () => {
+      if (statsRafRef.current) {
+        cancelAnimationFrame(statsRafRef.current)
+      }
+    }
+  }, [masterSelection, masterGridData, masterCols, setSelectionStats])
+
+  // Cập nhật thông tin Người tạo / Ngày tạo / Người sửa / Ngày sửa của dòng đang chọn xuống StatusBar
+  useEffect(() => {
+    const selectedRows = getSelectedRows()
+    if (selectedRows.length > 0 && masterGridData.length > 0) {
+      const firstRowIdx = selectedRows[0]
+      const rowItem = masterGridData[firstRowIdx]
+      if (rowItem) {
+        setPageData?.((prev) => ({
+          ...prev,
+          createdBy: rowItem.CreatedByName || rowItem.CreatedBy || '',
+          createdAt: rowItem.CreatedAt ? formatDateTime(rowItem.CreatedAt) : '',
+          updatedBy: rowItem.UpdatedByName || rowItem.UpdatedBy || '',
+          updatedAt: rowItem.UpdatedAt ? formatDateTime(rowItem.UpdatedAt) : ''
+        }))
+      }
+    }
+  }, [masterSelection, masterGridData, getSelectedRows, formatDateTime, setPageData])
+
+  // Dọn dẹp thống kê khi unmount
+  useEffect(() => {
+    return () => {
+      setSelectionStats && setSelectionStats(null)
+    }
+  }, [setSelectionStats])
+
+  // Đồng bộ số lượng cột và số dòng hiển thị vào PageData
+  useEffect(() => {
+    setPageData?.((prev) => ({
+      ...prev,
+      totalColumns: masterCols.length,
+      loadedCount: masterGridData.length
+    }))
+  }, [masterCols.length, masterGridData.length, setPageData])
 
   // Khởi tạo truy vấn danh sách Master khi load trang (chỉ 1 lần khi mount)
   useEffect(() => {
@@ -297,8 +389,8 @@ export default function DailyPlanRegistrationPage({
     searchValues
   ])
 
-  // ── 6. Xuất danh sách Master ra Excel ──
-  const handleExportExcel = useCallback(() => {
+  // ── 6. Mở Modal Xuất danh sách Master ra Excel ──
+  const handleOpenExportModal = useCallback(() => {
     if (!masterGridData || masterGridData.length === 0) {
       setStatusMessage?.({
         type: 'warning',
@@ -306,45 +398,71 @@ export default function DailyPlanRegistrationPage({
       })
       return
     }
-    try {
-      const exportData = masterGridData.map((row) => {
-        const reportTypeStr =
-          row.ReportType === 'statistics' || row.ReportType === 'tksx'
-            ? 'Thống kê sản xuất (TKSX)'
-            : row.ReportType === 'plan' || row.ReportType === 'khsx'
-              ? 'Kế hoạch sản xuất (KHSX)'
-              : row.ReportType || ''
+    setIsExportModalOpen(true)
+  }, [masterGridData, setStatusMessage])
 
-        return {
-          'Mã đăng ký': row.RegCode || '',
-          'Loại báo cáo': reportTypeStr,
-          'Mã nhà máy': row.FactoryCode || '',
-          'Nhà máy áp dụng': row.FactoryName || '',
-          'Ngày báo cáo': row.ApplyDate ? formatDate(row.ApplyDate, 'DD/MM/YYYY') : '',
-          'Tổng số dòng nạp': row.TotalRows || 0,
-          'Trạng thái': row.Status === 'published' ? 'Đã lưu / Đã phát hành' : row.Status || '',
-          'Mô tả / Ghi chú': row.Remark || '',
-          'Người đăng ký': row.CreatedByName || row.CreatedBy || '',
-          'Thời gian đăng ký': row.CreatedAt
-            ? formatDateTime(row.CreatedAt, 'DD/MM/YYYY HH:mm:ss')
-            : ''
+  const executeExportMasterExcel = useCallback(
+    async ({
+      scope,
+      fileName,
+      saveDirectory,
+      overwriteExisting,
+      includeHeaders,
+      exportableCols
+    }) => {
+      try {
+        let dataToExport = masterGridData
+        if (scope === 'selected') {
+          const selectedRows = masterSelection?.rows?.items || []
+          if (selectedRows.length > 0) {
+            const indices = []
+            selectedRows.forEach(([start, end]) => {
+              for (let i = start; i < Math.min(masterGridData.length, end); i++) {
+                indices.push(i)
+              }
+            })
+            dataToExport = indices.map((idx) => masterGridData[idx]).filter(Boolean)
+          } else if (masterSelection?.current?.range) {
+            const { y, height } = masterSelection.current.range
+            dataToExport = masterGridData.slice(y, Math.min(masterGridData.length, y + height))
+          }
         }
-      })
-      const ws = XLSX.utils.json_to_sheet(exportData)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'DanhSach_DangKy_BaoCao')
-      XLSX.writeFile(wb, `DanhSach_DangKy_BaoCao_${new Date().toISOString().slice(0, 10)}.xlsx`)
-      setStatusMessage?.({
-        type: 'success',
-        text: 'Đã xuất danh sách đợt đăng ký ra Excel thành công'
-      })
-    } catch (err) {
-      setStatusMessage?.({
-        type: 'error',
-        text: 'Xuất Excel thất bại: ' + (err?.message || err)
-      })
-    }
-  }, [masterGridData, formatDate, formatDateTime, setStatusMessage])
+
+        if (dataToExport.length === 0) {
+          throw new Error('Không có dòng dữ liệu nào để xuất Excel!')
+        }
+
+        const filterSummary = formatFilterSummary(searchValues, formatDate)
+
+        const wb = generateExcelWorkbook({
+          data: dataToExport,
+          columns: exportableCols || masterCols,
+          sheetName: 'DanhSach_DangKy_BaoCao',
+          reportTitle: t('DANH SÁCH ĐỢT ĐĂNG KÝ BÁO CÁO SẢN XUẤT (MASTER)'),
+          filterInfo: filterSummary,
+          includeHeaders: includeHeaders !== false,
+          formatDateFn: formatDate
+        })
+
+        const saveResult = await saveWorkbookToFile(wb, fileName, saveDirectory, {
+          overwriteExisting
+        })
+
+        setStatusMessage?.({
+          type: 'success',
+          text: `Đã xuất thành công ${dataToExport.length.toLocaleString('vi-VN')} dòng dữ liệu ra file [${saveResult?.filePath || fileName}]!`
+        })
+      } catch (err) {
+        console.error('Lỗi khi xuất file Excel:', err)
+        setStatusMessage?.({
+          type: 'error',
+          text: 'Xuất Excel thất bại: ' + (err?.message || err)
+        })
+        throw err
+      }
+    },
+    [masterGridData, masterSelection, searchValues, formatDate, masterCols, t, setStatusMessage]
+  )
 
   // ── Mở Form Đăng ký / Nạp mới: Electron -> Cửa sổ Windows con độc lập, Web -> Modal / Tab ──
   const handleOpenCreate = useCallback(() => {
@@ -426,7 +544,7 @@ export default function DailyPlanRegistrationPage({
             handleDeleteDataSheet={handleDeleteData}
             handleOpenAddModal={handleOpenCreate}
             handleOpenDetailWindow={() => handleOpenDetailWindow()}
-            handleExportExcel={handleExportExcel}
+            handleExportExcel={handleOpenExportModal}
             permissions={pagePerms}
           />
         }
@@ -473,6 +591,24 @@ export default function DailyPlanRegistrationPage({
           await fetchMasterData(searchValues)
         }}
         onSaveRegistration={handleSaveRegistration}
+      />
+
+      {/* Modal xác nhận xuất Excel */}
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title={t('XÁC NHẬN XUẤT EXCEL - DANH SÁCH ĐỢT ĐĂNG KÝ')}
+        reportName={t('Danh sách đợt đăng ký báo cáo sản xuất (Master)')}
+        totalRows={masterGridData.length}
+        loadedCount={masterGridData.length}
+        selectedCount={
+          masterSelection?.rows?.items?.reduce((acc, [s, e]) => acc + (e - s), 0) ||
+          (masterSelection?.current?.range?.height ? masterSelection.current.range.height : 0)
+        }
+        columns={masterCols}
+        activeFilters={searchValues}
+        defaultFileName={`DanhSach_DangKy_BaoCao_${new Date().toISOString().slice(0, 10)}.xlsx`}
+        onConfirmExport={executeExportMasterExcel}
       />
 
       {/* WindowsConfirmModal chuẩn hệ thống khi xóa */}

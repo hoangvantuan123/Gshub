@@ -1,7 +1,11 @@
 /* eslint-disable react/prop-types */
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import DynamicQueryBar from '../../../../components/query/core/DynamicQueryBar'
+
+const STORAGE_KEY = 'S_ERP_QUERY_FIELDS_plan_registration'
+
+const DEFAULT_VISIBLE_KEYS = ['FactoryName', 'ReportType', 'RegCode', 'ApplyDate']
 
 export default function PlanRegistrationQuery({
   searchValues = {},
@@ -14,7 +18,20 @@ export default function PlanRegistrationQuery({
   disabled = false
 }) {
   const { t } = useTranslation()
-  const [hiddenKeys] = useState(new Set())
+
+  // Lưu trạng thái các trường được hiển thị
+  const [visibleKeys, setVisibleKeys] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return new Set(parsed)
+        }
+      }
+    } catch {}
+    return new Set(DEFAULT_VISIBLE_KEYS)
+  })
 
   const allAvailableFields = useMemo(
     () => [
@@ -42,7 +59,7 @@ export default function PlanRegistrationQuery({
         key: 'RegCode',
         label: t('report.regCode', 'Mã đăng ký'),
         type: 'text',
-        placeholder: 'Nhập mã đăng ký (VD: KHSX_...)...'
+        placeholder: 'Nhập mã đăng ký...'
       },
       {
         key: 'ApplyDate',
@@ -55,63 +72,63 @@ export default function PlanRegistrationQuery({
         type: 'select',
         options: [
           { value: '', label: 'Tất cả trạng thái' },
-          { value: 'published', label: 'Đã phát hành / Đã lưu' }
+          { value: 'published', label: 'Đã phát hành / Đã lưu' },
+          { value: 'draft', label: 'Bản nháp' }
         ]
+      },
+      {
+        key: 'CreatedBy',
+        label: t('report.createdBy', 'Người đăng ký'),
+        type: 'text',
+        placeholder: 'Tên / mã người đăng ký...'
       }
     ],
     [t]
   )
 
-  const defaultFields = useMemo(() => {
-    return [
-      {
-        key: 'FactoryName',
-        label: t('report.factoryName', 'Nhà máy'),
-        type: 'select',
-        options: [
-          { value: '', label: 'Tất cả nhà máy' },
-          { value: 'GS1 Hà Nội', label: 'GS1 Hà Nội' },
-          { value: 'GS5 Quế Võ 1B', label: 'GS5 Quế Võ 1B' }
-        ],
-        visible: !hiddenKeys.has('FactoryName')
-      },
-      {
-        key: 'ReportType',
-        label: t('report.reportType', 'Loại báo cáo'),
-        type: 'select',
-        options: [
-          { value: '', label: 'Tất cả loại báo cáo' },
-          { value: 'plan', label: 'Kế hoạch sản xuất (KHSX)' },
-          { value: 'statistics', label: 'Thống kê sản xuất (TKSX)' }
-        ],
-        visible: !hiddenKeys.has('ReportType')
-      },
-      {
-        key: 'RegCode',
-        label: t('report.regCode', 'Mã đăng ký'),
-        type: 'text',
-        placeholder: 'Nhập mã đăng ký...',
-        visible: !hiddenKeys.has('RegCode')
-      },
-      {
-        key: 'ApplyDate',
-        label: t('report.applyDate', 'Ngày báo cáo'),
-        type: 'date',
-        visible: !hiddenKeys.has('ApplyDate')
+  // Bật/tắt cột tìm kiếm động
+  const handleToggleField = useCallback((fieldKey, isChecked) => {
+    setVisibleKeys((prev) => {
+      const next = new Set(prev)
+      if (isChecked) {
+        next.add(fieldKey)
+      } else {
+        next.delete(fieldKey)
       }
-    ]
-  }, [t, hiddenKeys])
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(next)))
+      } catch {}
+      return next
+    })
+  }, [])
+
+  // Đặt lại danh sách cột mặc định
+  const handleResetFields = useCallback(() => {
+    const next = new Set(DEFAULT_VISIBLE_KEYS)
+    setVisibleKeys(next)
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(next)))
+    } catch {}
+  }, [])
+
+  // Danh sách fields hiển thị
+  const renderedFields = useMemo(() => {
+    return allAvailableFields.map((f) => ({
+      ...f,
+      visible: visibleKeys.has(f.key)
+    }))
+  }, [allAvailableFields, visibleKeys])
 
   const currentValues = useMemo(() => {
+    const base = {}
+    allAvailableFields.forEach((f) => {
+      base[f.key] = searchValues[f.key] || ''
+    })
     return {
-      FactoryName: searchValues.FactoryName || '',
-      ReportType: searchValues.ReportType || '',
-      RegCode: searchValues.RegCode || '',
-      ApplyDate: searchValues.ApplyDate || '',
-      Status: searchValues.Status || '',
+      ...base,
       ...searchValues
     }
-  }, [searchValues])
+  }, [allAvailableFields, searchValues])
 
   const handleFieldChange = (key, value) => {
     setSearchValues((prev) => ({
@@ -121,18 +138,19 @@ export default function PlanRegistrationQuery({
   }
 
   return (
-    <DynamicQueryBar
-      fields={defaultFields}
-      dynamicFields={dynamicQueryFields}
-      allAvailableFields={allAvailableFields}
-      values={currentValues}
-      onChange={handleFieldChange}
-      onSearch={handleSearchData}
-      onReset={onResetQuery}
-      onAddField={onAddQueryField}
-      onRemoveField={onRemoveQueryField}
-      disabled={disabled}
-      storageKey="query_report_template_register"
-    />
+    <div className="w-full bg-white">
+      <DynamicQueryBar
+        fields={renderedFields}
+        allAvailableFields={allAvailableFields}
+        values={currentValues}
+        onChange={handleFieldChange}
+        onSearch={handleSearchData}
+        onReset={onResetQuery}
+        onToggleField={handleToggleField}
+        onResetFields={handleResetFields}
+        disabled={disabled}
+        columns={4}
+      />
+    </div>
   )
 }

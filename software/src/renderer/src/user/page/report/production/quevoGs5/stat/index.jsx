@@ -30,9 +30,7 @@ import ProductionStatisticsReport from './components/ProductionStatisticsReport'
 import { getCleanDate } from '../../../common/reportUtils'
 import {
   queryPlanMaster,
-  queryProdStatsDetail,
-  queryPlanDetail,
-  queryProductionStatisticsReport
+  queryQuevoGs5StatReport
 } from '../../../registration/services/planRegistrationService'
 import {
   getCachedMasters,
@@ -395,65 +393,30 @@ export default function QuevoGs5StatPage() {
 
     setLoading(true)
     try {
-      let rows = []
       const apiRegCode = master.RegCode || master.regCode
 
-      // 1. Ưu tiên gọi API Tổng Hợp từ Backend (Backend Aggregated Report API)
       if (apiRegCode) {
-        try {
-          const resAgg = await queryProductionStatisticsReport({
-            regCode: apiRegCode,
-            factoryCode: 'GS5',
-            pageSize: '10000'
-          })
-          if (resAgg?.data?.items && resAgg.data.items.length > 0) {
-            const beItems = resAgg.data.items
-            const mappedData = beItems.map((item, idx) => mapDBRowToStatItem(item, idx, master))
-            setCachedDetail(detailKey, mappedData)
-            setStatDataset(mappedData)
-            setDataSourceType('database')
-            setLoading(false)
-            return
-          }
-        } catch (errAgg) {
-          console.warn('Fallback sang truy vấn chi tiết TKSX GS5:', errAgg)
+        const resAgg = await queryQuevoGs5StatReport({
+          regCode: apiRegCode,
+          factoryCode: 'GS5',
+          pageSize: '10000'
+        })
+        const beItems =
+          resAgg?.data?.items ||
+          resAgg?.data?.data?.items ||
+          (Array.isArray(resAgg?.data) ? resAgg.data : [])
+        if (beItems && beItems.length > 0) {
+          const mappedData = beItems.map((item, idx) => mapDBRowToStatItem(item, idx, master))
+          setCachedDetail(detailKey, mappedData)
+          setStatDataset(mappedData)
+          setDataSourceType('database')
+          setLoading(false)
+          return
         }
       }
 
-      // 2. Fallback sang truy vấn trực tiếp bảng _ERPProdStatsDetail nếu cần
-      if (apiRegCode) {
-        try {
-          const resStats = await queryProdStatsDetail({ RegCode: apiRegCode, pageSize: '10000' })
-          if (resStats?.data && resStats.data.length > 0) {
-            rows = resStats.data
-          }
-        } catch (errStats) {
-          console.warn('Không tìm thấy trong ProdStatsDetail GS5:', errStats)
-        }
-
-        // 3. Nếu không có ở bảng TKSX, lấy từ _ERPPlanDetail (Chi tiết KHSX)
-        if (rows.length === 0) {
-          try {
-            const resPlan = await queryPlanDetail({ RegCode: apiRegCode, pageSize: '10000' })
-            if (resPlan?.data && resPlan.data.length > 0) {
-              rows = resPlan.data
-            }
-          } catch (errPlan) {
-            console.warn('Không tìm thấy trong PlanDetail GS5:', errPlan)
-          }
-        }
-      }
-
-      if (rows.length > 0) {
-        const mappedData = rows.map((item, idx) => mapDBRowToStatItem(item, idx, master))
-        setCachedDetail(detailKey, mappedData)
-        setStatDataset(mappedData)
-        setDataSourceType('database')
-      } else {
-        // Master rỗng dòng detail
-        setStatDataset([])
-        setDataSourceType('empty')
-      }
+      setStatDataset([])
+      setDataSourceType('empty')
     } catch (err) {
       console.error(`Lỗi tải chi tiết đợt GS5 ${regCode}:`, err)
       setStatDataset([])

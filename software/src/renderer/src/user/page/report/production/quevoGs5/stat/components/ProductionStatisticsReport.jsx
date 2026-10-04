@@ -18,7 +18,8 @@ import {
   ExternalLink,
   TableProperties,
   Eye,
-  EyeOff
+  EyeOff,
+  Filter
 } from 'lucide-react'
 import { openChildWindow } from '@renderer/utils/openChildWindow'
 import { Button } from '@renderer/components/ui/button'
@@ -39,6 +40,7 @@ import {
   LabelList
 } from 'recharts'
 import { DataEditor } from '@glideapps/glide-data-grid'
+import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import '@glideapps/glide-data-grid/dist/index.css'
 
 import {
@@ -58,6 +60,7 @@ import { useProductionStatisticsLogic } from '../hooks/useProductionStatisticsLo
 
 export default function ProductionStatisticsReport(props) {
   const {
+    plantKey = 'quevo_gs5',
     plantName = 'Nhà máy GS5 Quế Võ',
     dateRange: _propDateRange,
     onDateRangeChange: _propOnDateRangeChange,
@@ -76,6 +79,41 @@ export default function ProductionStatisticsReport(props) {
   const [autoExportTab, setAutoExportTab] = useState('breakdown') // 'breakdown' | 'missing_list'
   const [missingAutoExportSearchText, setMissingAutoExportSearchText] = useState('')
   const [copiedMissingAutoExport, setCopiedMissingAutoExport] = useState(false)
+
+  const storageKey = 'report_filter_state_quevo_gs5_stat'
+  const [showFilter, setShowFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey)
+      return saved !== null ? saved === 'true' : true
+    } catch {
+      return true
+    }
+  })
+
+  const toggleFilter = () => {
+    setShowFilter((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(storageKey, String(next))
+      } catch (e) {
+        console.warn('Lỗi lưu trạng thái bộ lọc:', e)
+      }
+      return next
+    })
+  }
+
+  // Tính số lượng bộ lọc đang hoạt động
+  const activeFilterList = useMemo(() => {
+    const list = []
+    if (plantName) {
+      list.push({ key: 'factory', label: 'Nhà máy', value: plantName })
+    }
+    if (selectedMasterKey) {
+      list.push({ key: 'master', label: 'Đợt TKSX', value: selectedMasterKey })
+    }
+    return list
+  }, [plantName, selectedMasterKey])
+  const activeFilterCount = activeFilterList.length
 
   const {
     // State
@@ -155,6 +193,9 @@ export default function ProductionStatisticsReport(props) {
     handleExportTeamExcel,
     handleExportDetailExcel,
     handleExportExcel,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportStatExcel,
     handleDownloadSingleChart,
     handleCaptureScreenshot,
 
@@ -305,63 +346,153 @@ export default function ProductionStatisticsReport(props) {
       </div>
 
       {/* 1. TOP TOOLBAR & CONTROLS (Chuẩn Action Toolbar ERP) */}
-      <div className="report-interactive-toolbar screenshot-hide w-full bg-white border-y border-slate-200 px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap mb-6">
-        <div className="flex items-center gap-2 flex-wrap">
-          {masterList && masterList.length > 0 ? (
-            <MasterBatchSearchSelect
-              masterList={masterList}
-              selectedMasterKey={selectedMasterKey}
-              onSelectMaster={onSelectMaster}
-              onRefreshMaster={onRefreshMaster}
-              loading={loadingMaster}
-            />
-          ) : (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-800 text-[11px] font-semibold">
-              <span>⚠️ Chưa có đợt TKSX nào được đăng ký cho {plantName || 'nhà máy'}</span>
+      <div className="report-interactive-toolbar screenshot-hide w-full bg-white border-b border-slate-200 mb-4">
+        {/* TẦNG 1: THANH ACTION TOOLBAR CHÍNH */}
+        <div className="w-full px-3 py-1.5 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleFilter}
+              className={`uppercase text-[11px] font-semibold transition-all duration-150 border gap-1.5 ${
+                showFilter
+                  ? 'text-blue-700 bg-blue-50/90 border-blue-300 shadow-xs'
+                  : activeFilterCount > 0
+                    ? 'text-blue-700 bg-blue-50/50 border-blue-200 hover:bg-blue-100 hover:border-blue-300'
+                    : 'text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+              title="Bấm để đóng/mở khung bộ lọc đổ xuống phía dưới"
+            >
+              <Filter
+                size={13}
+                className={activeFilterCount > 0 || showFilter ? 'text-blue-600' : 'text-slate-500'}
+              />
+              <span>{showFilter ? 'ĐÓNG BỘ LỌC' : 'BỘ LỌC'}</span>
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 text-[9.5px] font-mono font-bold bg-blue-600 text-white rounded-none leading-none shadow-xs">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </div>
+
+          {/* Nhóm nút tác vụ chuẩn ERP bên phải */}
+          <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenHandbook}
+              className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+              title="Mở cẩm nang công thức và giải thích thuật ngữ trong cửa sổ mới"
+            >
+              <BookOpen size={13} className="text-emerald-600" />
+              <span>CẨM NANG</span>
+            </Button>
+
+            {handleExportExcel && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExportExcel}
+                className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+                title="Xuất file Excel báo cáo"
+              >
+                <FileSpreadsheet size={13} className="text-emerald-600" />
+                <span>XUẤT EXCEL</span>
+              </Button>
+            )}
+
+            {handleCaptureScreenshot && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCaptureScreenshot}
+                disabled={isCapturing}
+                className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
+                title="Chụp ảnh toàn bộ báo cáo để xuất file PNG"
+              >
+                <Camera size={13} className="text-indigo-600" />
+                <span>{isCapturing ? 'ĐANG CHỤP...' : 'TẢI ẢNH BÁO CÁO'}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* TẦNG 2: KHUNG BỘ LỌC ĐỔ XUỐNG PHÍA DƯỚI (FLOATING SEGMENTED BAR) */}
+        {showFilter && (
+          <div className="w-full bg-slate-100/75 border-t border-slate-200 px-3 py-2.5 flex flex-col gap-2">
+            {/* Tiêu đề dạng text tinh gọn */}
+            <div className="w-full flex items-center justify-between gap-2 flex-wrap text-xs select-none">
+              <div className="flex items-center gap-1.5 text-[10px] italic text-indigo-600 font-bold uppercase py-0.5">
+                <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />
+                <span>Điều kiện lọc dữ liệu</span>
+                {activeFilterCount > 0 && (
+                  <span className="text-[10px] font-normal text-slate-500 lowercase not-italic ml-1">
+                    ({activeFilterCount} điều kiện đang bật)
+                  </span>
+                )}
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Nhóm nút tác vụ chuẩn ERP */}
-        <div className="flex items-center gap-1.5 flex-wrap ml-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenHandbook}
-            className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
-            title="Mở cẩm nang công thức và giải thích thuật ngữ trong cửa sổ mới"
-          >
-            <BookOpen size={13} className="text-emerald-600" />
-            <span>CẨM NANG</span>
-          </Button>
+            {/* Danh sách các khối lọc dạng Floating Card bo tròn mềm mại */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Khối 1: Nhà máy */}
+              <div className="inline-flex items-center bg-white rounded-md border border-slate-200/90 shadow-2xs h-[30px] px-1 hover:border-slate-300 transition-colors">
+                <span className="text-[11px] font-semibold text-slate-500 px-2 select-none whitespace-nowrap">
+                  Nhà máy
+                </span>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" />
+                <div className="px-2.5 flex items-center h-full">
+                  <span className="text-[11.5px] font-bold text-slate-800">
+                    {plantName || 'GS5 Quế Võ'}
+                  </span>
+                </div>
+              </div>
 
-          {handleExportExcel && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleExportExcel}
-              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
-              title="Xuất file Excel báo cáo"
-            >
-              <FileSpreadsheet size={13} className="text-emerald-600" />
-              <span>XUẤT EXCEL</span>
-            </Button>
-          )}
+              {/* Khối 2: Đợt TKSX */}
+              <div className="inline-flex items-center bg-white rounded-md border border-slate-200/90 shadow-2xs h-[30px] px-1 hover:border-slate-300 transition-colors">
+                <span className="text-[11px] font-semibold text-slate-500 px-2 select-none whitespace-nowrap">
+                  Đợt TKSX
+                </span>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" />
+                <div className="px-1 flex items-center h-full">
+                  {masterList && masterList.length > 0 ? (
+                    <MasterBatchSearchSelect
+                      masterList={masterList}
+                      selectedMasterKey={selectedMasterKey}
+                      onSelectMaster={onSelectMaster}
+                      onRefreshMaster={onRefreshMaster}
+                      loading={loadingMaster}
+                      style={{ border: 'none', borderRadius: 0, height: 26 }}
+                    />
+                  ) : (
+                    <span className="text-[11px] text-amber-700 font-semibold px-2">
+                      Chưa có đợt nạp
+                    </span>
+                  )}
+                </div>
+              </div>
 
-          {handleCaptureScreenshot && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCaptureScreenshot}
-              disabled={isCapturing}
-              className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
-              title="Chụp ảnh toàn bộ báo cáo để xuất file PNG"
-            >
-              <Camera size={13} className="text-indigo-600" />
-              <span>{isCapturing ? 'ĐANG CHỤP...' : 'TẢI ẢNH BÁO CÁO'}</span>
-            </Button>
-          )}
-        </div>
+              {/* Nút Làm mới / Refresh Master */}
+              {onRefreshMaster && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onRefreshMaster}
+                  disabled={loadingMaster}
+                  className="h-[30px] px-3.5 rounded-md uppercase text-[11px] font-semibold text-blue-700 hover:text-blue-800 hover:bg-blue-50/80 bg-white border border-slate-200/90 shadow-2xs transition-all"
+                  title="Làm mới dữ liệu đợt TKSX"
+                >
+                  <RotateCcw
+                    size={12}
+                    className={loadingMaster ? 'animate-spin text-blue-600' : 'text-blue-500'}
+                  />
+                  <span>LÀM MỚI</span>
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. MAIN REPORT HEADER */}
@@ -1428,12 +1559,7 @@ export default function ProductionStatisticsReport(props) {
                 align="right"
                 wrapperStyle={{ paddingBottom: 12, fontSize: 12, fontWeight: 700 }}
               />
-              <Bar
-                dataKey="actualQty"
-                name="SL Sản xuất thực tế"
-                fill="#01411b"
-                barSize={14}
-              >
+              <Bar dataKey="actualQty" name="SL Sản xuất thực tế" fill="#01411b" barSize={14}>
                 <LabelList
                   dataKey="actualQty"
                   position="right"
@@ -1441,12 +1567,7 @@ export default function ProductionStatisticsReport(props) {
                   style={{ fill: '#01411b', fontSize: 10, fontWeight: 700 }}
                 />
               </Bar>
-              <Bar
-                dataKey="passQty"
-                name="SL Đạt KCS"
-                fill="#166534"
-                barSize={14}
-              >
+              <Bar dataKey="passQty" name="SL Đạt KCS" fill="#166534" barSize={14}>
                 <LabelList
                   dataKey="passQty"
                   position="right"
@@ -1454,12 +1575,7 @@ export default function ProductionStatisticsReport(props) {
                   style={{ fill: '#166534', fontSize: 10, fontWeight: 700 }}
                 />
               </Bar>
-              <Bar
-                dataKey="defectQty"
-                name="SL Lỗi / Phế phẩm"
-                fill="#be123c"
-                barSize={14}
-              >
+              <Bar dataKey="defectQty" name="SL Lỗi / Phế phẩm" fill="#be123c" barSize={14}>
                 <LabelList
                   dataKey="defectQty"
                   position="right"
@@ -3003,6 +3119,23 @@ export default function ProductionStatisticsReport(props) {
         isOpen={showFormulaModal}
         onClose={() => setShowFormulaModal(false)}
         defaultReportType="stat"
+      />
+
+      {/* MODAL XUẤT EXCEL CHUẨN */}
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title="XÁC NHẬN XUẤT EXCEL - CHI TIẾT THỐNG KÊ SẢN XUẤT"
+        reportName={`Báo cáo Thống kê Sản xuất (${plantKey})`}
+        totalRows={(displayDetailList || []).length}
+        loadedCount={(displayDetailList || []).length}
+        columns={detailGridCols}
+        activeFilters={{
+          FactoryName: plantName || (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội'),
+          MasterKey: selectedMasterKey || ''
+        }}
+        defaultFileName={`NhatTrinh_ChiTiet_ThongKe_SanXuat_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`}
+        onConfirmExport={executeExportStatExcel}
       />
     </div>
   )

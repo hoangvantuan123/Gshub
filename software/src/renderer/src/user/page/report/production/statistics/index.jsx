@@ -8,6 +8,7 @@ import { usePageHotkeys } from '../../../../hooks/usePageHotkeys'
 import { usePagePermissions } from '../../../../hooks/usePagePermissions'
 import DataPageContainer from '../../../../components/layout/DataPageContainer'
 import WindowsConfirmModal from '../../../../components/modal/WindowsConfirmModal'
+import ExportExcelModal from '../../../../components/modal/ExportExcelModal'
 
 import { useProductionStatisticsColumns } from './columns/productionStatisticsColumns'
 import { useProductionStatistics } from './hooks/useProductionStatistics'
@@ -74,6 +75,9 @@ export default function ProductionStatisticsView({
     handleSaveData,
     handleDeleteDataSheet,
     handleExportExcel,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportStatExcel,
     handlePrint,
     handleOpenPublicLink,
     showConfirmModal,
@@ -156,6 +160,16 @@ export default function ProductionStatisticsView({
             onAddQueryField={handleAddQueryField}
           />
         }
+      />
+
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={executeExportStatExcel}
+        defaultFileName={`BaoCao_ThongKe_SX_${plantKey}_${new Date().toISOString().slice(0, 10)}`}
+        totalRows={gridData.length}
+        selectedCount={getSelectedRows().length}
+        columns={cols}
       />
 
       <WindowsConfirmModal

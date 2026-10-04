@@ -290,7 +290,15 @@ export default function useTableManager(arg1, arg2, arg3, arg4, arg5, arg6) {
         }
       }
 
-      // 3. Ctrl + Shift + C: Sao chép kèm tiêu đề cột
+      // 3. Ctrl + C: Sao chép dữ liệu (không kèm tiêu đề)
+      if (isCtrlOrMeta && !event.shiftKey && !event.altKey && key === 'c') {
+        event.preventDefault()
+        event.stopPropagation()
+        copySelection({ includeHeaders: false })
+        return
+      }
+
+      // 4. Ctrl + Shift + C: Sao chép kèm tiêu đề cột
       if (isCtrlOrMeta && event.shiftKey && key === 'c') {
         event.preventDefault()
         event.stopPropagation()
@@ -298,7 +306,7 @@ export default function useTableManager(arg1, arg2, arg3, arg4, arg5, arg6) {
         return
       }
 
-      // 4. Ctrl + F: Tìm kiếm theo kiến trúc bộ lọc truy vấn (Query Bar)
+      // 5. Ctrl + F: Tìm kiếm theo kiến trúc bộ lọc truy vấn (Query Bar)
       if (isCtrlOrMeta && key === 'f' && !event.shiftKey && !event.altKey) {
         const queryInput = document.querySelector(
           '.dynamic-query-bar input, [data-query-bar] input, input[placeholder*="Tìm"], input[placeholder*="Nhập"]'

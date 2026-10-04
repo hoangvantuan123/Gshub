@@ -30,7 +30,16 @@ const QueryDateRangeInput = memo(function QueryDateRangeInput({
     <RangePicker
       locale={viVN}
       value={parsedValue}
-      onChange={(dates) => onChange && onChange(field.key, dates)}
+      onChange={(dates, dateStrings) => {
+        if (!onChange) return
+        if (!dates || dates.length === 0) {
+          onChange(field.key, ['', ''])
+          return
+        }
+        const f0 = dates[0]?.format ? dates[0].format('YYYY-MM-DD') : (dateStrings?.[0] || '')
+        const f1 = dates[1]?.format ? dates[1].format('YYYY-MM-DD') : (dateStrings?.[1] || '')
+        onChange(field.key, [f0, f1])
+      }}
       disabled={disabled}
       format={displayFormat}
       size="small"

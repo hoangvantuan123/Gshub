@@ -161,7 +161,10 @@ export function useTableClipboard({ gridData = [], cols = [], selection = null }
    * 1. Sao chép vùng đang chọn (Cell range hoặc Selected rows)
    */
   const copySelection = useCallback(
-    async ({ includeHeaders = false, format = 'tsv' } = {}) => {
+    async (options = {}) => {
+      const isBool = typeof options === 'boolean'
+      const includeHeaders = isBool ? options : Boolean(options?.includeHeaders)
+      const format = typeof options === 'object' && options?.format ? options.format : 'tsv'
       const visibleCols = getVisibleColumns()
       if (visibleCols.length === 0 || !Array.isArray(gridData) || gridData.length === 0) {
         return false

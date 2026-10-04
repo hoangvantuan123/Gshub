@@ -167,7 +167,9 @@ export function PlanTeamProgressSection({
               <LabelList
                 dataKey="planQty"
                 position="right"
-                formatter={(v) => (v !== undefined && v !== null ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) =>
+                  v !== undefined && v !== null ? Number(v).toLocaleString('vi-VN') : ''
+                }
                 style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>
@@ -181,7 +183,9 @@ export function PlanTeamProgressSection({
               <LabelList
                 dataKey="actualQty"
                 position="right"
-                formatter={(v) => (v !== undefined && v !== null ? Number(v).toLocaleString('vi-VN') : '')}
+                formatter={(v) =>
+                  v !== undefined && v !== null ? Number(v).toLocaleString('vi-VN') : ''
+                }
                 style={{ fill: '#01411b', fontSize: 10, fontWeight: 700 }}
               />
             </Bar>

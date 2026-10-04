@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types, no-unused-vars */
 import { Search, Copy } from 'lucide-react'
 import { DataEditor } from '@glideapps/glide-data-grid'
 import { PureButton, executiveGridTheme } from '../../hanoiGs1/stat/components/reportUIComponents'

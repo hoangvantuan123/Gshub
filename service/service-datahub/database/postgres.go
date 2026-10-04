@@ -139,12 +139,26 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 	    ) LOOP
 	        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I TYPE TEXT USING %I::text', r.table_name, r.column_name, r.column_name);
 	    END LOOP;
+
+	    -- Đồng bộ sequence cho các bảng có cột Id tự tăng (tránh lỗi duplicate key AuditLog_pkey)
+	    FOR r IN (
+	        SELECT t.table_name, c.column_name
+	        FROM information_schema.tables t
+	        JOIN information_schema.columns c ON t.table_name = c.table_name AND t.table_schema = c.table_schema
+	        WHERE t.table_schema = 'public' AND c.column_name = 'Id'
+	    ) LOOP
+	        BEGIN
+	            EXECUTE format('SELECT setval(pg_get_serial_sequence(''"%s"'', ''Id''), COALESCE((SELECT MAX("Id") FROM "%s"), 0) + 1, false)', r.table_name, r.table_name);
+	        EXCEPTION WHEN OTHERS THEN
+	            -- Bỏ qua nếu bảng không dùng serial sequence
+	        END;
+	    END LOOP;
 	END $$;
 	`
 	if err := db.Exec(postUpgradeSQL).Error; err != nil {
-		log.Warn("Failed to verify detail columns as TEXT", zap.Error(err))
+		log.Warn("Failed to verify detail columns as TEXT / sync sequences", zap.Error(err))
 	} else {
-		log.Info("Database schema verified and upgraded successfully")
+		log.Info("Database schema verified and sequences synchronized successfully")
 	}
 
 	return nil

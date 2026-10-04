@@ -10,8 +10,14 @@ import { ensureStatusFirstColumn, SYSTEM_INTERNAL_HIDDEN_COLUMNS } from '../../u
 /**
  * Hàm tính toán chỉ số thống kê (Sum, Count, Average, Min, Max, Cột, Dòng) theo chuẩn Excel khi bôi đen / chọn vùng
  */
-function calculateSelectionStats(selection, gridData, cols) {
-  if (!selection || !gridData || gridData.length === 0 || !cols || cols.length === 0) {
+export function calculateSelectionStats(selection, gridData, cols) {
+  if (
+    !selection ||
+    !Array.isArray(gridData) ||
+    gridData.length === 0 ||
+    !Array.isArray(cols) ||
+    cols.length === 0
+  ) {
     return null
   }
 
@@ -21,7 +27,7 @@ function calculateSelectionStats(selection, gridData, cols) {
   let min = Infinity
   let max = -Infinity
   let totalProcessed = 0
-  const MAX_STATS_CELLS = 3000
+  const MAX_STATS_CELLS = 5000
 
   const rowsSet = new Set()
   const colsSet = new Set()
@@ -33,11 +39,15 @@ function calculateSelectionStats(selection, gridData, cols) {
     if (!rowData || !column) return
 
     totalProcessed++
-    const val = rowData[column.id]
+    const colKey = column.id || column.key || ''
+    if (!colKey) return
+
+    const val = rowData[colKey] ?? rowData[colKey.charAt(0).toLowerCase() + colKey.slice(1)]
     if (val !== undefined && val !== null && val !== '') {
       count++
-      const num = typeof val === 'number' ? val : Number(val)
-      if (!isNaN(num) && typeof val !== 'boolean') {
+      const cleanVal = typeof val === 'string' ? val.replace(/,/g, '').trim() : val
+      const num = typeof cleanVal === 'number' ? cleanVal : Number(cleanVal)
+      if (!isNaN(num) && typeof val !== 'boolean' && cleanVal !== '') {
         numericCount++
         sum += num
         if (num < min) min = num
@@ -46,85 +56,117 @@ function calculateSelectionStats(selection, gridData, cols) {
     }
   }
 
-  // 1. Vùng ô bôi đen qua chuột (Cell range)
+  // 1. Vùng ô bôi đen qua chuột (Cell range hoặc Single cell)
   if (selection.current) {
-    const { range, rangeStack } = selection.current
+    const { cell, range, rangeStack } = selection.current
     const ranges = [range, ...(rangeStack || [])].filter(Boolean)
-    for (let i = 0; i < ranges.length; i++) {
-      const r = ranges[i]
-      const endX = Math.min(cols.length, r.x + r.width)
-      const endY = Math.min(gridData.length, r.y + r.height)
-      for (let y = r.y; y < endY; y++) {
-        rowsSet.add(y)
-        for (let x = r.x; x < endX; x++) {
-          colsSet.add(x)
-          processCell(y, x)
+
+    if (ranges.length > 0) {
+      for (let i = 0; i < ranges.length; i++) {
+        const r = ranges[i]
+        const endX = Math.min(cols.length, r.x + r.width)
+        const endY = Math.min(gridData.length, r.y + r.height)
+        for (let y = r.y; y < endY; y++) {
+          rowsSet.add(y)
+          for (let x = r.x; x < endX; x++) {
+            colsSet.add(x)
+            processCell(y, x)
+            if (totalProcessed >= MAX_STATS_CELLS) break
+          }
           if (totalProcessed >= MAX_STATS_CELLS) break
         }
         if (totalProcessed >= MAX_STATS_CELLS) break
       }
-      if (totalProcessed >= MAX_STATS_CELLS) break
+    } else if (cell) {
+      const [colIdx, rowIdx] = cell
+      if (colIdx >= 0 && colIdx < cols.length && rowIdx >= 0 && rowIdx < gridData.length) {
+        rowsSet.add(rowIdx)
+        colsSet.add(colIdx)
+        processCell(rowIdx, colIdx)
+      }
     }
   }
 
   // 2. Dòng được chọn (Row selection)
-  if (
-    selection.rows &&
-    selection.rows.items &&
-    selection.rows.items.length > 0 &&
-    totalProcessed < MAX_STATS_CELLS
-  ) {
-    for (let i = 0; i < selection.rows.items.length; i++) {
-      const [startRow, endRow] = selection.rows.items[i]
-      const actualEndRow = Math.min(gridData.length, endRow)
-      for (let y = startRow; y < actualEndRow; y++) {
-        rowsSet.add(y)
-        for (let x = 0; x < cols.length; x++) {
-          colsSet.add(x)
-          processCell(y, x)
+  if (selection.rows && selection.rows.length > 0) {
+    if (selection.rows.items && selection.rows.items.length > 0) {
+      for (let i = 0; i < selection.rows.items.length; i++) {
+        const [startRow, endRow] = selection.rows.items[i]
+        const actualEndRow = Math.min(gridData.length, endRow)
+        for (let y = startRow; y < actualEndRow; y++) {
+          rowsSet.add(y)
+          for (let x = 0; x < cols.length; x++) {
+            colsSet.add(x)
+            processCell(y, x)
+            if (totalProcessed >= MAX_STATS_CELLS) break
+          }
           if (totalProcessed >= MAX_STATS_CELLS) break
         }
         if (totalProcessed >= MAX_STATS_CELLS) break
       }
-      if (totalProcessed >= MAX_STATS_CELLS) break
+    } else if (typeof selection.rows.toArray === 'function') {
+      const rowArr = selection.rows.toArray()
+      for (const y of rowArr) {
+        if (y < gridData.length) {
+          rowsSet.add(y)
+          for (let x = 0; x < cols.length; x++) {
+            colsSet.add(x)
+            processCell(y, x)
+            if (totalProcessed >= MAX_STATS_CELLS) break
+          }
+        }
+        if (totalProcessed >= MAX_STATS_CELLS) break
+      }
     }
   }
 
   // 3. Cột được chọn (Column selection)
-  if (
-    selection.columns &&
-    selection.columns.items &&
-    selection.columns.items.length > 0 &&
-    totalProcessed < MAX_STATS_CELLS
-  ) {
-    for (let i = 0; i < selection.columns.items.length; i++) {
-      const [startCol, endCol] = selection.columns.items[i]
-      const actualEndCol = Math.min(cols.length, endCol)
-      for (let x = startCol; x < actualEndCol; x++) {
-        colsSet.add(x)
-        for (let y = 0; y < gridData.length; y++) {
-          rowsSet.add(y)
-          processCell(y, x)
+  if (selection.columns && selection.columns.length > 0) {
+    if (selection.columns.items && selection.columns.items.length > 0) {
+      for (let i = 0; i < selection.columns.items.length; i++) {
+        const [startCol, endCol] = selection.columns.items[i]
+        const actualEndCol = Math.min(cols.length, endCol)
+        for (let x = startCol; x < actualEndCol; x++) {
+          colsSet.add(x)
+          for (let y = 0; y < gridData.length; y++) {
+            rowsSet.add(y)
+            processCell(y, x)
+            if (totalProcessed >= MAX_STATS_CELLS) break
+          }
           if (totalProcessed >= MAX_STATS_CELLS) break
         }
         if (totalProcessed >= MAX_STATS_CELLS) break
       }
-      if (totalProcessed >= MAX_STATS_CELLS) break
+    } else if (typeof selection.columns.toArray === 'function') {
+      const colArr = selection.columns.toArray()
+      for (const x of colArr) {
+        if (x < cols.length) {
+          colsSet.add(x)
+          for (let y = 0; y < gridData.length; y++) {
+            rowsSet.add(y)
+            processCell(y, x)
+            if (totalProcessed >= MAX_STATS_CELLS) break
+          }
+        }
+        if (totalProcessed >= MAX_STATS_CELLS) break
+      }
     }
   }
 
-  if (count === 0 && colsSet.size === 0) return null
+  const totalCells = rowsSet.size * colsSet.size
+  if (count === 0 && totalCells === 0) return null
 
   return {
-    count,
+    count: count > 0 ? count : totalCells,
+    totalCells,
     numericCount,
     selectedColsCount: colsSet.size,
     selectedRowsCount: rowsSet.size,
     hasNumericStats: numericCount > 0,
     sum: numericCount > 0 ? sum : 0,
     average: numericCount > 0 ? sum / numericCount : 0,
-    min: numericCount > 0 ? min : 0,
-    max: numericCount > 0 ? max : 0
+    min: numericCount > 0 && min !== Infinity ? min : 0,
+    max: numericCount > 0 && max !== -Infinity ? max : 0
   }
 }
 

@@ -8,14 +8,25 @@ export default function DataPageContainer({
   query,
   table,
   queryTitle,
-  defaultOpenQuery = true
+  defaultOpenQuery = true,
+  children,
+  className = ''
 }) {
   const { t } = useTranslation()
+
+  if (children) {
+    return (
+      <>
+        {loadingBarRef && <TopLoadingBar color="blue" height={2} ref={loadingBarRef} />}
+        <div className={`bg-slate-50 h-full overflow-hidden ${className}`}>{children}</div>
+      </>
+    )
+  }
 
   return (
     <>
       {loadingBarRef && <TopLoadingBar color="blue" height={2} ref={loadingBarRef} />}
-      <div className="bg-slate-50 h-full overflow-hidden">
+      <div className={`bg-slate-50 h-full overflow-hidden ${className}`}>
         <div className="flex flex-col h-full">
           <div className="w-full rounded-lg">
             {actions && (

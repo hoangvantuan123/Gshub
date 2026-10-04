@@ -10,6 +10,9 @@ export const pageLoaders = {
   SummaryPlanReportPage: () => import('../../page/report/production/summary/plan'),
   TimelineSummaryReportPage: () => import('../../page/report/production/timelineSummary'),
   RegistrationPage: () => import('../../page/report/registration'),
+  PlanDetailQueryPage: () => import('../../page/report/registration/plan/PlanDetailQueryPage'),
+  StatDetailQueryPage: () =>
+    import('../../page/report/registration/statistics/StatDetailQueryPage'),
   PlanRegistrationDetailView: () =>
     import('../../page/report/registration/components/PlanRegistrationDetailView'),
   PlanRegistrationCreateView: () =>
@@ -26,6 +29,8 @@ const SummaryStatisticsReportPage = lazy(pageLoaders.SummaryStatisticsReportPage
 const SummaryPlanReportPage = lazy(pageLoaders.SummaryPlanReportPage)
 const TimelineSummaryReportPage = lazy(pageLoaders.TimelineSummaryReportPage)
 const RegistrationPage = lazy(pageLoaders.RegistrationPage)
+const PlanDetailQueryPage = lazy(pageLoaders.PlanDetailQueryPage)
+const StatDetailQueryPage = lazy(pageLoaders.StatDetailQueryPage)
 const PlanRegistrationDetailView = lazy(pageLoaders.PlanRegistrationDetailView)
 const PlanRegistrationCreateView = lazy(pageLoaders.PlanRegistrationCreateView)
 const FormulaHandbookPage = lazy(pageLoaders.FormulaHandbookPage)
@@ -42,6 +47,10 @@ export const routeToLoaderMap = {
   '/erp/u/report/production/timeline-summary/stat': pageLoaders.TimelineSummaryReportPage,
   '/erp/u/report/production/timeline-summary/plan': pageLoaders.SummaryPlanReportPage,
   '/erp/u/report/registration': pageLoaders.RegistrationPage,
+  '/erp/u/report/plan-query': pageLoaders.PlanDetailQueryPage,
+  '/erp/u/report/stat-query': pageLoaders.StatDetailQueryPage,
+  '/erp/u/report/registration/plan-query': pageLoaders.PlanDetailQueryPage,
+  '/erp/u/report/registration/stat-query': pageLoaders.StatDetailQueryPage,
   '/erp/u/report/registration/create': pageLoaders.PlanRegistrationCreateView,
   '/erp/u/report/registration/detail': pageLoaders.PlanRegistrationDetailView,
   '/erp/u/report/handbook/formula': pageLoaders.FormulaHandbookPage,
@@ -236,6 +245,54 @@ export const systemsRoutes = [
   {
     path: '/erp/u/report/registration/detail/:regCode',
     element: PlanRegistrationDetailView,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/plan-query',
+    element: PlanDetailQueryPage,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/plan-query/*',
+    element: PlanDetailQueryPage,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/registration/plan-query',
+    element: PlanDetailQueryPage,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/registration/plan-query/*',
+    element: PlanDetailQueryPage,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/stat-query',
+    element: StatDetailQueryPage,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/stat-query/*',
+    element: StatDetailQueryPage,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/registration/stat-query',
+    element: StatDetailQueryPage,
+    permission: 'report_registration',
+    public: true
+  },
+  {
+    path: '/erp/u/report/registration/stat-query/*',
+    element: StatDetailQueryPage,
     permission: 'report_registration',
     public: true
   },

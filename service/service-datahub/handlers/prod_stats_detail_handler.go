@@ -199,8 +199,27 @@ func (h *ProdStatsDetailHandler) ProdStatsDetailD(c *gin.Context) {
 	})
 }
 
-// GetProductionStatisticsReport - API Endpoint cung cấp dữ liệu báo cáo Thống Kê Sản Xuất hoàn chỉnh cho FE
+// GetHanoiGs1StatReport - API Endpoint riêng biệt cho Báo Cáo TKSX GS1 Hà Nội
+func (h *ProdStatsDetailHandler) GetHanoiGs1StatReport(c *gin.Context) {
+	filters := h.extractFilters(c)
+	filters["factoryCode"] = "GS1"
+	h.executeReport(c, filters)
+}
+
+// GetQuevoGs5StatReport - API Endpoint riêng biệt cho Báo Cáo TKSX GS5 Quế Võ
+func (h *ProdStatsDetailHandler) GetQuevoGs5StatReport(c *gin.Context) {
+	filters := h.extractFilters(c)
+	filters["factoryCode"] = "GS5"
+	h.executeReport(c, filters)
+}
+
+// GetProductionStatisticsReport - API Endpoint cung cấp dữ liệu báo cáo Thống Kê Sản Xuất hoàn chỉnh cho FE (tương thích ngược)
 func (h *ProdStatsDetailHandler) GetProductionStatisticsReport(c *gin.Context) {
+	filters := h.extractFilters(c)
+	h.executeReport(c, filters)
+}
+
+func (h *ProdStatsDetailHandler) extractFilters(c *gin.Context) map[string]string {
 	filters := make(map[string]string)
 	for k, v := range c.Request.URL.Query() {
 		if len(v) > 0 {
@@ -218,7 +237,10 @@ func (h *ProdStatsDetailHandler) GetProductionStatisticsReport(c *gin.Context) {
 			}
 		}
 	}
+	return filters
+}
 
+func (h *ProdStatsDetailHandler) executeReport(c *gin.Context, filters map[string]string) {
 	reportData, err := h.svc.GenerateProductionStatisticsReport(c.Request.Context(), filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

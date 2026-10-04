@@ -38,16 +38,22 @@ type PlanStatusBreakdownItem struct {
 
 // PicPlanAggregate: Thống kê hiệu suất theo PIC Điều Phối
 type PicPlanAggregate struct {
-	Pic            string  `json:"pic"`            // Tên nhân sự điều phối
-	PicName        string  `json:"picName"`        // Alias
-	TotalOrders    int     `json:"totalOrders"`    // Tổng số lệnh giao
-	PlanQty        float64 `json:"planQty"`        // Sản lượng kế hoạch
-	ActualQty      float64 `json:"actualQty"`      // Sản lượng thực tế
-	PassRate       float64 `json:"passRate"`       // % Hoàn thành
-	SxSaiNgayCount int     `json:"sxSaiNgayCount"` // Lệnh sai ngày
-	TruotKhCount   int     `json:"truotKhCount"`   // Lệnh trượt
-	KhopSlCount    int     `json:"khopSlCount"`    // Lệnh khớp SL
-	KhopJobCount   int     `json:"khopJobCount"`   // Lệnh khớp job
+	Pic               string  `json:"pic"`               // Tên nhân sự điều phối
+	PicName           string  `json:"picName"`           // Alias
+	TotalOrders       int     `json:"totalOrders"`       // Tổng số lệnh giao
+	PlanQty           float64 `json:"planQty"`           // Sản lượng kế hoạch
+	ActualQty         float64 `json:"actualQty"`         // Sản lượng thực tế
+	PassRate          float64 `json:"passRate"`          // % Hoàn thành
+	SxSaiNgayCount    int     `json:"sxSaiNgayCount"`    // Lệnh sai ngày
+	SxSaiNgayRate     float64 `json:"sxSaiNgayRate"`     // % Lệnh sai ngày
+	TruotKhCount      int     `json:"truotKhCount"`      // Lệnh trượt
+	TruotKhRate       float64 `json:"truotKhRate"`       // % Lệnh trượt
+	KhopSlCount       int     `json:"khopSlCount"`       // Lệnh khớp SL
+	KhopSlRate        float64 `json:"khopSlRate"`        // % Lệnh khớp SL
+	KhopJobCount      int     `json:"khopJobCount"`      // Lệnh khớp job
+	KhopJobRate       float64 `json:"khopJobRate"`       // % Lệnh khớp job
+	PassBenchmarkRate float64 `json:"passBenchmarkRate"` // % Khớp tổng cộng (Khớp SL + Khớp Job)
+	KhopRate          float64 `json:"khopRate"`          // Alias % Khớp tổng cộng
 }
 
 // TeamPlanAggregate: Thống kê theo Tổ Sản Xuất

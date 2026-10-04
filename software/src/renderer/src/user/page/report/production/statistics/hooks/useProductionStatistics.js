@@ -3,6 +3,11 @@ import { message, notification } from 'antd'
 import { useTranslation } from 'react-i18next'
 import * as XLSX from 'xlsx'
 import { initialHanoiGs1Stats, initialQuevoGs5Stats } from '../../../common/reportUtils'
+import {
+  generateExcelWorkbook,
+  saveWorkbookToFile,
+  formatFilterSummary
+} from '../../../../../../utils/exportExcelUtils'
 
 export function useProductionStatistics({
   plantKey = 'hanoi_gs1',
@@ -413,31 +418,93 @@ export function useProductionStatistics({
     message.success(t('Đã xóa {{count}} dòng được chọn', { count: selected.length }))
   }, [canDelete, getSelectedRows, gridData, setGridData, setNumRows, t])
 
-  // Xuất Excel
-  const handleExportExcel = useCallback(() => {
+  // ── Quản lý Modal Xuất Excel ──
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+
+  const handleOpenExportModal = useCallback(() => {
     if (!gridData || gridData.length === 0) {
       message.warning(t('Không có dữ liệu để xuất'))
       return
     }
-    try {
-      const exportData = gridData.map((row) => {
-        const copy = { ...row }
-        delete copy.WorkingTag
-        return copy
-      })
-      const ws = XLSX.utils.json_to_sheet(exportData)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'ThongKeSanXuat')
-      XLSX.writeFile(
-        wb,
-        `BaoCao_ThongKe_SX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`
-      )
-      message.success(t('Đã xuất file Excel thành công'))
-    } catch (err) {
-      console.error(err)
-      message.error(t('Xuất Excel thất bại'))
-    }
-  }, [gridData, plantKey, t])
+    setIsExportModalOpen(true)
+  }, [gridData, t])
+
+  const executeExportStatExcel = useCallback(
+    async ({
+      fileName,
+      saveDirectory,
+      overwriteExisting,
+      includeHeaders,
+      exportScope = 'all',
+      exportableCols
+    }) => {
+      try {
+        const selectedIndices = getSelectedRows?.() || []
+        let targetData = gridData
+        if (exportScope === 'selected' && selectedIndices.length > 0) {
+          targetData = selectedIndices.map((idx) => gridData[idx]).filter(Boolean)
+        }
+
+        const plantDisplayName = plantKey === 'quevo_gs5' ? 'GS5 Quế Võ' : 'GS1 Hà Nội'
+        const reportTitle = `BÁO CÁO THỐNG KÊ SẢN XUẤT - ${plantDisplayName.toUpperCase()}`
+        const filterSummary = formatFilterSummary(searchValues)
+
+        const defaultColsToExport = [
+          { id: 'StatDate', name: 'Ngày Thống Kê', width: 110, group: 'Thông tin chung' },
+          { id: 'StatTicketNo', name: 'Số Phiếu TK', width: 140, group: 'Thông tin chung' },
+          { id: 'OperationNo', name: 'Mã Lệnh SX', width: 140, group: 'Lệnh sản xuất' },
+          { id: 'RoutingDocNo', name: 'Số Lệnh CĐ', width: 140, group: 'Lệnh sản xuất' },
+          { id: 'ItemCode', name: 'Mã Sản Phẩm', width: 130, group: 'Sản phẩm' },
+          { id: 'ItemName', name: 'Tên Sản Phẩm', width: 220, group: 'Sản phẩm' },
+          { id: 'Customer', name: 'Khách Hàng', width: 180, group: 'Sản phẩm' },
+          { id: 'OpTypeName', name: 'Công Đoạn', width: 150, group: 'Công đoạn & Máy' },
+          { id: 'MachineCode', name: 'Mã Máy', width: 120, group: 'Công đoạn & Máy' },
+          { id: 'MachineName', name: 'Tên Máy', width: 190, group: 'Công đoạn & Máy' },
+          { id: 'TeamName', name: 'Tổ Sản Xuất', width: 130, group: 'Nhân sự & Ca' },
+          { id: 'Shift', name: 'Ca SX', width: 80, group: 'Nhân sự & Ca' },
+          { id: 'MainWorker', name: 'Trưởng Ca / Thợ Chính', width: 150, group: 'Nhân sự & Ca' },
+          { id: 'Unit', name: 'ĐVT', width: 80, group: 'Sản lượng' },
+          { id: 'ProdQty', name: 'SL Sản Xuất', width: 110, group: 'Sản lượng' },
+          { id: 'PassQty', name: 'SL Đạt', width: 110, group: 'Sản lượng' },
+          { id: 'DefectQty', name: 'SL Hỏng', width: 100, group: 'Sản lượng' },
+          { id: 'DefectRate', name: 'Tỷ Lệ Hỏng', width: 100, group: 'Sản lượng' },
+          { id: 'ActualRunTime', name: 'Giờ Chạy Máy', width: 110, group: 'Thời gian & Lãng phí' },
+          {
+            id: 'TotalWasteMinutes',
+            name: 'Phút Lãng Phí',
+            width: 110,
+            group: 'Thời gian & Lãng phí'
+          },
+          { id: 'Status', name: 'Trạng Thái', width: 120, group: 'Trạng thái & Đồng bộ' },
+          {
+            id: 'AutoIoStatus',
+            name: 'Tự Động Xuất Nhập',
+            width: 130,
+            group: 'Trạng thái & Đồng bộ'
+          }
+        ]
+
+        const validCols = exportableCols || defaultColsToExport
+
+        const wb = generateExcelWorkbook({
+          data: targetData,
+          columns: validCols,
+          sheetName: 'ThongKeSanXuat',
+          reportTitle,
+          filterInfo: filterSummary,
+          includeHeaders: includeHeaders !== false
+        })
+
+        await saveWorkbookToFile(wb, fileName, saveDirectory, { overwriteExisting })
+        message.success(t('Xuất dữ liệu Excel thành công!'))
+      } catch (err) {
+        console.error('Export Excel failed:', err)
+        message.error(t('Xuất file thất bại: ') + (err?.message || 'Lỗi không xác định'))
+        throw err
+      }
+    },
+    [gridData, getSelectedRows, plantKey, searchValues, t]
+  )
 
   return {
     searchValues,
@@ -450,7 +517,13 @@ export function useProductionStatistics({
     handleRowAppend,
     handleSaveData,
     handleDeleteData,
-    handleExportExcel,
+    handleExportExcel: handleOpenExportModal,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportStatExcel,
+    showConfirmModal,
+    handleConfirmSearch: () => setShowConfirmModal(false),
+    handleCancelSearch: () => setShowConfirmModal(false),
     kpiStats
   }
 }

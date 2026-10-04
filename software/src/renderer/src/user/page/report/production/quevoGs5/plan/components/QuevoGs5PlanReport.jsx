@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types, no-unused-vars */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   RotateCcw,
   FileSpreadsheet,
@@ -38,6 +38,7 @@ import {
   ReferenceLine
 } from 'recharts'
 import { DataEditor } from '@glideapps/glide-data-grid'
+import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import '@glideapps/glide-data-grid/dist/index.css'
 
 import {
@@ -56,6 +57,7 @@ import { PlanPicAnalysisSection } from '../../../summary/plan/components/PlanPic
 
 export default function QuevoGs5PlanReport(props) {
   const {
+    plantKey = 'quevo_gs5',
     plantName = 'Nhà máy GS5 Quế Võ',
     masterList = [],
     selectedMasterKey,
@@ -67,7 +69,7 @@ export default function QuevoGs5PlanReport(props) {
 
   const logic = useQuevoGs5PlanLogic({
     dataset,
-    plantKey: 'quevo_gs5',
+    plantKey,
     plantName,
     maskText: (t) => t
   })
@@ -93,6 +95,19 @@ export default function QuevoGs5PlanReport(props) {
       return next
     })
   }
+
+  // Tính số lượng bộ lọc đang hoạt động
+  const activeFilterList = useMemo(() => {
+    const list = []
+    if (plantName) {
+      list.push({ key: 'factory', label: 'Nhà máy', value: plantName })
+    }
+    if (selectedMasterKey) {
+      list.push({ key: 'master', label: 'Đợt KHSX', value: selectedMasterKey })
+    }
+    return list
+  }, [plantName, selectedMasterKey])
+  const activeFilterCount = activeFilterList.length
 
   const {
     // Filters & State
@@ -149,6 +164,9 @@ export default function QuevoGs5PlanReport(props) {
 
     // Actions
     handleExportExcel,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportPlanExcel,
     handleDownloadSingleChart,
     handleCaptureScreenshot
   } = logic
@@ -234,15 +252,25 @@ export default function QuevoGs5PlanReport(props) {
               variant="ghost"
               size="sm"
               onClick={toggleFilter}
-              className={`uppercase text-[11px] font-semibold transition-colors ${
+              className={`uppercase text-[11px] font-semibold transition-all duration-150 border gap-1.5 ${
                 showFilter
-                  ? 'text-blue-700 bg-blue-50 hover:bg-blue-100 hover:text-blue-800'
-                  : 'text-slate-700 hover:text-slate-900'
+                  ? 'text-blue-700 bg-blue-50/90 border-blue-300 shadow-xs'
+                  : activeFilterCount > 0
+                    ? 'text-blue-700 bg-blue-50/50 border-blue-200 hover:bg-blue-100 hover:border-blue-300'
+                    : 'text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
               }`}
               title="Bấm để đóng/mở khung bộ lọc đổ xuống phía dưới"
             >
-              <Filter size={13} className={showFilter ? 'text-blue-600' : 'text-slate-500'} />
+              <Filter
+                size={13}
+                className={activeFilterCount > 0 || showFilter ? 'text-blue-600' : 'text-slate-500'}
+              />
               <span>{showFilter ? 'ĐÓNG BỘ LỌC' : 'BỘ LỌC'}</span>
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 text-[9.5px] font-mono font-bold bg-blue-600 text-white rounded-none leading-none shadow-xs">
+                  {activeFilterCount}
+                </span>
+              )}
             </Button>
           </div>
 
@@ -288,25 +316,43 @@ export default function QuevoGs5PlanReport(props) {
           </div>
         </div>
 
-        {/* TẦNG 2: KHUNG BỘ LỌC ĐỔ XUỐNG PHÍA DƯỚI */}
+        {/* TẦNG 2: KHUNG BỘ LỌC ĐỔ XUỐNG PHÍA DƯỚI (FLOATING SEGMENTED BAR) */}
         {showFilter && (
-          <div className="w-full bg-slate-50/80 border-t border-slate-200 px-3 py-2 flex items-center gap-3 flex-wrap">
-            <div className="inline-flex items-center border border-slate-300 bg-white divide-x divide-slate-300 shadow-sm flex-wrap">
-              {/* Nhà máy */}
-              <div className="flex items-center h-[28px]">
-                <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
+          <div className="w-full bg-slate-100/75 border-t border-slate-200 px-3 py-2.5 flex flex-col gap-2">
+            {/* Tiêu đề dạng text tinh gọn */}
+            <div className="w-full flex items-center justify-between gap-2 flex-wrap text-xs select-none">
+              <div className="flex items-center gap-1.5 text-[10px] italic text-indigo-600 font-bold uppercase py-0.5">
+                <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />
+                <span>Điều kiện lọc dữ liệu</span>
+                {activeFilterCount > 0 && (
+                  <span className="text-[10px] font-normal text-slate-500 lowercase not-italic ml-1">
+                    ({activeFilterCount} điều kiện đang bật)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Danh sách các khối lọc dạng Floating Card bo tròn mềm mại */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Khối 1: Nhà máy */}
+              <div className="inline-flex items-center bg-white rounded-md border border-slate-200/90 shadow-2xs h-[30px] px-1 hover:border-slate-300 transition-colors">
+                <span className="text-[11px] font-semibold text-slate-500 px-2 select-none whitespace-nowrap">
                   Nhà máy
-                </div>
-                <div className="px-2 flex items-center h-full" style={{ minWidth: 160 }}>
-                  <span className="text-[11.5px] font-bold text-slate-800">{plantName || 'GS5 Quế Võ'}</span>
+                </span>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" />
+                <div className="px-2.5 flex items-center h-full">
+                  <span className="text-[11.5px] font-bold text-slate-800">
+                    {plantName || 'GS5 Quế Võ'}
+                  </span>
                 </div>
               </div>
 
-              {/* Đợt KHSX */}
-              <div className="flex items-center h-[28px]">
-                <div className="bg-slate-100 border-r border-slate-300 h-full flex items-center px-2.5 font-semibold text-[11px] text-slate-700 select-none whitespace-nowrap">
+              {/* Khối 2: Đợt KHSX */}
+              <div className="inline-flex items-center bg-white rounded-md border border-slate-200/90 shadow-2xs h-[30px] px-1 hover:border-slate-300 transition-colors">
+                <span className="text-[11px] font-semibold text-slate-500 px-2 select-none whitespace-nowrap">
                   Đợt KHSX
-                </div>
+                </span>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" />
                 <div className="px-1 flex items-center h-full">
                   {masterList && masterList.length > 0 ? (
                     <MasterBatchSearchSelect
@@ -318,26 +364,29 @@ export default function QuevoGs5PlanReport(props) {
                       style={{ border: 'none', borderRadius: 0, height: 26 }}
                     />
                   ) : (
-                    <span className="text-[11px] text-amber-700 font-semibold px-2">Chưa có đợt nạp</span>
+                    <span className="text-[11px] text-amber-700 font-semibold px-2">
+                      Chưa có đợt nạp
+                    </span>
                   )}
                 </div>
               </div>
 
               {/* Nút Làm mới / Refresh Master */}
               {onRefreshMaster && (
-                <div className="flex items-center h-[28px]">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onRefreshMaster}
-                    disabled={loadingMaster}
-                    className="h-full rounded-none px-3 font-bold text-[11.5px] text-blue-700 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 transition-colors"
-                    title="Làm mới dữ liệu đợt KHSX"
-                  >
-                    <RotateCcw size={12} className={loadingMaster ? 'animate-spin text-blue-600' : 'text-blue-600'} />
-                    <span>LÀM MỚI</span>
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onRefreshMaster}
+                  disabled={loadingMaster}
+                  className="h-[30px] px-3.5 rounded-md uppercase text-[11px] font-semibold text-blue-700 hover:text-blue-800 hover:bg-blue-50/80 bg-white border border-slate-200/90 shadow-2xs transition-all"
+                  title="Làm mới dữ liệu đợt KHSX"
+                >
+                  <RotateCcw
+                    size={12}
+                    className={loadingMaster ? 'animate-spin text-blue-600' : 'text-blue-500'}
+                  />
+                  <span>LÀM MỚI</span>
+                </Button>
               )}
             </div>
           </div>
@@ -1489,6 +1538,23 @@ export default function QuevoGs5PlanReport(props) {
         isOpen={showFormulaModal}
         onClose={() => setShowFormulaModal(false)}
         defaultReportType="plan"
+      />
+
+      {/* MODAL XUẤT EXCEL CHUẨN */}
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title="XÁC NHẬN XUẤT EXCEL - CHI TIẾT ĐIỀU PHỐI KHSX"
+        reportName={`Báo cáo Điều phối KHSX (${plantKey})`}
+        totalRows={(displayDetailList || []).length}
+        loadedCount={(displayDetailList || []).length}
+        columns={detailGridCols || columns}
+        activeFilters={{
+          FactoryName: plantName || (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội'),
+          MasterKey: selectedMasterKey || ''
+        }}
+        defaultFileName={`ChiTiet_DieuPhoi_KHSX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`}
+        onConfirmExport={executeExportPlanExcel}
       />
     </div>
   )

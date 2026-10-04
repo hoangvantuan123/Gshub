@@ -4,6 +4,11 @@ import * as XLSX from 'xlsx'
 import { GridCellKind } from '@glideapps/glide-data-grid'
 import { captureReportScreenshot, downloadSingleChart } from '../../../../common/screenshotHelper'
 import { usePlanImportColumns } from '../../../../registration/plan/columns/planImportColumns'
+import {
+  generateExcelWorkbook,
+  saveWorkbookToFile,
+  formatFilterSummary
+} from '../../../../../../../utils/exportExcelUtils'
 
 // Helper chuẩn hóa định dạng ngày YYYY-MM-DD
 function getCleanDate(dateVal) {
@@ -516,12 +521,16 @@ export function useHanoiGs1PlanLogic({
     return Array.from(map.values())
       .map((row) => {
         const total = row.totalOrders || 1
+        const khopTotal = (row.khopSl || 0) + (row.khopJob || 0)
         return {
           ...row,
+          khopTotal,
           sxSaiNgayRate: Number(((row.sxSaiNgay / total) * 100).toFixed(1)),
           truotKhRate: Number(((row.truotKh / total) * 100).toFixed(1)),
           khopSlRate: Number(((row.khopSl / total) * 100).toFixed(1)),
           khopJobRate: Number(((row.khopJob / total) * 100).toFixed(1)),
+          passBenchmarkRate: Number(((khopTotal / total) * 100).toFixed(1)),
+          khopRate: Number(((khopTotal / total) * 100).toFixed(1)),
           progressRate:
             row.totalPlanQty > 0
               ? Number(((row.totalActualQty / row.totalPlanQty) * 100).toFixed(1))
@@ -709,7 +718,7 @@ export function useHanoiGs1PlanLogic({
   // Columns for Glide Data Grid matching 100% Plan Import Registration schema
   const detailGridCols = useMemo(() => {
     return (rawPlanCols || [])
-      .filter((c) => c.id && c.id !== 'WorkingTag')
+      .filter((c) => c.id && c.id !== 'WorkingTag' && !['RegCode', 'FactoryName', 'ApplyDate'].includes(c.id))
       .map((col) => {
         let title = col.title
         const isSorted = detailSortConfig.key === col.id
@@ -822,131 +831,42 @@ export function useHanoiGs1PlanLogic({
   }
 
   // Export Excel Chuẩn: Lấy dữ liệu từ Chi tiết Lệnh điều phối KHSX
-  const handleExportDetailExcel = useCallback(() => {
-    try {
-      if (!displayDetailList || displayDetailList.length === 0) {
-        alert('Không có dữ liệu lệnh điều phối để xuất!')
-        return
-      }
+  // ── Quản lý Modal Xuất Excel ──
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
-      const plantDisplayName =
-        plantKey === 'quevo_gs5' || plantKey === 'gs5' ? 'NHÀ MÁY GS QUẾ VÕ' : 'NHÀ MÁY GS HÀ NỘI'
-
-      const reportTitle = `BÁO CÁO LỆNH THEO TRẠNG THÁI ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT - ${plantDisplayName}`
-
-      // Danh sách cột (loại trừ WorkingTag)
-      const validCols = (rawPlanCols || []).filter((c) => c.id && c.id !== 'WorkingTag')
-
-      const row1_Title = [reportTitle]
-      const row2_Group = ['STT']
-      const row3_ColName = ['STT']
-
-      const merges = []
-      const totalCols = validCols.length + 1 // +1 cho cột STT
-
-      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } })
-
-      let currentGroup = null
-      let groupStartIndex = -1
-
-      validCols.forEach((col, idx) => {
-        const colIdx = idx + 1
-        const groupName = col.group || ''
-        const colTitle = col.title || col.id
-
-        row2_Group.push(groupName)
-        row3_ColName.push(colTitle)
-
-        if (groupName) {
-          if (groupName !== currentGroup) {
-            if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
-              merges.push({
-                s: { r: 1, c: groupStartIndex },
-                e: { r: 1, c: colIdx - 1 }
-              })
-            }
-            currentGroup = groupName
-            groupStartIndex = colIdx
-          }
-        } else {
-          if (currentGroup && groupStartIndex !== -1 && colIdx - 1 > groupStartIndex) {
-            merges.push({
-              s: { r: 1, c: groupStartIndex },
-              e: { r: 1, c: colIdx - 1 }
-            })
-          }
-          currentGroup = null
-          groupStartIndex = -1
-          merges.push({
-            s: { r: 1, c: colIdx },
-            e: { r: 2, c: colIdx }
-          })
-        }
-      })
-
-      if (currentGroup && groupStartIndex !== -1 && totalCols - 1 > groupStartIndex) {
-        merges.push({
-          s: { r: 1, c: groupStartIndex },
-          e: { r: 1, c: totalCols - 1 }
-        })
-      }
-
-      merges.push({
-        s: { r: 1, c: 0 },
-        e: { r: 2, c: 0 }
-      })
-
-      const dataRows = displayDetailList.map((item, rowIdx) => {
-        const row = [rowIdx + 1]
-        validCols.forEach((col) => {
-          const colId = col.id
-          const rawVal = item[colId] ?? item[colId.charAt(0).toLowerCase() + colId.slice(1)] ?? ''
-
-          if (col.kind === 'Boolean') {
-            const b =
-              typeof rawVal === 'boolean'
-                ? rawVal
-                : rawVal === 1 || rawVal === '1' || rawVal === 'true' || rawVal === 'Có'
-            row.push(b ? 'Có' : '')
-          } else if (col.kind === 'Number') {
-            if (rawVal !== '' && rawVal !== null && rawVal !== undefined) {
-              const num = typeof rawVal === 'number' ? rawVal : Number(rawVal)
-              row.push(!isNaN(num) ? num : rawVal)
-            } else {
-              row.push('')
-            }
-          } else {
-            row.push(rawVal !== null && rawVal !== undefined ? rawVal : '')
-          }
-        })
-        return row
-      })
-
-      const aoa = [row1_Title, row2_Group, row3_ColName, ...dataRows]
-      const ws = XLSX.utils.aoa_to_sheet(aoa)
-      ws['!merges'] = merges
-
-      const colWidths = [
-        { wch: 8 },
-        ...validCols.map((col) => ({
-          wch: Math.max(12, Math.min(50, Math.round((col.width || 120) / 7.5)))
-        }))
-      ]
-      ws['!cols'] = colWidths
-
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'ChiTiet_DieuPhoi_KHSX')
-
-      const dateStr = new Date().toISOString().slice(0, 10)
-      const fileName = `ChiTiet_DieuPhoi_KHSX_${plantKey}_${dateStr}.xlsx`
-      XLSX.writeFile(wb, fileName)
-    } catch (e) {
-      console.error('Export detail excel error:', e)
-      alert('Xuất file Excel thất bại: ' + (e?.message || e))
+  const handleOpenExportModal = useCallback(() => {
+    if (!displayDetailList || displayDetailList.length === 0) {
+      alert('Không có dữ liệu báo cáo để xuất!')
+      return
     }
-  }, [displayDetailList, rawPlanCols, plantKey])
+    setIsExportModalOpen(true)
+  }, [displayDetailList])
 
-  const handleExportExcel = handleExportDetailExcel
+  const executeExportPlanExcel = useCallback(
+    async ({ fileName, saveDirectory, overwriteExisting, includeHeaders, exportableCols }) => {
+      const validCols = exportableCols || rawPlanCols.filter((c) => c.id && c.id !== 'WorkingTag')
+      const plantDisplayName = plantKey === 'GS5' ? 'NHÀ MÁY GS QUẾ VÕ 1B' : 'NHÀ MÁY GS HÀ NỘI'
+      const reportTitle = `BÁO CÁO LỆNH THEO TRẠNG THÁI ĐIỀU PHỐI KẾ HOẠCH SẢN XUẤT - ${plantDisplayName}`
+      const dateStr = dateRange?.[0] && dateRange?.[1] ? `${dateRange[0]} đến ${dateRange[1]}` : ''
+      const filterSummary = `Nhà máy: ${plantDisplayName}${dateStr ? ` | Ngày: ${dateStr}` : ''}`
+
+      const wb = generateExcelWorkbook({
+        data: displayDetailList,
+        columns: validCols,
+        sheetName: 'ChiTiet_DieuPhoi_KHSX',
+        reportTitle,
+        filterInfo: filterSummary,
+        includeHeaders: includeHeaders !== false,
+        formatDateFn: getCleanDate
+      })
+
+      await saveWorkbookToFile(wb, fileName, saveDirectory, { overwriteExisting })
+    },
+    [displayDetailList, rawPlanCols, plantKey, dateRange]
+  )
+
+  const handleExportDetailExcel = handleOpenExportModal
+  const handleExportExcel = handleOpenExportModal
 
   // Tải ảnh biểu đồ đơn lẻ
   const handleDownloadSingleChart = async (targetRef, chartName) => {
@@ -1039,6 +959,9 @@ export function useHanoiGs1PlanLogic({
     handleCopyTable,
     handleExportDetailExcel,
     handleExportExcel,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    executeExportPlanExcel,
     handleDownloadSingleChart,
     handleCaptureScreenshot
   }

@@ -350,6 +350,18 @@ func (acc *aggregateAccumulator) BuildPicBreakdown() []models.PicPlanAggregate {
 		p.PassRate = pr
 		p.PlanQty = math.Round(p.PlanQty*100) / 100
 		p.ActualQty = math.Round(p.ActualQty*100) / 100
+
+		tot := p.TotalOrders
+		if tot > 0 {
+			p.SxSaiNgayRate = math.Round((float64(p.SxSaiNgayCount)/float64(tot))*1000) / 10
+			p.TruotKhRate = math.Round((float64(p.TruotKhCount)/float64(tot))*1000) / 10
+			p.KhopSlRate = math.Round((float64(p.KhopSlCount)/float64(tot))*1000) / 10
+			p.KhopJobRate = math.Round((float64(p.KhopJobCount)/float64(tot))*1000) / 10
+			khopTotal := float64(p.KhopSlCount + p.KhopJobCount)
+			p.PassBenchmarkRate = math.Round((khopTotal/float64(tot))*1000) / 10
+			p.KhopRate = p.PassBenchmarkRate
+		}
+
 		list = append(list, *p)
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].TotalOrders > list[j].TotalOrders })

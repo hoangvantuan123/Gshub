@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 export function HeroKpiCards({ kpiMetrics }) {
   const totalTickets = kpiMetrics.totalTickets || 0
   const mesCreatedCount = kpiMetrics.mesCreatedCount ?? kpiMetrics.mesCount ?? 0

@@ -17,7 +17,9 @@ import {
   calculatePeriodSummary,
   formatDisplayGrowth,
   formatDisplayPoints,
-  getMetricDeltaColor
+  getMetricDeltaColor,
+  formatToVNDate,
+  formatToShortDate
 } from '../utils/planChartCalculations'
 
 /**
@@ -30,11 +32,7 @@ function ExecutiveRhythmTooltip({ active, payload, label }) {
   const item = payload[0]?.payload
   if (!item) return null
 
-  const dateParts = String(item.date || label || '')
-    .slice(0, 10)
-    .split('-')
-  const dateFormatted =
-    dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : item.date
+  const dateFormatted = item.displayDate || formatToVNDate(item.date || label)
 
   return (
     <div
@@ -358,21 +356,13 @@ export function PlanProductionRhythmChart({
     return list.map((cur, index) => {
       const prev = index > 0 ? list[index - 1] : null
       const computed = calculateDayMetrics(cur, prev)
-      const dayNum = String(cur.date || '').slice(8, 10)
-      const shortDate = String(cur.date || '')
-        .slice(5, 10)
-        .replace('-', '/')
-
-      let displayLabel = shortDate
-      if (list.length > 7) {
-        displayLabel = ['01', '05', '10', '15', '20', '25', '31'].includes(dayNum) ? dayNum : ''
-      }
+      const shortDate = formatToShortDate(cur.date)
+      const displayDate = formatToVNDate(cur.date)
 
       return {
         ...computed,
-        dayNum,
         shortDate,
-        displayLabel
+        displayDate
       }
     })
   }, [actualMasterDailyData])
@@ -656,11 +646,14 @@ export function PlanProductionRhythmChart({
 
                 {/* Trục X: Lấy đúng theo các ngày thực tế của Master */}
                 <XAxis
-                  dataKey="displayLabel"
+                  dataKey="shortDate"
                   tickLine={false}
                   axisLine={{ stroke: '#cbd5e1' }}
                   tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }}
                   interval={0}
+                  angle={chartProcessedData.length > 15 ? -40 : 0}
+                  textAnchor={chartProcessedData.length > 15 ? 'end' : 'middle'}
+                  dy={chartProcessedData.length > 15 ? 4 : 8}
                 />
 
                 {/* Trục Y Trái: Số lệnh, bắt đầu từ 0 */}
@@ -904,7 +897,7 @@ export function PlanProductionRhythmChart({
                   }}
                 >
                   <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f172a' }}>
-                    {row.date}
+                    {row.displayDate || row.date}
                   </td>
                   <td
                     style={{

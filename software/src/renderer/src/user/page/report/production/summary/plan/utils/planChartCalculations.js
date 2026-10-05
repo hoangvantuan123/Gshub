@@ -1,7 +1,36 @@
 /**
- * Công thức tính toán chuẩn cho Báo cáo Kế hoạch Sản xuất & Biểu đồ Nhịp sản xuất
- * Tách biệt logic tính toán khỏi UI để dễ dàng bảo trì và kết nối API Bravo ERP
+ * Format chuỗi ngày hiển thị chuẩn Việt Nam (DD/MM/YYYY)
  */
+export function formatToVNDate(dateVal) {
+  if (!dateVal || dateVal === 'Khác' || dateVal === 'Kỳ Master') return dateVal || ''
+  const s = String(dateVal).trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const parts = s.slice(0, 10).split('-')
+    return `${parts[2]}/${parts[1]}/${parts[0]}`
+  }
+  const dmyMatch = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+  if (dmyMatch) {
+    return `${dmyMatch[1].padStart(2, '0')}/${dmyMatch[2].padStart(2, '0')}/${dmyMatch[3]}`
+  }
+  return s
+}
+
+/**
+ * Format ngày ngắn hiển thị trên trục X (DD/MM)
+ */
+export function formatToShortDate(dateVal) {
+  if (!dateVal || dateVal === 'Khác' || dateVal === 'Kỳ Master') return dateVal || ''
+  const s = String(dateVal).trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const parts = s.slice(0, 10).split('-')
+    return `${parts[2]}/${parts[1]}`
+  }
+  const dmyMatch = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+  if (dmyMatch) {
+    return `${dmyMatch[1].padStart(2, '0')}/${dmyMatch[2].padStart(2, '0')}`
+  }
+  return s
+}
 
 /**
  * Tính toán các chỉ số cho từng ngày và so sánh với ngày liền trước
@@ -160,14 +189,14 @@ export function formatDisplayGrowth(value, unit = '%') {
 }
 
 /**
- * Định dạng hiển thị chênh lệch điểm phần trăm (pp)
+ * Định dạng hiển thị chênh lệch tỷ lệ (%) so với ngày trước
  */
 export function formatDisplayPoints(diff) {
   if (diff === null || diff === undefined || isNaN(diff) || !isFinite(diff)) {
     return '—'
   }
   const prefix = diff > 0 ? '+' : ''
-  return `${prefix}${diff.toFixed(1)} pp`
+  return `${prefix}${diff.toFixed(1)}%`
 }
 
 /**

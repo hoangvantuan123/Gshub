@@ -8,7 +8,8 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as RechartsTooltip
+  Tooltip as RechartsTooltip,
+  LabelList
 } from 'recharts'
 import { TableProperties } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
@@ -22,11 +23,12 @@ import {
   formatToShortDate
 } from '../utils/planChartCalculations'
 
+
 /**
  * Custom Tooltip chuẩn Executive Dashboard
- * Vuông vức (borderRadius: 0), hiển thị đúng ngày thực tế không nội suy
+ * Đồng bộ phong cách thẻ báo cáo, hiển thị đúng ngày thực tế và theo dõi các chỉ tiêu đang bật
  */
-function ExecutiveRhythmTooltip({ active, payload, label }) {
+function ExecutiveRhythmTooltip({ active, payload, label, visibleSeries }) {
   if (!active || !payload || payload.length === 0) return null
 
   const item = payload[0]?.payload
@@ -38,11 +40,12 @@ function ExecutiveRhythmTooltip({ active, payload, label }) {
     <div
       style={{
         background: '#ffffff',
-        border: '1px solid #0f172a',
-        borderRadius: 0,
+        border: '1px solid #cbd5e1',
+        borderRadius: 8,
         padding: '12px 16px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-        minWidth: 290,
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)',
+        minWidth: 300,
+        maxWidth: 380,
         fontSize: 12,
         color: '#0f172a',
         fontFamily:
@@ -57,8 +60,8 @@ function ExecutiveRhythmTooltip({ active, payload, label }) {
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid #e2e8f0',
-          paddingBottom: 6,
-          marginBottom: 8
+          paddingBottom: 8,
+          marginBottom: 10
         }}
       >
         <span style={{ fontWeight: 800, fontSize: 13, color: '#0f172a' }}>
@@ -70,7 +73,7 @@ function ExecutiveRhythmTooltip({ active, payload, label }) {
               fontSize: 10.5,
               fontWeight: 700,
               padding: '1px 6px',
-              borderRadius: 0,
+              borderRadius: 4,
               background: '#fef3c7',
               color: '#92400e',
               border: '1px solid #fde68a'
@@ -81,7 +84,7 @@ function ExecutiveRhythmTooltip({ active, payload, label }) {
         ) : (
           <span
             style={{
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: 700,
               color: '#01411b'
             }}
@@ -92,173 +95,261 @@ function ExecutiveRhythmTooltip({ active, payload, label }) {
       </div>
 
       {/* 1. Tổng số LSX và % tăng/giảm so với ngày trước */}
-      <div
-        style={{
-          background: '#f8fafc',
-          borderRadius: 0,
-          padding: '6px 10px',
-          marginBottom: 10,
-          border: '1px solid #e2e8f0'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ color: '#334155', fontWeight: 600 }}>Tổng số LSX (Cột):</span>
-          <b style={{ color: '#01411b', fontSize: 13.5 }}>
-            {item.totalOrders.toLocaleString('vi-VN')} lệnh
-          </b>
-        </div>
+      {(!visibleSeries || visibleSeries.totalOrders !== false) && (
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: 3,
-            fontSize: 11,
-            color: '#64748b'
+            background: '#f8fafc',
+            borderRadius: 6,
+            padding: '7px 10px',
+            marginBottom: 10,
+            border: '1px solid #e2e8f0'
           }}
         >
-          <span>Tăng/giảm so với ngày trước:</span>
-          <b style={{ color: '#475569' }}>{formatDisplayGrowth(item.totalOrdersGrowthPct)}</b>
-        </div>
-      </div>
-
-      {/* 2. Bốn chỉ tiêu chất lượng (Đường) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div
-          style={{
-            fontSize: 10.5,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            color: '#64748b',
-            letterSpacing: '0.04em'
-          }}
-        >
-          Tỷ lệ chất lượng (% trên tổng LSX):
-        </div>
-
-        {/* SX sai ngày KH */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                backgroundColor: '#ea580c',
-                display: 'inline-block'
-              }}
-            />
-            <span style={{ color: '#334155' }}>SX sai ngày KH:</span>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <b style={{ color: '#ea580c' }}>
-              {item.wrongPlanDate.toLocaleString('vi-VN')} lệnh ({item.wrongPlanDateRate}%)
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ color: '#334155', fontWeight: 600 }}>Tổng số LSX (Cột):</span>
+            <b style={{ color: '#01411b', fontSize: 13.5 }}>
+              {item.totalOrders.toLocaleString('vi-VN')} lệnh
             </b>
-            <span
-              style={{
-                marginLeft: 5,
-                fontSize: 10.5,
-                fontWeight: 700,
-                color: getMetricDeltaColor('wrongPlanDate', item.wrongPlanDateRateDiff)
-              }}
-            >
-              ({formatDisplayPoints(item.wrongPlanDateRateDiff)})
-            </span>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: 3,
+              fontSize: 11,
+              color: '#64748b'
+            }}
+          >
+            <span>Tăng/giảm so với ngày trước:</span>
+            <b style={{ color: '#475569' }}>{formatDisplayGrowth(item.totalOrdersGrowthPct)}</b>
           </div>
         </div>
+      )}
+
+      {/* 2. Bốn chỉ tiêu chất lượng */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {/* SX sai ngày KH */}
+        {(!visibleSeries || visibleSeries.wrongPlanDate !== false) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  backgroundColor: '#ea580c',
+                  display: 'inline-block'
+                }}
+              />
+              <span style={{ fontWeight: 600, color: '#334155' }}>SX sai ngày KH:</span>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <b style={{ color: '#ea580c' }}>
+                {item.wrongPlanDate.toLocaleString('vi-VN')} lệnh ({item.wrongPlanDateRate}%)
+              </b>
+              <span
+                style={{
+                  marginLeft: 5,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: getMetricDeltaColor('wrongPlanDate', item.wrongPlanDateRateDiff)
+                }}
+              >
+                ({formatDisplayPoints(item.wrongPlanDateRateDiff)})
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Trượt KH */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                backgroundColor: '#dc2626',
-                display: 'inline-block'
-              }}
-            />
-            <span style={{ color: '#334155' }}>Trượt KH:</span>
+        {(!visibleSeries || visibleSeries.slippedPlan !== false) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  backgroundColor: '#dc2626',
+                  display: 'inline-block'
+                }}
+              />
+              <span style={{ fontWeight: 600, color: '#334155' }}>Trượt KH:</span>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <b style={{ color: '#dc2626' }}>
+                {item.slippedPlan.toLocaleString('vi-VN')} lệnh ({item.slippedPlanRate}%)
+              </b>
+              <span
+                style={{
+                  marginLeft: 5,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: getMetricDeltaColor('slippedPlan', item.slippedPlanRateDiff)
+                }}
+              >
+                ({formatDisplayPoints(item.slippedPlanRateDiff)})
+              </span>
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <b style={{ color: '#dc2626' }}>
-              {item.slippedPlan.toLocaleString('vi-VN')} lệnh ({item.slippedPlanRate}%)
-            </b>
-            <span
-              style={{
-                marginLeft: 5,
-                fontSize: 10.5,
-                fontWeight: 700,
-                color: getMetricDeltaColor('slippedPlan', item.slippedPlanRateDiff)
-              }}
-            >
-              ({formatDisplayPoints(item.slippedPlanRateDiff)})
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* Khớp số lượng */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                backgroundColor: '#16a34a',
-                display: 'inline-block'
-              }}
-            />
-            <span style={{ color: '#334155' }}>Khớp số lượng:</span>
+        {(!visibleSeries || visibleSeries.matchedQuantity !== false) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  backgroundColor: '#16a34a',
+                  display: 'inline-block'
+                }}
+              />
+              <span style={{ fontWeight: 600, color: '#334155' }}>Khớp số lượng:</span>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <b style={{ color: '#16a34a' }}>
+                {item.matchedQuantity.toLocaleString('vi-VN')} lệnh ({item.matchedQuantityRate}%)
+              </b>
+              <span
+                style={{
+                  marginLeft: 5,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: getMetricDeltaColor('matchedQuantity', item.matchedQuantityRateDiff)
+                }}
+              >
+                ({formatDisplayPoints(item.matchedQuantityRateDiff)})
+              </span>
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <b style={{ color: '#16a34a' }}>
-              {item.matchedQuantity.toLocaleString('vi-VN')} lệnh ({item.matchedQuantityRate}%)
-            </b>
-            <span
-              style={{
-                marginLeft: 5,
-                fontSize: 10.5,
-                fontWeight: 700,
-                color: getMetricDeltaColor('matchedQuantity', item.matchedQuantityRateDiff)
-              }}
-            >
-              ({formatDisplayPoints(item.matchedQuantityRateDiff)})
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* Khớp job */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                backgroundColor: '#8b5cf6',
-                display: 'inline-block'
-              }}
-            />
-            <span style={{ color: '#334155' }}>Khớp job:</span>
+        {(!visibleSeries || visibleSeries.matchedJob !== false) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  backgroundColor: '#8b5cf6',
+                  display: 'inline-block'
+                }}
+              />
+              <span style={{ fontWeight: 600, color: '#334155' }}>Khớp job:</span>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <b style={{ color: '#8b5cf6' }}>
+                {item.matchedJob.toLocaleString('vi-VN')} lệnh ({item.matchedJobRate}%)
+              </b>
+              <span
+                style={{
+                  marginLeft: 5,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: getMetricDeltaColor('matchedJob', item.matchedJobRateDiff)
+                }}
+              >
+                ({formatDisplayPoints(item.matchedJobRateDiff)})
+              </span>
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <b style={{ color: '#8b5cf6' }}>
-              {item.matchedJob.toLocaleString('vi-VN')} lệnh ({item.matchedJobRate}%)
-            </b>
-            <span
-              style={{
-                marginLeft: 5,
-                fontSize: 10.5,
-                fontWeight: 700,
-                color: getMetricDeltaColor('matchedJob', item.matchedJobRateDiff)
-              }}
-            >
-              ({formatDisplayPoints(item.matchedJobRateDiff)})
-            </span>
-          </div>
-        </div>
+        )}
       </div>
-
-   
     </div>
+  )
+}
+
+/**
+ * Custom Bar Shape vẽ cột và tự động nối đường giữa các đỉnh của cột cùng loại qua các ngày
+ */
+const CustomBarWithPeak = (props) => {
+  const {
+    x,
+    y,
+    width,
+    height,
+    value,
+    index,
+    fill,
+    stroke,
+    dashArray,
+    seriesKey,
+    collectorRef
+  } = props
+
+  if (x === undefined || y === undefined || width === undefined || height === undefined) return null
+
+  const cx = x + width / 2
+  const cy = y
+
+  if (collectorRef && collectorRef.current) {
+    if (!collectorRef.current[seriesKey]) {
+      collectorRef.current[seriesKey] = []
+    }
+    collectorRef.current[seriesKey][index] = { cx, cy, value }
+  }
+
+  const prev = collectorRef?.current?.[seriesKey]?.[index - 1]
+  const validVal = value !== null && value !== undefined && !isNaN(value)
+  const displayVal = validVal && value > 0 ? Number(value).toLocaleString('vi-VN') : null
+
+  return (
+    <g className={`custom-plan-bar-${seriesKey}-${index}`}>
+      {/* 1. Hình chữ nhật cột */}
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={Math.max(0, height)}
+        fill={fill}
+        stroke={stroke || fill}
+        strokeWidth={1}
+      />
+
+      {/* 2. Đường nối từ đỉnh cột ngày trước đến đỉnh cột ngày này */}
+      {prev && prev.cx !== undefined && !isNaN(prev.cx) && !isNaN(prev.cy) && (
+        <line
+          x1={prev.cx}
+          y1={prev.cy}
+          x2={cx}
+          y2={cy}
+          stroke={stroke || fill}
+          strokeWidth={2}
+          strokeDasharray={dashArray || undefined}
+          strokeLinecap="round"
+        />
+      )}
+
+      {/* 3. Điểm đánh dấu đỉnh */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={3.5}
+        fill={fill}
+        stroke="#ffffff"
+        strokeWidth={1.5}
+      />
+
+      {/* 4. Nhãn số lượng thuần túy trên đỉnh cột (không kèm %) */}
+      {displayVal && (
+        <text
+          x={cx}
+          y={cy - 6}
+          textAnchor="middle"
+          fill="#1e293b"
+          fontSize={10}
+          fontWeight={700}
+        >
+          {displayVal}
+        </text>
+      )}
+    </g>
   )
 }
 
@@ -278,7 +369,11 @@ export function PlanProductionRhythmChart({
   totalDays = 1,
   loading = false
 }) {
-  const [showTable, setShowTable] = useState(false)
+  const [showTable, setShowTable] = useState(true)
+  const [rangeFilter, setRangeFilter] = useState('all')
+
+  const pointsCollector = useMemo(() => ({ current: {} }), [])
+  pointsCollector.current = {}
 
   // Trạng thái bật/tắt từng chỉ tiêu trên biểu đồ
   const [visibleSeries, setVisibleSeries] = useState({
@@ -367,6 +462,13 @@ export function PlanProductionRhythmChart({
     })
   }, [actualMasterDailyData])
 
+  const displayedChartData = useMemo(() => {
+    if (!Array.isArray(chartProcessedData) || chartProcessedData.length === 0) return []
+    if (rangeFilter === '10') return chartProcessedData.slice(-10)
+    if (rangeFilter === '30') return chartProcessedData.slice(-30)
+    return chartProcessedData
+  }, [chartProcessedData, rangeFilter])
+
   // 3. Tính KPI cả kỳ: BẮT BUỘC dùng tổng số lệnh chỉ tiêu / tổng LSX cả kỳ * 100%
   const periodKpi = useMemo(() => {
     if (planMetrics && (planMetrics.totalOrders > 0 || planMetrics.totalTickets > 0)) {
@@ -425,8 +527,11 @@ export function PlanProductionRhythmChart({
               maxWidth: 960
             }}
           >
-            Biểu đồ kết hợp cột (Tổng LSX theo mốc ngày Master) và 4 đường tỷ lệ chất lượng: Sai
-            ngày KH, Trượt KH, Khớp số lượng, Khớp job tại {plantName || 'Nhà máy GS1 Hà Nội'}.
+            Thống kê nhịp sản xuất &amp; chất lượng thực thi kế hoạch theo ngày của{' '}
+            <b>{plantName || 'Nhà máy GS1 Hà Nội'}</b> (chu kỳ{' '}
+            <b>{totalDays || chartProcessedData.length} ngày</b>) trên hệ thống{' '}
+            <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ cột khối lượng số lượng từng hạng mục nối đỉnh
+            liên tục qua các ngày và thanh trượt điều chỉnh khoảng thời gian lọc linh hoạt.
           </div>
         </div>
 
@@ -461,166 +566,119 @@ export function PlanProductionRhythmChart({
           padding: '16px'
         }}
       >
-        {/* Chú giải tương tác (Legend) dạng nút bấm phẳng VUÔNG VỨC */}
+        {/* Thanh chú giải văn bản phẳng & Bộ lọc xem 10 ngày / 30 ngày / Tất cả */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-start',
+            justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: 8,
-            marginBottom: 16
+            gap: 12,
+            marginBottom: 14,
+            userSelect: 'none'
           }}
         >
-          {/* Cột Tổng LSX */}
-          <button
-            onClick={() => toggleSeries('totalOrders')}
+          {/* Danh sách Legend */}
+          <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              borderRadius: 0,
-              border: `1px solid ${visibleSeries.totalOrders ? '#93c5fd' : '#cbd5e1'}`,
-              background: visibleSeries.totalOrders ? '#eff6ff' : '#ffffff',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 700,
-              color: visibleSeries.totalOrders ? '#1e40af' : '#94a3b8',
-              opacity: visibleSeries.totalOrders ? 1 : 0.6
+              flexWrap: 'wrap',
+              gap: '8px 20px'
             }}
           >
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                backgroundColor: '#93c5fd',
-                display: 'inline-block'
-              }}
-            />
-            <span>Tổng LSX (Cột trục trái)</span>
-          </button>
+            {[
+              { key: 'totalOrders', label: 'Tổng LSX', color: '#01411b' },
+              { key: 'wrongPlanDate', label: 'SX sai ngày KH', color: '#ea580c' },
+              { key: 'slippedPlan', label: 'Trượt KH', color: '#dc2626' },
+              { key: 'matchedQuantity', label: 'Khớp số lượng', color: '#16a34a' },
+              { key: 'matchedJob', label: 'Khớp job', color: '#8b5cf6' }
+            ].map((item) => {
+              const isVisible = visibleSeries[item.key] !== false
+              return (
+                <div
+                  key={item.key}
+                  onClick={() => toggleSeries(item.key)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: isVisible ? 700 : 500,
+                    color: isVisible ? '#1e293b' : '#94a3b8',
+                    textDecoration: isVisible ? 'none' : 'line-through',
+                    opacity: isVisible ? 1 : 0.55,
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={`Bấm để ${isVisible ? 'ẩn' : 'hiện'} cột "${item.label}"`}
+                >
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      backgroundColor: isVisible ? item.color : '#cbd5e1',
+                      borderRadius: 2,
+                      display: 'inline-block',
+                      flexShrink: 0
+                    }}
+                  />
+                  <span>{item.label}</span>
+                </div>
+              )
+            })}
+          </div>
 
-          {/* SX sai ngày KH */}
-          <button
-            onClick={() => toggleSeries('wrongPlanDate')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              borderRadius: 0,
-              border: `1px solid ${visibleSeries.wrongPlanDate ? '#fed7aa' : '#cbd5e1'}`,
-              background: visibleSeries.wrongPlanDate ? '#fff7ed' : '#ffffff',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 700,
-              color: visibleSeries.wrongPlanDate ? '#ea580c' : '#94a3b8',
-              opacity: visibleSeries.wrongPlanDate ? 1 : 0.6
-            }}
-          >
-            <span
+          {/* Bộ lọc xem nhanh 10 ngày / 30 ngày / Tất cả */}
+          {chartProcessedData.length > 5 && (
+            <div
               style={{
-                width: 12,
-                height: 3,
-                backgroundColor: '#ea580c',
-                display: 'inline-block'
+                display: 'flex',
+                alignItems: 'center',
+                gap: 3,
+                background: '#f1f5f9',
+                padding: '2px 4px',
+                borderRadius: 6,
+                border: '1px solid #e2e8f0',
+                fontSize: 11
               }}
-            />
-            <span>SX sai ngày KH (%)</span>
-          </button>
-
-          {/* Trượt KH */}
-          <button
-            onClick={() => toggleSeries('slippedPlan')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              borderRadius: 0,
-              border: `1px solid ${visibleSeries.slippedPlan ? '#fecdd3' : '#cbd5e1'}`,
-              background: visibleSeries.slippedPlan ? '#fef2f2' : '#ffffff',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 700,
-              color: visibleSeries.slippedPlan ? '#dc2626' : '#94a3b8',
-              opacity: visibleSeries.slippedPlan ? 1 : 0.6
-            }}
-          >
-            <span
-              style={{
-                width: 12,
-                height: 2,
-                borderTop: '2px dashed #dc2626',
-                display: 'inline-block'
-              }}
-            />
-            <span>Trượt KH (%)</span>
-          </button>
-
-          {/* Khớp số lượng */}
-          <button
-            onClick={() => toggleSeries('matchedQuantity')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              borderRadius: 0,
-              border: `1px solid ${visibleSeries.matchedQuantity ? '#bbf7d0' : '#cbd5e1'}`,
-              background: visibleSeries.matchedQuantity ? '#f0fdf4' : '#ffffff',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 700,
-              color: visibleSeries.matchedQuantity ? '#16a34a' : '#94a3b8',
-              opacity: visibleSeries.matchedQuantity ? 1 : 0.6
-            }}
-          >
-            <span
-              style={{
-                width: 12,
-                height: 3,
-                backgroundColor: '#16a34a',
-                display: 'inline-block'
-              }}
-            />
-            <span>Khớp số lượng (%)</span>
-          </button>
-
-          {/* Khớp job */}
-          <button
-            onClick={() => toggleSeries('matchedJob')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              borderRadius: 0,
-              border: `1px solid ${visibleSeries.matchedJob ? '#ddd6fe' : '#cbd5e1'}`,
-              background: visibleSeries.matchedJob ? '#f5f3ff' : '#ffffff',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 700,
-              color: visibleSeries.matchedJob ? '#8b5cf6' : '#94a3b8',
-              opacity: visibleSeries.matchedJob ? 1 : 0.6
-            }}
-          >
-            <span
-              style={{
-                width: 12,
-                height: 3,
-                backgroundColor: '#8b5cf6',
-                display: 'inline-block'
-              }}
-            />
-            <span>Khớp job (%)</span>
-          </button>
+            >
+              {[
+                { value: '10', label: '10 ngày' },
+                { value: '30', label: '30 ngày' },
+                { value: 'all', label: `Tất cả (${chartProcessedData.length}N)` }
+              ].map((opt) => {
+                const isActive = rangeFilter === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRangeFilter(opt.value)}
+                    style={{
+                      border: 'none',
+                      outline: 'none',
+                      padding: '3px 8px',
+                      borderRadius: 4,
+                      background: isActive ? '#01411b' : 'transparent',
+                      color: isActive ? '#ffffff' : '#475569',
+                      fontWeight: isActive ? 700 : 600,
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title={`Hiển thị ${opt.label}`}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Thân biểu đồ ComposedChart */}
-        <div style={{ width: '100%', height: 380 }}>
-          {chartProcessedData.length === 0 ? (
+        <div style={{ width: '100%', height: 500 }}>
+          {displayedChartData.length === 0 ? (
             <div
               style={{
                 width: '100%',
@@ -639,8 +697,8 @@ export function PlanProductionRhythmChart({
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
-                data={chartProcessedData}
-                margin={{ top: 15, right: 35, left: 10, bottom: 10 }}
+                data={displayedChartData}
+                margin={{ top: 25, right: 25, left: 10, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
 
@@ -651,22 +709,22 @@ export function PlanProductionRhythmChart({
                   axisLine={{ stroke: '#cbd5e1' }}
                   tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }}
                   interval={0}
-                  angle={chartProcessedData.length > 15 ? -40 : 0}
-                  textAnchor={chartProcessedData.length > 15 ? 'end' : 'middle'}
-                  dy={chartProcessedData.length > 15 ? 4 : 8}
+                  angle={displayedChartData.length > 15 ? -40 : 0}
+                  textAnchor={displayedChartData.length > 15 ? 'end' : 'middle'}
+                  dy={displayedChartData.length > 15 ? 4 : 6}
                 />
 
-                {/* Trục Y Trái: Số lệnh, bắt đầu từ 0 */}
+                {/* Trục Y: Số lượng LSX, bắt đầu từ 0 */}
                 <YAxis
-                  yAxisId="left"
                   orientation="left"
                   domain={[0, 'auto']}
+                  allowDecimals={false}
                   tickLine={false}
                   axisLine={{ stroke: '#cbd5e1' }}
                   tick={{ fontSize: 11, fill: '#475569' }}
                   tickFormatter={(v) => v.toLocaleString('vi-VN')}
                   label={{
-                    value: 'Số lệnh (LSX)',
+                    value: 'Số lượng (lệnh / LSX)',
                     angle: -90,
                     position: 'insideLeft',
                     style: { textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 600 },
@@ -674,106 +732,116 @@ export function PlanProductionRhythmChart({
                   }}
                 />
 
-                {/* Trục Y Phải: Tỷ lệ %, bắt đầu từ 0, cố định domain [0, 100] */}
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  domain={[0, 100]}
-                  tickLine={false}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tick={{ fontSize: 11, fill: '#475569' }}
-                  tickFormatter={(v) => `${v}%`}
-                  label={{
-                    value: 'Tỷ lệ (%)',
-                    angle: 90,
-                    position: 'insideRight',
-                    style: { textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 600 },
-                    offset: 0
-                  }}
-                />
-
                 {/* Tooltip không nội suy, hiển thị chính xác ngày */}
-                <RechartsTooltip content={<ExecutiveRhythmTooltip />} />
+                <RechartsTooltip content={<ExecutiveRhythmTooltip visibleSeries={visibleSeries} />} />
 
-                {/* Cột Tổng LSX: Cột mảnh, vuông vức phẳng, màu xanh lam nhạt */}
+                {/* 1. Tổng LSX: Cột xanh lá đậm GS Hub (#01411b) + Line nối đỉnh đúng vị trí cột */}
                 {visibleSeries.totalOrders && (
                   <Bar
-                    yAxisId="left"
                     dataKey="totalOrders"
                     name="Tổng LSX"
-                    fill="#93c5fd"
-                    stroke="#60a5fa"
-                    strokeWidth={1}
-                    barSize={chartProcessedData.length <= 4 ? 28 : 14}
-                    radius={[0, 0, 0, 0]}
-                    isAnimationActive={true}
+                    fill="#01411b"
+                    stroke="#01411b"
+                    barSize={chartProcessedData.length > 20 ? 10 : 18}
+                    isAnimationActive={false}
+                    shape={(props) => (
+                      <CustomBarWithPeak
+                        {...props}
+                        fill="#01411b"
+                        stroke="#01411b"
+                        seriesKey="totalOrders"
+                        collectorRef={pointsCollector}
+                      />
+                    )}
                   />
                 )}
 
-                {/* Đường 1: SX sai ngày KH (Màu cam, linear, độ dày 2.5px, dot nhỏ) */}
+                {/* 2. SX sai ngày KH: Cột cam (#ea580c) + Line cam nối đỉnh đúng vị trí cột */}
                 {visibleSeries.wrongPlanDate && (
-                  <Line
-                    yAxisId="right"
-                    type="linear"
-                    dataKey="wrongPlanDateRate"
-                    name="SX sai ngày KH (%)"
+                  <Bar
+                    dataKey="wrongPlanDate"
+                    name="SX sai ngày KH"
+                    fill="#ea580c"
                     stroke="#ea580c"
-                    strokeWidth={2.5}
-                    dot={{ r: 3, fill: '#ea580c', stroke: '#ffffff', strokeWidth: 1.5 }}
-                    activeDot={{ r: 5 }}
-                    connectNulls={true}
+                    barSize={chartProcessedData.length > 20 ? 10 : 18}
                     isAnimationActive={false}
+                    shape={(props) => (
+                      <CustomBarWithPeak
+                        {...props}
+                        fill="#ea580c"
+                        stroke="#ea580c"
+                        seriesKey="wrongPlanDate"
+                        collectorRef={pointsCollector}
+                      />
+                    )}
                   />
                 )}
 
-                {/* Đường 2: Trượt KH (Màu đỏ, nét đứt, linear) */}
+                {/* 3. Trượt KH: Cột đỏ (#dc2626) + Line đỏ nét đứt nối đỉnh đúng vị trí cột */}
                 {visibleSeries.slippedPlan && (
-                  <Line
-                    yAxisId="right"
-                    type="linear"
-                    dataKey="slippedPlanRate"
-                    name="Trượt KH (%)"
+                  <Bar
+                    dataKey="slippedPlan"
+                    name="Trượt KH"
+                    fill="#dc2626"
                     stroke="#dc2626"
-                    strokeWidth={2.5}
-                    strokeDasharray="4 4"
-                    dot={{ r: 3, fill: '#dc2626', stroke: '#ffffff', strokeWidth: 1.5 }}
-                    activeDot={{ r: 5 }}
-                    connectNulls={true}
+                    barSize={chartProcessedData.length > 20 ? 10 : 18}
                     isAnimationActive={false}
+                    shape={(props) => (
+                      <CustomBarWithPeak
+                        {...props}
+                        fill="#dc2626"
+                        stroke="#dc2626"
+                        dashArray="4 4"
+                        seriesKey="slippedPlan"
+                        collectorRef={pointsCollector}
+                      />
+                    )}
                   />
                 )}
 
-                {/* Đường 3: Khớp số lượng (Màu xanh lá, linear) */}
+                {/* 4. Khớp số lượng: Cột xanh lá (#16a34a) + Line xanh lá nối đỉnh đúng vị trí cột */}
                 {visibleSeries.matchedQuantity && (
-                  <Line
-                    yAxisId="right"
-                    type="linear"
-                    dataKey="matchedQuantityRate"
-                    name="Khớp số lượng (%)"
+                  <Bar
+                    dataKey="matchedQuantity"
+                    name="Khớp số lượng"
+                    fill="#16a34a"
                     stroke="#16a34a"
-                    strokeWidth={2.5}
-                    dot={{ r: 3, fill: '#16a34a', stroke: '#ffffff', strokeWidth: 1.5 }}
-                    activeDot={{ r: 5 }}
-                    connectNulls={true}
+                    barSize={chartProcessedData.length > 20 ? 10 : 18}
                     isAnimationActive={false}
+                    shape={(props) => (
+                      <CustomBarWithPeak
+                        {...props}
+                        fill="#16a34a"
+                        stroke="#16a34a"
+                        seriesKey="matchedQuantity"
+                        collectorRef={pointsCollector}
+                      />
+                    )}
                   />
                 )}
 
-                {/* Đường 4: Khớp job (Màu tím, linear) */}
+                {/* 5. Khớp job: Cột tím (#8b5cf6) + Line tím nối đỉnh đúng vị trí cột */}
                 {visibleSeries.matchedJob && (
-                  <Line
-                    yAxisId="right"
-                    type="linear"
-                    dataKey="matchedJobRate"
-                    name="Khớp job (%)"
+                  <Bar
+                    dataKey="matchedJob"
+                    name="Khớp job"
+                    fill="#8b5cf6"
                     stroke="#8b5cf6"
-                    strokeWidth={2.5}
-                    dot={{ r: 3, fill: '#8b5cf6', stroke: '#ffffff', strokeWidth: 1.5 }}
-                    activeDot={{ r: 5 }}
-                    connectNulls={true}
+                    barSize={chartProcessedData.length > 20 ? 10 : 18}
                     isAnimationActive={false}
+                    shape={(props) => (
+                      <CustomBarWithPeak
+                        {...props}
+                        fill="#8b5cf6"
+                        stroke="#8b5cf6"
+                        seriesKey="matchedJob"
+                        collectorRef={pointsCollector}
+                      />
+                    )}
                   />
                 )}
+
+
               </ComposedChart>
             </ResponsiveContainer>
           )}

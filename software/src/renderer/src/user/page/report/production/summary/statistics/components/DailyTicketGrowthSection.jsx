@@ -21,9 +21,9 @@ export function DailyTicketGrowthSection({
   const [showTable, setShowTable] = useState(true)
   const [visibleSeries, setVisibleSeries] = useState({
     totalTickets: true,
-    over12hRate: true,
-    under5MinRate: true,
-    autoExportRate: true
+    over12hCount: true,
+    under5MinCount: true,
+    autoExportedCount: true
   })
 
   // 1. Trích xuất dữ liệu thô từ API thực tế
@@ -42,13 +42,12 @@ export function DailyTicketGrowthSection({
     return calculateDailyGrowthSeries(rawDailyData)
   }, [rawDailyData])
 
-  // 3. Xử lý click trên Legend để bật/tắt chuỗi
-  const handleLegendClick = (e) => {
-    const dataKey = e?.dataKey
-    if (!dataKey) return
+  // 3. Xử lý click trên Legend để bật/tắt chuỗi cột
+  const handleToggleSeries = (key) => {
+    if (!key) return
     setVisibleSeries((prev) => ({
       ...prev,
-      [dataKey]: !prev[dataKey]
+      [key]: !prev[key]
     }))
   }
 
@@ -98,12 +97,11 @@ export function DailyTicketGrowthSection({
               maxWidth: 960
             }}
           >
-            Thống kê diễn biến tổng số phiếu tiếp nhận &amp; nhịp độ biến động tăng trưởng theo ngày
-            của <b>{plantName || 'Nhà máy GS Hà Nội'}</b> (chu kỳ{' '}
+            Thống kê diễn biến tổng số phiếu tiếp nhận &amp; nhịp độ biến động theo ngày của{' '}
+            <b>{plantName || 'Nhà máy GS Hà Nội'}</b> (chu kỳ{' '}
             <b>{totalDays || chartData.length} ngày</b>) trên hệ thống{' '}
-            <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ kết hợp cột khối lượng tổng phiếu với 3 chỉ
-            tiêu tăng trưởng trọng yếu (Phiếu chạy kéo dài &gt;12h, phiếu siêu ngắn &lt;5 phút và
-            tốc độ sinh phiếu Xuất/Nhập tự động).
+            <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ cột khối lượng số lượng từng hạng mục nối đỉnh
+            liên tục qua các ngày và thanh trượt điều chỉnh khoảng thời gian lọc linh hoạt.
           </div>
         </div>
 
@@ -133,8 +131,8 @@ export function DailyTicketGrowthSection({
       <DailyTicketGrowthChart
         chartData={chartData}
         visibleSeries={visibleSeries}
-        onLegendClick={handleLegendClick}
-        height={380}
+        onToggleSeries={handleToggleSeries}
+        height={500}
       />
 
       {/* 3. Bảng tổng hợp số liệu chuẩn hệ thống (Phong cách Technical Table) */}
@@ -172,7 +170,7 @@ export function DailyTicketGrowthSection({
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    minWidth: 110,
+                    minWidth: 100,
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
                   }}
@@ -264,37 +262,94 @@ export function DailyTicketGrowthSection({
                       color: '#1e3a8a'
                     }}
                   >
-                    {Number(row.totalTickets || 0).toLocaleString('vi-VN')}
+                    <b>{Number(row.totalTickets || 0).toLocaleString('vi-VN')}</b>
+                    {row.totalTicketsGrowthLabel && row.totalTicketsGrowthLabel !== '—' && (
+                      <span
+                        style={{
+                          marginLeft: 5,
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: row.totalTicketsGrowth > 0 ? '#16a34a' : '#dc2626'
+                        }}
+                      >
+                        [{row.totalTicketsGrowthLabel}]
+                      </span>
+                    )}
                   </td>
                   <td
                     style={{
                       padding: '9px 12px',
-                      textAlign: 'right',
-                      fontWeight: 600,
-                      color: '#ea580c'
+                      textAlign: 'right'
                     }}
                   >
-                    {Number(row.over12hCount || 0).toLocaleString('vi-VN')}
+                    <b style={{ color: '#ea580c' }}>
+                      {Number(row.over12hCount || 0).toLocaleString('vi-VN')}
+                    </b>
+                    <span style={{ fontSize: 11, color: '#9a3412', marginLeft: 4 }}>
+                      ({row.over12hRate}%)
+                    </span>
+                    {row.over12hGrowthLabel && row.over12hGrowthLabel !== '—' && (
+                      <span
+                        style={{
+                          marginLeft: 4,
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: row.over12hGrowth < 0 ? '#16a34a' : '#dc2626'
+                        }}
+                      >
+                        [{row.over12hGrowthLabel}]
+                      </span>
+                    )}
                   </td>
                   <td
                     style={{
                       padding: '9px 12px',
-                      textAlign: 'right',
-                      fontWeight: 600,
-                      color: '#8b5cf6'
+                      textAlign: 'right'
                     }}
                   >
-                    {Number(row.under5MinCount || 0).toLocaleString('vi-VN')}
+                    <b style={{ color: '#8b5cf6' }}>
+                      {Number(row.under5MinCount || 0).toLocaleString('vi-VN')}
+                    </b>
+                    <span style={{ fontSize: 11, color: '#6d28d9', marginLeft: 4 }}>
+                      ({row.under5MinRate}%)
+                    </span>
+                    {row.under5MinGrowthLabel && row.under5MinGrowthLabel !== '—' && (
+                      <span
+                        style={{
+                          marginLeft: 4,
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: row.under5MinGrowth < 0 ? '#16a34a' : '#dc2626'
+                        }}
+                      >
+                        [{row.under5MinGrowthLabel}]
+                      </span>
+                    )}
                   </td>
                   <td
                     style={{
                       padding: '9px 12px',
-                      textAlign: 'right',
-                      fontWeight: 600,
-                      color: '#10b981'
+                      textAlign: 'right'
                     }}
                   >
-                    {Number(row.autoExportedCount || 0).toLocaleString('vi-VN')}
+                    <b style={{ color: '#10b981' }}>
+                      {Number(row.autoExportedCount || 0).toLocaleString('vi-VN')}
+                    </b>
+                    <span style={{ fontSize: 11, color: '#065f46', marginLeft: 4 }}>
+                      ({row.autoExportRate}%)
+                    </span>
+                    {row.autoExportGrowthLabel && row.autoExportGrowthLabel !== '—' && (
+                      <span
+                        style={{
+                          marginLeft: 4,
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: row.autoExportGrowth > 0 ? '#16a34a' : '#dc2626'
+                        }}
+                      >
+                        [{row.autoExportGrowthLabel}]
+                      </span>
+                    )}
                   </td>
                   <td
                     style={{
@@ -325,12 +380,21 @@ export function DailyTicketGrowthSection({
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: '#ea580c' }}>
                   {grandTotal.totalOver12h.toLocaleString('vi-VN')}
+                  <span style={{ fontSize: 11, color: '#9a3412', marginLeft: 4 }}>
+                    ({grandTotal.over12hRate}%)
+                  </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: '#8b5cf6' }}>
                   {grandTotal.totalUnder5Min.toLocaleString('vi-VN')}
+                  <span style={{ fontSize: 11, color: '#6d28d9', marginLeft: 4 }}>
+                    ({grandTotal.under5MinRate}%)
+                  </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: '#10b981' }}>
                   {grandTotal.totalAutoExported.toLocaleString('vi-VN')}
+                  <span style={{ fontSize: 11, color: '#065f46', marginLeft: 4 }}>
+                    ({grandTotal.autoExportRate}%)
+                  </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: '#d97706' }}>
                   {grandTotal.totalNotAutoExported.toLocaleString('vi-VN')}

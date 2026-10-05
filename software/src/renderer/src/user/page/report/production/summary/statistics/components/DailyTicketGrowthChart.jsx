@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -10,7 +10,6 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   Legend,
-  ReferenceLine,
   LabelList
 } from 'recharts'
 
@@ -49,6 +48,7 @@ const renderActiveDiamondDot = (props) => {
     />
   )
 }
+
 
 /**
  * Custom Executive Tooltip đồng bộ hoàn toàn với hệ thống báo cáo Gshub
@@ -142,7 +142,7 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
         }}
       >
         <span style={{ fontWeight: 800, fontSize: 13, color: '#0f172a' }}>
-          📅 Ngày: {row.displayDate || label}
+          Ngày: {row.displayDate || label}
         </span>
         <span style={{ fontSize: 11, color: '#64748b' }}>MES Engine &amp; Bravo ERP</span>
       </div>
@@ -150,7 +150,7 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
       {/* 4 Chỉ tiêu chính */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>
         {/* 1. Tổng phiếu thống kê */}
-        {(!visibleSeries || visibleSeries.totalTickets) && (
+        {(!visibleSeries || visibleSeries.totalTickets !== false) && (
           <div
             style={{
               display: 'flex',
@@ -165,8 +165,8 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
                   display: 'inline-block',
                   width: 10,
                   height: 10,
-                  background: '#93c5fd',
-                  border: '1px solid #60a5fa'
+                  background: '#01411b',
+                  border: '1px solid #01411b'
                 }}
               />
               <span style={{ fontWeight: 600, color: '#334155' }}>Tổng phiếu thống kê:</span>
@@ -185,7 +185,7 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
         )}
 
         {/* 2. Phiếu > 12 giờ */}
-        {(!visibleSeries || visibleSeries.over12hRate || visibleSeries.over12hGrowth) && (
+        {(!visibleSeries || visibleSeries.over12hCount !== false) && (
           <div
             style={{
               display: 'flex',
@@ -227,7 +227,7 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
         )}
 
         {/* 3. Phiếu < 5 phút */}
-        {(!visibleSeries || visibleSeries.under5MinRate || visibleSeries.under5MinGrowth) && (
+        {(!visibleSeries || visibleSeries.under5MinCount !== false) && (
           <div
             style={{
               display: 'flex',
@@ -269,7 +269,7 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
         )}
 
         {/* 4. Sinh phiếu X/N tự động */}
-        {(!visibleSeries || visibleSeries.autoExportRate || visibleSeries.autoExportGrowth) && (
+        {(!visibleSeries || visibleSeries.autoExportedCount !== false) && (
           <div
             style={{
               display: 'flex',
@@ -345,38 +345,150 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
 }
 
 /**
- * Component chính: Biểu đồ ComposedChart chuẩn 1 Bar + 3 Line + 2 YAxis
+ * Custom Bar Shape vẽ cột và tự động nối đường giữa các đỉnh của cột cùng loại qua các ngày
+ */
+const CustomBarWithPeak = (props) => {
+  const {
+    x,
+    y,
+    width,
+    height,
+    value,
+    index,
+    fill,
+    stroke,
+    dashArray,
+    isDiamond,
+    seriesKey,
+    collectorRef
+  } = props
+
+  if (x === undefined || y === undefined || width === undefined || height === undefined) return null
+
+  const cx = x + width / 2
+  const cy = y
+
+  if (collectorRef && collectorRef.current) {
+    if (!collectorRef.current[seriesKey]) {
+      collectorRef.current[seriesKey] = []
+    }
+    collectorRef.current[seriesKey][index] = { cx, cy, value }
+  }
+
+  const prev = collectorRef?.current?.[seriesKey]?.[index - 1]
+  const validVal = value !== null && value !== undefined && !isNaN(value)
+  const displayVal = validVal && value > 0 ? Number(value).toLocaleString('vi-VN') : null
+
+  return (
+    <g className={`custom-bar-${seriesKey}-${index}`}>
+      {/* 1. Hình chữ nhật cột */}
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={Math.max(0, height)}
+        fill={fill}
+        stroke={stroke || fill}
+        strokeWidth={1}
+      />
+
+      {/* 2. Đường nối từ đỉnh cột ngày trước đến đỉnh cột ngày này */}
+      {prev && prev.cx !== undefined && !isNaN(prev.cx) && !isNaN(prev.cy) && (
+        <line
+          x1={prev.cx}
+          y1={prev.cy}
+          x2={cx}
+          y2={cy}
+          stroke={stroke || fill}
+          strokeWidth={2}
+          strokeDasharray={dashArray || undefined}
+          strokeLinecap="round"
+        />
+      )}
+
+      {/* 3. Điểm đánh dấu đỉnh (Circle hoặc Diamond) */}
+      {isDiamond ? (
+        <polygon
+          points={`${cx},${cy - 4} ${cx + 4},${cy} ${cx},${cy + 4} ${cx - 4},${cy}`}
+          fill={fill}
+          stroke="#ffffff"
+          strokeWidth={1.5}
+        />
+      ) : (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={3.5}
+          fill={fill}
+          stroke="#ffffff"
+          strokeWidth={1.5}
+        />
+      )}
+
+      {/* 4. Nhãn số lượng thuần túy trên đỉnh cột (không kèm %) */}
+      {displayVal && (
+        <text
+          x={cx}
+          y={cy - 6}
+          textAnchor="middle"
+          fill="#1e293b"
+          fontSize={10}
+          fontWeight={700}
+        >
+          {displayVal}
+        </text>
+      )}
+    </g>
+  )
+}
+
+/**
+ * Component chính: Biểu đồ kết hợp các cột số lượng và đường nối đỉnh qua các ngày
+ * Kèm thanh trượt kéo lọc khoảng thời gian (Brush) ở dưới
  */
 export function DailyTicketGrowthChart({
   chartData = [],
-  visibleSeries = {
-    totalTickets: true,
-    over12hRate: true,
-    under5MinRate: true,
-    autoExportRate: true
-  },
-  onLegendClick,
-  height = 380
+  visibleSeries: externalVisibleSeries,
+  onToggleSeries,
+  height = 500
 }) {
-  // Tính toán miền giá trị YAxis trục phải (Tỷ lệ %)
-  const rightYDomain = useMemo(() => {
-    let maxRate = 20
+  const [rangeFilter, setRangeFilter] = useState('all')
+  const [internalVisibleSeries, setInternalVisibleSeries] = useState({
+    totalTickets: true,
+    over12hCount: true,
+    under5MinCount: true,
+    autoExportedCount: true
+  })
 
-    chartData.forEach((d) => {
-      if (typeof d.over12hRate === 'number') {
-        maxRate = Math.max(maxRate, d.over12hRate)
-      }
-      if (typeof d.under5MinRate === 'number') {
-        maxRate = Math.max(maxRate, d.under5MinRate)
-      }
-      if (typeof d.autoExportRate === 'number') {
-        maxRate = Math.max(maxRate, d.autoExportRate)
-      }
-    })
+  const visibleSeries = externalVisibleSeries || internalVisibleSeries
 
-    const padMax = Math.min(100, Math.ceil((maxRate + 5) / 10) * 10)
-    return [0, Math.max(padMax, 30)]
-  }, [chartData])
+  const toggleSeries = (key) => {
+    if (onToggleSeries) {
+      onToggleSeries(key)
+    } else {
+      setInternalVisibleSeries((prev) => ({
+        ...prev,
+        [key]: !prev[key]
+      }))
+    }
+  }
+
+  const displayedChartData = useMemo(() => {
+    if (!Array.isArray(chartData) || chartData.length === 0) return []
+    if (rangeFilter === '10') return chartData.slice(-10)
+    if (rangeFilter === '30') return chartData.slice(-30)
+    return chartData
+  }, [chartData, rangeFilter])
+
+  const pointsCollector = useMemo(() => ({ current: {} }), [])
+  pointsCollector.current = {}
+
+  const legendItems = [
+    { key: 'totalTickets', label: 'Tổng phiếu thống kê', color: '#01411b' },
+    { key: 'over12hCount', label: 'Phiếu > 12 giờ', color: '#ea580c' },
+    { key: 'under5MinCount', label: 'Phiếu < 5 phút', color: '#8b5cf6' },
+    { key: 'autoExportedCount', label: 'Sinh phiếu X/N tự động', color: '#10b981' }
+  ]
 
   return (
     <div
@@ -384,176 +496,252 @@ export function DailyTicketGrowthChart({
         width: '100%',
         height,
         border: '1px solid #e2e8f0',
-        padding: '16px 24px 16px 10px',
+        padding: '16px 20px 10px 16px',
         background: '#ffffff',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 15, right: 35, left: 10, bottom: 20 }}>
-          {/* Lưới nền nhạt */}
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+      {/* Thanh chú giải văn bản phẳng & Bộ lọc xem 10 ngày / 30 ngày / Tất cả */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          marginBottom: 12,
+          userSelect: 'none'
+        }}
+      >
+        {/* Danh sách Legend */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px 20px'
+          }}
+        >
+          {legendItems.map((item) => {
+            const isVisible = visibleSeries[item.key] !== false
+            return (
+              <div
+                key={item.key}
+                onClick={() => toggleSeries(item.key)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: isVisible ? 700 : 500,
+                  color: isVisible ? '#1e293b' : '#94a3b8',
+                  textDecoration: isVisible ? 'none' : 'line-through',
+                  opacity: isVisible ? 1 : 0.55,
+                  transition: 'all 0.15s ease'
+                }}
+                title={`Bấm để ${isVisible ? 'ẩn' : 'hiện'} cột "${item.label}"`}
+              >
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    backgroundColor: isVisible ? item.color : '#cbd5e1',
+                    borderRadius: 2,
+                    display: 'inline-block',
+                    flexShrink: 0
+                  }}
+                />
+                <span>{item.label}</span>
+              </div>
+            )
+          })}
+        </div>
 
-          {/* Trục X: Ngày đăng ký */}
-          <XAxis
-            dataKey="shortDate"
-            tick={{ fontSize: 11, fill: '#475569' }}
-            axisLine={{ stroke: '#cbd5e1' }}
-            tickLine={false}
-            interval={0}
-            angle={chartData.length > 15 ? -40 : 0}
-            textAnchor={chartData.length > 15 ? 'end' : 'middle'}
-            dy={chartData.length > 15 ? 4 : 8}
-          />
-
-          {/* Trục Y Trái: Tổng số phiếu trong ngày, bắt đầu từ 0 */}
-          <YAxis
-            yAxisId="left"
-            orientation="left"
-            tick={{ fontSize: 11, fill: '#475569' }}
-            axisLine={false}
-            tickLine={false}
-            domain={[0, 'auto']}
-            allowDecimals={false}
-            tickFormatter={(v) =>
-              v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toLocaleString('vi-VN')
-            }
-            label={{
-              value: 'Tổng số phiếu (phiếu)',
-              angle: -90,
-              position: 'insideLeft',
-              fill: '#475569',
-              fontSize: 11,
-              offset: 5
+        {/* Bộ lọc xem nhanh 10 ngày / 30 ngày / Tất cả */}
+        {chartData.length > 5 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 3,
+              background: '#f1f5f9',
+              padding: '2px 4px',
+              borderRadius: 6,
+              border: '1px solid #e2e8f0',
+              fontSize: 11
             }}
-          />
-
-          {/* Trục Y Phải: Tỷ lệ % từng chỉ tiêu trong ngày */}
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            domain={rightYDomain}
-            tick={{ fontSize: 11, fill: '#16a34a' }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={(v) => `${v}%`}
-            label={{
-              value: 'Tỷ lệ chỉ tiêu (%)',
-              angle: 90,
-              position: 'insideRight',
-              fill: '#16a34a',
-              fontSize: 11,
-              offset: 5
-            }}
-          />
-
-          {/* Đường tham chiếu 0% nét đứt mảnh */}
-          <ReferenceLine
-            yAxisId="right"
-            y={0}
-            stroke="#94a3b8"
-            strokeDasharray="3 3"
-            strokeWidth={1}
-          />
-
-          {/* Custom Tooltip */}
-          <RechartsTooltip
-            content={<DailyTicketGrowthTooltip visibleSeries={visibleSeries} />}
-            cursor={{ fill: 'rgba(241, 245, 249, 0.45)' }}
-          />
-
-          {/* Chú giải tương tác chuẩn Recharts Legend */}
-          <Legend
-            verticalAlign="top"
-            align="right"
-            wrapperStyle={{ fontSize: 12, paddingBottom: 10, cursor: 'pointer' }}
-            onClick={onLegendClick}
-          />
-
-          {/* 1. Bar: Tổng phiếu thống kê (cột xanh lam nhạt, hình chữ nhật vuông góc, không bo góc) */}
-          <Bar
-            yAxisId="left"
-            dataKey="totalTickets"
-            name="Tổng phiếu thống kê"
-            fill="#93c5fd"
-            radius={[0, 0, 0, 0]}
-            barSize={chartData.length > 20 ? 12 : 24}
-            hide={!visibleSeries?.totalTickets}
-            isAnimationActive={false}
           >
-            <LabelList
-              dataKey="totalTicketsGrowthLabel"
-              position="top"
-              formatter={(v) => (v !== undefined && v !== null && v !== '—' ? v : '')}
-              style={{ fill: '#1e40af', fontSize: 10, fontWeight: 700 }}
+            {[
+              { value: '10', label: '10 ngày' },
+              { value: '30', label: '30 ngày' },
+              { value: 'all', label: `Tất cả (${chartData.length}N)` }
+            ].map((opt) => {
+              const isActive = rangeFilter === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setRangeFilter(opt.value)}
+                  style={{
+                    border: 'none',
+                    outline: 'none',
+                    padding: '3px 8px',
+                    borderRadius: 4,
+                    background: isActive ? '#01411b' : 'transparent',
+                    color: isActive ? '#ffffff' : '#475569',
+                    fontWeight: isActive ? 700 : 600,
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={`Hiển thị ${opt.label}`}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={{ width: '100%', flex: 1, minHeight: 0 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={displayedChartData} margin={{ top: 25, right: 25, left: 10, bottom: 0 }}>
+            {/* Lưới nền nhạt */}
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+
+            {/* Trục X: Ngày đăng ký */}
+            <XAxis
+              dataKey="shortDate"
+              tick={{ fontSize: 11, fill: '#475569' }}
+              axisLine={{ stroke: '#cbd5e1' }}
+              tickLine={false}
+              interval={0}
+              angle={displayedChartData.length > 15 ? -40 : 0}
+              textAnchor={displayedChartData.length > 15 ? 'end' : 'middle'}
+              dy={displayedChartData.length > 15 ? 4 : 6}
             />
-          </Bar>
 
-          {/* 2. Line: Phiếu > 12 giờ (đường cam, điểm tròn) */}
-          <Line
-            yAxisId="right"
-            type="monotone"
-            dataKey="over12hRate"
-            name="Tỷ lệ >12 giờ"
-            stroke="#ea580c"
-            strokeWidth={2.5}
-            dot={{ r: 3.5, fill: '#ea580c', stroke: '#ffffff', strokeWidth: 1.5 }}
-            activeDot={{ r: 5, fill: '#ea580c', stroke: '#ffffff', strokeWidth: 2 }}
-            connectNulls={true}
-            hide={
-              visibleSeries &&
-              visibleSeries.over12hRate === false &&
-              visibleSeries.over12hGrowth === false
-            }
-            isAnimationActive={false}
-          />
+            {/* Trục Y: Tổng số phiếu / Số lượng các chỉ tiêu, bắt đầu từ 0 */}
+            <YAxis
+              orientation="left"
+              tick={{ fontSize: 11, fill: '#475569' }}
+              axisLine={false}
+              tickLine={false}
+              domain={[0, 'auto']}
+              allowDecimals={false}
+              tickFormatter={(v) =>
+                v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toLocaleString('vi-VN')
+              }
+              label={{
+                value: 'Số lượng (phiếu)',
+                angle: -90,
+                position: 'insideLeft',
+                fill: '#475569',
+                fontSize: 11,
+                offset: 5
+              }}
+            />
 
-          {/* 3. Line: Phiếu < 5 phút (đường tím nét đứt, điểm tròn) */}
-          <Line
-            yAxisId="right"
-            type="monotone"
-            dataKey="under5MinRate"
-            name="Tỷ lệ <5 phút"
-            stroke="#8b5cf6"
-            strokeDasharray="4 4"
-            strokeWidth={2.5}
-            dot={{ r: 3.5, fill: '#8b5cf6', stroke: '#ffffff', strokeWidth: 1.5 }}
-            activeDot={{ r: 5, fill: '#8b5cf6', stroke: '#ffffff', strokeWidth: 2 }}
-            connectNulls={true}
-            hide={
-              visibleSeries &&
-              visibleSeries.under5MinRate === false &&
-              visibleSeries.under5MinGrowth === false
-            }
-            isAnimationActive={false}
-          />
+            {/* Custom Tooltip */}
+            <RechartsTooltip
+              content={<DailyTicketGrowthTooltip visibleSeries={visibleSeries} />}
+              cursor={{ fill: 'rgba(241, 245, 249, 0.45)' }}
+            />
 
-          {/* 4. Line: Sinh phiếu X/N tự động (đường xanh lá, điểm hình thoi) */}
-          <Line
-            yAxisId="right"
-            type="monotone"
-            dataKey="autoExportRate"
-            name="Tỷ lệ sinh X/N tự động"
-            stroke="#10b981"
-            strokeWidth={2.5}
-            dot={(dotProps) =>
-              renderDiamondDot({
-                ...dotProps,
-                stroke: '#10b981',
-                dataKey: 'autoExportRate'
-              })
-            }
-            activeDot={renderActiveDiamondDot}
-            connectNulls={true}
-            hide={
-              visibleSeries &&
-              visibleSeries.autoExportRate === false &&
-              visibleSeries.autoExportGrowth === false
-            }
-            isAnimationActive={false}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
+            {/* 1. Tổng phiếu thống kê: Cột xanh lá đậm GS Hub (#01411b) + Đường nối đỉnh đúng vị trí cột */}
+            {visibleSeries?.totalTickets !== false && (
+              <Bar
+                dataKey="totalTickets"
+                name="Tổng phiếu thống kê"
+                fill="#01411b"
+                stroke="#01411b"
+                barSize={chartData.length > 20 ? 10 : 20}
+                isAnimationActive={false}
+                shape={(props) => (
+                  <CustomBarWithPeak
+                    {...props}
+                    fill="#01411b"
+                    stroke="#01411b"
+                    seriesKey="totalTickets"
+                    collectorRef={pointsCollector}
+                  />
+                )}
+              />
+            )}
+
+            {/* 2. Phiếu > 12 giờ: Cột cam (#ea580c) + Đường nối đỉnh cam đúng vị trí cột */}
+            {visibleSeries?.over12hCount !== false && visibleSeries?.over12hRate !== false && (
+              <Bar
+                dataKey="over12hCount"
+                name="Phiếu > 12 giờ"
+                fill="#ea580c"
+                stroke="#ea580c"
+                barSize={chartData.length > 20 ? 10 : 20}
+                isAnimationActive={false}
+                shape={(props) => (
+                  <CustomBarWithPeak
+                    {...props}
+                    fill="#ea580c"
+                    stroke="#ea580c"
+                    seriesKey="over12hCount"
+                    collectorRef={pointsCollector}
+                  />
+                )}
+              />
+            )}
+
+            {/* 3. Phiếu < 5 phút: Cột tím (#8b5cf6) + Đường nối đỉnh tím nét đứt đúng vị trí cột */}
+            {visibleSeries?.under5MinCount !== false && visibleSeries?.under5MinRate !== false && (
+              <Bar
+                dataKey="under5MinCount"
+                name="Phiếu < 5 phút"
+                fill="#8b5cf6"
+                stroke="#8b5cf6"
+                barSize={chartData.length > 20 ? 10 : 20}
+                isAnimationActive={false}
+                shape={(props) => (
+                  <CustomBarWithPeak
+                    {...props}
+                    fill="#8b5cf6"
+                    stroke="#8b5cf6"
+                    dashArray="4 4"
+                    seriesKey="under5MinCount"
+                    collectorRef={pointsCollector}
+                  />
+                )}
+              />
+            )}
+
+            {/* 4. Sinh phiếu X/N tự động: Cột xanh ngọc (#10b981) + Đường nối đỉnh xanh ngọc đúng vị trí cột */}
+            {visibleSeries?.autoExportedCount !== false && visibleSeries?.autoExportRate !== false && (
+              <Bar
+                dataKey="autoExportedCount"
+                name="Sinh phiếu X/N tự động"
+                fill="#10b981"
+                stroke="#10b981"
+                barSize={chartData.length > 20 ? 10 : 20}
+                isAnimationActive={false}
+                shape={(props) => (
+                  <CustomBarWithPeak
+                    {...props}
+                    fill="#10b981"
+                    stroke="#10b981"
+                    isDiamond={true}
+                    seriesKey="autoExportedCount"
+                    collectorRef={pointsCollector}
+                  />
+                )}
+              />
+            )}
+
+
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   )
 }

@@ -274,7 +274,8 @@ export function TopControlBar({
             >
               <AlertTriangle size={12} className="text-amber-500 shrink-0" />
               <span>
-                {t('Điều kiện đã đổi — bấm')} <b className="underline font-semibold">{t('TÌM KIẾM')}</b> {t('để cập nhật')}
+                {t('Điều kiện đã đổi — bấm')}{' '}
+                <b className="underline font-semibold">{t('TÌM KIẾM')}</b> {t('để cập nhật')}
               </span>
             </div>
           )}
@@ -417,7 +418,9 @@ export function TopControlBar({
               >
                 {t('Ngày đăng ký từ')} <span className="text-rose-500 font-bold">*</span>
               </span>
-              <div className={`px-1 flex items-center h-full min-w-[115px] ${!dateRange?.[0] ? 'ring-1 ring-rose-400 rounded-xs' : ''}`}>
+              <div
+                className={`px-1 flex items-center h-full min-w-[115px] ${!dateRange?.[0] ? 'ring-1 ring-rose-400 rounded-xs' : ''}`}
+              >
                 <QueryDateInput
                   field={{
                     key: 'fromDate',
@@ -442,7 +445,9 @@ export function TopControlBar({
               >
                 {t('đến')} <span className="text-rose-500 font-bold">*</span>
               </span>
-              <div className={`px-1 flex items-center h-full min-w-[115px] ${!dateRange?.[1] ? 'ring-1 ring-rose-400 rounded-xs' : ''}`}>
+              <div
+                className={`px-1 flex items-center h-full min-w-[115px] ${!dateRange?.[1] ? 'ring-1 ring-rose-400 rounded-xs' : ''}`}
+              >
                 <QueryDateInput
                   field={{
                     key: 'toDate',
@@ -524,7 +529,6 @@ export function TopControlBar({
                 </div>
               </div>
             )}
-
           </div>
         </div>
       )}

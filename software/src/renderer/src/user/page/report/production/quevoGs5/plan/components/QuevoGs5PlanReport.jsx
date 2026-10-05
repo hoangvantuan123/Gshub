@@ -1550,7 +1550,9 @@ export default function QuevoGs5PlanReport(props) {
         loadedCount={(displayDetailList || []).length}
         columns={detailGridCols || columns}
         activeFilters={{
-          FactoryName: plantName || (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội'),
+          FactoryName:
+            plantName ||
+            (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội'),
           MasterKey: selectedMasterKey || ''
         }}
         defaultFileName={`ChiTiet_DieuPhoi_KHSX_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`}

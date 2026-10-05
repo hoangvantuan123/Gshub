@@ -765,6 +765,26 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			dayMap[prodDate].TotalDefectQty += defectQty
 			dayMap[prodDate].RuntimeHours += rtHours
 			dayMap[prodDate].TotalRuntimeHours += rtHours
+			if isOver12hCheck {
+				dayMap[prodDate].Over12hCount++
+				dayMap[prodDate].Anomalies++
+			}
+			if isUnder5Min {
+				dayMap[prodDate].Under5MinCount++
+				dayMap[prodDate].Under5Min++
+			}
+			if isPassAuto {
+				dayMap[prodDate].AutoExportedCount++
+				dayMap[prodDate].AutoExportPass++
+			} else if isMissingAuto {
+				dayMap[prodDate].NotAutoExportedCount++
+				dayMap[prodDate].AutoExportMissing++
+			}
+			if isMes {
+				dayMap[prodDate].MesCount++
+			} else {
+				dayMap[prodDate].NonMesCount++
+			}
 		}
 
 		if shiftVal != "" {
@@ -877,6 +897,13 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			agg.PassRate = math.Round((agg.PassQty/agg.ActualQty)*10000) / 100
 		} else {
 			agg.PassRate = 100
+		}
+		if agg.TicketCount > 0 {
+			agg.MesRate = math.Round((float64(agg.MesCount)/float64(agg.TicketCount))*10000) / 100
+		}
+		totalDayAuto := agg.AutoExportedCount + agg.NotAutoExportedCount
+		if totalDayAuto > 0 {
+			agg.AutoExportRate = math.Round((float64(agg.AutoExportedCount)/float64(totalDayAuto))*10000) / 100
 		}
 		agg.RuntimeHours = math.Round(agg.RuntimeHours*100) / 100
 		agg.TotalRuntimeHours = agg.RuntimeHours

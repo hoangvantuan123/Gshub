@@ -1819,7 +1819,10 @@ export const useProductionStatisticsLogic = ({
   // ── Danh sách cột khớp chuẩn 100% Khung Đăng Ký Thống Kê Sản Xuất (/sub/report/data/detail) ──
   const detailGridCols = useMemo(() => {
     return (rawStatCols || [])
-      .filter((c) => c.id && c.id !== 'WorkingTag' && !['RegCode', 'FactoryName', 'ApplyDate'].includes(c.id))
+      .filter(
+        (c) =>
+          c.id && c.id !== 'WorkingTag' && !['RegCode', 'FactoryName', 'ApplyDate'].includes(c.id)
+      )
       .map((col) => {
         let title = col.title
         const isSorted = detailSortConfig.key === col.id

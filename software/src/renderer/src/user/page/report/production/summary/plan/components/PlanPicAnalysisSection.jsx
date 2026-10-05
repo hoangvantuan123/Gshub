@@ -171,7 +171,7 @@ export function PlanPicAnalysisSection({
               gap: 8
             }}
           >
-            <span>1. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
+            <span>2. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI)</span>
           </div>
           <div
             style={{

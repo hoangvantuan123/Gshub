@@ -29,6 +29,7 @@ type aggregateAccumulator struct {
 	teamMap           map[string]*models.TeamPlanAggregate
 	machineMap        map[string]*models.MachinePlanAggregate
 	dailyMap          map[string]*models.DailyPlanAggregate
+	dailyItemsMap     map[string]map[string]bool
 }
 
 func newAggregateAccumulator() *aggregateAccumulator {
@@ -39,6 +40,7 @@ func newAggregateAccumulator() *aggregateAccumulator {
 		teamMap:       make(map[string]*models.TeamPlanAggregate),
 		machineMap:    make(map[string]*models.MachinePlanAggregate),
 		dailyMap:      make(map[string]*models.DailyPlanAggregate),
+		dailyItemsMap: make(map[string]map[string]bool),
 	}
 }
 
@@ -170,10 +172,27 @@ func (acc *aggregateAccumulator) addRow(
 				Date: date,
 			}
 		}
+		if _, ok := acc.dailyItemsMap[date]; !ok {
+			acc.dailyItemsMap[date] = make(map[string]bool)
+		}
+		if itemCode != "" {
+			acc.dailyItemsMap[date][itemCode] = true
+		}
 		dAcc := acc.dailyMap[date]
 		dAcc.OrderCount++
+		dAcc.TotalOrders++
 		dAcc.PlanQty += planQty
 		dAcc.ActualQty += actualQty
+		switch dpCode {
+		case "SX_SAI_NGAY":
+			dAcc.SxSaiNgayCount++
+		case "TRUOT_KH":
+			dAcc.TruotKhCount++
+		case "KHOP_SL":
+			dAcc.KhopSlCount++
+		case "KHOP_JOB":
+			dAcc.KhopJobCount++
+		}
 	}
 }
 
@@ -413,6 +432,16 @@ func (acc *aggregateAccumulator) BuildDailyTrendData() []models.DailyPlanAggrega
 		d.PassRate = pr
 		d.PlanQty = math.Round(d.PlanQty*100) / 100
 		d.ActualQty = math.Round(d.ActualQty*100) / 100
+		d.TotalOrders = d.OrderCount
+		if items, ok := acc.dailyItemsMap[d.Date]; ok {
+			d.TotalItems = len(items)
+		}
+		if d.OrderCount > 0 {
+			d.SxSaiNgayRate = math.Round((float64(d.SxSaiNgayCount)/float64(d.OrderCount))*1000) / 10
+			d.TruotKhRate = math.Round((float64(d.TruotKhCount)/float64(d.OrderCount))*1000) / 10
+			d.KhopSlRate = math.Round((float64(d.KhopSlCount)/float64(d.OrderCount))*1000) / 10
+			d.KhopJobRate = math.Round((float64(d.KhopJobCount)/float64(d.OrderCount))*1000) / 10
+		}
 		list = append(list, *d)
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].Date < list[j].Date })

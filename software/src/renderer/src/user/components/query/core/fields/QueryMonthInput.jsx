@@ -30,7 +30,7 @@ const QueryMonthInput = memo(function QueryMonthInput({
           onChange(field.key, '')
           return
         }
-        const formatted = d?.format ? d.format('YYYY-MM') : (dateString || '')
+        const formatted = d?.format ? d.format('YYYY-MM') : dateString || ''
         onChange(field.key, formatted)
       }}
       disabled={disabled}

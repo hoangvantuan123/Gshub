@@ -99,9 +99,21 @@ type DailyStatAggregate struct {
 	DefectQty         float64 `json:"defectQty"`
 	TotalDefectQty    float64 `json:"totalDefectQty"`
 	PassRate          float64 `json:"passRate"`
-	RuntimeHours      float64 `json:"runtimeHours"`
-	TotalRuntimeHours float64 `json:"totalRuntimeHours"`
-	TicketCount       int     `json:"ticketCount"`
+	RuntimeHours         float64 `json:"runtimeHours"`
+	TotalRuntimeHours    float64 `json:"totalRuntimeHours"`
+	TicketCount          int     `json:"ticketCount"`
+	Over12hCount         int     `json:"over12hCount"`
+	Anomalies            int     `json:"anomalies"`
+	Under5MinCount       int     `json:"under5MinCount"`
+	Under5Min            int     `json:"under5Min"`
+	AutoExportedCount    int     `json:"autoExportedCount"`
+	AutoExportPass       int     `json:"autoExportPass"`
+	NotAutoExportedCount int     `json:"notAutoExportedCount"`
+	AutoExportMissing    int     `json:"autoExportMissing"`
+	MesCount             int     `json:"mesCount"`
+	NonMesCount          int     `json:"nonMesCount"`
+	MesRate              float64 `json:"mesRate"`
+	AutoExportRate       float64 `json:"autoExportRate"`
 }
 
 // SyncDelayGroupItem: Nhóm độ trễ đồng bộ

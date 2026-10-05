@@ -79,11 +79,21 @@ type MachinePlanAggregate struct {
 
 // DailyPlanAggregate: Thống kê xu hướng tiến độ theo Ngày
 type DailyPlanAggregate struct {
-	Date       string  `json:"date"`       // Ngày (YYYY-MM-DD)
-	PlanQty    float64 `json:"planQty"`    // Sản lượng KH
-	ActualQty  float64 `json:"actualQty"`  // Sản lượng TT
-	OrderCount int     `json:"orderCount"` // Số lệnh
-	PassRate   float64 `json:"passRate"`   // % Đạt
+	Date           string  `json:"date"`           // Ngày (YYYY-MM-DD)
+	PlanQty        float64 `json:"planQty"`        // Sản lượng KH
+	ActualQty      float64 `json:"actualQty"`      // Sản lượng TT
+	OrderCount     int     `json:"orderCount"`     // Số lệnh thao tác
+	TotalOrders    int     `json:"totalOrders"`    // Alias cho FE (Lệnh thao tác)
+	TotalItems     int     `json:"totalItems"`     // Mặt hàng điều phối (SP)
+	SxSaiNgayCount int     `json:"sxSaiNgayCount"` // Lệnh SX sai ngày KH
+	SxSaiNgayRate  float64 `json:"sxSaiNgayRate"`  // Tỷ lệ %
+	TruotKhCount   int     `json:"truotKhCount"`   // Lệnh Trượt KH
+	TruotKhRate    float64 `json:"truotKhRate"`    // Tỷ lệ %
+	KhopSlCount    int     `json:"khopSlCount"`    // Lệnh Khớp số lượng
+	KhopSlRate     float64 `json:"khopSlRate"`     // Tỷ lệ %
+	KhopJobCount   int     `json:"khopJobCount"`   // Lệnh Khớp job
+	KhopJobRate    float64 `json:"khopJobRate"`    // Tỷ lệ %
+	PassRate       float64 `json:"passRate"`       // % Đạt
 }
 
 // PlanMasterOption: Thông tin rút gọn đợt kế hoạch để đổ vào dropdown filter trên FE

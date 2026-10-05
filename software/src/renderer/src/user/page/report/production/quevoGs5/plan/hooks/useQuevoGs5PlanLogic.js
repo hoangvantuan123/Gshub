@@ -754,7 +754,10 @@ export function useQuevoGs5PlanLogic({
   // Columns for Glide Data Grid matching 100% Plan Import Registration schema
   const detailGridCols = useMemo(() => {
     return (rawPlanCols || [])
-      .filter((c) => c.id && c.id !== 'WorkingTag' && !['RegCode', 'FactoryName', 'ApplyDate'].includes(c.id))
+      .filter(
+        (c) =>
+          c.id && c.id !== 'WorkingTag' && !['RegCode', 'FactoryName', 'ApplyDate'].includes(c.id)
+      )
       .map((col) => {
         let title = col.title
         const isSorted = detailSortConfig.key === col.id

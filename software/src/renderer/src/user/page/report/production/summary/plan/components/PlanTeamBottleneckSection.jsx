@@ -22,7 +22,7 @@ export function PlanTeamBottleneckSection({ advancedPlanMetrics = {}, teamBreakd
               alignItems: 'center'
             }}
           >
-            <span>5. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ &amp; CÂN BẰNG TẢI CÔNG ĐOẠN</span>
+            <span>6. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ &amp; CÂN BẰNG TẢI CÔNG ĐOẠN</span>
           </div>
           <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4 }}>
             Đo lường mức độ tuân thủ tiến độ (Schedule Adherence), độ lệch ngày bình quân và tình

@@ -45,7 +45,7 @@ export function PlanTimeAndCapaSection({ timeStatusBreakdown = [], capaStatusBre
         >
           <div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-              3. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
+              4. TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)
             </div>
             <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
               So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch
@@ -140,7 +140,7 @@ export function PlanTimeAndCapaSection({ timeStatusBreakdown = [], capaStatusBre
         >
           <div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-              4. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
+              5. TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)
             </div>
             <div style={{ fontSize: 12, color: '#475569', marginTop: 3 }}>
               Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống

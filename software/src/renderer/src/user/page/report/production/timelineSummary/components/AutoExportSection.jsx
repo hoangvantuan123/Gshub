@@ -20,7 +20,8 @@ export function AutoExportSection({
   missingAutoExportTickets = [],
   showAutoExportTable,
   setShowAutoExportTable,
-  plantName
+  plantName,
+  sectionNumber = '5.2'
 }) {
   const [activeTab, setActiveTab] = useState('breakdown') // 'breakdown' | 'missing_list'
   const [missingSearchText, setMissingSearchText] = useState('')
@@ -107,7 +108,7 @@ export function AutoExportSection({
               alignItems: 'center'
             }}
           >
-            <span>4. THỐNG KÊ PHÂN BỔ LOẠI CHỨNG TỪ XUẤT/NHẬP TỰ ĐỘNG</span>
+            <span>{sectionNumber}. THỐNG KÊ PHÂN BỔ LOẠI CHỨNG TỪ XUẤT/NHẬP TỰ ĐỘNG</span>
           </div>
           <div
             style={{

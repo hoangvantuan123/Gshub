@@ -13,7 +13,13 @@ import {
 import { TableProperties } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 
-export function SyncLatencySection({ kpiMetrics, showSyncTable, setShowSyncTable, plantName }) {
+export function SyncLatencySection({
+  kpiMetrics,
+  showSyncTable,
+  setShowSyncTable,
+  plantName,
+  sectionNumber = '5.1'
+}) {
   const totalTickets = kpiMetrics.totalTickets || 0
 
   return (
@@ -37,7 +43,7 @@ export function SyncLatencySection({ kpiMetrics, showSyncTable, setShowSyncTable
               alignItems: 'center'
             }}
           >
-            <span>3. THỐNG KÊ ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG</span>
+            <span>{sectionNumber}. THỐNG KÊ ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG</span>
           </div>
           <div
             style={{

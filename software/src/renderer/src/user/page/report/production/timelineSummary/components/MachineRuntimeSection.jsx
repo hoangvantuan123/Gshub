@@ -30,7 +30,8 @@ export function MachineRuntimeSection({
   setMachineChartMode,
   plantName,
   totalDays = 1,
-  standardCapacityHours = 24
+  standardCapacityHours = 24,
+  sectionNumber = 1
 }) {
   const chartData = displayMachineList.map((m) => {
     const code = m.machineCode || m.machineName || 'M-UNKNOWN'
@@ -72,7 +73,9 @@ export function MachineRuntimeSection({
               alignItems: 'center'
             }}
           >
-            <span>1. THỐNG KÊ TỔNG GIỜ CHẠY MÁY & PHÂN BỔ TẢI TRỌNG THEO CỤM MÁY</span>
+            <span>
+              {sectionNumber}. THỐNG KÊ TỔNG GIỜ CHẠY MÁY &amp; PHÂN BỔ TẢI TRỌNG THEO CỤM MÁY
+            </span>
           </div>
           <div
             style={{

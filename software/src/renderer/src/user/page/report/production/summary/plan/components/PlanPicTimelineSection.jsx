@@ -654,7 +654,7 @@ export function PlanPicTimelineSection({
               gap: 8
             }}
           >
-            <span>2. TỐC ĐỘ TĂNG TRƯỞNG PIC THEO THÁNG & DIỄN BIẾN ĐỘ KHỚP KHSX</span>
+            <span>3. TỐC ĐỘ TĂNG TRƯỞNG PIC THEO THÁNG & DIỄN BIẾN ĐỘ KHỚP KHSX</span>
           </div>
           <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
             Theo dõi tốc độ tăng trưởng, độ <b>Khớp số lượng</b> và <b>Khớp công việc (Job)</b> của

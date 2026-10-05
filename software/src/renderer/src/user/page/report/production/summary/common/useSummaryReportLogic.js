@@ -11,11 +11,7 @@ import { useStatisticsImportColumns } from '../../../registration/statistics/col
 import { usePlanImportColumns } from '../../../registration/plan/columns/planImportColumns'
 import { captureReportScreenshot } from '../../../common/screenshotHelper'
 import { getCleanDate } from '../../../common/reportUtils'
-import {
-  generateExcelWorkbook,
-  saveWorkbookToFile,
-  formatFilterSummary
-} from '../../../../../../utils/exportExcelUtils'
+import { saveWorkbookToFile } from '../../../../../../utils/exportExcelUtils'
 import {
   parseSyncDelayToSeconds,
   formatSecondsToTime,
@@ -416,7 +412,11 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
         if (repData.items && Array.isArray(repData.items) && repData.items.length > 0) {
           rowsArray = repData.items
         }
-        if (repData.data?.items && Array.isArray(repData.data.items) && repData.data.items.length > 0) {
+        if (
+          repData.data?.items &&
+          Array.isArray(repData.data.items) &&
+          repData.data.items.length > 0
+        ) {
           rowsArray = repData.data.items
         }
 
@@ -435,18 +435,19 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
             '2026-09-29'
           const planDate = normalizeDateString(regDateRaw)
 
-          const pic = String(
-            row.PicDp ||
-              row.picDp ||
-              row.pic ||
-              row.Pic ||
-              row.Planner ||
-              row.planner ||
-              row.PicName ||
-              mInfo?.PicDp ||
-              mInfo?.Pic ||
-              ''
-          ).trim() || 'Admin'
+          const pic =
+            String(
+              row.PicDp ||
+                row.picDp ||
+                row.pic ||
+                row.Pic ||
+                row.Planner ||
+                row.planner ||
+                row.PicName ||
+                mInfo?.PicDp ||
+                mInfo?.Pic ||
+                ''
+            ).trim() || 'Admin'
 
           return {
             ...row,
@@ -488,7 +489,11 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
         if (repData.items && Array.isArray(repData.items) && repData.items.length > 0) {
           rowsArray = repData.items
         }
-        if (repData.data?.items && Array.isArray(repData.data.items) && repData.data.items.length > 0) {
+        if (
+          repData.data?.items &&
+          Array.isArray(repData.data.items) &&
+          repData.data.items.length > 0
+        ) {
           rowsArray = repData.data.items
         }
 
@@ -637,7 +642,9 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
 
     return rawDataset.filter((item) => {
       if (selectedPic && selectedPic !== 'ALL') {
-        const itemPic = String(item.pic || item.PicDp || item.Pic || '').trim().toLowerCase()
+        const itemPic = String(item.pic || item.PicDp || item.Pic || '')
+          .trim()
+          .toLowerCase()
         const targetPic = String(selectedPic).trim().toLowerCase()
         if (itemPic !== targetPic && !itemPic.includes(targetPic)) return false
       }
@@ -1368,11 +1375,24 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
         return row
       })
 
-    if (dailyList.length === 0 && (backendReportData?.dailyTrendData?.length > 0 || masterList?.length > 0 || backendReportData?.picBreakdown?.length > 0)) {
+    if (
+      dailyList.length === 0 &&
+      (backendReportData?.dailyTrendData?.length > 0 ||
+        masterList?.length > 0 ||
+        backendReportData?.picBreakdown?.length > 0)
+    ) {
       const dailyRaw = backendReportData?.dailyTrendData || []
-      const picRaw = backendReportData?.picBreakdown || (backendReportData?.filterOptions?.pics || []).map((p) => ({ pic: p, picName: p, totalOrders: 0 }))
-      const picListFallback = picRaw.map((p) => p.pic || p.picName || p.name || p.key).filter(Boolean)
-      
+      const picRaw =
+        backendReportData?.picBreakdown ||
+        (backendReportData?.filterOptions?.pics || []).map((p) => ({
+          pic: p,
+          picName: p,
+          totalOrders: 0
+        }))
+      const picListFallback = picRaw
+        .map((p) => p.pic || p.picName || p.name || p.key)
+        .filter(Boolean)
+
       let sourceDailyList = []
       if (dailyRaw.length > 0) {
         sourceDailyList = dailyRaw
@@ -1389,7 +1409,9 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
             rec.orderCount += m.TotalRows || 1
           }
         })
-        sourceDailyList = Array.from(masterDateMap.values()).sort((a, b) => a.date.localeCompare(b.date))
+        sourceDailyList = Array.from(masterDateMap.values()).sort((a, b) =>
+          a.date.localeCompare(b.date)
+        )
       }
 
       if (sourceDailyList.length === 0 || picListFallback.length === 0) {
@@ -1434,11 +1456,19 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
           const pTotal = Math.max(0, Math.round(total * pWeight))
           const pPassRate = pObj?.passRate || passRate
           const pPass = Math.round(pTotal * (pPassRate / 100))
-          const pSaiNgay = pObj?.sxSaiNgayCount ? Math.round(pObj.sxSaiNgayCount * (pTotal / (pObj.totalOrders || 1))) : 0
+          const pSaiNgay = pObj?.sxSaiNgayCount
+            ? Math.round(pObj.sxSaiNgayCount * (pTotal / (pObj.totalOrders || 1)))
+            : 0
           const pTruot = Math.max(0, pTotal - pPass - pSaiNgay)
           const pKhopSl = Math.max(0, pPass - Math.round(pPass * 0.15))
           const pKhopJob = Math.max(0, pPass - pKhopSl)
-          picStats[p] = { totalOrders: pTotal, sxSaiNgay: pSaiNgay, truotKh: pTruot, khopSl: pKhopSl, khopJob: pKhopJob }
+          picStats[p] = {
+            totalOrders: pTotal,
+            sxSaiNgay: pSaiNgay,
+            truotKh: pTruot,
+            khopSl: pKhopSl,
+            khopJob: pKhopJob
+          }
           row[p] = pTotal
           row[`${p}_orders`] = pTotal
           row[`${p}_pass`] = pPass
@@ -1498,7 +1528,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
         qRec.truotKh += d.truotKh
 
         picListFallback.forEach((p) => {
-          if (!mRec.picStats[p]) mRec.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
+          if (!mRec.picStats[p])
+            mRec.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
           const pD = d.picStats?.[p] || {}
           mRec.picStats[p].totalOrders += pD.totalOrders || 0
           mRec.picStats[p].khopSl += pD.khopSl || 0
@@ -1506,7 +1537,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
           mRec.picStats[p].sxSaiNgay += pD.sxSaiNgay || 0
           mRec.picStats[p].truotKh += pD.truotKh || 0
 
-          if (!qRec.picStats[p]) qRec.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
+          if (!qRec.picStats[p])
+            qRec.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
           qRec.picStats[p].totalOrders += pD.totalOrders || 0
           qRec.picStats[p].khopSl += pD.khopSl || 0
           qRec.picStats[p].khopJob += pD.khopJob || 0
@@ -1532,7 +1564,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
           row[`${p}_khopJob`] = stat.khopJob || 0
           row[`${p}_sxSaiNgay`] = stat.sxSaiNgay || 0
           row[`${p}_truotKh`] = stat.truotKh || 0
-          row[`${p}_passRate`] = stat.totalOrders > 0 ? Number(((pass / stat.totalOrders) * 100).toFixed(1)) : 0
+          row[`${p}_passRate`] =
+            stat.totalOrders > 0 ? Number(((pass / stat.totalOrders) * 100).toFixed(1)) : 0
         })
         return row
       })
@@ -1554,7 +1587,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
           row[`${p}_khopJob`] = stat.khopJob || 0
           row[`${p}_sxSaiNgay`] = stat.sxSaiNgay || 0
           row[`${p}_truotKh`] = stat.truotKh || 0
-          row[`${p}_passRate`] = stat.totalOrders > 0 ? Number(((pass / stat.totalOrders) * 100).toFixed(1)) : 0
+          row[`${p}_passRate`] =
+            stat.totalOrders > 0 ? Number(((pass / stat.totalOrders) * 100).toFixed(1)) : 0
         })
         return row
       })
@@ -1575,12 +1609,18 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
           passRate: d[`${p}_passRate`] || 100
         }))
         const midIndex = Math.floor(dailySeries.length / 2)
-        const firstHalfOrders = dailySeries.slice(0, Math.max(1, midIndex)).reduce((s, x) => s + x.orders, 0)
-        const secondHalfOrders = dailySeries.slice(Math.max(1, midIndex)).reduce((s, x) => s + x.orders, 0)
+        const firstHalfOrders = dailySeries
+          .slice(0, Math.max(1, midIndex))
+          .reduce((s, x) => s + x.orders, 0)
+        const secondHalfOrders = dailySeries
+          .slice(Math.max(1, midIndex))
+          .reduce((s, x) => s + x.orders, 0)
         const growthDiff = secondHalfOrders - firstHalfOrders
         let growthRate = 0
         if (firstHalfOrders > 0) {
-          growthRate = Number((((secondHalfOrders - firstHalfOrders) / firstHalfOrders) * 100).toFixed(1))
+          growthRate = Number(
+            (((secondHalfOrders - firstHalfOrders) / firstHalfOrders) * 100).toFixed(1)
+          )
         } else if (secondHalfOrders > 0) {
           growthRate = 100
         }
@@ -1832,15 +1872,25 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
 
   // Plan Team Breakdown (Bottleneck & Load Balancing)
   const planTeamBreakdown = useMemo(() => {
-    const rawTeams = backendReportData?.teamBreakdown || backendReportData?.data?.teamBreakdown || []
+    const rawTeams =
+      backendReportData?.teamBreakdown || backendReportData?.data?.teamBreakdown || []
     if (filteredData.length === 0) {
       let teamsToMap = rawTeams
       if (!teamsToMap || teamsToMap.length === 0) {
         const totalSm = backendReportData?.summary?.totalOrders || 40
-        const passRateSm = backendReportData?.summary?.passRate || backendReportData?.summary?.overallProgress || 92
+        const passRateSm =
+          backendReportData?.summary?.passRate || backendReportData?.summary?.overallProgress || 92
         teamsToMap = [
-          { teamName: 'Tổ Gia Công Cắt Gọt', totalOrders: Math.round(totalSm * 0.4), passRate: passRateSm },
-          { teamName: 'Tổ Lắp Ráp Hoàn Thiện', totalOrders: Math.round(totalSm * 0.35), passRate: passRateSm },
+          {
+            teamName: 'Tổ Gia Công Cắt Gọt',
+            totalOrders: Math.round(totalSm * 0.4),
+            passRate: passRateSm
+          },
+          {
+            teamName: 'Tổ Lắp Ráp Hoàn Thiện',
+            totalOrders: Math.round(totalSm * 0.35),
+            passRate: passRateSm
+          },
           { teamName: 'Tổ Kiểm Soát KCS', totalOrders: Math.round(totalSm * 0.25), passRate: 98.5 }
         ]
       }
@@ -1848,7 +1898,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
         const total = t.totalOrders || t.Count || t.count || 1
         const passRate = t.passRate || t.PassRate || 100
         const sxSaiNgay = t.sxSaiNgayCount || Math.round(total * 0.12)
-        const truotKh = t.truotKhCount || Math.max(0, total - Math.round(total * (passRate / 100)) - sxSaiNgay)
+        const truotKh =
+          t.truotKhCount || Math.max(0, total - Math.round(total * (passRate / 100)) - sxSaiNgay)
         const khopSl = t.khopSlCount || Math.max(0, Math.round(total * (passRate / 100) * 0.85))
         const khopJob = t.khopJobCount || Math.max(0, Math.round(total * (passRate / 100)) - khopSl)
         const planQty = t.planQty || t.PlanQty || 0
@@ -1860,7 +1911,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
           planQty,
           actualQty,
           passRate,
-          fulfillmentRate: planQty > 0 ? Number(((actualQty / planQty) * 100).toFixed(1)) : passRate,
+          fulfillmentRate:
+            planQty > 0 ? Number(((actualQty / planQty) * 100).toFixed(1)) : passRate,
           sxSaiNgay,
           truotKh,
           khopSl,
@@ -1921,9 +1973,11 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
   // Advanced Plan Metrics (5. Đánh giá chuyên sâu tiến độ & cân bằng tải)
   const advancedPlanMetrics = useMemo(() => {
     const sm = backendReportData?.summary || backendReportData?.data?.summary || planMetrics || {}
-    const totalOrders = planMetrics?.totalOrders || sm.totalOrders || sm.TotalOrders || filteredData.length || 1
+    const totalOrders =
+      planMetrics?.totalOrders || sm.totalOrders || sm.TotalOrders || filteredData.length || 1
     const totalPlanQty = planMetrics?.totalPlanQty || sm.totalPlanQty || sm.TotalPlanQty || 0
-    const totalActualQty = planMetrics?.totalActualQty || sm.totalActualQty || sm.TotalActualQty || 0
+    const totalActualQty =
+      planMetrics?.totalActualQty || sm.totalActualQty || sm.TotalActualQty || 0
 
     // Khi có filteredData chi tiết
     if (filteredData.length > 0) {
@@ -1952,9 +2006,12 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       })
 
       const passOrders = (planMetrics?.khopSlCount || 0) + (planMetrics?.khopJobCount || 0)
-      const scheduleAdherenceRate = totalOrders > 0 ? Number(((passOrders / totalOrders) * 100).toFixed(1)) : 0
-      const timeComplianceRate = totalOrders > 0 ? Number(((dungOrNhanhTime / totalOrders) * 100).toFixed(1)) : 0
-      const capaComplianceRate = totalOrders > 0 ? Number(((dungOrNhanhCapa / totalOrders) * 100).toFixed(1)) : 0
+      const scheduleAdherenceRate =
+        totalOrders > 0 ? Number(((passOrders / totalOrders) * 100).toFixed(1)) : 0
+      const timeComplianceRate =
+        totalOrders > 0 ? Number(((dungOrNhanhTime / totalOrders) * 100).toFixed(1)) : 0
+      const capaComplianceRate =
+        totalOrders > 0 ? Number(((dungOrNhanhCapa / totalOrders) * 100).toFixed(1)) : 0
       const avgDriftDays = driftCount > 0 ? Number((totalDriftDays / driftCount).toFixed(1)) : 0
 
       return {
@@ -1965,9 +2022,7 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
         totalPlanQty,
         totalActualQty,
         qtyFulfillmentRate:
-          totalPlanQty > 0
-            ? Number(((totalActualQty / totalPlanQty) * 100).toFixed(1))
-            : 100
+          totalPlanQty > 0 ? Number(((totalActualQty / totalPlanQty) * 100).toFixed(1)) : 100
       }
     }
 
@@ -1992,15 +2047,16 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
 
     const sxSaiNgay = sm.sxSaiNgayCount || sm.SxSaiNgayCount || 0
 
-    const timeComplianceRate = totalOrders > 0 && dungOrNhanhTime > 0
-      ? Number(((dungOrNhanhTime / totalOrders) * 100).toFixed(1))
-      : (sm.passRate || 92.4)
-    const capaComplianceRate = totalOrders > 0 && dungOrNhanhCapa > 0
-      ? Number(((dungOrNhanhCapa / totalOrders) * 100).toFixed(1))
-      : 95.6
-    const avgDriftDays = totalOrders > 0 && sxSaiNgay > 0
-      ? Number(((sxSaiNgay * 1.8) / totalOrders).toFixed(1))
-      : 1.2
+    const timeComplianceRate =
+      totalOrders > 0 && dungOrNhanhTime > 0
+        ? Number(((dungOrNhanhTime / totalOrders) * 100).toFixed(1))
+        : sm.passRate || 92.4
+    const capaComplianceRate =
+      totalOrders > 0 && dungOrNhanhCapa > 0
+        ? Number(((dungOrNhanhCapa / totalOrders) * 100).toFixed(1))
+        : 95.6
+    const avgDriftDays =
+      totalOrders > 0 && sxSaiNgay > 0 ? Number(((sxSaiNgay * 1.8) / totalOrders).toFixed(1)) : 1.2
 
     return {
       scheduleAdherenceRate: planMetrics?.passRate || sm.passRate || 100,
@@ -2012,7 +2068,7 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       qtyFulfillmentRate:
         totalPlanQty > 0
           ? Number(((totalActualQty / totalPlanQty) * 100).toFixed(1))
-          : (sm.passRate || 100)
+          : sm.passRate || 100
     }
   }, [filteredData, planMetrics, backendReportData])
 
@@ -2370,6 +2426,20 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
           const runtimeHours = d.runtimeHours ?? d.totalRuntimeHours ?? 0
           const tickets = d.ticketCount ?? d.orderCount ?? d.tickets ?? 0
           const passRate = actualQty > 0 ? (passQty / actualQty) * 100 : d.passRate || 100
+          const over12h = Number(d.over12hCount ?? d.anomalies ?? 0)
+          const under5Min = Number(d.under5MinCount ?? d.under5Min ?? 0)
+          const autoExported = Number(d.autoExportedCount ?? d.autoExportPass ?? 0)
+          const notAutoExported = Number(d.notAutoExportedCount ?? d.autoExportMissing ?? 0)
+          const nonMes = Number(d.nonMesCount ?? 0)
+          const mes = Number(d.mesCount ?? Math.max(0, tickets - nonMes))
+          const mesRate = Number(d.mesRate ?? (tickets > 0 ? (mes / tickets) * 100 : 100))
+          const autoExportRate = Number(
+            d.autoExportRate ??
+              (autoExported + notAutoExported > 0
+                ? (autoExported / (autoExported + notAutoExported)) * 100
+                : 0)
+          )
+
           return {
             date: d.date,
             ticketCount: tickets,
@@ -2384,7 +2454,15 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
             totalDefectQty: defectQty,
             runtimeHours: Number((runtimeHours || 0).toFixed(1)),
             totalRuntimeHours: Number((runtimeHours || 0).toFixed(1)),
-            passRate: Number(passRate.toFixed(1))
+            passRate: Number(passRate.toFixed(1)),
+            over12hCount: over12h,
+            under5MinCount: under5Min,
+            autoExportedCount: autoExported,
+            notAutoExportedCount: notAutoExported,
+            mesCount: mes,
+            nonMesCount: nonMes,
+            mesRate: Number(mesRate.toFixed(1)),
+            autoExportRate: Number(autoExportRate.toFixed(1))
           }
         })
         .sort((a, b) => {
@@ -2404,7 +2482,13 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
           actualQty: 0,
           passQty: 0,
           defectQty: 0,
-          runtimeHours: 0
+          runtimeHours: 0,
+          over12hCount: 0,
+          under5MinCount: 0,
+          autoExportedCount: 0,
+          notAutoExportedCount: 0,
+          mesCount: 0,
+          nonMesCount: 0
         })
       }
       const rec = map.get(dateKey)
@@ -2413,7 +2497,19 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       rec.actualQty += Number(item.actualQty || item.ProdQty || 0) || 0
       rec.passQty += Number(item.passQty || item.PassQty || 0) || 0
       rec.defectQty += Number(item.defectQty || 0) || 0
-      rec.runtimeHours += Number(item.runtimeHours || 0) || 0
+      const rHours = Number(item.runtimeHours || 0) || 0
+      rec.runtimeHours += rHours
+      const durMin = Number(item.durationMinutes ?? rHours * 60) || 0
+      if (rHours > 12 || durMin > 720) rec.over12hCount++
+      if (durMin < 5 && durMin >= 0) rec.under5MinCount++
+
+      const typeKey = getAutoExportType(item)
+      if (isPassAutoIo(typeKey)) rec.autoExportedCount++
+      else if (isMissingAutoIo(typeKey)) rec.notAutoExportedCount++
+
+      const orig = String(item.source || item.origin || '').toUpperCase()
+      if (orig.includes('MES')) rec.mesCount++
+      else rec.nonMesCount++
     })
 
     return Array.from(map.values()).sort((a, b) => {
@@ -2422,6 +2518,68 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       return String(a.date).localeCompare(String(b.date))
     })
   }, [filteredData, backendReportData])
+
+  // Dữ liệu tăng trưởng các chỉ số KHSX theo mốc ngày từ API /api/v2/report/production/summary/plan
+  const dailyTrendData = useMemo(() => {
+    const raw = backendReportData?.dailyTrendData || backendReportData?.data?.dailyTrendData
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw
+    }
+    if (filteredData && filteredData.length > 0) {
+      const dMap = new Map()
+      const dItemsMap = new Map()
+      filteredData.forEach((item) => {
+        const d = item.date || item.StatDate || item.prodDate || 'Khác'
+        if (!dMap.has(d)) {
+          dMap.set(d, {
+            date: d,
+            totalOrders: 0,
+            orderCount: 0,
+            totalItems: 0,
+            planQty: 0,
+            actualQty: 0,
+            sxSaiNgayCount: 0,
+            truotKhCount: 0,
+            khopSlCount: 0,
+            khopJobCount: 0
+          })
+          dItemsMap.set(d, new Set())
+        }
+        const rec = dMap.get(d)
+        rec.totalOrders++
+        rec.orderCount++
+        rec.planQty += Number(item.planQty || 0)
+        rec.actualQty += Number(item.actualQty || item.ProdQty || 0)
+        if (item.itemCode) dItemsMap.get(d).add(item.itemCode)
+
+        const st = item.dpStatusCode || item.dpStatus
+        const text = String(item.dpStatusText || item.status || item.StatusDpSx || '').toLowerCase()
+        if (st === 'SX_SAI_NGAY' || text.includes('sai ngày')) {
+          rec.sxSaiNgayCount++
+        } else if (st === 'TRUOT_KH' || text.includes('trượt')) {
+          rec.truotKhCount++
+        } else if (st === 'KHOP_JOB' || text.includes('khớp job') || text.includes('job')) {
+          rec.khopJobCount++
+        } else {
+          rec.khopSlCount++
+        }
+      })
+      return Array.from(dMap.values())
+        .map((d) => {
+          const itemsSet = dItemsMap.get(d.date)
+          d.totalItems = itemsSet ? itemsSet.size : 0
+          const total = d.totalOrders || 1
+          d.sxSaiNgayRate = Number(((d.sxSaiNgayCount / total) * 100).toFixed(1))
+          d.truotKhRate = Number(((d.truotKhCount / total) * 100).toFixed(1))
+          d.khopSlRate = Number(((d.khopSlCount / total) * 100).toFixed(1))
+          d.khopJobRate = Number(((d.khopJobCount / total) * 100).toFixed(1))
+          d.passRate = d.planQty > 0 ? Number(((d.actualQty / d.planQty) * 100).toFixed(1)) : 100
+          return d
+        })
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    }
+    return []
+  }, [backendReportData, filteredData])
 
   // Data Grid configuration for Section 5
   const detailGridCols = useMemo(() => {
@@ -2789,6 +2947,7 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
     setSelectedMasterKey,
     loading,
     rawDataset,
+    filteredData,
     masterList,
     selectedTeam,
     setSelectedTeam,
@@ -2834,6 +2993,8 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
     capaStatusBreakdown,
     planTeamBreakdown,
     advancedPlanMetrics,
+    backendReportData,
+    dailyTrendData,
     dailyAggregates,
     machineAggregates,
     displayMachineList,

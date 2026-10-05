@@ -5,6 +5,7 @@ import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import { useSummaryStatisticsLogic } from './hooks/useSummaryStatisticsLogic'
 import { SummaryTopControlBar } from '../common/SummaryTopControlBar'
 import { HeroKpiCards } from '../../timelineSummary/components/HeroKpiCards'
+import { DailyTicketGrowthSection } from './components/DailyTicketGrowthSection'
 import { DailyTimelineProgressSection } from '../../timelineSummary/components/DailyTimelineProgressSection'
 import { MachineRuntimeSection } from '../../timelineSummary/components/MachineRuntimeSection'
 import { TeamOutputSection } from '../../timelineSummary/components/TeamOutputSection'
@@ -52,6 +53,8 @@ export default function SummaryStatisticsReportPage() {
     reportRootRef,
     factoryOptions,
     kpiMetrics,
+    filteredData,
+    backendReportData,
     dailyAggregates,
     displayMachineList,
     machineGrandTotal,
@@ -179,7 +182,8 @@ export default function SummaryStatisticsReportPage() {
                 <>
                   <span>•</span>
                   <span>
-                    <b>Phạm vi ngày đăng ký:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays} ngày)
+                    <b>Phạm vi ngày đăng ký:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays}{' '}
+                    ngày)
                   </span>
                 </>
               )}
@@ -189,8 +193,22 @@ export default function SummaryStatisticsReportPage() {
           {/* I. HERO KPI METRICS */}
           <HeroKpiCards kpiMetrics={kpiMetrics} />
 
-          {/* 1. MACHINE RUNTIME & CAPACITY ANALYSIS */}
+          {/* 1. SỐ PHIẾU & TỐC ĐỘ TĂNG TRƯỞNG THEO NGÀY */}
+          <DailyTicketGrowthSection
+            filteredData={filteredData}
+            dailyAggregates={dailyAggregates}
+            backendReportData={backendReportData}
+            kpiMetrics={kpiMetrics}
+            dateRange={dateRange}
+            loading={loading}
+            plantName={currentPlantName}
+            totalDays={totalDays}
+            handleDownloadSingleChart={handleDownloadSingleChart}
+          />
+
+          {/* 2. MACHINE RUNTIME & CAPACITY ANALYSIS */}
           <MachineRuntimeSection
+            sectionNumber={2}
             displayMachineList={displayMachineList}
             machineGrandTotal={machineGrandTotal}
             machineChartMode={machineChartMode}
@@ -205,8 +223,9 @@ export default function SummaryStatisticsReportPage() {
             handleDownloadSingleChart={handleDownloadSingleChart}
           />
 
-          {/* 2. TEAM OUTPUT & EFFICIENCY ANALYSIS */}
+          {/* 3. TEAM OUTPUT & EFFICIENCY ANALYSIS */}
           <TeamOutputSection
+            sectionNumber={3}
             teamAggregates={teamAggregates}
             teamGrandTotal={teamGrandTotal}
             showTeamSummaryTable={showTeamSummaryTable}
@@ -215,8 +234,9 @@ export default function SummaryStatisticsReportPage() {
             handleDownloadSingleChart={handleDownloadSingleChart}
           />
 
-          {/* 3. DAILY TIMELINE & PROGRESS EVOLUTION ANALYSIS */}
+          {/* 4. DAILY TIMELINE & PROGRESS EVOLUTION ANALYSIS */}
           <DailyTimelineProgressSection
+            sectionNumber={4}
             dailyAggregates={dailyAggregates}
             plantName={currentPlantName}
             totalDays={totalDays}
@@ -224,7 +244,7 @@ export default function SummaryStatisticsReportPage() {
             setShowDailySummaryTable={setShowDailySummaryTable}
           />
 
-          {/* IV. SYNC LATENCY & AUTO EXPORT LOGISTICS ANALYSIS */}
+          {/* 5. SYNC LATENCY & AUTO EXPORT LOGISTICS ANALYSIS */}
           <div
             style={{
               display: 'grid',
@@ -234,6 +254,7 @@ export default function SummaryStatisticsReportPage() {
             }}
           >
             <SyncLatencySection
+              sectionNumber="5.1"
               kpiMetrics={kpiMetrics}
               showSyncTable={showSyncTable}
               setShowSyncTable={setShowSyncTable}
@@ -241,6 +262,7 @@ export default function SummaryStatisticsReportPage() {
               handleDownloadSingleChart={handleDownloadSingleChart}
             />
             <AutoExportSection
+              sectionNumber="5.2"
               kpiMetrics={kpiMetrics}
               missingAutoExportTickets={missingAutoExportTickets}
               showAutoExportTable={showAutoExportTable}

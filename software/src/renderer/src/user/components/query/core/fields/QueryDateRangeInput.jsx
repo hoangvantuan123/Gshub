@@ -36,8 +36,8 @@ const QueryDateRangeInput = memo(function QueryDateRangeInput({
           onChange(field.key, ['', ''])
           return
         }
-        const f0 = dates[0]?.format ? dates[0].format('YYYY-MM-DD') : (dateStrings?.[0] || '')
-        const f1 = dates[1]?.format ? dates[1].format('YYYY-MM-DD') : (dateStrings?.[1] || '')
+        const f0 = dates[0]?.format ? dates[0].format('YYYY-MM-DD') : dateStrings?.[0] || ''
+        const f1 = dates[1]?.format ? dates[1].format('YYYY-MM-DD') : dateStrings?.[1] || ''
         onChange(field.key, [f0, f1])
       }}
       disabled={disabled}

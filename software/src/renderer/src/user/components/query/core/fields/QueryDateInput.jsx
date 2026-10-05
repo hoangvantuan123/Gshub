@@ -29,7 +29,7 @@ const QueryDateInput = memo(function QueryDateInput({
           onChange(field.key, '')
           return
         }
-        const formatted = d?.format ? d.format('YYYY-MM-DD') : (dateString || '')
+        const formatted = d?.format ? d.format('YYYY-MM-DD') : dateString || ''
         onChange(field.key, formatted)
       }}
       disabled={disabled}

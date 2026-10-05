@@ -3131,7 +3131,9 @@ export default function ProductionStatisticsReport(props) {
         loadedCount={(displayDetailList || []).length}
         columns={detailGridCols}
         activeFilters={{
-          FactoryName: plantName || (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội'),
+          FactoryName:
+            plantName ||
+            (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội'),
           MasterKey: selectedMasterKey || ''
         }}
         defaultFileName={`NhatTrinh_ChiTiet_ThongKe_SanXuat_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`}

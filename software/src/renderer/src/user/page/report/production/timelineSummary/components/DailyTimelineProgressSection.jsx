@@ -22,7 +22,8 @@ export function DailyTimelineProgressSection({
   plantName = 'Nhà máy',
   totalDays = 1,
   showDailySummaryTable = true,
-  setShowDailySummaryTable
+  setShowDailySummaryTable,
+  sectionNumber = 3
 }) {
   // Format data for timeline analysis
   const { chartData, grandTotal } = useMemo(() => {
@@ -125,7 +126,7 @@ export function DailyTimelineProgressSection({
               alignItems: 'center'
             }}
           >
-            <span>3. THỐNG KÊ TIẾN TRÌNH SẢN LƯỢNG THEO DÒNG THỜI GIAN</span>
+            <span>{sectionNumber}. THỐNG KÊ TIẾN TRÌNH SẢN LƯỢNG THEO DÒNG THỜI GIAN</span>
           </div>
           <div
             style={{

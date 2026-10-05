@@ -19,7 +19,8 @@ export function TeamOutputSection({
   teamGrandTotal,
   showTeamSummaryTable,
   setShowTeamSummaryTable,
-  plantName
+  plantName,
+  sectionNumber = 2
 }) {
   const chartData = teamAggregates.map((t) => ({
     name: t.teamName,
@@ -50,7 +51,7 @@ export function TeamOutputSection({
               alignItems: 'center'
             }}
           >
-            <span>2. THỐNG KÊ SẢN LƯỢNG SẢN XUẤT &amp; ĐẠT THEO TỔ SẢN XUẤT</span>
+            <span>{sectionNumber}. THỐNG KÊ SẢN LƯỢNG SẢN XUẤT &amp; ĐẠT THEO TỔ SẢN XUẤT</span>
           </div>
           <div
             style={{

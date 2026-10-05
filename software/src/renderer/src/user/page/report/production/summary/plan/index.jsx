@@ -5,6 +5,8 @@ import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import { useSummaryPlanLogic } from './hooks/useSummaryPlanLogic'
 import { SummaryTopControlBar } from '../common/SummaryTopControlBar'
 import { PlanHeroKpiCards } from './components/PlanHeroKpiCards'
+import { PlanProductionRhythmChart } from './components/PlanProductionRhythmChart'
+import { PlanGrowthEvolutionSection } from './components/PlanGrowthEvolutionSection'
 import { PlanPicAnalysisSection } from './components/PlanPicAnalysisSection'
 import { PlanPicTimelineSection } from './components/PlanPicTimelineSection'
 import { PlanTimeAndCapaSection } from './components/PlanTimeAndCapaSection'
@@ -43,6 +45,7 @@ export default function SummaryPlanReportPage() {
     factoryOptions,
     filterOptions,
     planMetrics,
+    dailyTrendData,
     timeStatusBreakdown,
     capaStatusBreakdown,
     planTeamBreakdown,
@@ -166,7 +169,8 @@ export default function SummaryPlanReportPage() {
                 <>
                   <span>•</span>
                   <span>
-                    <b>Phạm vi ngày đăng ký:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays} ngày)
+                    <b>Phạm vi ngày đăng ký:</b> {dateRange[0]} đến {dateRange[1]} ({totalDays}{' '}
+                    ngày)
                   </span>
                 </>
               )}
@@ -181,10 +185,22 @@ export default function SummaryPlanReportPage() {
             </div>
           </div>
 
-          {/* I. HERO KPI METRICS CHỦ CHỐT CHO ĐIỀU PHỐI KHSX */}
+          {/* I. HERO KPI METRICS */}
           <PlanHeroKpiCards planMetrics={planMetrics} />
 
-          {/* 1. THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI) */}
+          {/* 1. HẠNG MỤC ĐẦU TIÊN: NHỊP SẢN XUẤT & CHẤT LƯỢNG KẾ HOẠCH */}
+          <PlanProductionRhythmChart
+            serverDailyData={dailyTrendData || []}
+            picTimelineBreakdown={picTimelineBreakdown}
+            planMetrics={planMetrics}
+            plantName={currentPlantName}
+            systemName="Điều phối KHSX & Bravo ERP"
+            dateRange={dateRange}
+            totalDays={totalDays}
+            loading={loading}
+          />
+
+          {/* 2. PHÂN TÍCH THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI) */}
           <PlanPicAnalysisSection
             picBreakdown={picBreakdown || []}
             plantName={currentPlantName}

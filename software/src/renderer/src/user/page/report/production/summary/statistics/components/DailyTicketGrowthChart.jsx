@@ -4,59 +4,22 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Bar,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as RechartsTooltip,
-  Legend,
-  LabelList
+  Tooltip as RechartsTooltip
 } from 'recharts'
-
-/**
- * Custom SVG Diamond Dot cho chuỗi "Sinh phiếu X/N tự động"
- */
-const renderDiamondDot = (props) => {
-  const { cx, cy, stroke, payload, dataKey } = props
-  const val = payload?.[dataKey]
-  if (val === null || val === undefined || isNaN(cx) || isNaN(cy)) return null
-  const size = 4
-  const points = `${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`
-  return (
-    <polygon
-      points={points}
-      fill={stroke || '#10b981'}
-      stroke="#ffffff"
-      strokeWidth={1.5}
-      key={`diamond-dot-${cx}-${cy}`}
-    />
-  )
-}
-
-const renderActiveDiamondDot = (props) => {
-  const { cx, cy, stroke } = props
-  if (isNaN(cx) || isNaN(cy)) return null
-  const size = 6
-  const points = `${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`
-  return (
-    <polygon
-      points={points}
-      fill={stroke || '#10b981'}
-      stroke="#ffffff"
-      strokeWidth={2}
-      key={`active-diamond-${cx}-${cy}`}
-    />
-  )
-}
 
 /**
  * Custom Executive Tooltip đồng bộ hoàn toàn với hệ thống báo cáo Gshub
  */
-function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
+function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries, periodType = 'daily' }) {
   if (!active || !payload || payload.length === 0) return null
 
   const row = payload[0]?.payload || {}
   const isFirst = row.isFirst
+  const periodLabel =
+    periodType === 'monthly' ? 'Tháng' : periodType === 'quarterly' ? 'Quý' : 'Ngày'
 
   const renderBadge = (growthVal, growthLabel, growthStatus) => {
     if (isFirst || growthLabel === '—' || growthVal === null) {
@@ -129,7 +92,7 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
       }}
     >
-      {/* Header Ngày */}
+      {/* Header Ngày / Tháng / Quý */}
       <div
         style={{
           display: 'flex',
@@ -141,7 +104,7 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
         }}
       >
         <span style={{ fontWeight: 800, fontSize: 13, color: '#0f172a' }}>
-          Ngày: {row.displayDate || label}
+          {periodLabel}: {row.displayDate || label}
         </span>
         <span style={{ fontSize: 11, color: '#64748b' }}>MES Engine &amp; Bravo ERP</span>
       </div>
@@ -465,7 +428,8 @@ export function DailyTicketGrowthChart({
   chartData = [],
   visibleSeries: externalVisibleSeries,
   onToggleSeries,
-  height = 500
+  height = 500,
+  periodType = 'daily'
 }) {
   const [rangeFilter, setRangeFilter] = useState('all')
   const [internalVisibleSeries, setInternalVisibleSeries] = useState({
@@ -592,9 +556,28 @@ export function DailyTicketGrowthChart({
             }}
           >
             {[
-              { value: '10', label: '10 ngày' },
-              { value: '30', label: '30 ngày' },
-              { value: 'all', label: `Tất cả (${chartData.length}N)` }
+              {
+                value: '10',
+                label:
+                  periodType === 'monthly'
+                    ? '6 tháng'
+                    : periodType === 'quarterly'
+                      ? '4 quý'
+                      : '10 ngày'
+              },
+              {
+                value: '30',
+                label:
+                  periodType === 'monthly'
+                    ? '12 tháng'
+                    : periodType === 'quarterly'
+                      ? '8 quý'
+                      : '30 ngày'
+              },
+              {
+                value: 'all',
+                label: `Tất cả (${chartData.length}${periodType === 'monthly' ? 'T' : periodType === 'quarterly' ? 'Q' : 'N'})`
+              }
             ].map((opt) => {
               const isActive = rangeFilter === opt.value
               return (
@@ -668,7 +651,9 @@ export function DailyTicketGrowthChart({
 
             {/* Custom Tooltip */}
             <RechartsTooltip
-              content={<DailyTicketGrowthTooltip visibleSeries={visibleSeries} />}
+              content={
+                <DailyTicketGrowthTooltip visibleSeries={visibleSeries} periodType={periodType} />
+              }
               cursor={{ fill: 'rgba(241, 245, 249, 0.45)' }}
             />
 

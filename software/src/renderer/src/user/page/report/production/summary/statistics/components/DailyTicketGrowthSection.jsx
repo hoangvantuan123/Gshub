@@ -2,9 +2,11 @@
 import { useState, useMemo } from 'react'
 import { TableProperties } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { DailyTicketGrowthChart } from './DailyTicketGrowthChart'
 import {
   extractDailyTicketGrowthData,
+  groupDailyDataByPeriod,
   calculateDailyGrowthSeries
 } from '../utils/dailyTicketGrowthCalculations'
 
@@ -18,6 +20,7 @@ export function DailyTicketGrowthSection({
   totalDays = 1,
   sectionNumber = 1
 }) {
+  const [periodType, setPeriodType] = useState('daily') // 'daily' | 'monthly' | 'quarterly'
   const [showTable, setShowTable] = useState(true)
   const [visibleSeries, setVisibleSeries] = useState({
     totalTickets: true,
@@ -38,12 +41,27 @@ export function DailyTicketGrowthSection({
     )
   }, [filteredData, dailyAggregates, backendReportData, kpiMetrics, dateRange])
 
-  // 2. Tính toán các chỉ số tăng trưởng và tổng hợp
-  const { chartData, grandTotal } = useMemo(() => {
-    return calculateDailyGrowthSeries(rawDailyData)
+  // 2. Gom nhóm theo khoảng thời gian Ngày / Tháng / Quý
+  const periodData = useMemo(() => {
+    return groupDailyDataByPeriod(rawDailyData)
   }, [rawDailyData])
 
-  // 3. Xử lý click trên Legend để bật/tắt chuỗi cột
+  const activeRawList = useMemo(() => {
+    if (periodType === 'monthly' && periodData.monthlyList?.length > 0) {
+      return periodData.monthlyList
+    }
+    if (periodType === 'quarterly' && periodData.quarterlyList?.length > 0) {
+      return periodData.quarterlyList
+    }
+    return periodData.dailyList || []
+  }, [periodData, periodType])
+
+  // 3. Tính toán các chỉ số tăng trưởng và tổng hợp theo kỳ được chọn
+  const { chartData, grandTotal } = useMemo(() => {
+    return calculateDailyGrowthSeries(activeRawList)
+  }, [activeRawList])
+
+  // 4. Xử lý click trên Legend để bật/tắt chuỗi cột
   const handleToggleSeries = (key) => {
     if (!key) return
     setVisibleSeries((prev) => ({
@@ -52,10 +70,21 @@ export function DailyTicketGrowthSection({
     }))
   }
 
-  // Không có dữ liệu từ API thì không render (chuẩn theo phong cách các section trong hệ thống)
+  // Không có dữ liệu từ API thì không render
   if (!chartData || chartData.length === 0) {
     return null
   }
+
+  const periodUnitText =
+    periodType === 'monthly' ? 'THÁNG' : periodType === 'quarterly' ? 'QUÝ' : 'NGÀY'
+  const periodUnitLower =
+    periodType === 'monthly' ? 'tháng' : periodType === 'quarterly' ? 'quý' : 'ngày'
+  const periodLabelText =
+    periodType === 'monthly'
+      ? `${chartData.length} tháng`
+      : periodType === 'quarterly'
+        ? `${chartData.length} quý`
+        : `chu kỳ ${totalDays || chartData.length} ngày`
 
   return (
     <div
@@ -87,7 +116,9 @@ export function DailyTicketGrowthSection({
               alignItems: 'center'
             }}
           >
-            <span>{sectionNumber}. THỐNG KÊ SỐ PHIẾU &amp; TỐC ĐỘ TĂNG TRƯỞNG THEO NGÀY</span>
+            <span>
+              {sectionNumber}. THỐNG KÊ SỐ PHIẾU &amp; TỐC ĐỘ TĂNG TRƯỞNG THEO {periodUnitText}
+            </span>
           </div>
           <div
             style={{
@@ -98,19 +129,31 @@ export function DailyTicketGrowthSection({
               maxWidth: 960
             }}
           >
-            Thống kê diễn biến tổng số phiếu tiếp nhận &amp; nhịp độ biến động theo ngày của{' '}
-            <b>{plantName || 'Nhà máy GS Hà Nội'}</b> (chu kỳ{' '}
-            <b>{totalDays || chartData.length} ngày</b>) trên hệ thống{' '}
-            <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ cột khối lượng số lượng từng hạng mục nối
-            đỉnh liên tục qua các ngày và thanh trượt điều chỉnh khoảng thời gian lọc linh hoạt.
+            Thống kê diễn biến tổng số phiếu tiếp nhận &amp; nhịp độ biến động theo{' '}
+            {periodUnitLower} của <b>{plantName || 'Nhà máy GS Hà Nội'}</b> ({periodLabelText}) trên
+            hệ thống <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ cột khối lượng số lượng từng hạng
+            mục nối đỉnh liên tục qua các {periodUnitLower} và thanh trượt điều chỉnh khoảng thời
+            gian lọc linh hoạt.
           </div>
         </div>
 
-        {/* Nút hành động mở/đóng bảng theo phong cách hệ thống */}
+        {/* Nút Tabs chuyển Ngày / Tháng / Quý và nút mở/đóng bảng */}
         <div
           className="screenshot-hide"
           style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}
         >
+          <Tabs value={periodType} onValueChange={setPeriodType}>
+            <TabsList>
+              <TabsTrigger value="daily">Ngày</TabsTrigger>
+              {periodData.monthlyList?.length > 0 && (
+                <TabsTrigger value="monthly">Tháng</TabsTrigger>
+              )}
+              {periodData.quarterlyList?.length > 0 && (
+                <TabsTrigger value="quarterly">Quý</TabsTrigger>
+              )}
+            </TabsList>
+          </Tabs>
+
           <Button
             variant="ghost"
             size="sm"
@@ -120,7 +163,7 @@ export function DailyTicketGrowthSection({
                 ? 'text-blue-700 hover:text-blue-800'
                 : 'text-slate-600 hover:text-slate-800'
             }`}
-            title="Bật/tắt xem bảng tổng hợp số liệu theo ngày"
+            title="Bật/tắt xem bảng tổng hợp số liệu"
           >
             <TableProperties size={13} className={showTable ? 'text-blue-600' : 'text-slate-500'} />
             <span>{showTable ? 'Đóng bảng số liệu' : 'Mở bảng số liệu'}</span>
@@ -134,6 +177,7 @@ export function DailyTicketGrowthSection({
         visibleSeries={visibleSeries}
         onToggleSeries={handleToggleSeries}
         height={500}
+        periodType={periodType}
       />
 
       {/* 3. Bảng tổng hợp số liệu chuẩn hệ thống (Phong cách Technical Table) */}
@@ -176,7 +220,7 @@ export function DailyTicketGrowthSection({
                     letterSpacing: '0.03em'
                   }}
                 >
-                  Ngày
+                  {periodType === 'monthly' ? 'Tháng' : periodType === 'quarterly' ? 'Quý' : 'Ngày'}
                 </th>
                 <th
                   style={{
@@ -263,99 +307,43 @@ export function DailyTicketGrowthSection({
                       color: '#1e3a8a'
                     }}
                   >
-                    <b>{Number(row.totalTickets || 0).toLocaleString('vi-VN')}</b>
-                    {row.totalTicketsGrowthLabel && row.totalTicketsGrowthLabel !== '—' && (
-                      <span
-                        style={{
-                          marginLeft: 5,
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          color: row.totalTicketsGrowth > 0 ? '#16a34a' : '#dc2626'
-                        }}
-                      >
-                        [{row.totalTicketsGrowthLabel}]
-                      </span>
-                    )}
-                  </td>
-                  <td
-                    style={{
-                      padding: '9px 12px',
-                      textAlign: 'right'
-                    }}
-                  >
-                    <b style={{ color: '#ea580c' }}>
-                      {Number(row.over12hCount || 0).toLocaleString('vi-VN')}
-                    </b>
-                    <span style={{ fontSize: 11, color: '#9a3412', marginLeft: 4 }}>
-                      ({row.over12hRate}%)
-                    </span>
-                    {row.over12hGrowthLabel && row.over12hGrowthLabel !== '—' && (
-                      <span
-                        style={{
-                          marginLeft: 4,
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          color: row.over12hGrowth < 0 ? '#16a34a' : '#dc2626'
-                        }}
-                      >
-                        [{row.over12hGrowthLabel}]
-                      </span>
-                    )}
-                  </td>
-                  <td
-                    style={{
-                      padding: '9px 12px',
-                      textAlign: 'right'
-                    }}
-                  >
-                    <b style={{ color: '#8b5cf6' }}>
-                      {Number(row.under5MinCount || 0).toLocaleString('vi-VN')}
-                    </b>
-                    <span style={{ fontSize: 11, color: '#6d28d9', marginLeft: 4 }}>
-                      ({row.under5MinRate}%)
-                    </span>
-                    {row.under5MinGrowthLabel && row.under5MinGrowthLabel !== '—' && (
-                      <span
-                        style={{
-                          marginLeft: 4,
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          color: row.under5MinGrowth < 0 ? '#16a34a' : '#dc2626'
-                        }}
-                      >
-                        [{row.under5MinGrowthLabel}]
-                      </span>
-                    )}
-                  </td>
-                  <td
-                    style={{
-                      padding: '9px 12px',
-                      textAlign: 'right'
-                    }}
-                  >
-                    <b style={{ color: '#10b981' }}>
-                      {Number(row.autoExportedCount || 0).toLocaleString('vi-VN')}
-                    </b>
-                    <span style={{ fontSize: 11, color: '#065f46', marginLeft: 4 }}>
-                      ({row.autoExportRate}%)
-                    </span>
-                    {row.autoExportGrowthLabel && row.autoExportGrowthLabel !== '—' && (
-                      <span
-                        style={{
-                          marginLeft: 4,
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          color: row.autoExportGrowth > 0 ? '#16a34a' : '#dc2626'
-                        }}
-                      >
-                        [{row.autoExportGrowthLabel}]
-                      </span>
-                    )}
+                    {Number(row.totalTickets || 0).toLocaleString('vi-VN')}
                   </td>
                   <td
                     style={{
                       padding: '9px 12px',
                       textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#ea580c'
+                    }}
+                  >
+                    {Number(row.over12hCount || 0).toLocaleString('vi-VN')}
+                  </td>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#8b5cf6'
+                    }}
+                  >
+                    {Number(row.under5MinCount || 0).toLocaleString('vi-VN')}
+                  </td>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#10b981'
+                    }}
+                  >
+                    {Number(row.autoExportedCount || 0).toLocaleString('vi-VN')}
+                  </td>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
                       color: Number(row.notAutoExportedCount || 0) > 0 ? '#d97706' : '#64748b'
                     }}
                   >
@@ -374,28 +362,19 @@ export function DailyTicketGrowthSection({
                 }}
               >
                 <td colSpan={2} style={{ padding: '10px 12px', textTransform: 'uppercase' }}>
-                  TỔNG CỘNG ({chartData.length} NGÀY)
+                  TỔNG CỘNG ({chartData.length} {periodUnitText})
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: '#1e3a8a' }}>
                   {grandTotal.totalTickets.toLocaleString('vi-VN')}
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: '#ea580c' }}>
                   {grandTotal.totalOver12h.toLocaleString('vi-VN')}
-                  <span style={{ fontSize: 11, color: '#9a3412', marginLeft: 4 }}>
-                    ({grandTotal.over12hRate}%)
-                  </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: '#8b5cf6' }}>
                   {grandTotal.totalUnder5Min.toLocaleString('vi-VN')}
-                  <span style={{ fontSize: 11, color: '#6d28d9', marginLeft: 4 }}>
-                    ({grandTotal.under5MinRate}%)
-                  </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: '#10b981' }}>
                   {grandTotal.totalAutoExported.toLocaleString('vi-VN')}
-                  <span style={{ fontSize: 11, color: '#065f46', marginLeft: 4 }}>
-                    ({grandTotal.autoExportRate}%)
-                  </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: '#d97706' }}>
                   {grandTotal.totalNotAutoExported.toLocaleString('vi-VN')}

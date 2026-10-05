@@ -253,6 +253,87 @@ export function extractDailyTicketGrowthData(
 }
 
 /**
+ * Gom nhóm dữ liệu ngày thành danh sách theo Tháng và theo Quý
+ */
+export function groupDailyDataByPeriod(dailyList = []) {
+  if (!Array.isArray(dailyList) || dailyList.length === 0) {
+    return {
+      dailyList: [],
+      monthlyList: [],
+      quarterlyList: []
+    }
+  }
+
+  const monthMap = new Map()
+  const quarterMap = new Map()
+
+  dailyList.forEach((item) => {
+    const rawDate = item.date || item.StatDate || item.prodDate || ''
+    let dStr = String(rawDate).trim()
+    if (dStr.length > 10) dStr = dStr.slice(0, 10)
+
+    let mKey = dStr.length >= 7 ? dStr.slice(0, 7) : 'Khác'
+    let qKey = 'Khác'
+    let mLabel = mKey
+    let qLabel = qKey
+    let mShort = mKey
+    let qShort = qKey
+
+    if (dStr.length >= 7) {
+      const year = dStr.slice(0, 4)
+      const monthNum = parseInt(dStr.slice(5, 7), 10)
+      const qNum = Math.ceil(monthNum / 3)
+      mKey = `${year}-${String(monthNum).padStart(2, '0')}`
+      qKey = `${year}-Q${qNum}`
+      mLabel = `Tháng ${monthNum}/${year}`
+      qLabel = `Quý ${qNum}/${year}`
+      mShort = `T${monthNum}/${year.slice(2)}`
+      qShort = `Q${qNum}/${year.slice(2)}`
+    }
+
+    const updateAgg = (map, key, displayDate, shortDate) => {
+      if (!map.has(key)) {
+        map.set(key, {
+          date: key,
+          displayDate,
+          shortDate,
+          totalTickets: 0,
+          over12hCount: 0,
+          under5MinCount: 0,
+          autoExportedCount: 0,
+          notAutoExportedCount: 0,
+          mesCount: 0,
+          nonMesCount: 0
+        })
+      }
+      const agg = map.get(key)
+      agg.totalTickets += Number(item.totalTickets || 0)
+      agg.over12hCount += Number(item.over12hCount || 0)
+      agg.under5MinCount += Number(item.under5MinCount || 0)
+      agg.autoExportedCount += Number(item.autoExportedCount || 0)
+      agg.notAutoExportedCount += Number(item.notAutoExportedCount || 0)
+      agg.mesCount += Number(item.mesCount || 0)
+      agg.nonMesCount += Number(item.nonMesCount || 0)
+    }
+
+    if (dStr && dStr !== 'Khác') {
+      updateAgg(monthMap, mKey, mLabel, mShort)
+      updateAgg(quarterMap, qKey, qLabel, qShort)
+    }
+  })
+
+  const formatPeriodList = (map) => {
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
+  }
+
+  return {
+    dailyList,
+    monthlyList: formatPeriodList(monthMap),
+    quarterlyList: formatPeriodList(quarterMap)
+  }
+}
+
+/**
  * Tính toán toàn bộ 4 chuỗi dữ liệu + % tăng trưởng cho biểu đồ
  */
 export function calculateDailyGrowthSeries(rawDailyData = []) {

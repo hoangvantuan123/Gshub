@@ -225,3 +225,82 @@ export function getMetricDeltaColor(metricKey, diff) {
   // Tổng LSX dùng màu trung tính
   return '#475569'
 }
+
+/**
+ * Gom nhóm dữ liệu KHSX ngày thành danh sách theo Tháng và theo Quý
+ */
+export function groupPlanDailyDataByPeriod(dailyList = []) {
+  if (!Array.isArray(dailyList) || dailyList.length === 0) {
+    return {
+      dailyList: [],
+      monthlyList: [],
+      quarterlyList: []
+    }
+  }
+
+  const monthMap = new Map()
+  const quarterMap = new Map()
+
+  dailyList.forEach((item) => {
+    const rawDate = item.date || item.StatDate || item.prodDate || ''
+    let dStr = String(rawDate).trim()
+    if (dStr.length > 10) dStr = dStr.slice(0, 10)
+
+    let mKey = dStr.length >= 7 ? dStr.slice(0, 7) : 'Khác'
+    let qKey = 'Khác'
+    let mLabel = mKey
+    let qLabel = qKey
+    let mShort = mKey
+    let qShort = qKey
+
+    if (dStr.length >= 7) {
+      const year = dStr.slice(0, 4)
+      const monthNum = parseInt(dStr.slice(5, 7), 10)
+      const qNum = Math.ceil(monthNum / 3)
+      mKey = `${year}-${String(monthNum).padStart(2, '0')}`
+      qKey = `${year}-Q${qNum}`
+      mLabel = `Tháng ${monthNum}/${year}`
+      qLabel = `Quý ${qNum}/${year}`
+      mShort = `T${monthNum}/${year.slice(2)}`
+      qShort = `Q${qNum}/${year.slice(2)}`
+    }
+
+    const updateAgg = (map, key, displayDate, shortDate) => {
+      if (!map.has(key)) {
+        map.set(key, {
+          date: key,
+          displayDate,
+          shortDate,
+          totalOrders: 0,
+          wrongPlanDate: 0,
+          slippedPlan: 0,
+          matchedQuantity: 0,
+          matchedJob: 0,
+          totalItems: 0
+        })
+      }
+      const agg = map.get(key)
+      agg.totalOrders += Number(item.totalOrders || 0)
+      agg.wrongPlanDate += Number(item.wrongPlanDate || 0)
+      agg.slippedPlan += Number(item.slippedPlan || 0)
+      agg.matchedQuantity += Number(item.matchedQuantity || 0)
+      agg.matchedJob += Number(item.matchedJob || 0)
+      agg.totalItems += Number(item.totalItems || 0)
+    }
+
+    if (dStr && dStr !== 'Khác') {
+      updateAgg(monthMap, mKey, mLabel, mShort)
+      updateAgg(quarterMap, qKey, qLabel, qShort)
+    }
+  })
+
+  const formatPeriodList = (map) => {
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
+  }
+
+  return {
+    dailyList,
+    monthlyList: formatPeriodList(monthMap),
+    quarterlyList: formatPeriodList(quarterMap)
+  }
+}

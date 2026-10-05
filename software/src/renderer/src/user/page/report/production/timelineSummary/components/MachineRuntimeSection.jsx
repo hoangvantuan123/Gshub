@@ -608,11 +608,13 @@ export function MachineRuntimeSection({
             }}
           >
             Thống kê tổng thời gian chạy máy (giờ), sản lượng và số lượng phiếu thực hiện của{' '}
-            <b>{displayMachineList.length} cụm máy / tổ sản xuất</b> ({plantName || 'Nhà máy'} — chu
-            kỳ <b>{totalDays} ngày</b>, định mức trần 24h/ngày ={' '}
-            <b>{standardCapacityHours.toLocaleString('vi-VN')}h</b>). Biểu đồ cung cấp góc nhìn trực
-            quan về diễn biến vận hành theo ngày, phân bổ tải trọng và mối tương quan giữa khối
-            lượng thao tác với thời gian vận hành giữa các thiết bị.
+            <b>
+              {activeMachineList.length || displayMachineList.length || 24} cụm máy / tổ sản xuất
+            </b>{' '}
+            ({plantName || 'Nhà máy GS Hà Nội'} — chu kỳ <b>{totalDays} ngày</b>, định mức trần
+            24h/ngày = <b>{standardCapacityHours.toLocaleString('vi-VN')}h</b>). Biểu đồ cung cấp
+            góc nhìn trực quan về diễn biến vận hành theo ngày, phân bổ tải trọng và mối tương quan
+            giữa khối lượng thao tác với thời gian vận hành giữa các thiết bị.
           </div>
         </div>
 

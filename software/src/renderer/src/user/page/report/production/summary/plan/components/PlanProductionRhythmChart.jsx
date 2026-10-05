@@ -13,9 +13,11 @@ import {
 } from 'recharts'
 import { TableProperties } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import {
   calculateDayMetrics,
   calculatePeriodSummary,
+  groupPlanDailyDataByPeriod,
   formatDisplayGrowth,
   formatDisplayPoints,
   getMetricDeltaColor,
@@ -64,7 +66,7 @@ function ExecutiveRhythmTooltip({ active, payload, label, visibleSeries }) {
         }}
       >
         <span style={{ fontWeight: 800, fontSize: 13, color: '#0f172a' }}>
-          Ngày: {dateFormatted}
+          Thời gian: {dateFormatted}
         </span>
         {item.isIncomplete ? (
           <span
@@ -88,12 +90,12 @@ function ExecutiveRhythmTooltip({ active, payload, label, visibleSeries }) {
               color: '#01411b'
             }}
           >
-            Đợt Master
+            Kế hoạch SX
           </span>
         )}
       </div>
 
-      {/* 1. Tổng số LSX và % tăng/giảm so với ngày trước */}
+      {/* 1. Tổng số LSX và % tăng/giảm so với kỳ trước */}
       {(!visibleSeries || visibleSeries.totalOrders !== false) && (
         <div
           style={{
@@ -120,7 +122,7 @@ function ExecutiveRhythmTooltip({ active, payload, label, visibleSeries }) {
               color: '#64748b'
             }}
           >
-            <span>Tăng/giảm so với ngày trước:</span>
+            <span>Tăng/giảm so với kỳ trước:</span>
             <b style={{ color: '#475569' }}>{formatDisplayGrowth(item.totalOrdersGrowthPct)}</b>
           </div>
         </div>
@@ -343,6 +345,7 @@ export function PlanProductionRhythmChart({
   totalDays = 1,
   loading = false
 }) {
+  const [periodType, setPeriodType] = useState('daily') // 'daily' | 'monthly' | 'quarterly'
   const [showTable, setShowTable] = useState(true)
   const [rangeFilter, setRangeFilter] = useState('all')
 
@@ -416,17 +419,30 @@ export function PlanProductionRhythmChart({
     return []
   }, [serverDailyData, picTimelineBreakdown, planMetrics, dateRange])
 
-  // 2. Tính toán các chỉ số tăng/giảm và chênh lệch điểm phần trăm so với ngày trước
+  // 2. Gom nhóm theo khoảng thời gian Ngày / Tháng / Quý
+  const periodData = useMemo(() => {
+    return groupPlanDailyDataByPeriod(actualMasterDailyData)
+  }, [actualMasterDailyData])
+
+  const activeRawList = useMemo(() => {
+    if (periodType === 'monthly' && periodData.monthlyList?.length > 0) {
+      return periodData.monthlyList
+    }
+    if (periodType === 'quarterly' && periodData.quarterlyList?.length > 0) {
+      return periodData.quarterlyList
+    }
+    return periodData.dailyList || []
+  }, [periodData, periodType])
+
+  // 3. Tính toán các chỉ số tăng/giảm và chênh lệch điểm phần trăm so với kỳ trước
   const chartProcessedData = useMemo(() => {
-    const list = [...actualMasterDailyData].sort((a, b) =>
-      String(a.date).localeCompare(String(b.date))
-    )
+    const list = [...activeRawList].sort((a, b) => String(a.date).localeCompare(String(b.date)))
 
     return list.map((cur, index) => {
       const prev = index > 0 ? list[index - 1] : null
       const computed = calculateDayMetrics(cur, prev)
-      const shortDate = formatToShortDate(cur.date)
-      const displayDate = formatToVNDate(cur.date)
+      const shortDate = cur.shortDate || formatToShortDate(cur.date)
+      const displayDate = cur.displayDate || formatToVNDate(cur.date)
 
       return {
         ...computed,
@@ -434,7 +450,7 @@ export function PlanProductionRhythmChart({
         displayDate
       }
     })
-  }, [actualMasterDailyData])
+  }, [activeRawList])
 
   const displayedChartData = useMemo(() => {
     if (!Array.isArray(chartProcessedData) || chartProcessedData.length === 0) return []
@@ -443,30 +459,39 @@ export function PlanProductionRhythmChart({
     return chartProcessedData
   }, [chartProcessedData, rangeFilter])
 
-  // 3. Tính KPI cả kỳ: BẮT BUỘC dùng tổng số lệnh chỉ tiêu / tổng LSX cả kỳ * 100%
-  const periodKpi = useMemo(() => {
-    if (planMetrics && (planMetrics.totalOrders > 0 || planMetrics.totalTickets > 0)) {
-      const totalOrders = planMetrics.totalOrders || planMetrics.totalTickets || 0
-      return {
-        totalOrders,
-        wrongPlanDate: planMetrics.sxSaiNgayCount || 0,
-        slippedPlan: planMetrics.truotKhCount || 0,
-        matchedQuantity: planMetrics.khopSlCount || 0,
-        matchedJob: planMetrics.khopJobCount || 0,
-        wrongPlanDateRate: planMetrics.sxSaiNgayRate || 0,
-        slippedPlanRate: planMetrics.truotKhRate || 0,
-        matchedQuantityRate: planMetrics.khopSlRate || 0,
-        matchedJobRate: planMetrics.khopJobRate || 0,
-        totalItems: planMetrics.totalItems || 0,
-        totalDays: chartProcessedData.length || totalDays || 1
-      }
-    }
-    const calc = calculatePeriodSummary(actualMasterDailyData)
+  // 4. Tổng cộng cho bảng số liệu
+  const grandTotal = useMemo(() => {
+    let totalOrders = 0
+    let wrongPlanDate = 0
+    let slippedPlan = 0
+    let matchedQuantity = 0
+    let matchedJob = 0
+    chartProcessedData.forEach((row) => {
+      totalOrders += Number(row.totalOrders || 0)
+      wrongPlanDate += Number(row.wrongPlanDate || 0)
+      slippedPlan += Number(row.slippedPlan || 0)
+      matchedQuantity += Number(row.matchedQuantity || 0)
+      matchedJob += Number(row.matchedJob || 0)
+    })
     return {
-      ...calc,
-      totalItems: planMetrics.totalItems || 0
+      totalOrders,
+      wrongPlanDate,
+      slippedPlan,
+      matchedQuantity,
+      matchedJob
     }
-  }, [planMetrics, actualMasterDailyData, chartProcessedData.length, totalDays])
+  }, [chartProcessedData])
+
+  const periodUnitText =
+    periodType === 'monthly' ? 'THÁNG' : periodType === 'quarterly' ? 'QUÝ' : 'NGÀY'
+  const periodUnitLower =
+    periodType === 'monthly' ? 'tháng' : periodType === 'quarterly' ? 'quý' : 'ngày'
+  const periodLabelText =
+    periodType === 'monthly'
+      ? `${chartProcessedData.length} tháng`
+      : periodType === 'quarterly'
+        ? `${chartProcessedData.length} quý`
+        : `chu kỳ ${totalDays || chartProcessedData.length} ngày`
 
   return (
     <div style={{ marginBottom: 44, width: '100%', background: '#ffffff', padding: '8px 0' }}>
@@ -501,18 +526,31 @@ export function PlanProductionRhythmChart({
               maxWidth: 960
             }}
           >
-            Thống kê nhịp sản xuất &amp; chất lượng thực thi kế hoạch theo ngày của{' '}
-            <b>{plantName || 'Nhà máy GS1 Hà Nội'}</b> (chu kỳ{' '}
-            <b>{totalDays || chartProcessedData.length} ngày</b>) trên hệ thống{' '}
+            Thống kê nhịp sản xuất &amp; chất lượng thực thi kế hoạch theo {periodUnitLower} của{' '}
+            <b>{plantName || 'Nhà máy GS1 Hà Nội'}</b> ({periodLabelText}) trên hệ thống{' '}
             <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ cột khối lượng số lượng từng hạng mục nối
-            đỉnh liên tục qua các ngày và thanh trượt điều chỉnh khoảng thời gian lọc linh hoạt.
+            đỉnh liên tục qua các {periodUnitLower} và thanh trượt điều chỉnh khoảng thời gian lọc
+            linh hoạt.
           </div>
         </div>
 
+        {/* Nút Tabs chuyển Ngày / Tháng / Quý và nút mở/đóng bảng */}
         <div
           className="screenshot-hide"
           style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}
         >
+          <Tabs value={periodType} onValueChange={setPeriodType}>
+            <TabsList>
+              <TabsTrigger value="daily">Ngày</TabsTrigger>
+              {periodData.monthlyList?.length > 0 && (
+                <TabsTrigger value="monthly">Tháng</TabsTrigger>
+              )}
+              {periodData.quarterlyList?.length > 0 && (
+                <TabsTrigger value="quarterly">Quý</TabsTrigger>
+              )}
+            </TabsList>
+          </Tabs>
+
           <Button
             variant="ghost"
             size="sm"
@@ -522,7 +560,7 @@ export function PlanProductionRhythmChart({
                 ? 'text-blue-700 hover:text-blue-800'
                 : 'text-slate-600 hover:text-slate-800'
             }`}
-            title="Bật/tắt xem bảng tổng hợp số liệu theo ngày"
+            title="Bật/tắt xem bảng tổng hợp số liệu"
           >
             <TableProperties size={13} className={showTable ? 'text-blue-600' : 'text-slate-500'} />
             <span>{showTable ? 'Đóng bảng số liệu' : 'Mở bảng số liệu'}</span>
@@ -604,7 +642,7 @@ export function PlanProductionRhythmChart({
           </div>
 
           {/* Bộ lọc xem nhanh 10 ngày / 30 ngày / Tất cả */}
-          {chartProcessedData.length > 5 && (
+          {chartProcessedData.length > 5 && periodType === 'daily' && (
             <div
               style={{
                 display: 'flex',
@@ -666,7 +704,7 @@ export function PlanProductionRhythmChart({
                 fontSize: 13
               }}
             >
-              Không có dữ liệu theo ngày trong đợt Master này.
+              Không có dữ liệu trong đợt này.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -676,7 +714,7 @@ export function PlanProductionRhythmChart({
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
 
-                {/* Trục X: Lấy đúng theo các ngày thực tế của Master */}
+                {/* Trục X: Lấy đúng theo các ngày/tháng/quý thực tế */}
                 <XAxis
                   dataKey="shortDate"
                   tickLine={false}
@@ -822,19 +860,9 @@ export function PlanProductionRhythmChart({
         </div>
       </div>
 
-      {/* 4. BẢNG SỐ LIỆU CHI TIẾT THEO NGÀY (HIỂN THỊ PHẲNG BÊN DƯỚI BIỂU ĐỒ KHI BẤM MỞ) */}
+      {/* 3. BẢNG TỔNG HỢP SỐ LIỆU CHUẨN HỆ THỐNG (Số lượng thuần túy, không có %, có STT & Dòng tổng cộng) */}
       {showTable && chartProcessedData.length > 0 && (
-        <div style={{ marginTop: 20, overflowX: 'auto' }}>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: '#0f172a',
-              marginBottom: 8
-            }}
-          >
-            Bảng số liệu chi tiết theo từng ngày
-          </div>
+        <div style={{ width: '100%', marginTop: 18, marginBottom: 8, overflowX: 'auto' }}>
           <table
             style={{
               width: '100%',
@@ -854,19 +882,31 @@ export function PlanProductionRhythmChart({
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
-                    fontSize: 12,
+                    width: 50,
+                    textAlign: 'center',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
                   }}
                 >
-                  Ngày
+                  STT
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    minWidth: 100,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  {periodType === 'monthly' ? 'Tháng' : periodType === 'quarterly' ? 'Quý' : 'Ngày'}
                 </th>
                 <th
                   style={{
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#01411b',
-                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -874,13 +914,11 @@ export function PlanProductionRhythmChart({
                 >
                   Tổng LSX
                 </th>
-
                 <th
                   style={{
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#ea580c',
-                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -893,7 +931,6 @@ export function PlanProductionRhythmChart({
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#dc2626',
-                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -906,7 +943,6 @@ export function PlanProductionRhythmChart({
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#16a34a',
-                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -919,7 +955,6 @@ export function PlanProductionRhythmChart({
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#8b5cf6',
-                    fontSize: 12,
                     textAlign: 'right',
                     textTransform: 'uppercase',
                     letterSpacing: '0.03em'
@@ -932,12 +967,15 @@ export function PlanProductionRhythmChart({
             <tbody>
               {chartProcessedData.map((row, idx) => (
                 <tr
-                  key={idx}
+                  key={row.date || idx}
                   style={{
-                    borderBottom: '1px solid #e2e8f0',
-                    background: idx % 2 === 1 ? '#f8fafc' : '#ffffff'
+                    borderBottom: '1px solid #f1f5f9',
+                    background: idx % 2 === 0 ? '#ffffff' : '#f8fafc'
                   }}
                 >
+                  <td style={{ padding: '9px 12px', textAlign: 'center', color: '#64748b' }}>
+                    {idx + 1}
+                  </td>
                   <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f172a' }}>
                     {row.displayDate || row.date}
                   </td>
@@ -945,82 +983,84 @@ export function PlanProductionRhythmChart({
                     style={{
                       padding: '9px 12px',
                       textAlign: 'right',
-                      fontWeight: 800,
+                      fontWeight: 700,
                       color: '#01411b'
                     }}
                   >
-                    {row.totalOrders.toLocaleString('vi-VN')}
+                    {Number(row.totalOrders || 0).toLocaleString('vi-VN')}
                   </td>
-
-                  <td style={{ padding: '9px 12px', textAlign: 'right' }}>
-                    <b style={{ color: '#ea580c' }}>{row.wrongPlanDate.toLocaleString('vi-VN')}</b>
-                    <span style={{ fontSize: 11, color: '#9a3412', marginLeft: 4 }}>
-                      ({row.wrongPlanDateRate}%)
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: 4,
-                        fontSize: 10.5,
-                        fontWeight: 700,
-                        color: getMetricDeltaColor('wrongPlanDate', row.wrongPlanDateRateDiff)
-                      }}
-                    >
-                      [{formatDisplayPoints(row.wrongPlanDateRateDiff)}]
-                    </span>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#ea580c'
+                    }}
+                  >
+                    {Number(row.wrongPlanDate || 0).toLocaleString('vi-VN')}
                   </td>
-                  <td style={{ padding: '9px 12px', textAlign: 'right' }}>
-                    <b style={{ color: '#dc2626' }}>{row.slippedPlan.toLocaleString('vi-VN')}</b>
-                    <span style={{ fontSize: 11, color: '#991b1b', marginLeft: 4 }}>
-                      ({row.slippedPlanRate}%)
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: 4,
-                        fontSize: 10.5,
-                        fontWeight: 700,
-                        color: getMetricDeltaColor('slippedPlan', row.slippedPlanRateDiff)
-                      }}
-                    >
-                      [{formatDisplayPoints(row.slippedPlanRateDiff)}]
-                    </span>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#dc2626'
+                    }}
+                  >
+                    {Number(row.slippedPlan || 0).toLocaleString('vi-VN')}
                   </td>
-                  <td style={{ padding: '9px 12px', textAlign: 'right' }}>
-                    <b style={{ color: '#16a34a' }}>
-                      {row.matchedQuantity.toLocaleString('vi-VN')}
-                    </b>
-                    <span style={{ fontSize: 11, color: '#166534', marginLeft: 4 }}>
-                      ({row.matchedQuantityRate}%)
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: 4,
-                        fontSize: 10.5,
-                        fontWeight: 700,
-                        color: getMetricDeltaColor('matchedQuantity', row.matchedQuantityRateDiff)
-                      }}
-                    >
-                      [{formatDisplayPoints(row.matchedQuantityRateDiff)}]
-                    </span>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#16a34a'
+                    }}
+                  >
+                    {Number(row.matchedQuantity || 0).toLocaleString('vi-VN')}
                   </td>
-                  <td style={{ padding: '9px 12px', textAlign: 'right' }}>
-                    <b style={{ color: '#8b5cf6' }}>{row.matchedJob.toLocaleString('vi-VN')}</b>
-                    <span style={{ fontSize: 11, color: '#6d28d9', marginLeft: 4 }}>
-                      ({row.matchedJobRate}%)
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: 4,
-                        fontSize: 10.5,
-                        fontWeight: 700,
-                        color: getMetricDeltaColor('matchedJob', row.matchedJobRateDiff)
-                      }}
-                    >
-                      [{formatDisplayPoints(row.matchedJobRateDiff)}]
-                    </span>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#8b5cf6'
+                    }}
+                  >
+                    {Number(row.matchedJob || 0).toLocaleString('vi-VN')}
                   </td>
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr
+                style={{
+                  borderTop: '2px solid #0f172a',
+                  background: '#f8fafc',
+                  fontWeight: 800,
+                  color: '#0f172a'
+                }}
+              >
+                <td colSpan={2} style={{ padding: '10px 12px', textTransform: 'uppercase' }}>
+                  TỔNG CỘNG ({chartProcessedData.length} {periodUnitText})
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#01411b' }}>
+                  {grandTotal.totalOrders.toLocaleString('vi-VN')}
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#ea580c' }}>
+                  {grandTotal.wrongPlanDate.toLocaleString('vi-VN')}
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#dc2626' }}>
+                  {grandTotal.slippedPlan.toLocaleString('vi-VN')}
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#16a34a' }}>
+                  {grandTotal.matchedQuantity.toLocaleString('vi-VN')}
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#8b5cf6' }}>
+                  {grandTotal.matchedJob.toLocaleString('vi-VN')}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}

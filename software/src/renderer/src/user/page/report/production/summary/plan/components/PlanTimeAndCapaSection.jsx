@@ -55,6 +55,9 @@ function SingleTimelineAnalysisCard({
 
   // Active list based on periodType
   const activeTimelineList = useMemo(() => {
+    if (periodType === 'weekly' && timelineData?.weeklyList?.length > 0) {
+      return timelineData.weeklyList
+    }
     if (periodType === 'monthly' && timelineData?.monthlyList?.length > 0) {
       return timelineData.monthlyList
     }
@@ -158,6 +161,9 @@ function SingleTimelineAnalysisCard({
             <Tabs value={periodType} onValueChange={setPeriodType}>
               <TabsList>
                 <TabsTrigger value="daily">Ngày</TabsTrigger>
+                {timelineData?.weeklyList?.length > 0 && (
+                  <TabsTrigger value="weekly">Tuần</TabsTrigger>
+                )}
                 {timelineData?.monthlyList?.length > 0 && (
                   <TabsTrigger value="monthly">Tháng</TabsTrigger>
                 )}
@@ -416,126 +422,170 @@ function SingleTimelineAnalysisCard({
             </ResponsiveContainer>
           )}
         </div>
+      </div>
 
-        {/* Collapsible Detailed Table inside the frame */}
-        {viewTab === 'timeline' && showTable && hasTimelineData && (
-          <div style={{ marginTop: 16, overflowX: 'auto' }}>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: 12,
-                fontFamily: 'inherit',
-                border: '1px solid #e2e8f0',
-                textAlign: 'left'
-              }}
-            >
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #cbd5e1' }}>
-                  <th style={{ padding: '8px 12px', fontWeight: 700, color: '#334155' }}>
-                    {periodType === 'monthly'
-                      ? 'Tháng'
-                      : periodType === 'quarterly'
-                        ? 'Quý'
-                        : 'Ngày'}
-                  </th>
-                  <th
-                    style={{
-                      padding: '8px 12px',
-                      fontWeight: 700,
-                      color: '#334155',
-                      textAlign: 'right'
-                    }}
-                  >
-                    Tổng lệnh
-                  </th>
-                  {categories.map((cat) => (
-                    <th
-                      key={cat.key}
-                      style={{
-                        padding: '8px 12px',
-                        fontWeight: 700,
-                        color: cat.color,
-                        textAlign: 'right'
-                      }}
-                    >
-                      {cat.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {chartData.map((row, idx) => (
-                  <tr
-                    key={row.dateKey || idx}
-                    style={{
-                      borderBottom: '1px solid #f1f5f9',
-                      background: idx % 2 === 0 ? '#ffffff' : '#fafafa'
-                    }}
-                  >
-                    <td style={{ padding: '7px 12px', fontWeight: 600, color: '#0f172a' }}>
-                      {row.name}
-                    </td>
-                    <td
-                      style={{
-                        padding: '7px 12px',
-                        textAlign: 'right',
-                        fontWeight: 700,
-                        color: '#0f172a'
-                      }}
-                    >
-                      {(row.totalOrders || 0).toLocaleString('vi-VN')}
-                    </td>
-                    {categories.map((cat) => {
-                      const cnt = row[cat.key] || 0
-                      const rate = row[`${cat.key}Rate`] || 0
-                      return (
-                        <td
-                          key={cat.key}
-                          style={{ padding: '7px 12px', textAlign: 'right', color: '#334155' }}
-                        >
-                          <span style={{ fontWeight: 600 }}>{cnt.toLocaleString('vi-VN')}</span>
-                          <span style={{ fontSize: 11, color: '#64748b', marginLeft: 4 }}>
-                            ({rate}%)
-                          </span>
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr
+      {/* Bảng tổng hợp số liệu chuẩn hệ thống (Đặt ngoài khung biểu đồ, chuẩn OpenAI / Financial Table) */}
+      {viewTab === 'timeline' && showTable && hasTimelineData && (
+        <div style={{ width: '100%', marginTop: 18, marginBottom: 8, overflowX: 'auto' }}>
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              borderTop: '2px solid #0f172a',
+              borderBottom: '2px solid #0f172a',
+              fontSize: 12,
+              textAlign: 'left',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              fontVariantNumeric: 'tabular-nums'
+            }}
+          >
+            <thead>
+              <tr style={{ borderBottom: '1px solid #0f172a', background: '#f8fafc' }}>
+                <th
                   style={{
-                    background: '#f1f5f9',
-                    borderTop: '2px solid #cbd5e1',
-                    fontWeight: 800
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    width: 50,
+                    textAlign: 'center',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
                   }}
                 >
-                  <td style={{ padding: '8px 12px', color: '#0f172a' }}>Tổng cộng</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', color: '#0f172a' }}>
-                    {tableGrandTotal.totalOrders.toLocaleString('vi-VN')}
+                  STT
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    minWidth: 120,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  {periodType === 'monthly'
+                    ? 'Tháng'
+                    : periodType === 'quarterly'
+                      ? 'Quý'
+                      : periodType === 'weekly'
+                        ? 'Tuần'
+                        : 'Ngày'}
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#01411b',
+                    textAlign: 'right',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Tổng lệnh
+                </th>
+                {categories.map((cat) => (
+                  <th
+                    key={cat.key}
+                    style={{
+                      padding: '10px 12px',
+                      fontWeight: 700,
+                      color: cat.color,
+                      textAlign: 'right',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.03em'
+                    }}
+                  >
+                    {cat.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {chartData.map((row, idx) => (
+                <tr
+                  key={row.dateKey || idx}
+                  style={{
+                    borderBottom: '1px solid #f1f5f9',
+                    background: idx % 2 === 0 ? '#ffffff' : '#f8fafc'
+                  }}
+                >
+                  <td style={{ padding: '9px 12px', textAlign: 'center', color: '#64748b' }}>
+                    {idx + 1}
+                  </td>
+                  <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f172a' }}>
+                    {row.name}
+                  </td>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: '#01411b'
+                    }}
+                  >
+                    {(row.totalOrders || 0).toLocaleString('vi-VN')}
                   </td>
                   {categories.map((cat) => {
-                    const stat = tableGrandTotal.catTotals[cat.key] || { count: 0, rate: 0 }
+                    const cnt = row[cat.key] || 0
+                    const rate = row[`${cat.key}Rate`] || 0
                     return (
                       <td
                         key={cat.key}
-                        style={{ padding: '8px 12px', textAlign: 'right', color: cat.color }}
+                        style={{ padding: '9px 12px', textAlign: 'right', color: cat.color }}
                       >
-                        <span>{stat.count.toLocaleString('vi-VN')}</span>
-                        <span style={{ fontSize: 11, color: '#475569', marginLeft: 4 }}>
-                          ({stat.rate}%)
+                        <span style={{ fontWeight: 600 }}>{cnt.toLocaleString('vi-VN')}</span>
+                        <span style={{ fontSize: 11, color: '#64748b', marginLeft: 4 }}>
+                          ({rate}%)
                         </span>
                       </td>
                     )
                   })}
                 </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr
+                style={{
+                  borderTop: '2px solid #0f172a',
+                  background: '#f8fafc',
+                  fontWeight: 800,
+                  color: '#0f172a'
+                }}
+              >
+                <td colSpan={2} style={{ padding: '10px 12px', textTransform: 'uppercase' }}>
+                  TỔNG CỘNG ({chartData.length}{' '}
+                  {periodType === 'monthly'
+                    ? 'THÁNG'
+                    : periodType === 'quarterly'
+                      ? 'QUÝ'
+                      : periodType === 'weekly'
+                        ? 'TUẦN'
+                        : 'NGÀY'}
+                  )
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#01411b' }}>
+                  {tableGrandTotal.totalOrders.toLocaleString('vi-VN')}
+                </td>
+                {categories.map((cat) => {
+                  const stat = tableGrandTotal.catTotals[cat.key] || { count: 0, rate: 0 }
+                  return (
+                    <td
+                      key={cat.key}
+                      style={{ padding: '10px 12px', textAlign: 'right', color: cat.color }}
+                    >
+                      <span>{stat.count.toLocaleString('vi-VN')}</span>
+                      <span style={{ fontSize: 11, color: '#475569', marginLeft: 4 }}>
+                        ({stat.rate}%)
+                      </span>
+                    </td>
+                  )
+                })}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -570,9 +620,9 @@ export function PlanTimeAndCapaSection({
 
   return (
     <div style={{ marginBottom: 44, width: '100%' }}>
-      {/* SECTION 4: TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC) */}
+      {/* SECTION 3: TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC) */}
       <SingleTimelineAnalysisCard
-        sectionNumber={4}
+        sectionNumber={3}
         title="TRẠNG THÁI THỜI GIAN (SO VỚI ĐỊNH MỨC)"
         description={`So sánh thời điểm sản xuất thực tế với định mức (ĐM) kế hoạch trải dài qua ${totalDays} ngày tại ${plantName}`}
         summaryBreakdown={timeStatusBreakdown}
@@ -580,9 +630,9 @@ export function PlanTimeAndCapaSection({
         defaultCategories={defaultTimeCategories}
       />
 
-      {/* SECTION 5: TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT) */}
+      {/* SECTION 4: TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT) */}
       <SingleTimelineAnalysisCard
-        sectionNumber={5}
+        sectionNumber={4}
         title="TRẠNG THÁI CAPA (NĂNG LỰC SẢN XUẤT)"
         description={`Đánh giá việc bố trí sản xuất so với năng lực/capacity của hệ thống trải dài qua ${totalDays} ngày tại ${plantName}`}
         summaryBreakdown={capaStatusBreakdown}

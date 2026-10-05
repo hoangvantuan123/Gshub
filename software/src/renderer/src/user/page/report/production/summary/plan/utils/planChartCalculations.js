@@ -226,18 +226,58 @@ export function getMetricDeltaColor(metricKey, diff) {
   return '#475569'
 }
 
+export function getWeekPeriodInfo(dateStr) {
+  if (!dateStr || dateStr === 'Khác') return { weekKey: 'Khác', shortDate: 'Khác', displayDate: 'Khác' }
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return { weekKey: dateStr, shortDate: dateStr, displayDate: dateStr }
+
+  // ISO week calculation
+  const target = new Date(d.valueOf())
+  const dayNr = (d.getDay() + 6) % 7
+  target.setDate(target.getDate() - dayNr + 3)
+  const firstThursday = target.valueOf()
+  target.setMonth(0, 1)
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7)
+  }
+  const weekNum = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000)
+  const year = new Date(firstThursday).getFullYear()
+
+  // Start (Mon) and End (Sun) dates
+  const curr = new Date(d)
+  const day = curr.getDay()
+  const diffToMon = curr.getDate() - day + (day === 0 ? -6 : 1)
+  const monday = new Date(curr.setDate(diffToMon))
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+
+  const fmt = (dt) =>
+    `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`
+  const rangeStr = `${fmt(monday)} - ${fmt(sunday)}`
+  const weekKey = `${year}-W${String(weekNum).padStart(2, '0')}`
+
+  return {
+    weekKey,
+    shortDate: `Tuần ${weekNum}`,
+    displayDate: `Tuần ${weekNum} (${rangeStr})`,
+    rangeStr
+  }
+}
+
 /**
- * Gom nhóm dữ liệu KHSX ngày thành danh sách theo Tháng và theo Quý
+ * Gom nhóm dữ liệu KHSX ngày thành danh sách theo Tuần, Tháng và theo Quý
  */
 export function groupPlanDailyDataByPeriod(dailyList = []) {
   if (!Array.isArray(dailyList) || dailyList.length === 0) {
     return {
       dailyList: [],
+      weeklyList: [],
       monthlyList: [],
       quarterlyList: []
     }
   }
 
+  const weekMap = new Map()
   const monthMap = new Map()
   const quarterMap = new Map()
 
@@ -265,6 +305,8 @@ export function groupPlanDailyDataByPeriod(dailyList = []) {
       qShort = `Q${qNum}/${year.slice(2)}`
     }
 
+    const { weekKey, shortDate: wShort, displayDate: wLabel } = getWeekPeriodInfo(dStr)
+
     const updateAgg = (map, key, displayDate, shortDate) => {
       if (!map.has(key)) {
         map.set(key, {
@@ -289,6 +331,7 @@ export function groupPlanDailyDataByPeriod(dailyList = []) {
     }
 
     if (dStr && dStr !== 'Khác') {
+      updateAgg(weekMap, weekKey, wLabel, wShort)
       updateAgg(monthMap, mKey, mLabel, mShort)
       updateAgg(quarterMap, qKey, qLabel, qShort)
     }
@@ -300,6 +343,7 @@ export function groupPlanDailyDataByPeriod(dailyList = []) {
 
   return {
     dailyList,
+    weeklyList: formatPeriodList(weekMap),
     monthlyList: formatPeriodList(monthMap),
     quarterlyList: formatPeriodList(quarterMap)
   }

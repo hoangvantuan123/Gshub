@@ -1,522 +1,255 @@
 /* eslint-disable react/prop-types, no-unused-vars */
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { TableProperties, RotateCcw, ChevronDown, Check, X, Filter } from 'lucide-react'
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  Legend,
-  LabelList
-} from 'recharts'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { TableProperties, ChevronDown, Check, TrendingUp } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
-import { ExecutiveChartTooltip } from '../../../hanoiGs1/stat/components/reportUIComponents'
+import { getWeekPeriodInfo } from '../utils/planChartCalculations'
+import { SearchableMultiSelectDropdown } from '../../common/SearchableMultiSelectDropdown'
 
-// Mini Sparkline SVG thanh mảnh chuẩn BI hiển thị biến động độ khớp (Khớp SL + Job)
-function CleanSparkline({ data = [], color = '#059669', width = 90, height = 22 }) {
-  if (!data || data.length === 0) return <span style={{ color: '#cbd5e1' }}>—</span>
-  const vals = data.map((d) => d.passOrders || d.orders || 0)
-  const maxVal = Math.max(1, ...vals)
-  const minVal = Math.min(0, ...vals)
-  const range = maxVal - minVal || 1
-  const step = data.length > 1 ? width / (data.length - 1) : width
-
-  const points = data
-    .map((d, idx) => {
-      const val = d.passOrders !== undefined ? d.passOrders : d.orders || 0
-      const x = idx * step
-      const y = height - Math.round(((val - minVal) / range) * (height - 6)) - 3
-      return `${x},${y}`
-    })
-    .join(' ')
-
-  const fillPoints = `0,${height} ${points} ${width},${height}`
-
-  return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', width, height }}>
-      <svg width={width} height={height} style={{ overflow: 'visible' }}>
-        <defs>
-          <linearGradient id={`grad-spark-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.2" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.0" />
-          </linearGradient>
-        </defs>
-        <polygon fill={`url(#grad-spark-${color.replace('#', '')})`} points={fillPoints} />
-        <polyline
-          fill="none"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-        />
-        {data.length > 0 && (
-          <circle
-            cx={(data.length - 1) * step}
-            cy={height - Math.round(((vals[vals.length - 1] - minVal) / range) * (height - 6)) - 3}
-            r="3"
-            fill={color}
-          />
-        )}
-      </svg>
-    </div>
-  )
+// 4 Nhóm trạng thái kế hoạch & màu sắc chuẩn
+const STATUS_CONFIG = {
+  khopSl: { name: 'Khớp SL', color: '#10b981', label: 'Khớp SL' }, // Green
+  khopJob: { name: 'Khớp Job', color: '#3b82f6', label: 'Khớp Job' }, // Blue
+  sxSaiNgay: { name: 'Sai ngày', color: '#f97316', label: 'Sai ngày' }, // Orange
+  truotKh: { name: 'Trượt KH', color: '#ef4444', label: 'Trượt KH' } // Red
 }
 
-// Custom Executive Dropdown chuẩn ERP cho "Soi PIC" hỗ trợ chọn nhiều người điều phối
-function PicSelectorDropdown({
-  selectedPics = [],
-  onTogglePic,
-  onSelectAll,
-  onClear,
-  picList = []
-}) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [searchKey, setSearchKey] = useState('')
-  const dropdownRef = useRef(null)
-  const searchInputRef = useRef(null)
+// Bảng màu phân biệt cho đường tăng trưởng của từng PIC
+const PIC_LINE_PALETTE = [
+  '#4f46e5', // Indigo
+  '#0284c7', // Sky Blue
+  '#0d9488', // Teal
+  '#e11d48', // Rose
+  '#7c3aed', // Purple
+  '#d97706', // Amber
+  '#059669', // Emerald
+  '#ea580c', // Orange
+  '#db2777', // Pink
+  '#2563eb', // Blue
+  '#9333ea', // Violet
+  '#16a34a' // Green
+]
 
-  // Đóng dropdown khi bấm ra ngoài hoặc ấn ESC
-  useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false)
-      }
-    }
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setIsOpen(false)
-    }
-    if (isOpen) {
-      document.addEventListener('mousedown', handleOutsideClick)
-      document.addEventListener('keydown', handleKeyDown)
-      setTimeout(() => {
-        if (searchInputRef.current) searchInputRef.current.focus()
-      }, 50)
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isOpen])
-
-  // Lọc danh sách PIC theo từ khóa tìm kiếm
-  const filteredPics = useMemo(() => {
-    if (!searchKey.trim()) return picList
-    const q = searchKey.toLowerCase().trim()
-    return picList.filter((p) => p.toLowerCase().includes(q))
-  }, [picList, searchKey])
-
-  const isAll = !selectedPics || selectedPics.length === 0
-  const selectedCount = selectedPics?.length || 0
-
-  const getButtonText = () => {
-    if (isAll) return 'Toàn xưởng (Tất cả)'
-    if (selectedCount === 1) return selectedPics[0]
-    if (selectedCount === 2) return `${selectedPics[0]}, ${selectedPics[1]}`
-    return `${selectedCount} PIC (${selectedPics[0]}, +${selectedCount - 1})`
+const getPicColor = (name = '', idx = 0) => {
+  if (!name) return PIC_LINE_PALETTE[idx % PIC_LINE_PALETTE.length]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash + name.charCodeAt(i) * (i + 1)) % PIC_LINE_PALETTE.length
   }
+  return PIC_LINE_PALETTE[(hash + idx) % PIC_LINE_PALETTE.length]
+}
 
+// Lấy thứ trong tuần tiếng Việt
+const getVNDayOfWeek = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
+  return days[d.getDay()]
+}
+
+// Format dd/MM/yyyy
+const formatVNDateFull = (dateStr) => {
+  if (!dateStr) return ''
+  if (dateStr.includes('/')) return dateStr
+  const parts = dateStr.split('-')
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+  return dateStr
+}
+
+// Lấy tên ngắn gọn của PIC để hiển thị dưới cột
+const getShortPicName = (fullName) => {
+  if (!fullName || fullName === 'Chưa phân công') return 'Khác'
+  const parts = String(fullName).trim().split(' ')
+  return parts[parts.length - 1] || fullName
+}
+
+/**
+ * Tooltip nổi bật hiển thị chi tiết khi hover vào cột hoặc điểm xu hướng
+ */
+function PlanTooltipPopup({ hoveredBar }) {
+  if (!hoveredBar) return null
   return (
     <div
-      ref={dropdownRef}
       style={{
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        height: 28,
-        border: isOpen ? '1px solid #2563eb' : '1px solid #cbd5e1',
-        borderRadius: 4,
+        position: 'absolute',
+        left: Math.max(10, (hoveredBar.x || 0) + (hoveredBar.isSummary ? 0 : 45) - 90),
+        top: Math.max(10, (hoveredBar.y || 0) - 120),
         background: '#ffffff',
-        boxSizing: 'border-box',
-        verticalAlign: 'middle',
-        transition: 'all 0.15s ease'
+        border: hoveredBar.isTrendPoint
+          ? `1.5px solid ${hoveredBar.picColor || '#6366f1'}`
+          : '1.5px solid #3b82f6',
+        borderRadius: 6,
+        padding: '8px 12px',
+        boxShadow:
+          '0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 8px 10px -6px rgba(15, 23, 42, 0.1)',
+        zIndex: 50,
+        pointerEvents: 'none',
+        minWidth: 200,
+        boxSizing: 'border-box'
       }}
     >
-      {/* Label Prefix "Soi PIC:" */}
-      <div
-        style={{
-          height: '100%',
-          fontSize: 11.5,
-          fontWeight: 700,
-          color: '#334155',
-          background: '#f1f5f9',
-          padding: '0 8px',
-          borderRight: isOpen ? '1px solid #2563eb' : '1px solid #cbd5e1',
-          borderTopLeftRadius: 3,
-          borderBottomLeftRadius: 3,
-          display: 'inline-flex',
-          alignItems: 'center',
-          userSelect: 'none',
-          whiteSpace: 'nowrap',
-          boxSizing: 'border-box'
-        }}
-      >
-        Soi PIC:
-      </div>
-
-      {/* Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        style={{
-          height: '100%',
-          border: 'none',
-          background: isAll ? '#ffffff' : '#eff6ff',
-          padding: '0 8px 0 10px',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          cursor: 'pointer',
-          outline: 'none',
-          fontFamily: 'inherit',
-          minWidth: 150,
-          maxWidth: 240,
-          justifyContent: 'space-between',
-          textAlign: 'left',
-          borderTopRightRadius: 3,
-          borderBottomRightRadius: 3
-        }}
-      >
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: isAll ? '#0f172a' : '#1d4ed8',
-            whiteSpace: 'nowrap',
-            textOverflow: 'ellipsis',
-            overflow: 'hidden'
-          }}
-          title={!isAll ? selectedPics.join(', ') : 'Toàn xưởng'}
-        >
-          {getButtonText()}
-        </span>
-        <ChevronDown
-          size={13}
-          style={{
-            color: '#64748b',
-            transform: isOpen ? 'rotate(180deg)' : 'none',
-            transition: 'transform 0.15s ease',
-            flexShrink: 0
-          }}
-        />
-      </button>
-
-      {/* Dropdown Overlay Menu */}
-      {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            right: 0,
-            zIndex: 100,
-            minWidth: 240,
-            width: 'max-content',
-            maxWidth: 320,
-            background: '#ffffff',
-            border: '1px solid #cbd5e1',
-            borderRadius: 5,
-            boxShadow:
-              '0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08)',
-            overflow: 'hidden',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-          }}
-        >
-          {/* Search Box */}
+      {hoveredBar.isTrendPoint ? (
+        <div>
           <div
             style={{
-              padding: '6px 8px',
+              fontSize: 12,
+              fontWeight: 800,
+              color: hoveredBar.picColor || '#4338ca',
               borderBottom: '1px solid #e2e8f0',
-              background: '#f8fafc'
+              paddingBottom: 4,
+              marginBottom: 6,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
             }}
           >
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Tìm tên PIC..."
-              value={searchKey}
-              onChange={(e) => setSearchKey(e.target.value)}
+            <span
               style={{
-                width: '100%',
-                border: '1px solid #e2e8f0',
-                borderRadius: 4,
-                padding: '4px 8px',
-                background: '#ffffff',
-                fontSize: 12,
-                outline: 'none',
-                color: '#0f172a',
-                boxSizing: 'border-box'
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                backgroundColor: hoveredBar.picColor || '#4338ca',
+                display: 'inline-block'
               }}
             />
+            <span>{hoveredBar.fullDateStr}</span>
+          </div>
+          <div style={{ fontSize: 11.5, color: '#334155', marginBottom: 4 }}>
+            PIC: <b style={{ color: hoveredBar.picColor || '#0f172a' }}>{hoveredBar.picName}</b>
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#0f172a',
+              marginBottom: 4
+            }}
+          >
+            Khối lượng:{' '}
+            <b style={{ color: hoveredBar.picColor || '#4338ca' }}>
+              {hoveredBar.totalOrders} lệnh
+            </b>
+          </div>
+          <div style={{ fontSize: 11.5, color: '#334155' }}>
+            Tăng trưởng so với kỳ trước:{' '}
+            {hoveredBar.growthPct !== null ? (
+              <b
+                style={{
+                  color:
+                    hoveredBar.growthPct > 0
+                      ? '#16a34a'
+                      : hoveredBar.growthPct < 0
+                        ? '#dc2626'
+                        : '#475569'
+                }}
+              >
+                {hoveredBar.growthPct > 0
+                  ? `+${hoveredBar.growthPct}%`
+                  : `${hoveredBar.growthPct}%`}
+              </b>
+            ) : (
+              <span style={{ color: '#64748b' }}>Kỳ đầu tiên</span>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              color: '#1e3a8a',
+              borderBottom: '1px solid #e2e8f0',
+              paddingBottom: 4,
+              marginBottom: 6
+            }}
+          >
+            {hoveredBar.picName} - {hoveredBar.fullDateStr}
           </div>
 
-          {/* Quick Toolbar */}
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#0f172a',
+              marginBottom: 6
+            }}
+          >
+            Tổng lệnh: {hoveredBar.totalOrders}
+          </div>
+
           <div
             style={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '6px 10px',
-              background: '#f1f5f9',
-              borderBottom: '1px solid #e2e8f0',
-              fontSize: 11,
-              fontWeight: 600,
-              color: '#475569'
+              flexDirection: 'column',
+              gap: 3,
+              fontSize: 11.5
             }}
           >
-            <span>{isAll ? 'Toàn xưởng (Tất cả)' : `Đã chọn: ${selectedCount} PIC`}</span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {!isAll && (
-                <button
-                  type="button"
-                  onClick={() => onClear()}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    color: '#dc2626',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    padding: 0
-                  }}
-                >
-                  Bỏ chọn
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onSelectAll()}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
                 style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: isAll ? '#1d4ed8' : '#2563eb',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  padding: 0
+                  width: 9,
+                  height: 9,
+                  backgroundColor: STATUS_CONFIG.khopSl.color,
+                  borderRadius: 2
                 }}
-              >
-                Toàn xưởng
-              </button>
-            </div>
-          </div>
-
-          {/* List Options */}
-          <div style={{ maxHeight: 240, overflowY: 'auto', padding: '2px 0' }}>
-            {/* Option "Toàn xưởng" */}
-            <div
-              onClick={() => onSelectAll()}
-              style={{
-                padding: '6px 10px',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: isAll ? 700 : 500,
-                color: isAll ? '#1d4ed8' : '#0f172a',
-                background: isAll ? '#eff6ff' : 'transparent',
-                borderBottom: '1px solid #f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8
-              }}
-              onMouseEnter={(e) => {
-                if (!isAll) e.currentTarget.style.background = '#f8fafc'
-              }}
-              onMouseLeave={(e) => {
-                if (!isAll) e.currentTarget.style.background = 'transparent'
-              }}
-            >
-              <div
-                style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: 3,
-                  border: isAll ? '1.5px solid #2563eb' : '1.5px solid #94a3b8',
-                  background: isAll ? '#2563eb' : '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}
-              >
-                {isAll && <Check size={10} color="#ffffff" strokeWidth={3} />}
-              </div>
-              <span style={{ fontWeight: 700 }}>Toàn xưởng (Tất cả)</span>
+              />
+              <span style={{ color: '#334155' }}>Khớp SL:</span>
+              <span style={{ fontWeight: 700, color: '#0f172a', marginLeft: 'auto' }}>
+                {hoveredBar.khopSl} ({hoveredBar.khopSlRate}%)
+              </span>
             </div>
 
-            {/* Danh sách từng tên PIC với Checkbox */}
-            {filteredPics.map((p) => {
-              const isSelected = !isAll && selectedPics.includes(p)
-
-              return (
-                <div
-                  key={p}
-                  onClick={() => onTogglePic(p)}
-                  style={{
-                    padding: '6px 10px',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    fontWeight: isSelected ? 700 : 500,
-                    color: isSelected ? '#1d4ed8' : '#0f172a',
-                    background: isSelected ? '#eff6ff' : 'transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    transition: 'background 0.1s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSelected) e.currentTarget.style.background = '#f8fafc'
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected) e.currentTarget.style.background = 'transparent'
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 14,
-                      height: 14,
-                      borderRadius: 3,
-                      border: isSelected ? '1.5px solid #2563eb' : '1.5px solid #94a3b8',
-                      background: isSelected ? '#2563eb' : '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}
-                  >
-                    {isSelected && <Check size={10} color="#ffffff" strokeWidth={3} />}
-                  </div>
-                  <span
-                    style={{
-                      flex: 1,
-                      whiteSpace: 'nowrap',
-                      textOverflow: 'ellipsis',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    {p}
-                  </span>
-                </div>
-              )
-            })}
-
-            {filteredPics.length === 0 && (
-              <div
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
                 style={{
-                  padding: '10px 12px',
-                  textAlign: 'center',
-                  fontSize: 11.5,
-                  color: '#94a3b8'
+                  width: 9,
+                  height: 9,
+                  backgroundColor: STATUS_CONFIG.khopJob.color,
+                  borderRadius: 2
                 }}
-              >
-                Không có tên phù hợp
-              </div>
-            )}
+              />
+              <span style={{ color: '#334155' }}>Khớp Job:</span>
+              <span style={{ fontWeight: 700, color: '#0f172a', marginLeft: 'auto' }}>
+                {hoveredBar.khopJob} ({hoveredBar.khopJobRate}%)
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  backgroundColor: STATUS_CONFIG.sxSaiNgay.color,
+                  borderRadius: 2
+                }}
+              />
+              <span style={{ color: '#334155' }}>Sai ngày:</span>
+              <span style={{ fontWeight: 700, color: '#0f172a', marginLeft: 'auto' }}>
+                {hoveredBar.sxSaiNgay} ({hoveredBar.sxSaiNgayRate}%)
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  backgroundColor: STATUS_CONFIG.truotKh.color,
+                  borderRadius: 2
+                }}
+              />
+              <span style={{ color: '#334155' }}>Trượt KH:</span>
+              <span style={{ fontWeight: 700, color: '#0f172a', marginLeft: 'auto' }}>
+                {hoveredBar.truotKh} ({hoveredBar.truotKhRate}%)
+              </span>
+            </div>
           </div>
         </div>
       )}
     </div>
-  )
-}
-
-// Custom Bar Shape vẽ từng cột đứng riêng biệt (không xếp chồng) và tự động nối đường giữa các đỉnh của cột cùng loại qua các ngày
-const CustomBarWithPeak = (props) => {
-  const {
-    x,
-    y,
-    width,
-    height,
-    value,
-    index,
-    fill,
-    stroke,
-    dashArray,
-    seriesKey,
-    collectorRef,
-    isRate
-  } = props
-
-  if (x === undefined || y === undefined || width === undefined || height === undefined) return null
-
-  const cx = x + width / 2
-  const cy = y
-
-  if (collectorRef && collectorRef.current) {
-    if (!collectorRef.current[seriesKey]) {
-      collectorRef.current[seriesKey] = []
-    }
-    collectorRef.current[seriesKey][index] = { cx, cy, value }
-  }
-
-  const prev = collectorRef?.current?.[seriesKey]?.[index - 1]
-  const validVal = value !== null && value !== undefined && !isNaN(value)
-  const displayVal =
-    validVal && Number(value) > 0
-      ? isRate
-        ? `${value}%`
-        : Number(value).toLocaleString('vi-VN')
-      : null
-
-  return (
-    <g className={`custom-pic-bar-${seriesKey}-${index}`}>
-      {/* 1. Thân cột */}
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={Math.max(0, height)}
-        fill={fill}
-        stroke={stroke || fill}
-        strokeWidth={1}
-        rx={2}
-        ry={2}
-      />
-
-      {/* 2. Đường nối từ đỉnh cột ngày trước đến đỉnh cột ngày này */}
-      {prev && prev.cx !== undefined && !isNaN(prev.cx) && !isNaN(prev.cy) && (
-        <line
-          x1={prev.cx}
-          y1={prev.cy}
-          x2={cx}
-          y2={cy}
-          stroke={stroke || fill}
-          strokeWidth={2}
-          strokeDasharray={dashArray || undefined}
-          strokeLinecap="round"
-        />
-      )}
-
-      {/* 3. Điểm đánh dấu đỉnh */}
-      <circle cx={cx} cy={cy} r={3} fill={fill} stroke="#ffffff" strokeWidth={1.5} />
-
-      {/* 4. Nhãn số lượng / % trên đỉnh cột */}
-      {displayVal && (
-        <text x={cx} y={cy - 6} textAnchor="middle" fill="#1e293b" fontSize={9.5} fontWeight={700}>
-          {displayVal}
-        </text>
-      )}
-    </g>
-  )
-}
-
-const renderVLineLabel = (props) => {
-  const { x, y, value } = props
-  if (value === undefined || value === null) return null
-  return (
-    <text
-      x={x}
-      y={y - 10}
-      fill="#2563eb"
-      textAnchor="middle"
-      dominantBaseline="auto"
-      fontSize={10.5}
-      fontWeight={700}
-    >
-      {`${value}%`}
-    </text>
   )
 }
 
@@ -525,108 +258,394 @@ export function PlanPicTimelineSection({
     dailyList: [],
     monthlyList: [],
     quarterlyList: [],
-    picList: [],
-    picGrowthList: []
+    picList: []
   },
-  plantName = 'Nhà máy',
+  picBreakdown = [],
+  plantName = 'Nhà máy GS Hà Nội',
   totalDays = 1,
   selectedPic = 'ALL',
-  onSelectPic
+  onSelectPic,
+  picOptions = []
 }) {
-  const [selectedPics, setSelectedPics] = useState([])
-  const [chartMode, setChartMode] = useState('volume') // 'volume' | 'rate'
+  // 1. Quản lý Tab chuẩn ERP giống Section 3 & 4
+  const [viewTab, setViewTab] = useState('timeline') // 'timeline' (Diễn biến theo thời gian) | 'summary' (Cơ cấu tổng hợp)
+  const [periodType, setPeriodType] = useState('daily') // 'daily' | 'weekly' | 'monthly' | 'quarterly'
+  const [selectedPicList, setSelectedPicList] = useState([]) // Mảng các PIC được chọn (Rỗng = Tất cả)
   const [showTable, setShowTable] = useState(true)
+  const [showGrowthLine, setShowGrowthLine] = useState(true) // Bật/tắt đường xu hướng tăng trưởng
 
-  const pointsCollector = useMemo(() => ({ current: {} }), [])
-  pointsCollector.current = {}
+  // 4 Trạng thái chuỗi dữ liệu (Bật/tắt theo Legend)
+  const [visibleSeries, setVisibleSeries] = useState({
+    khopSl: true,
+    khopJob: true,
+    sxSaiNgay: true,
+    truotKh: true
+  })
 
-  const monthlyList = picTimelineBreakdown?.monthlyList || []
+  // Hàm bật/tắt hiển thị từng nhóm kết quả (Click để bật/tắt, Click đúp để chỉ hiện 1 nhóm)
+  const handleToggleSeries = (key, e) => {
+    e?.stopPropagation()
+    setVisibleSeries((prev) => {
+      // Nếu click đúp hoặc Alt click: chỉ hiện duy nhất mục này
+      if (e?.altKey || e?.detail === 2) {
+        return {
+          khopSl: key === 'khopSl',
+          khopJob: key === 'khopJob',
+          sxSaiNgay: key === 'sxSaiNgay',
+          truotKh: key === 'truotKh'
+        }
+      }
+      const next = { ...prev, [key]: !prev[key] }
+      // Nếu tắt hết cả 4 mục thì tự khôi phục bật lại tất cả
+      const hasActive = Object.values(next).some(Boolean)
+      if (!hasActive) {
+        return { khopSl: true, khopJob: true, sxSaiNgay: true, truotKh: true }
+      }
+      return next
+    })
+  }
+
+  // Tooltip hover
+  const [hoveredBar, setHoveredBar] = useState(null)
+  const chartContainerRef = useRef(null)
+
+  // Danh sách toàn bộ PIC
+  const allPicList = useMemo(() => {
+    if (picOptions && picOptions.length > 0) {
+      const list = picOptions
+        .map((o) => (typeof o === 'string' ? o : o.value || o.name || o.label))
+        .filter((x) => Boolean(x) && x !== 'ALL')
+      if (list.length > 0) return list
+    }
+    if (picTimelineBreakdown?.picList?.length > 0) return picTimelineBreakdown.picList
+    if (picBreakdown?.length > 0) return picBreakdown.map((p) => p.pic || p.name).filter(Boolean)
+    return []
+  }, [picOptions, picTimelineBreakdown, picBreakdown])
+
+  // Options dạng mảng cho SearchableMultiSelectDropdown
+  const picDropdownOptions = useMemo(() => {
+    return allPicList.map((p) => ({ value: p, label: p }))
+  }, [allPicList])
+
+  // Lọc danh sách PIC theo multi-select dropdown
+  const activePicList = useMemo(() => {
+    if (selectedPicList && selectedPicList.length > 0) {
+      return allPicList.filter((p) => selectedPicList.includes(p))
+    }
+    return allPicList
+  }, [allPicList, selectedPicList])
+
   const dailyList = picTimelineBreakdown?.dailyList || []
   const quarterlyList = picTimelineBreakdown?.quarterlyList || []
-  const picList = picTimelineBreakdown?.picList || []
 
-  // Quyết định danh sách chu kỳ thời gian: Ưu tiên Tháng nếu >= 2 tháng, ngược lại dùng Quý hoặc Ngày
-  const { periodList, periodType } = useMemo(() => {
-    if (monthlyList.length >= 2) return { periodList: monthlyList, periodType: 'Tháng' }
-    if (quarterlyList.length >= 2) return { periodList: quarterlyList, periodType: 'Quý' }
-    return { periodList: dailyList, periodType: 'Ngày' }
-  }, [monthlyList, quarterlyList, dailyList])
+  // Gom nhóm dữ liệu theo Tuần (Weekly)
+  const weeklyList = useMemo(() => {
+    if (picTimelineBreakdown?.weeklyList?.length > 0) {
+      return picTimelineBreakdown.weeklyList
+    }
+    if (!dailyList || dailyList.length === 0) return []
 
-  const isAll = !selectedPics || selectedPics.length === 0
+    const map = new Map()
+    dailyList.forEach((dayItem) => {
+      const dateStr = dayItem.date || dayItem.StatDate || dayItem.prodDate || ''
+      const { weekKey, shortDate: wShort, displayDate: wLabel } = getWeekPeriodInfo(dateStr)
 
-  // Lấy dữ liệu chuỗi thời gian cho Biểu đồ (Toàn xưởng hoặc nhiều PIC đang chọn)
-  const chartData = useMemo(() => {
-    return periodList.map((period, pIdx) => {
-      const pName = period.name || period.periodLabel || period.periodKey || `Kỳ ${pIdx + 1}`
+      if (!map.has(weekKey)) {
+        map.set(weekKey, {
+          date: weekKey,
+          shortDate: wShort,
+          periodLabel: wLabel,
+          name: wShort,
+          totalOrders: 0,
+          khopSl: 0,
+          khopJob: 0,
+          sxSaiNgay: 0,
+          truotKh: 0,
+          picStats: {}
+        })
+      }
+      const agg = map.get(weekKey)
+      agg.totalOrders += Number(dayItem.totalOrders || 0)
+      agg.khopSl += Number(dayItem.khopSl || 0)
+      agg.khopJob += Number(dayItem.khopJob || 0)
+      agg.sxSaiNgay += Number(dayItem.sxSaiNgay || 0)
+      agg.truotKh += Number(dayItem.truotKh || 0)
 
-      if (isAll) {
-        const total = period.totalOrders || 0
-        const khopSl = period.khopSl || 0
-        const khopJob = period.khopJob || 0
-        const sxSaiNgay = period.sxSaiNgay || 0
-        const truotKh = period.truotKh || 0
-        const passOrders = khopSl + khopJob
-        const passRate = total > 0 ? Number(((passOrders / total) * 100).toFixed(1)) : 0
-        const khopSlRate = total > 0 ? Number(((khopSl / total) * 100).toFixed(1)) : 0
-        const khopJobRate = total > 0 ? Number(((khopJob / total) * 100).toFixed(1)) : 0
-        const sxSaiNgayRate = total > 0 ? Number(((sxSaiNgay / total) * 100).toFixed(1)) : 0
-        const truotKhRate = total > 0 ? Number(((truotKh / total) * 100).toFixed(1)) : 0
+      if (dayItem.picStats) {
+        Object.entries(dayItem.picStats).forEach(([p, stats]) => {
+          if (!agg.picStats[p]) {
+            agg.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
+          }
+          agg.picStats[p].totalOrders += Number(stats.totalOrders || 0)
+          agg.picStats[p].khopSl += Number(stats.khopSl || 0)
+          agg.picStats[p].khopJob += Number(stats.khopJob || 0)
+          agg.picStats[p].sxSaiNgay += Number(stats.sxSaiNgay || 0)
+          agg.picStats[p].truotKh += Number(stats.truotKh || 0)
+        })
+      }
+      allPicList.forEach((p) => {
+        if (dayItem[`${p}_orders`]) {
+          agg[`${p}_orders`] = (agg[`${p}_orders`] || 0) + Number(dayItem[`${p}_orders`] || 0)
+          agg[`${p}_khopSl`] = (agg[`${p}_khopSl`] || 0) + Number(dayItem[`${p}_khopSl`] || 0)
+          agg[`${p}_khopJob`] = (agg[`${p}_khopJob`] || 0) + Number(dayItem[`${p}_khopJob`] || 0)
+          agg[`${p}_sxSaiNgay`] = (agg[`${p}_sxSaiNgay`] || 0) + Number(dayItem[`${p}_sxSaiNgay`] || 0)
+          agg[`${p}_truotKh`] = (agg[`${p}_truotKh`] || 0) + Number(dayItem[`${p}_truotKh`] || 0)
+        }
+      })
+    })
+
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
+  }, [picTimelineBreakdown, dailyList, allPicList])
+
+  // Gom nhóm dữ liệu theo Tháng (Monthly)
+  const monthlyList = useMemo(() => {
+    if (picTimelineBreakdown?.monthlyList?.length > 0) {
+      return picTimelineBreakdown.monthlyList
+    }
+    if (!dailyList || dailyList.length === 0) return []
+
+    const map = new Map()
+    dailyList.forEach((dayItem) => {
+      const dateStr = dayItem.date || dayItem.StatDate || dayItem.prodDate || ''
+      if (!dateStr || dateStr.length < 7) return
+      const mKey = dateStr.slice(0, 7)
+      const parts = mKey.split('-')
+      const mLabel = parts.length === 2 ? `Tháng ${parseInt(parts[1], 10)}/${parts[0]}` : mKey
+      const mShort = parts.length === 2 ? `T${parseInt(parts[1], 10)}/${parts[0].slice(2)}` : mKey
+
+      if (!map.has(mKey)) {
+        map.set(mKey, {
+          date: mKey,
+          shortDate: mShort,
+          periodLabel: mLabel,
+          name: mLabel,
+          totalOrders: 0,
+          khopSl: 0,
+          khopJob: 0,
+          sxSaiNgay: 0,
+          truotKh: 0,
+          picStats: {}
+        })
+      }
+      const agg = map.get(mKey)
+      agg.totalOrders += Number(dayItem.totalOrders || 0)
+      agg.khopSl += Number(dayItem.khopSl || 0)
+      agg.khopJob += Number(dayItem.khopJob || 0)
+      agg.sxSaiNgay += Number(dayItem.sxSaiNgay || 0)
+      agg.truotKh += Number(dayItem.truotKh || 0)
+
+      if (dayItem.picStats) {
+        Object.entries(dayItem.picStats).forEach(([p, stats]) => {
+          if (!agg.picStats[p]) {
+            agg.picStats[p] = { totalOrders: 0, khopSl: 0, khopJob: 0, sxSaiNgay: 0, truotKh: 0 }
+          }
+          agg.picStats[p].totalOrders += Number(stats.totalOrders || 0)
+          agg.picStats[p].khopSl += Number(stats.khopSl || 0)
+          agg.picStats[p].khopJob += Number(stats.khopJob || 0)
+          agg.picStats[p].sxSaiNgay += Number(stats.sxSaiNgay || 0)
+          agg.picStats[p].truotKh += Number(stats.truotKh || 0)
+        })
+      }
+      allPicList.forEach((p) => {
+        if (dayItem[`${p}_orders`]) {
+          agg[`${p}_orders`] = (agg[`${p}_orders`] || 0) + Number(dayItem[`${p}_orders`] || 0)
+          agg[`${p}_khopSl`] = (agg[`${p}_khopSl`] || 0) + Number(dayItem[`${p}_khopSl`] || 0)
+          agg[`${p}_khopJob`] = (agg[`${p}_khopJob`] || 0) + Number(dayItem[`${p}_khopJob`] || 0)
+          agg[`${p}_sxSaiNgay`] = (agg[`${p}_sxSaiNgay`] || 0) + Number(dayItem[`${p}_sxSaiNgay`] || 0)
+          agg[`${p}_truotKh`] = (agg[`${p}_truotKh`] || 0) + Number(dayItem[`${p}_truotKh`] || 0)
+        }
+      })
+    })
+
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
+  }, [picTimelineBreakdown, dailyList, allPicList])
+
+  // Danh sách chu kỳ dữ liệu đang kích hoạt (Ngày / Tuần / Tháng / Quý)
+  const activeTimelineList = useMemo(() => {
+    if (periodType === 'weekly' && weeklyList.length > 0) {
+      return weeklyList
+    }
+    if (periodType === 'monthly' && monthlyList.length > 0) {
+      return monthlyList
+    }
+    if (periodType === 'quarterly' && quarterlyList.length > 0) {
+      return quarterlyList
+    }
+    return dailyList
+  }, [periodType, weeklyList, monthlyList, quarterlyList, dailyList])
+
+  // Dữ liệu từng mốc thời gian & từng PIC trong mốc đó
+  const timelineData = useMemo(() => {
+    return activeTimelineList.map((item, idx) => {
+      const dateStr = item.date || item.periodKey || `item_${idx}`
+      const shortLabel =
+        item.shortDate ||
+        item.name ||
+        (dateStr.length >= 10 ? `${dateStr.slice(8, 10)}/${dateStr.slice(5, 7)}` : dateStr)
+      const fullDateStr =
+        periodType === 'daily'
+          ? formatVNDateFull(dateStr)
+          : item.periodLabel || item.name || shortLabel
+
+      // Số liệu từng PIC trong mốc này
+      const picsInPeriod = activePicList.map((p) => {
+        const stat = item.picStats?.[p] || {
+          totalOrders: item[`${p}_orders`] || item[p] || 0,
+          khopSl: item[`${p}_khopSl`] || 0,
+          khopJob: item[`${p}_khopJob`] || 0,
+          sxSaiNgay: item[`${p}_sxSaiNgay`] || 0,
+          truotKh: item[`${p}_truotKh`] || 0
+        }
+        const total = stat.totalOrders || 0
+        const khopSl = stat.khopSl || 0
+        const khopJob = stat.khopJob || 0
+        const sxSaiNgay = stat.sxSaiNgay || 0
+        const truotKh = stat.truotKh || 0
 
         return {
-          name: pName,
-          periodKey: period.periodKey || pName,
+          fullName: p,
+          shortName: getShortPicName(p),
           totalOrders: total,
           khopSl,
           khopJob,
           sxSaiNgay,
           truotKh,
-          passOrders,
-          passRate,
-          khopSlRate,
-          khopJobRate,
-          sxSaiNgayRate,
-          truotKhRate
+          khopSlRate: total > 0 ? Number(((khopSl / total) * 100).toFixed(1)) : 0,
+          khopJobRate: total > 0 ? Number(((khopJob / total) * 100).toFixed(1)) : 0,
+          sxSaiNgayRate: total > 0 ? Number(((sxSaiNgay / total) * 100).toFixed(1)) : 0,
+          truotKhRate: total > 0 ? Number(((truotKh / total) * 100).toFixed(1)) : 0
         }
-      }
-
-      // Khi chọn 1 hoặc nhiều PIC cụ thể
-      let total = 0
-      let khopSl = 0
-      let khopJob = 0
-      let sxSaiNgay = 0
-      let truotKh = 0
-
-      selectedPics.forEach((p) => {
-        const stat = period.picStats?.[p] || {
-          totalOrders: period[`${p}_orders`] || period[p] || 0,
-          khopSl: period[`${p}_khopSl`] || 0,
-          khopJob: period[`${p}_khopJob`] || 0,
-          sxSaiNgay: period[`${p}_sxSaiNgay`] || 0,
-          truotKh: period[`${p}_truotKh`] || 0
-        }
-        total += stat.totalOrders || 0
-        khopSl += stat.khopSl || 0
-        khopJob += stat.khopJob || 0
-        sxSaiNgay += stat.sxSaiNgay || 0
-        truotKh += stat.truotKh || 0
       })
 
-      const passOrders = khopSl + khopJob
-      const passRate = total > 0 ? Number(((passOrders / total) * 100).toFixed(1)) : 0
-      const khopSlRate = total > 0 ? Number(((khopSl / total) * 100).toFixed(1)) : 0
-      const khopJobRate = total > 0 ? Number(((khopJob / total) * 100).toFixed(1)) : 0
-      const sxSaiNgayRate = total > 0 ? Number(((sxSaiNgay / total) * 100).toFixed(1)) : 0
-      const truotKhRate = total > 0 ? Number(((truotKh / total) * 100).toFixed(1)) : 0
+      // Sắp xếp PIC theo tổng lệnh giảm dần mặc định
+      picsInPeriod.sort((a, b) => b.totalOrders - a.totalOrders)
+
+      // Tổng cộng trong mốc này
+      const periodTotalOrders = picsInPeriod.reduce((sum, p) => sum + p.totalOrders, 0)
+      const periodKhopSl = picsInPeriod.reduce((sum, p) => sum + p.khopSl, 0)
+      const periodKhopJob = picsInPeriod.reduce((sum, p) => sum + p.khopJob, 0)
+      const periodSxSaiNgay = picsInPeriod.reduce((sum, p) => sum + p.sxSaiNgay, 0)
+      const periodTruotKh = picsInPeriod.reduce((sum, p) => sum + p.truotKh, 0)
 
       return {
-        name: pName,
-        periodKey: period.periodKey || pName,
-        totalOrders: total,
-        khopSl,
-        khopJob,
-        sxSaiNgay,
-        truotKh,
-        passOrders,
+        dateKey: dateStr,
+        fullDateStr,
+        shortLabel,
+        periodTotalOrders,
+        periodKhopSl,
+        periodKhopJob,
+        periodSxSaiNgay,
+        periodTruotKh,
+        periodKhopSlRate:
+          periodTotalOrders > 0
+            ? Number(((periodKhopSl / periodTotalOrders) * 100).toFixed(1))
+            : 0,
+        periodKhopJobRate:
+          periodTotalOrders > 0
+            ? Number(((periodKhopJob / periodTotalOrders) * 100).toFixed(1))
+            : 0,
+        periodSxSaiNgayRate:
+          periodTotalOrders > 0
+            ? Number(((periodSxSaiNgay / periodTotalOrders) * 100).toFixed(1))
+            : 0,
+        periodTruotKhRate:
+          periodTotalOrders > 0
+            ? Number(((periodTruotKh / periodTotalOrders) * 100).toFixed(1))
+            : 0,
+        pics: picsInPeriod
+      }
+    })
+  }, [activeTimelineList, activePicList, periodType])
+
+  // Tối đa 7 ngày trên mỗi hàng biểu đồ (tự động ngắt dòng khi > 7 ngày)
+  const MAX_DAYS_PER_ROW = 7
+
+  // Phân chia dữ liệu dòng thời gian thành từng khối hàng (mỗi hàng tối đa 7 ngày)
+  const timelineChunks = useMemo(() => {
+    if (!timelineData || timelineData.length === 0) return []
+    const chunks = []
+    for (let i = 0; i < timelineData.length; i += MAX_DAYS_PER_ROW) {
+      chunks.push(timelineData.slice(i, i + MAX_DAYS_PER_ROW))
+    }
+    return chunks
+  }, [timelineData])
+
+  // Tính toán % tăng trưởng xuyên suốt cho từng PIC trên toàn bộ chuỗi thời gian
+  const picGrowthMap = useMemo(() => {
+    const prevVals = new Map()
+    const map = new Map()
+
+    timelineData.forEach((item) => {
+      item.pics.forEach((pic) => {
+        const vKhopSl = visibleSeries.khopSl ? pic.khopSl : 0
+        const vKhopJob = visibleSeries.khopJob ? pic.khopJob : 0
+        const vSxSaiNgay = visibleSeries.sxSaiNgay ? pic.sxSaiNgay : 0
+        const vTruotKh = visibleSeries.truotKh ? pic.truotKh : 0
+        const vTotal = vKhopSl + vKhopJob + vSxSaiNgay + vTruotKh
+
+        const key = `${item.dateKey}_${pic.fullName}`
+        const prev = prevVals.get(pic.fullName)
+        let growthPct = null
+        if (prev !== undefined && prev !== null) {
+          if (prev > 0) {
+            growthPct = Number((((vTotal - prev) / prev) * 100).toFixed(1))
+          } else if (prev === 0 && vTotal > 0) {
+            growthPct = 100
+          } else if (prev === 0 && vTotal === 0) {
+            growthPct = 0
+          }
+        }
+        map.set(key, growthPct)
+        prevVals.set(pic.fullName, vTotal)
+      })
+    })
+    return map
+  }, [timelineData, visibleSeries])
+
+  // Dữ liệu Cơ cấu tổng hợp gom lại theo từng PIC (Cho Tab Summary)
+  const picSummaryData = useMemo(() => {
+    const list = activePicList.map((p) => {
+      let totalOrders = 0
+      let totalKhopSl = 0
+      let totalKhopJob = 0
+      let totalSxSaiNgay = 0
+      let totalTruotKh = 0
+
+      activeTimelineList.forEach((item) => {
+        const stat = item.picStats?.[p] || {
+          totalOrders: item[`${p}_orders`] || item[p] || 0,
+          khopSl: item[`${p}_khopSl`] || 0,
+          khopJob: item[`${p}_khopJob`] || 0,
+          sxSaiNgay: item[`${p}_sxSaiNgay`] || 0,
+          truotKh: item[`${p}_truotKh`] || 0
+        }
+        totalOrders += stat.totalOrders || 0
+        totalKhopSl += stat.khopSl || 0
+        totalKhopJob += stat.khopJob || 0
+        totalSxSaiNgay += stat.sxSaiNgay || 0
+        totalTruotKh += stat.truotKh || 0
+      })
+
+      const totalPass = totalKhopSl + totalKhopJob
+      const passRate = totalOrders > 0 ? Number(((totalPass / totalOrders) * 100).toFixed(1)) : 0
+      const khopSlRate =
+        totalOrders > 0 ? Number(((totalKhopSl / totalOrders) * 100).toFixed(1)) : 0
+      const khopJobRate =
+        totalOrders > 0 ? Number(((totalKhopJob / totalOrders) * 100).toFixed(1)) : 0
+      const sxSaiNgayRate =
+        totalOrders > 0 ? Number(((totalSxSaiNgay / totalOrders) * 100).toFixed(1)) : 0
+      const truotKhRate =
+        totalOrders > 0 ? Number(((totalTruotKh / totalOrders) * 100).toFixed(1)) : 0
+
+      return {
+        fullName: p,
+        shortName: getShortPicName(p),
+        totalOrders,
+        khopSl: totalKhopSl,
+        khopJob: totalKhopJob,
+        sxSaiNgay: totalSxSaiNgay,
+        truotKh: totalTruotKh,
+        totalPass,
         passRate,
         khopSlRate,
         khopJobRate,
@@ -634,209 +653,216 @@ export function PlanPicTimelineSection({
         truotKhRate
       }
     })
-  }, [periodList, selectedPics, isAll])
 
-  // Tính toán dữ liệu ma trận tổng hợp tốc độ tăng trưởng và độ khớp của từng PIC
-  const matrixData = useMemo(() => {
-    const list = picList.map((p) => {
-      let totalOrders = 0
-      let totalKhopSl = 0
-      let totalKhopJob = 0
-      let totalSxSaiNgay = 0
-      let totalTruotKh = 0
+    return list.sort((a, b) => b.totalOrders - a.totalOrders)
+  }, [activePicList, activeTimelineList])
 
-      const series = periodList.map((period) => {
-        const stat = period.picStats?.[p] || {
-          totalOrders: period[`${p}_orders`] || period[p] || 0,
-          khopSl: period[`${p}_khopSl`] || 0,
-          khopJob: period[`${p}_khopJob`] || 0,
-          sxSaiNgay: period[`${p}_sxSaiNgay`] || 0,
-          truotKh: period[`${p}_truotKh`] || 0
-        }
-
-        const orders = stat.totalOrders || 0
-        const khopSl = stat.khopSl || 0
-        const khopJob = stat.khopJob || 0
-        const passOrders = khopSl + khopJob
-
-        totalOrders += orders
-        totalKhopSl += khopSl
-        totalKhopJob += khopJob
-        totalSxSaiNgay += stat.sxSaiNgay || 0
-        totalTruotKh += stat.truotKh || 0
-
-        return {
-          name: period.name || period.periodLabel || period.periodKey,
-          periodKey: period.periodKey || period.name,
-          orders,
-          khopSl,
-          khopJob,
-          passOrders,
-          passRate: orders > 0 ? Number(((passOrders / orders) * 100).toFixed(1)) : 0
-        }
-      })
-
-      const totalPass = totalKhopSl + totalKhopJob
-      const firstPeriodKhopSl = series.length > 0 ? series[0].khopSl : 0
-      const lastPeriodKhopSl = series.length > 0 ? series[series.length - 1].khopSl : 0
-      const khopSlDiff = lastPeriodKhopSl - firstPeriodKhopSl
-
-      let passGrowthRate = 0 // Tốc độ tăng trưởng Khớp Số Lượng (%)
-      if (firstPeriodKhopSl > 0) {
-        passGrowthRate = Number(
-          (((lastPeriodKhopSl - firstPeriodKhopSl) / firstPeriodKhopSl) * 100).toFixed(1)
-        )
-      } else if (lastPeriodKhopSl > 0) {
-        passGrowthRate = 100
-      }
-
-      const firstPeriodOrders = series.length > 0 ? series[0].orders : 0
-      const lastPeriodOrders = series.length > 0 ? series[series.length - 1].orders : 0
-      let ordersGrowthRate = 0
-      if (firstPeriodOrders > 0) {
-        ordersGrowthRate = Number(
-          (((lastPeriodOrders - firstPeriodOrders) / firstPeriodOrders) * 100).toFixed(1)
-        )
-      } else if (lastPeriodOrders > 0) {
-        ordersGrowthRate = 100
-      }
-
-      const passRate = totalOrders > 0 ? Number(((totalPass / totalOrders) * 100).toFixed(1)) : 0
-      const khopSlRate =
-        totalOrders > 0 ? Number(((totalKhopSl / totalOrders) * 100).toFixed(1)) : 0
-      const khopJobRate =
-        totalOrders > 0 ? Number(((totalKhopJob / totalOrders) * 100).toFixed(1)) : 0
-
-      const isUp = passGrowthRate > 5 || khopSlDiff >= 2
-      const isDown = passGrowthRate < -5 || khopSlDiff <= -2
-      const trend = isUp ? 'UP' : isDown ? 'DOWN' : 'STABLE'
-
-      return {
-        pic: p,
-        totalOrders,
-        khopSl: totalKhopSl,
-        khopJob: totalKhopJob,
-        totalPass,
-        sxSaiNgay: totalSxSaiNgay,
-        truotKh: totalTruotKh,
-        khopSlRate,
-        khopJobRate,
-        passRate,
-        firstPeriodKhopSl,
-        lastPeriodKhopSl,
-        khopSlDiff,
-        passGrowthRate,
-        ordersGrowthRate,
-        trend,
-        series
-      }
-    })
-
-    return list.sort((a, b) => b.khopSl - a.khopSl || b.totalOrders - a.totalOrders)
-  }, [picList, periodList])
-
-  // Tổng hợp toàn xưởng
-  const grandSummary = useMemo(() => {
-    const totalOrders = matrixData.reduce((sum, r) => sum + r.totalOrders, 0)
-    const khopSl = matrixData.reduce((sum, r) => sum + r.khopSl, 0)
-    const khopJob = matrixData.reduce((sum, r) => sum + r.khopJob, 0)
+  // Tổng cộng toàn xưởng cho Table Footer
+  const tableGrandTotal = useMemo(() => {
+    const totalOrders = picSummaryData.reduce((sum, p) => sum + p.totalOrders, 0)
+    const khopSl = picSummaryData.reduce((sum, p) => sum + p.khopSl, 0)
+    const khopJob = picSummaryData.reduce((sum, p) => sum + p.khopJob, 0)
+    const sxSaiNgay = picSummaryData.reduce((sum, p) => sum + p.sxSaiNgay, 0)
+    const truotKh = picSummaryData.reduce((sum, p) => sum + p.truotKh, 0)
     const totalPass = khopSl + khopJob
-    const sxSaiNgay = matrixData.reduce((sum, r) => sum + r.sxSaiNgay, 0)
-    const truotKh = matrixData.reduce((sum, r) => sum + r.truotKh, 0)
-
-    const firstKhopSl = matrixData.reduce((sum, r) => sum + r.firstPeriodKhopSl, 0)
-    const lastKhopSl = matrixData.reduce((sum, r) => sum + r.lastPeriodKhopSl, 0)
-    const khopSlDiff = lastKhopSl - firstKhopSl
-    const passGrowthRate =
-      firstKhopSl > 0 ? Number((((lastKhopSl - firstKhopSl) / firstKhopSl) * 100).toFixed(1)) : 0
-
     const passRate = totalOrders > 0 ? Number(((totalPass / totalOrders) * 100).toFixed(1)) : 0
     const khopSlRate = totalOrders > 0 ? Number(((khopSl / totalOrders) * 100).toFixed(1)) : 0
     const khopJobRate = totalOrders > 0 ? Number(((khopJob / totalOrders) * 100).toFixed(1)) : 0
+    const sxSaiNgayRate = totalOrders > 0 ? Number(((sxSaiNgay / totalOrders) * 100).toFixed(1)) : 0
+    const truotKhRate = totalOrders > 0 ? Number(((truotKh / totalOrders) * 100).toFixed(1)) : 0
 
     return {
       totalOrders,
       khopSl,
       khopJob,
-      totalPass,
       sxSaiNgay,
       truotKh,
-      firstKhopSl,
-      lastKhopSl,
-      khopSlDiff,
-      passGrowthRate,
+      totalPass,
       passRate,
       khopSlRate,
-      khopJobRate
+      khopJobRate,
+      sxSaiNgayRate,
+      truotKhRate
     }
-  }, [matrixData])
+  }, [picSummaryData])
 
-  // Xử lý chọn/bỏ chọn nhiều PIC
-  const handleTogglePic = (picName) => {
-    setSelectedPics((prev) => {
-      if (prev.includes(picName)) {
-        return prev.filter((p) => p !== picName)
-      } else {
-        return [...prev, picName]
+  // Tính Y-Max cho biểu đồ (Số lượng lệnh theo các chuỗi đang bật)
+  const maxYValue = useMemo(() => {
+    let max = 0
+    if (viewTab === 'timeline') {
+      timelineData.forEach((d) => {
+        d.pics.forEach((p) => {
+          let total = 0
+          if (visibleSeries.khopSl) total += Number(p.khopSl || 0)
+          if (visibleSeries.khopJob) total += Number(p.khopJob || 0)
+          if (visibleSeries.sxSaiNgay) total += Number(p.sxSaiNgay || 0)
+          if (visibleSeries.truotKh) total += Number(p.truotKh || 0)
+          if (total > max) max = total
+        })
+      })
+    } else {
+      picSummaryData.forEach((p) => {
+        let total = 0
+        if (visibleSeries.khopSl) total += Number(p.khopSl || 0)
+        if (visibleSeries.khopJob) total += Number(p.khopJob || 0)
+        if (visibleSeries.sxSaiNgay) total += Number(p.sxSaiNgay || 0)
+        if (visibleSeries.truotKh) total += Number(p.truotKh || 0)
+        if (total > max) max = total
+      })
+    }
+    if (max <= 0) return 100
+    const rounded = Math.ceil((max + 10) / 20) * 20
+    return Math.max(rounded, 40)
+  }, [timelineData, picSummaryData, viewTab, visibleSeries])
+
+  // Trục Y ticks
+  const yTicks = useMemo(() => {
+    const ticks = []
+    const step = maxYValue <= 100 ? 20 : maxYValue <= 200 ? 20 : 50
+    for (let v = 0; v <= maxYValue; v += step) {
+      ticks.push(v)
+    }
+    return ticks
+  }, [maxYValue])
+
+  // ResizeObserver đo lường chiều rộng khung biểu đồ thực tế để dãn cách tự động
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  useEffect(() => {
+    if (!chartContainerRef.current) return
+    const updateWidth = () => {
+      if (chartContainerRef.current) {
+        const w = chartContainerRef.current.clientWidth
+        if (w > 0) setContainerWidth(w)
       }
-    })
+    }
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(chartContainerRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  // Kích thước SVG & Điều chỉnh độ rộng cột thông minh theo chiều rộng màn hình
+  const chartHeight = 280
+  const yAxisWidth = 45
+  const topPadding = 30
+  const bottomPicNameHeight = 55
+  const bottomDateBoxHeight = 32
+  const availablePlotHeight = chartHeight - topPadding
+  const availablePlotWidth = Math.max((containerWidth || 1000) - yAxisWidth - 8, 300)
+
+  const isSinglePic = activePicList.length === 1
+  const minBarWidth = isSinglePic ? 24 : 12
+
+  const scaleY = (val) => {
+    if (maxYValue <= 0) return availablePlotHeight
+    return availablePlotHeight - (val / maxYValue) * availablePlotHeight
   }
 
-  const handleSelectAll = () => {
-    setSelectedPics([])
+  const heightFromVal = (val) => {
+    if (maxYValue <= 0) return 0
+    return (val / maxYValue) * availablePlotHeight
   }
 
-  const handleClear = () => {
-    setSelectedPics([])
-  }
+  const totalChartHeight =
+    chartHeight +
+    (viewTab === 'timeline'
+      ? bottomPicNameHeight + bottomDateBoxHeight + 10
+      : bottomPicNameHeight + 20)
 
   return (
-    <div style={{ marginBottom: 44, width: '100%', background: '#ffffff', padding: '8px 0' }}>
-      {/* Header Hạng mục */}
+    <div
+      style={{
+        width: '100%',
+        background: '#ffffff',
+        padding: '8px 0',
+        marginBottom: 36,
+        boxSizing: 'border-box',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+      }}
+    >
+      {/* 1. Header (NẰM Ở TRÊN CÙNG ĐỘC LẬP) */}
+      <div style={{ marginBottom: 14 }}>
+        <div
+          style={{
+            fontSize: 16,
+            fontWeight: 800,
+            color: '#0f172a',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}
+        >
+          <span>2. TỔNG LỆNH VÀ CƠ CẤU KẾT QUẢ THEO NGÀY ĐĂNG KÝ KẾ HOẠCH, SO SÁNH GIỮA CÁC PIC</span>
+        </div>
+        <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
+          Theo dõi khối lượng lệnh và cơ cấu kết quả điều phối (Khớp SL, Khớp Job, Sai ngày, Trượt KH) của{' '}
+          <b>{activePicList.length} nhân sự điều phối (PIC)</b> tại {plantName}.
+        </div>
+      </div>
+
+      {/* 2. Thanh công cụ & Bộ lọc chuẩn ERP (HÀNG RIÊNG BIỆT DƯỚI TIÊU ĐỀ) */}
       <div
+        className="screenshot-hide"
         style={{
           display: 'flex',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 14,
+          gap: 12,
           flexWrap: 'wrap',
-          gap: 10
+          marginBottom: 14
         }}
       >
-        <div>
-          <div
-            style={{
-              fontSize: 16,
-              fontWeight: 800,
-              color: '#0f172a',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8
-            }}
-          >
-            <span>3. TỐC ĐỘ TĂNG TRƯỞNG PIC THEO THÁNG & DIỄN BIẾN ĐỘ KHỚP KHSX</span>
-          </div>
-          <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
-            Theo dõi tốc độ tăng trưởng, độ <b>Khớp số lượng</b> và <b>Khớp công việc (Job)</b> của
-            từng nhân sự điều phối (PIC) trải dài qua {periodList.length} {periodType.toLowerCase()}{' '}
-            tại {plantName || 'Nhà máy'}.
-          </div>
+        {/* Nhóm điều khiển bên trái: Chế độ xem & Chu kỳ */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Toggle View: Diễn biến vs Cơ cấu */}
+          <Tabs value={viewTab} onValueChange={setViewTab}>
+            <TabsList>
+              <TabsTrigger value="timeline">Diễn biến theo thời gian</TabsTrigger>
+              <TabsTrigger value="summary">Cơ cấu tổng hợp</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Period selector if in timeline mode: Ngày / Tuần / Tháng / Quý */}
+          {viewTab === 'timeline' && (
+            <Tabs value={periodType} onValueChange={setPeriodType}>
+              <TabsList>
+                <TabsTrigger value="daily">Ngày</TabsTrigger>
+                <TabsTrigger value="weekly">Tuần</TabsTrigger>
+                {monthlyList.length > 0 && <TabsTrigger value="monthly">Tháng</TabsTrigger>}
+                {quarterlyList.length > 0 && <TabsTrigger value="quarterly">Quý</TabsTrigger>}
+              </TabsList>
+            </Tabs>
+          )}
         </div>
 
-        <div
-          className="screenshot-hide"
-          style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
-        >
+        {/* Nhóm điều khiển bên phải: Bộ lọc PIC (Multi-select) & Mở bảng */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Bộ lọc PIC Đa lựa chọn có tìm kiếm chuẩn ERP */}
+          {viewTab === 'timeline' && (
+            <SearchableMultiSelectDropdown
+              options={picDropdownOptions}
+              value={selectedPicList}
+              onChange={setSelectedPicList}
+              placeholder={`Tất cả PIC (${allPicList.length})`}
+              minWidth="160px"
+              maxWidth="280px"
+              dropdownWidth="280px"
+            />
+          )}
+
+          {/* Nút Đóng / Mở bảng số liệu */}
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowTable(!showTable)}
+            onClick={() => setShowTable((prev) => !prev)}
             className={`uppercase text-[11px] font-semibold ${
               showTable
                 ? 'text-blue-700 hover:text-blue-800'
                 : 'text-slate-600 hover:text-slate-800'
             }`}
-            title="Bật/tắt xem bảng tổng hợp ma trận tăng trưởng"
+            title="Bật/tắt xem bảng chi tiết"
           >
             <TableProperties size={13} className={showTable ? 'text-blue-600' : 'text-slate-500'} />
             <span>{showTable ? 'Đóng bảng số liệu' : 'Mở bảng số liệu'}</span>
@@ -844,18 +870,18 @@ export function PlanPicTimelineSection({
         </div>
       </div>
 
-      {/* KHUNG BIỂU ĐỒ DIỄN BIẾN ĐỘ KHỚP VÀ TỐC ĐỘ TĂNG TRƯỞNG TRẢI DÀI THEO THỜI GIAN */}
+      {/* 2. KHUNG BIỂU ĐỒ (VUÔNG VỨC borderRadius: 0, VIỀN PHẲNG GIỐNG Y HỆT MỤC 1) */}
       <div
         style={{
           width: '100%',
           background: '#ffffff',
           border: '1px solid #e2e8f0',
-          borderRadius: 6,
+          borderRadius: 0,
           padding: '16px',
-          marginBottom: 16
+          boxSizing: 'border-box'
         }}
       >
-        {/* Thanh chuyển chế độ & Điều khiển biểu đồ */}
+        {/* Thanh chú giải (Legend) phẳng chuẩn ERP - Nhấp để bật/tắt chỉ tiêu hoặc Line */}
         <div
           style={{
             display: 'flex',
@@ -863,386 +889,840 @@ export function PlanPicTimelineSection({
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: 12,
-            marginBottom: 16,
-            paddingBottom: 12,
-            borderBottom: '1px solid #f1f5f9'
+            marginBottom: 14,
+            userSelect: 'none'
           }}
         >
-          <div>
-            <div
-              style={{
-                fontSize: 13.5,
-                fontWeight: 700,
-                color: '#0f172a',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6
-              }}
-            >
-              <span>
-                {isAll
-                  ? `Diễn biến độ khớp & tăng trưởng toàn xưởng theo ${periodType.toLowerCase()}`
-                  : selectedPics.length === 1
-                    ? `Diễn biến độ khớp & tăng trưởng của PIC: ${selectedPics[0]}`
-                    : `Diễn biến độ khớp & tăng trưởng của ${selectedPics.length} PIC (${selectedPics.join(', ')})`}
-              </span>
-            </div>
-            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-              {chartMode === 'rate'
-                ? `Tỷ lệ % Khớp SL, Khớp Job qua từng ${periodType.toLowerCase()}${!isAll ? ` cho ${selectedPics.length} PIC đã chọn` : ''}`
-                : `Phân bổ chi tiết số lệnh Khớp SL, Khớp Job, Sai ngày và Trượt KH qua từng ${periodType.toLowerCase()}${!isAll ? ` cho ${selectedPics.length} PIC đã chọn` : ''}`}
-            </div>
-
-            {/* Hiển thị danh sách PIC đang lọc nhanh */}
-            {!isAll && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  flexWrap: 'wrap',
-                  marginTop: 6
-                }}
-              >
-                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
-                  Đang chọn ({selectedPics.length}):
-                </span>
-                {selectedPics.map((p) => (
-                  <span
-                    key={p}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      background: '#eff6ff',
-                      color: '#1d4ed8',
-                      border: '1px solid #bfdbfe',
-                      borderRadius: 4,
-                      padding: '1px 6px',
-                      fontSize: 11,
-                      fontWeight: 700
-                    }}
-                  >
-                    {p}
-                    <button
-                      type="button"
-                      onClick={() => handleTogglePic(p)}
-                      style={{
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        padding: 0,
-                        color: '#3b82f6',
-                        display: 'inline-flex',
-                        alignItems: 'center'
-                      }}
-                      title={`Bỏ chọn ${p}`}
-                    >
-                      <X size={11} />
-                    </button>
-                  </span>
-                ))}
-                <button
-                  type="button"
-                  onClick={handleSelectAll}
+          {/* 4 Nhóm trạng thái kế hoạch & Đường tăng trưởng */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px 20px'
+            }}
+          >
+            {[
+              { key: 'khopSl', label: 'Khớp SL', color: STATUS_CONFIG.khopSl.color },
+              { key: 'khopJob', label: 'Khớp Job', color: STATUS_CONFIG.khopJob.color },
+              { key: 'sxSaiNgay', label: 'Sai ngày', color: STATUS_CONFIG.sxSaiNgay.color },
+              { key: 'truotKh', label: 'Trượt KH', color: STATUS_CONFIG.truotKh.color }
+            ].map((item) => {
+              const isVisible = visibleSeries[item.key] !== false
+              return (
+                <div
+                  key={item.key}
+                  onClick={(e) => handleToggleSeries(item.key, e)}
                   style={{
-                    border: 'none',
-                    background: 'transparent',
-                    color: '#dc2626',
-                    fontSize: 11,
-                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
                     cursor: 'pointer',
-                    textDecoration: 'underline',
-                    marginLeft: 2
+                    fontSize: 12,
+                    fontWeight: isVisible ? 700 : 500,
+                    color: isVisible ? '#1e293b' : '#94a3b8',
+                    textDecoration: isVisible ? 'none' : 'line-through',
+                    opacity: isVisible ? 1 : 0.55,
+                    transition: 'all 0.15s ease'
                   }}
+                  title={`Bấm để ${isVisible ? 'ẩn' : 'hiện'} nhóm "${item.label}"`}
                 >
-                  Xem toàn xưởng
-                </button>
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      backgroundColor: isVisible ? item.color : '#cbd5e1',
+                      borderRadius: 2,
+                      display: 'inline-block',
+                      flexShrink: 0
+                    }}
+                  />
+                  <span>{item.label}</span>
+                </div>
+              )
+            })}
+
+            {/* Đường xu hướng tăng trưởng trong Legend (Click để ẩn/hiện trực tiếp) */}
+            {viewTab === 'timeline' && (
+              <div
+                onClick={() => setShowGrowthLine((prev) => !prev)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: showGrowthLine ? 700 : 500,
+                  color: showGrowthLine ? '#4338ca' : '#94a3b8',
+                  textDecoration: showGrowthLine ? 'none' : 'line-through',
+                  opacity: showGrowthLine ? 1 : 0.55,
+                  transition: 'all 0.15s ease'
+                }}
+                title={`Bấm để ${showGrowthLine ? 'ẩn' : 'hiện'} đường line tăng trưởng của từng PIC`}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: 16 }}>
+                  <span
+                    style={{
+                      width: 16,
+                      height: 2,
+                      backgroundColor: showGrowthLine ? '#6366f1' : '#cbd5e1',
+                      borderRadius: 1
+                    }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: 4,
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      backgroundColor: '#ffffff',
+                      border: `1.5px solid ${showGrowthLine ? '#6366f1' : '#cbd5e1'}`
+                    }}
+                  />
+                </div>
+                <span>Line tăng trưởng từng PIC</span>
               </div>
             )}
           </div>
-
-          <div
-            className="screenshot-hide"
-            style={{ display: 'flex', alignItems: 'center', gap: 10 }}
-          >
-            {/* Bộ chọn PIC Dropdown chuẩn ERP hỗ trợ chọn nhiều người */}
-            <PicSelectorDropdown
-              selectedPics={selectedPics}
-              onTogglePic={handleTogglePic}
-              onSelectAll={handleSelectAll}
-              onClear={handleClear}
-              picList={picList}
-            />
-
-            {/* Mode Switcher Tabs */}
-            <Tabs value={chartMode} onValueChange={setChartMode} className="w-auto">
-              <TabsList variant="line">
-                <TabsTrigger value="volume" variant="line">
-                  Khối lượng (Lệnh)
-                </TabsTrigger>
-                <TabsTrigger value="rate" variant="line">
-                  Tỷ lệ khớp (%)
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
         </div>
 
-        {/* Khung vẽ Recharts */}
-        <div style={{ height: 340, width: '100%' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            {chartMode === 'rate' ? (
-              <ComposedChart
-                data={chartData}
-                margin={{ top: 25, right: 30, left: 10, bottom: 10 }}
-                barGap={2}
-                barCategoryGap="18%"
+        {/* Khung vẽ SVG Biểu đồ cột xếp chồng (Tự động ngắt dòng tối đa 7 ngày/dòng) */}
+        <div
+          ref={chartContainerRef}
+          style={{
+            position: 'relative',
+            width: '100%',
+            borderBottom: '1px solid #cbd5e1',
+            paddingBottom: 4
+          }}
+        >
+          {viewTab === 'timeline' ? (
+            /* TAB 1: DIỄN BIẾN THEO THỜI GIAN (TỰ ĐỘNG NGẮT DÒNG TỐI ĐA 7 NGÀY/DÒNG) */
+            timelineChunks.length === 0 ? (
+              <div
+                style={{
+                  height: 180,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#94a3b8',
+                  fontSize: 13
+                }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="name"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11.5, fill: '#0f172a', fontWeight: 600 }}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  stroke="#64748b"
-                  domain={[0, 100]}
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  tickFormatter={(v) => `${v}%`}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <RechartsTooltip content={<ExecutiveChartTooltip unit="%" />} />
-                <Legend
-                  verticalAlign="top"
-                  align="right"
-                  wrapperStyle={{ paddingBottom: 10, fontSize: 11.5, fontWeight: 700 }}
-                />
-                <Bar
-                  dataKey="khopSlRate"
-                  name="Khớp số lượng (%)"
-                  fill="#01411b"
-                  stroke="#01411b"
-                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
-                  isAnimationActive={false}
-                  shape={(props) => (
-                    <CustomBarWithPeak
-                      {...props}
-                      fill="#01411b"
-                      stroke="#01411b"
-                      seriesKey="khopSlRate"
-                      collectorRef={pointsCollector}
-                      isRate={true}
-                    />
-                  )}
-                />
-                <Bar
-                  dataKey="khopJobRate"
-                  name="Khớp job (%)"
-                  fill="#059669"
-                  stroke="#059669"
-                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
-                  isAnimationActive={false}
-                  shape={(props) => (
-                    <CustomBarWithPeak
-                      {...props}
-                      fill="#059669"
-                      stroke="#059669"
-                      seriesKey="khopJobRate"
-                      collectorRef={pointsCollector}
-                      isRate={true}
-                    />
-                  )}
-                />
-                <Bar
-                  dataKey="sxSaiNgayRate"
-                  name="SX sai ngày KH (%)"
-                  fill="#ea580c"
-                  stroke="#ea580c"
-                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
-                  isAnimationActive={false}
-                  shape={(props) => (
-                    <CustomBarWithPeak
-                      {...props}
-                      fill="#ea580c"
-                      stroke="#ea580c"
-                      seriesKey="sxSaiNgayRate"
-                      collectorRef={pointsCollector}
-                      isRate={true}
-                    />
-                  )}
-                />
-                <Bar
-                  dataKey="truotKhRate"
-                  name="Trượt KH (%)"
-                  fill="#dc2626"
-                  stroke="#dc2626"
-                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
-                  isAnimationActive={false}
-                  shape={(props) => (
-                    <CustomBarWithPeak
-                      {...props}
-                      fill="#dc2626"
-                      stroke="#dc2626"
-                      seriesKey="truotKhRate"
-                      collectorRef={pointsCollector}
-                      isRate={true}
-                    />
-                  )}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="passRate"
-                  name="Tỷ lệ Tổng Khớp (%)"
-                  stroke="#2563eb"
-                  strokeWidth={2.5}
-                  dot={{ r: 4, fill: '#2563eb' }}
-                  activeDot={{ r: 6 }}
-                  isAnimationActive={false}
-                >
-                  <LabelList dataKey="passRate" content={renderVLineLabel} />
-                </Line>
-              </ComposedChart>
+                Không có dữ liệu trong khoảng thời gian đã chọn
+              </div>
             ) : (
-              <ComposedChart
-                data={chartData}
-                margin={{ top: 25, right: 30, left: 10, bottom: 10 }}
-                barGap={2}
-                barCategoryGap="18%"
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {timelineChunks.map((chunk, rowIdx) => {
+                  const picCount = Math.max(activePicList.length, 1)
+                  const groupWidth = availablePlotWidth / Math.max(chunk.length, 1)
+
+                  const rowPicTracks = new Map()
+                  activePicList.forEach((p, idx) => {
+                    rowPicTracks.set(p, {
+                      picName: p,
+                      color: getPicColor(p, idx),
+                      points: []
+                    })
+                  })
+
+                  let currentX = 0
+                  const dayGroups = chunk.map((item, dIdx) => {
+                    const groupStartX = currentX
+                    currentX += groupWidth
+
+                    const maxBarW = isSinglePic ? 34 : 22
+                    const availableForBars = groupWidth - 18
+                    const barWidth = Math.min(
+                      maxBarW,
+                      Math.max(minBarWidth, Math.floor(availableForBars / picCount) - 3)
+                    )
+                    const barGap = isSinglePic ? 0 : Math.min(6, Math.max(2, Math.floor(barWidth * 0.2)))
+                    const contentWidth = picCount * barWidth + Math.max(0, picCount - 1) * barGap
+                    const dayPadding = Math.max(6, (groupWidth - contentWidth) / 2)
+
+                    return (
+                      <g key={`timeline-group-${item.dateKey || dIdx}`}>
+                        {dIdx > 0 && (
+                          <line
+                            x1={groupStartX}
+                            y1={topPadding}
+                            x2={groupStartX}
+                            y2={topPadding + availablePlotHeight + bottomPicNameHeight}
+                            stroke="#f1f5f9"
+                            strokeWidth="1"
+                          />
+                        )}
+
+                        {item.pics.map((pic, pIdx) => {
+                          const barX = groupStartX + dayPadding + pIdx * (barWidth + barGap)
+                          const totalOrders = pic.totalOrders || 0
+
+                          const vKhopSl = visibleSeries.khopSl ? pic.khopSl : 0
+                          const vKhopJob = visibleSeries.khopJob ? pic.khopJob : 0
+                          const vSxSaiNgay = visibleSeries.sxSaiNgay ? pic.sxSaiNgay : 0
+                          const vTruotKh = visibleSeries.truotKh ? pic.truotKh : 0
+                          const vTotal = vKhopSl + vKhopJob + vSxSaiNgay + vTruotKh
+
+                          const hKhopSl = heightFromVal(vKhopSl)
+                          const hKhopJob = heightFromVal(vKhopJob)
+                          const hSxSaiNgay = heightFromVal(vSxSaiNgay)
+                          const hTruotKh = heightFromVal(vTruotKh)
+
+                          const baseBottom = topPadding + availablePlotHeight
+                          const yKhopSl = baseBottom - hKhopSl
+                          const yKhopJob = yKhopSl - hKhopJob
+                          const ySxSaiNgay = yKhopJob - hSxSaiNgay
+                          const yTruotKh = ySxSaiNgay - hTruotKh
+                          const topY = baseBottom - heightFromVal(vTotal)
+
+                          const growthPct = picGrowthMap.get(`${item.dateKey}_${pic.fullName}`) ?? null
+                          const track = rowPicTracks.get(pic.fullName)
+                          if (track) {
+                            track.points.push({
+                              x: barX + barWidth / 2,
+                              y: topY,
+                              value: vTotal,
+                              growthPct,
+                              dateKey: item.dateKey,
+                              fullDateStr: item.fullDateStr,
+                              shortLabel: item.shortLabel,
+                              picName: pic.fullName,
+                              color: track.color
+                            })
+                          }
+
+                          const isHovered =
+                            hoveredBar?.rowIdx === rowIdx &&
+                            hoveredBar?.dateKey === item.dateKey &&
+                            hoveredBar?.picName === pic.fullName
+
+                          return (
+                            <g
+                              key={`bar-${item.dateKey}-${pic.fullName}-${pIdx}`}
+                              onMouseEnter={() => {
+                                setHoveredBar({
+                                  rowIdx,
+                                  dateKey: item.dateKey,
+                                  fullDateStr: item.fullDateStr,
+                                  picName: pic.fullName,
+                                  picColor: track?.color || '#3b82f6',
+                                  totalOrders,
+                                  khopSl: pic.khopSl,
+                                  khopJob: pic.khopJob,
+                                  sxSaiNgay: pic.sxSaiNgay,
+                                  truotKh: pic.truotKh,
+                                  khopSlRate: pic.khopSlRate,
+                                  khopJobRate: pic.khopJobRate,
+                                  sxSaiNgayRate: pic.sxSaiNgayRate,
+                                  truotKhRate: pic.truotKhRate,
+                                  x: barX + barWidth / 2,
+                                  y: topY
+                                })
+                              }}
+                              onMouseLeave={() => setHoveredBar(null)}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {isHovered && (
+                                <rect
+                                  x={barX - 2}
+                                  y={topY - 4}
+                                  width={barWidth + 4}
+                                  height={baseBottom - topY + 4}
+                                  fill="rgba(59, 130, 246, 0.1)"
+                                  stroke={track?.color || '#3b82f6'}
+                                  strokeWidth="1.5"
+                                />
+                              )}
+
+                              {hKhopSl > 0 && (
+                                <rect
+                                  x={barX}
+                                  y={yKhopSl}
+                                  width={barWidth}
+                                  height={hKhopSl}
+                                  fill={STATUS_CONFIG.khopSl.color}
+                                />
+                              )}
+
+                              {hKhopJob > 0 && (
+                                <rect
+                                  x={barX}
+                                  y={yKhopJob}
+                                  width={barWidth}
+                                  height={hKhopJob}
+                                  fill={STATUS_CONFIG.khopJob.color}
+                                />
+                              )}
+
+                              {hSxSaiNgay > 0 && (
+                                <rect
+                                  x={barX}
+                                  y={ySxSaiNgay}
+                                  width={barWidth}
+                                  height={hSxSaiNgay}
+                                  fill={STATUS_CONFIG.sxSaiNgay.color}
+                                />
+                              )}
+
+                              {hTruotKh > 0 && (
+                                <rect
+                                  x={barX}
+                                  y={yTruotKh}
+                                  width={barWidth}
+                                  height={hTruotKh}
+                                  fill={STATUS_CONFIG.truotKh.color}
+                                />
+                              )}
+
+                              {totalOrders > 0 && (
+                                <text
+                                  x={barX + barWidth / 2}
+                                  y={topY - 5}
+                                  fill="#0f172a"
+                                  fontSize={10}
+                                  fontWeight={700}
+                                  textAnchor="middle"
+                                >
+                                  {totalOrders}
+                                </text>
+                              )}
+
+                              <text
+                                x={barX + barWidth / 2 + 3}
+                                y={baseBottom + 8}
+                                fill="#334155"
+                                fontSize={10.5}
+                                fontWeight={600}
+                                textAnchor="start"
+                                transform={`rotate(90, ${barX + barWidth / 2 + 3}, ${baseBottom + 8})`}
+                              >
+                                {pic.shortName}
+                              </text>
+                            </g>
+                          )
+                        })}
+
+                        <g
+                          transform={`translate(${groupStartX}, ${topPadding + availablePlotHeight + bottomPicNameHeight})`}
+                        >
+                          <rect
+                            x="0"
+                            y="0"
+                            width={groupWidth}
+                            height={bottomDateBoxHeight}
+                            fill="#f8fafc"
+                            stroke="#e2e8f0"
+                            strokeWidth="1"
+                          />
+                          <text
+                            x={groupWidth / 2}
+                            y={bottomDateBoxHeight / 2 + 4}
+                            fill="#0f172a"
+                            fontSize={11.5}
+                            fontWeight={700}
+                            textAnchor="middle"
+                          >
+                            {item.shortLabel}
+                          </text>
+                        </g>
+                      </g>
+                    )
+                  })
+
+                  return (
+                    <div
+                      key={`timeline-row-${rowIdx}`}
+                      style={{
+                        position: 'relative',
+                        width: '100%',
+                        borderBottom: rowIdx < timelineChunks.length - 1 ? '1px dashed #cbd5e1' : 'none',
+                        paddingBottom: rowIdx < timelineChunks.length - 1 ? 16 : 4
+                      }}
+                    >
+                      {timelineChunks.length > 1 && (
+                        <div
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color: '#334155',
+                            marginBottom: 8,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                        >
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              background: '#f1f5f9',
+                              border: '1px solid #e2e8f0',
+                              color: '#1e293b'
+                            }}
+                          >
+                            {periodType === 'daily'
+                              ? `Đợt ${rowIdx + 1}: ${chunk[0]?.shortLabel} → ${chunk[chunk.length - 1]?.shortLabel}`
+                              : `Dòng ${rowIdx + 1}`}
+                          </span>
+                          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
+                            ({chunk.length} {periodType === 'daily' ? 'ngày' : 'kỳ'})
+                          </span>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', width: '100%' }}>
+                        {/* Trục Y cho dòng này */}
+                        <div
+                          style={{
+                            width: yAxisWidth,
+                            minWidth: yAxisWidth,
+                            height: totalChartHeight
+                          }}
+                        >
+                          <svg width={yAxisWidth} height={totalChartHeight}>
+                            <text
+                              x={14}
+                              y={chartHeight / 2}
+                              fill="#475569"
+                              fontSize={11.5}
+                              fontWeight={600}
+                              textAnchor="middle"
+                              transform={`rotate(-90, 14, ${chartHeight / 2})`}
+                            >
+                              Số lệnh
+                            </text>
+                            {yTicks.map((tick) => {
+                              const yPos = topPadding + scaleY(tick)
+                              return (
+                                <text
+                                  key={`ytick-lbl-${rowIdx}-${tick}`}
+                                  x={yAxisWidth - 6}
+                                  y={yPos + 4}
+                                  fill="#64748b"
+                                  fontSize={11}
+                                  fontWeight={500}
+                                  textAnchor="end"
+                                >
+                                  {tick}
+                                </text>
+                              )
+                            })}
+                            <line
+                              x1={yAxisWidth - 1}
+                              y1={topPadding}
+                              x2={yAxisWidth - 1}
+                              y2={topPadding + availablePlotHeight}
+                              stroke="#e2e8f0"
+                              strokeWidth="1"
+                            />
+                          </svg>
+                        </div>
+
+                        {/* SVG vẽ dữ liệu cho dòng này */}
+                        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+                          <svg
+                            width="100%"
+                            height={totalChartHeight}
+                            style={{ overflow: 'visible' }}
+                          >
+                            {yTicks.map((tick) => {
+                              const yPos = topPadding + scaleY(tick)
+                              return (
+                                <line
+                                  key={`grid-line-${rowIdx}-${tick}`}
+                                  x1={0}
+                                  y1={yPos}
+                                  x2="100%"
+                                  y2={yPos}
+                                  stroke="#f1f5f9"
+                                  strokeDasharray="3 3"
+                                  strokeWidth="1"
+                                />
+                              )
+                            })}
+
+                            <line
+                              x1={0}
+                              y1={topPadding + availablePlotHeight}
+                              x2="100%"
+                              y2={topPadding + availablePlotHeight}
+                              stroke="#e2e8f0"
+                              strokeWidth="1"
+                            />
+
+                            {dayGroups}
+
+                            {/* Đường xu hướng tăng trưởng từng PIC */}
+                            {showGrowthLine && (
+                              <g key={`growth-trend-lines-row-${rowIdx}`}>
+                                {Array.from(rowPicTracks.values()).map((track, tIdx) => {
+                                  if (track.points.length < 2) return null
+
+                                  const isThisPicHovered = hoveredBar?.picName === track.picName
+                                  const isAnyPicHovered = Boolean(hoveredBar?.picName)
+                                  const lineOpacity = isThisPicHovered ? 1 : isAnyPicHovered ? 0.25 : 0.85
+                                  const lineWidth = isThisPicHovered ? 3.5 : 2
+
+                                  return (
+                                    <g key={`track-${track.picName}-${rowIdx}-${tIdx}`}>
+                                      <polyline
+                                        points={track.points.map((p) => `${p.x},${p.y}`).join(' ')}
+                                        fill="none"
+                                        stroke={track.color}
+                                        strokeWidth={lineWidth}
+                                        strokeOpacity={lineOpacity}
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        style={{ transition: 'stroke-opacity 0.2s, stroke-width 0.2s' }}
+                                      />
+
+                                      {track.points.map((pt, pIdx) => {
+                                        const isPointHovered =
+                                          hoveredBar?.rowIdx === rowIdx &&
+                                          hoveredBar?.dateKey === pt.dateKey &&
+                                          hoveredBar?.picName === pt.picName &&
+                                          hoveredBar?.isTrendPoint === true
+
+                                        return (
+                                          <g
+                                            key={`trend-pt-${track.picName}-${rowIdx}-${pIdx}`}
+                                            onMouseEnter={() => {
+                                              setHoveredBar({
+                                                rowIdx,
+                                                isTrendPoint: true,
+                                                dateKey: pt.dateKey,
+                                                fullDateStr: pt.fullDateStr,
+                                                picName: pt.picName,
+                                                picColor: pt.color,
+                                                totalOrders: pt.value,
+                                                growthPct: pt.growthPct,
+                                                x: pt.x,
+                                                y: pt.y
+                                              })
+                                            }}
+                                            onMouseLeave={() => setHoveredBar(null)}
+                                            style={{ cursor: 'pointer' }}
+                                          >
+                                            {isPointHovered && (
+                                              <circle
+                                                cx={pt.x}
+                                                cy={pt.y}
+                                                r={8}
+                                                fill={pt.color}
+                                                fillOpacity={0.25}
+                                                stroke={pt.color}
+                                                strokeWidth={1.5}
+                                              />
+                                            )}
+                                            <circle
+                                              cx={pt.x}
+                                              cy={pt.y}
+                                              r={isPointHovered ? 5.5 : 3.5}
+                                              fill="#ffffff"
+                                              stroke={pt.color}
+                                              strokeWidth={isPointHovered ? 2.5 : 2}
+                                              strokeOpacity={isThisPicHovered ? 1 : isAnyPicHovered ? 0.35 : 0.9}
+                                            />
+
+                                            {(isPointHovered || (isSinglePic && pt.growthPct !== null)) &&
+                                              pt.growthPct !== null && (
+                                                <g transform={`translate(${pt.x}, ${pt.y - 14})`}>
+                                                  <rect
+                                                    x="-20"
+                                                    y="-9"
+                                                    width="40"
+                                                    height="14"
+                                                    rx="3"
+                                                    fill={
+                                                      pt.growthPct > 0
+                                                        ? '#dcfce7'
+                                                        : pt.growthPct < 0
+                                                          ? '#fee2e2'
+                                                          : '#f1f5f9'
+                                                    }
+                                                    stroke={
+                                                      pt.growthPct > 0
+                                                        ? '#86efac'
+                                                        : pt.growthPct < 0
+                                                          ? '#fca5a5'
+                                                          : '#cbd5e1'
+                                                    }
+                                                    strokeWidth="0.8"
+                                                  />
+                                                  <text
+                                                    x="0"
+                                                    y="1.5"
+                                                    fill={
+                                                      pt.growthPct > 0
+                                                        ? '#15803d'
+                                                        : pt.growthPct < 0
+                                                          ? '#b91c1c'
+                                                          : '#475569'
+                                                    }
+                                                    fontSize="9"
+                                                    fontWeight="700"
+                                                    textAnchor="middle"
+                                                  >
+                                                    {pt.growthPct > 0 ? `+${pt.growthPct}%` : `${pt.growthPct}%`}
+                                                  </text>
+                                                </g>
+                                              )}
+                                          </g>
+                                        )
+                                      })}
+                                    </g>
+                                  )
+                                })}
+                              </g>
+                            )}
+                          </svg>
+                        </div>
+                      </div>
+
+                      {/* Tooltip hiển thị cho riêng dòng này */}
+                      {hoveredBar && hoveredBar.rowIdx === rowIdx && (
+                        <PlanTooltipPopup hoveredBar={hoveredBar} />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          ) : (
+            /* TAB 2: CƠ CẤU TỔNG HỢP */
+            <div style={{ position: 'relative', display: 'flex', width: '100%' }}>
+              <div
+                style={{
+                  width: yAxisWidth,
+                  minWidth: yAxisWidth,
+                  height: totalChartHeight
+                }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="name"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11.5, fill: '#0f172a', fontWeight: 600 }}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  yAxisId="left"
-                  stroke="#64748b"
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  tickFormatter={(v) => v.toLocaleString('vi-VN')}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  stroke="#2563eb"
-                  domain={[0, 100]}
-                  tick={{ fontSize: 11, fill: '#2563eb' }}
-                  tickFormatter={(v) => `${v}%`}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false}
-                />
-                <RechartsTooltip content={<ExecutiveChartTooltip unit=" LSX" />} />
-                <Legend
-                  verticalAlign="top"
-                  align="right"
-                  wrapperStyle={{ paddingBottom: 10, fontSize: 11.5, fontWeight: 700 }}
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="khopSl"
-                  name="Khớp số lượng"
-                  fill="#01411b"
-                  stroke="#01411b"
-                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
-                  isAnimationActive={false}
-                  shape={(props) => (
-                    <CustomBarWithPeak
-                      {...props}
-                      fill="#01411b"
-                      stroke="#01411b"
-                      seriesKey="khopSl"
-                      collectorRef={pointsCollector}
-                      isRate={false}
-                    />
-                  )}
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="khopJob"
-                  name="Khớp công việc (Job)"
-                  fill="#059669"
-                  stroke="#059669"
-                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
-                  isAnimationActive={false}
-                  shape={(props) => (
-                    <CustomBarWithPeak
-                      {...props}
-                      fill="#059669"
-                      stroke="#059669"
-                      seriesKey="khopJob"
-                      collectorRef={pointsCollector}
-                      isRate={false}
-                    />
-                  )}
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="sxSaiNgay"
-                  name="SX sai ngày KH"
-                  fill="#ea580c"
-                  stroke="#ea580c"
-                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
-                  isAnimationActive={false}
-                  shape={(props) => (
-                    <CustomBarWithPeak
-                      {...props}
-                      fill="#ea580c"
-                      stroke="#ea580c"
-                      seriesKey="sxSaiNgay"
-                      collectorRef={pointsCollector}
-                      isRate={false}
-                    />
-                  )}
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="truotKh"
-                  name="Trượt KH"
-                  fill="#dc2626"
-                  stroke="#dc2626"
-                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
-                  isAnimationActive={false}
-                  shape={(props) => (
-                    <CustomBarWithPeak
-                      {...props}
-                      fill="#dc2626"
-                      stroke="#dc2626"
-                      seriesKey="truotKh"
-                      collectorRef={pointsCollector}
-                      isRate={false}
-                    />
-                  )}
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="passRate"
-                  name="Tỷ lệ Tổng Khớp (%)"
-                  stroke="#2563eb"
-                  strokeWidth={2.5}
-                  dot={{ r: 4, fill: '#2563eb' }}
-                  activeDot={{ r: 6 }}
-                  isAnimationActive={false}
+                <svg width={yAxisWidth} height={totalChartHeight}>
+                  <text
+                    x={14}
+                    y={chartHeight / 2}
+                    fill="#475569"
+                    fontSize={11.5}
+                    fontWeight={600}
+                    textAnchor="middle"
+                    transform={`rotate(-90, 14, ${chartHeight / 2})`}
+                  >
+                    Số lệnh
+                  </text>
+                  {yTicks.map((tick) => {
+                    const yPos = topPadding + scaleY(tick)
+                    return (
+                      <text
+                        key={`ytick-sum-${tick}`}
+                        x={yAxisWidth - 6}
+                        y={yPos + 4}
+                        fill="#64748b"
+                        fontSize={11}
+                        fontWeight={500}
+                        textAnchor="end"
+                      >
+                        {tick}
+                      </text>
+                    )
+                  })}
+                  <line
+                    x1={yAxisWidth - 1}
+                    y1={topPadding}
+                    x2={yAxisWidth - 1}
+                    y2={topPadding + availablePlotHeight}
+                    stroke="#e2e8f0"
+                    strokeWidth="1"
+                  />
+                </svg>
+              </div>
+
+              <div style={{ flex: 1, minWidth: totalPlotWidth, position: 'relative' }}>
+                <svg
+                  width="100%"
+                  height={totalChartHeight}
+                  style={{ overflow: 'visible' }}
                 >
-                  <LabelList dataKey="passRate" content={renderVLineLabel} />
-                </Line>
-              </ComposedChart>
-            )}
-          </ResponsiveContainer>
+                  {yTicks.map((tick) => {
+                    const yPos = topPadding + scaleY(tick)
+                    return (
+                      <line
+                        key={`grid-sum-${tick}`}
+                        x1={0}
+                        y1={yPos}
+                        x2="100%"
+                        y2={yPos}
+                        stroke="#f1f5f9"
+                        strokeDasharray="3 3"
+                        strokeWidth="1"
+                      />
+                    )
+                  })}
+
+                  <line
+                    x1={0}
+                    y1={topPadding + availablePlotHeight}
+                    x2="100%"
+                    y2={topPadding + availablePlotHeight}
+                    stroke="#e2e8f0"
+                    strokeWidth="1"
+                  />
+
+                  {(() => {
+                    const summaryCount = picSummaryData.length
+                    const isSummaryExpanded =
+                      summaryCount > 0 && summaryCount * 55 + 40 <= availablePlotWidth
+                    const slotWidth = isSummaryExpanded ? availablePlotWidth / summaryCount : 48
+                    const summaryBarWidth = isSummaryExpanded
+                      ? Math.min(32, Math.max(18, Math.floor(slotWidth * 0.45)))
+                      : 24
+                    const summaryBarGap = 16
+
+                    return picSummaryData.map((pic, pIdx) => {
+                      const barX = isSummaryExpanded
+                        ? pIdx * slotWidth + (slotWidth - summaryBarWidth) / 2
+                        : 20 + pIdx * (summaryBarWidth + summaryBarGap)
+                      const totalOrders = pic.totalOrders || 0
+
+                      const vKhopSl = visibleSeries.khopSl ? pic.khopSl : 0
+                      const vKhopJob = visibleSeries.khopJob ? pic.khopJob : 0
+                      const vSxSaiNgay = visibleSeries.sxSaiNgay ? pic.sxSaiNgay : 0
+                      const vTruotKh = visibleSeries.truotKh ? pic.truotKh : 0
+                      const vTotal = vKhopSl + vKhopJob + vSxSaiNgay + vTruotKh
+
+                      const hKhopSl = heightFromVal(vKhopSl)
+                      const hKhopJob = heightFromVal(vKhopJob)
+                      const hSxSaiNgay = heightFromVal(vSxSaiNgay)
+                      const hTruotKh = heightFromVal(vTruotKh)
+
+                      const baseBottom = topPadding + availablePlotHeight
+                      const yKhopSl = baseBottom - hKhopSl
+                      const yKhopJob = yKhopSl - hKhopJob
+                      const ySxSaiNgay = yKhopJob - hSxSaiNgay
+                      const yTruotKh = ySxSaiNgay - hTruotKh
+                      const topY = baseBottom - heightFromVal(vTotal)
+
+                      const isHovered =
+                        hoveredBar?.dateKey === 'SUMMARY' && hoveredBar?.picName === pic.fullName
+
+                      return (
+                        <g
+                          key={`sum-bar-${pic.fullName}-${pIdx}`}
+                          onMouseEnter={() => {
+                            setHoveredBar({
+                              isSummary: true,
+                              dateKey: 'SUMMARY',
+                              fullDateStr: 'Toàn bộ kỳ kế hoạch',
+                              picName: pic.fullName,
+                              totalOrders,
+                              khopSl: pic.khopSl,
+                              khopJob: pic.khopJob,
+                              sxSaiNgay: pic.sxSaiNgay,
+                              truotKh: pic.truotKh,
+                              khopSlRate: pic.khopSlRate,
+                              khopJobRate: pic.khopJobRate,
+                              sxSaiNgayRate: pic.sxSaiNgayRate,
+                              truotKhRate: pic.truotKhRate,
+                              x: barX + summaryBarWidth / 2,
+                              y: topY
+                            })
+                          }}
+                          onMouseLeave={() => setHoveredBar(null)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {isHovered && (
+                            <rect
+                              x={barX - 2}
+                              y={topY - 4}
+                              width={summaryBarWidth + 4}
+                              height={baseBottom - topY + 4}
+                              fill="rgba(59, 130, 246, 0.1)"
+                              stroke="#3b82f6"
+                              strokeWidth="1.5"
+                            />
+                          )}
+
+                          {hKhopSl > 0 && (
+                            <rect
+                              x={barX}
+                              y={yKhopSl}
+                              width={summaryBarWidth}
+                              height={hKhopSl}
+                              fill={STATUS_CONFIG.khopSl.color}
+                            />
+                          )}
+                          {hKhopJob > 0 && (
+                            <rect
+                              x={barX}
+                              y={yKhopJob}
+                              width={summaryBarWidth}
+                              height={hKhopJob}
+                              fill={STATUS_CONFIG.khopJob.color}
+                            />
+                          )}
+                          {hSxSaiNgay > 0 && (
+                            <rect
+                              x={barX}
+                              y={ySxSaiNgay}
+                              width={summaryBarWidth}
+                              height={hSxSaiNgay}
+                              fill={STATUS_CONFIG.sxSaiNgay.color}
+                            />
+                          )}
+                          {hTruotKh > 0 && (
+                            <rect
+                              x={barX}
+                              y={yTruotKh}
+                              width={summaryBarWidth}
+                              height={hTruotKh}
+                              fill={STATUS_CONFIG.truotKh.color}
+                            />
+                          )}
+
+                          {totalOrders > 0 && (
+                            <text
+                              x={barX + summaryBarWidth / 2}
+                              y={topY - 5}
+                              fill="#0f172a"
+                              fontSize={10.5}
+                              fontWeight={700}
+                              textAnchor="middle"
+                            >
+                              {totalOrders}
+                            </text>
+                          )}
+
+                          <text
+                            x={barX + summaryBarWidth / 2 + 3}
+                            y={baseBottom + 8}
+                            fill="#334155"
+                            fontSize={11}
+                            fontWeight={600}
+                            textAnchor="start"
+                            transform={`rotate(90, ${barX + summaryBarWidth / 2 + 3}, ${baseBottom + 8})`}
+                          >
+                            {pic.shortName}
+                          </text>
+                        </g>
+                      )
+                    })
+                  })()}
+                </svg>
+              </div>
+
+              {hoveredBar && hoveredBar.dateKey === 'SUMMARY' && (
+                <PlanTooltipPopup hoveredBar={hoveredBar} />
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* BẢNG MA TRẬN ĐÁNH GIÁ TỐC ĐỘ TĂNG TRƯỞNG & ĐỘ KHỚP THEO PIC (CHUẨN ERP, KHÔNG CÓ CỘT TỔNG ĐẠT CHUẨN) */}
+      {/* 3. BẢNG TỔNG HỢP SỐ LIỆU CHUẨN HỆ THỐNG (CHUẨN OPENAI / FINANCIAL TABLE GIỐNG MỤC 1) */}
       {showTable && (
-        <div style={{ width: '100%', overflowX: 'auto' }}>
+        <div style={{ width: '100%', marginTop: 18, marginBottom: 8, overflowX: 'auto' }}>
           <table
             style={{
               width: '100%',
@@ -1250,9 +1730,9 @@ export function PlanPicTimelineSection({
               borderTop: '2px solid #0f172a',
               borderBottom: '2px solid #0f172a',
               fontSize: 12,
+              textAlign: 'left',
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              fontVariantNumeric: 'tabular-nums',
-              textAlign: 'left'
+              fontVariantNumeric: 'tabular-nums'
             }}
           >
             <thead>
@@ -1262,20 +1742,34 @@ export function PlanPicTimelineSection({
                     padding: '10px 12px',
                     fontWeight: 700,
                     color: '#0f172a',
+                    width: 50,
+                    textAlign: 'center',
                     textTransform: 'uppercase',
-                    minWidth: 160
+                    letterSpacing: '0.03em'
                   }}
                 >
-                  Nhân sự PIC
+                  STT
                 </th>
                 <th
                   style={{
                     padding: '10px 12px',
-                    textAlign: 'right',
                     fontWeight: 700,
                     color: '#0f172a',
+                    minWidth: 160,
                     textTransform: 'uppercase',
-                    minWidth: 90
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Nhân sự (PIC)
+                </th>
+                <th
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#01411b',
+                    textAlign: 'right',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
                   }}
                 >
                   Tổng lệnh
@@ -1283,11 +1777,11 @@ export function PlanPicTimelineSection({
                 <th
                   style={{
                     padding: '10px 12px',
-                    textAlign: 'right',
                     fontWeight: 700,
-                    color: '#01411b',
+                    color: '#16a34a',
+                    textAlign: 'right',
                     textTransform: 'uppercase',
-                    minWidth: 110
+                    letterSpacing: '0.03em'
                   }}
                 >
                   Khớp SL
@@ -1295,11 +1789,11 @@ export function PlanPicTimelineSection({
                 <th
                   style={{
                     padding: '10px 12px',
-                    textAlign: 'right',
                     fontWeight: 700,
-                    color: '#059669',
+                    color: '#8b5cf6',
+                    textAlign: 'right',
                     textTransform: 'uppercase',
-                    minWidth: 110
+                    letterSpacing: '0.03em'
                   }}
                 >
                   Khớp Job
@@ -1307,23 +1801,23 @@ export function PlanPicTimelineSection({
                 <th
                   style={{
                     padding: '10px 12px',
-                    textAlign: 'right',
                     fontWeight: 700,
                     color: '#ea580c',
+                    textAlign: 'right',
                     textTransform: 'uppercase',
-                    minWidth: 100
+                    letterSpacing: '0.03em'
                   }}
                 >
-                  Sai ngày KH
+                  Sai ngày
                 </th>
                 <th
                   style={{
                     padding: '10px 12px',
-                    textAlign: 'right',
                     fontWeight: 700,
                     color: '#dc2626',
+                    textAlign: 'right',
                     textTransform: 'uppercase',
-                    minWidth: 90
+                    letterSpacing: '0.03em'
                   }}
                 >
                   Trượt KH
@@ -1331,292 +1825,190 @@ export function PlanPicTimelineSection({
                 <th
                   style={{
                     padding: '10px 12px',
+                    fontWeight: 700,
+                    color: '#047857',
                     textAlign: 'right',
-                    fontWeight: 700,
-                    color: '#0f172a',
                     textTransform: 'uppercase',
-                    minWidth: 125
+                    letterSpacing: '0.03em'
                   }}
                 >
-                  Tăng trưởng Khớp SL %
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'right',
-                    fontWeight: 700,
-                    color: '#475569',
-                    textTransform: 'uppercase',
-                    minWidth: 120
-                  }}
-                >
-                  Tăng trưởng Tổng %
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'center',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    textTransform: 'uppercase',
-                    minWidth: 105
-                  }}
-                >
-                  Xu hướng
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'center',
-                    fontWeight: 700,
-                    color: '#0f172a',
-                    textTransform: 'uppercase',
-                    minWidth: 115
-                  }}
-                >
-                  Đánh giá
+                  Tỷ lệ Đạt KHSX
                 </th>
               </tr>
             </thead>
             <tbody>
-              {matrixData.map((row, idx) => {
-                const isSelected = !isAll && selectedPics.includes(row.pic)
-                const isUp = row.trend === 'UP'
-                const isDown = row.trend === 'DOWN'
-                const rateColor = isUp ? '#16a34a' : isDown ? '#dc2626' : '#475569'
-                const sparkColor = isUp ? '#16a34a' : isDown ? '#ea580c' : '#64748b'
-                const sign = row.passGrowthRate > 0 ? '+' : ''
-
-                return (
-                  <tr
-                    key={idx}
-                    onClick={() => handleTogglePic(row.pic)}
-                    style={{
-                      borderBottom: '1px solid #e2e8f0',
-                      background: isSelected
-                        ? '#eff6ff'
-                        : idx % 2 === 1
-                          ? '#fafafa'
-                          : 'transparent',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s ease'
-                    }}
-                    title={`Nhấp để chọn/bỏ chọn PIC: ${row.pic}`}
-                  >
-                    {/* Cột 1: Tên PIC */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        fontWeight: isSelected ? 700 : 600,
-                        color: isSelected ? '#1d4ed8' : '#0f172a'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div
-                          style={{
-                            width: 14,
-                            height: 14,
-                            borderRadius: 3,
-                            border: isSelected ? '1.5px solid #2563eb' : '1.5px solid #cbd5e1',
-                            background: isSelected ? '#2563eb' : '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0
-                          }}
-                        >
-                          {isSelected && <Check size={10} color="#ffffff" strokeWidth={3} />}
-                        </div>
-                        <span>{row.pic}</span>
-                      </div>
-                    </td>
-
-                    {/* Cột 2: Tổng lệnh */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        color: '#0f172a'
-                      }}
-                    >
-                      {row.totalOrders.toLocaleString('vi-VN')}
-                    </td>
-
-                    {/* Cột 3: Khớp Số Lượng */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        color: '#01411b'
-                      }}
-                    >
-                      <div>{row.khopSl.toLocaleString('vi-VN')}</div>
-                      <div style={{ fontSize: 10.5, color: '#64748b' }}>{row.khopSlRate}%</div>
-                    </td>
-
-                    {/* Cột 4: Khớp Job */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        color: '#059669'
-                      }}
-                    >
-                      <div>{row.khopJob.toLocaleString('vi-VN')}</div>
-                      <div style={{ fontSize: 10.5, color: '#64748b' }}>{row.khopJobRate}%</div>
-                    </td>
-
-                    {/* Cột 5: Sai ngày KH */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        color: row.sxSaiNgay > 0 ? '#ea580c' : '#94a3b8'
-                      }}
-                    >
-                      {row.sxSaiNgay.toLocaleString('vi-VN')}
-                    </td>
-
-                    {/* Cột 6: Trượt KH */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        color: row.truotKh > 0 ? '#dc2626' : '#94a3b8'
-                      }}
-                    >
-                      {row.truotKh.toLocaleString('vi-VN')}
-                    </td>
-
-                    {/* Cột 7: Tăng trưởng Khớp lệnh % (Hiển thị thuần chữ) */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        color: rateColor
-                      }}
-                    >
-                      {sign}
-                      {row.passGrowthRate}%
-                    </td>
-
-                    {/* Cột 8: Tăng trưởng Tổng lệnh % */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        color: row.ordersGrowthRate >= 0 ? '#16a34a' : '#dc2626'
-                      }}
-                    >
-                      {row.ordersGrowthRate > 0
-                        ? `+${row.ordersGrowthRate}%`
-                        : `${row.ordersGrowthRate}%`}
-                    </td>
-
-                    {/* Cột 9: Đồ thị Sparkline diễn biến độ khớp */}
-                    <td style={{ padding: '6px 12px', textAlign: 'center' }}>
-                      <CleanSparkline data={row.series} color={sparkColor} width={85} height={20} />
-                    </td>
-
-                    {/* Cột 10: Đánh giá (Hiển thị thuần chữ) */}
-                    <td
-                      style={{
-                        padding: '9px 12px',
-                        textAlign: 'center',
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        color: rateColor
-                      }}
-                    >
-                      {isUp ? 'TĂNG TRƯỞNG' : isDown ? 'SUY GIẢM' : 'ỔN ĐỊNH'}
-                    </td>
-                  </tr>
-                )
-              })}
-
-              {/* Dòng Tổng cộng */}
-              {matrixData.length > 0 && (
+              {picSummaryData.map((pic, idx) => (
                 <tr
+                  key={pic.fullName}
                   style={{
-                    borderTop: '2px solid #0f172a',
-                    background: '#f8fafc',
-                    fontWeight: 800
+                    borderBottom: '1px solid #f1f5f9',
+                    background: idx % 2 === 0 ? '#ffffff' : '#f8fafc'
                   }}
                 >
-                  <td style={{ padding: '10px 12px', color: '#0f172a' }}>
-                    TỔNG CỘNG ({matrixData.length} PIC)
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#0f172a' }}>
-                    {grandSummary.totalOrders.toLocaleString('vi-VN')}
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#01411b' }}>
-                    <div>{grandSummary.khopSl.toLocaleString('vi-VN')}</div>
-                    <div style={{ fontSize: 10.5, color: '#64748b' }}>
-                      {grandSummary.khopSlRate}%
-                    </div>
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#059669' }}>
-                    <div>{grandSummary.khopJob.toLocaleString('vi-VN')}</div>
-                    <div style={{ fontSize: 10.5, color: '#64748b' }}>
-                      {grandSummary.khopJobRate}%
-                    </div>
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#ea580c' }}>
-                    {grandSummary.sxSaiNgay.toLocaleString('vi-VN')}
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#dc2626' }}>
-                    {grandSummary.truotKh.toLocaleString('vi-VN')}
+                  <td style={{ padding: '9px 12px', textAlign: 'center', color: '#64748b' }}>
+                    {idx + 1}
                   </td>
                   <td
                     style={{
-                      padding: '10px 12px',
+                      padding: '9px 12px',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: getPicColor(pic.fullName, idx),
+                        display: 'inline-block'
+                      }}
+                    />
+                    <span>{pic.fullName}</span>
+                  </td>
+                  <td
+                    style={{
+                      padding: '9px 12px',
                       textAlign: 'right',
-                      color: grandSummary.passGrowthRate >= 0 ? '#16a34a' : '#dc2626'
+                      fontWeight: 700,
+                      color: '#01411b'
                     }}
                   >
-                    {grandSummary.passGrowthRate > 0
-                      ? `+${grandSummary.passGrowthRate}%`
-                      : `${grandSummary.passGrowthRate}%`}
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#475569' }}>—</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'center', color: '#475569' }}>
-                    {(grandSummary.khopSl + grandSummary.khopJob).toLocaleString('vi-VN')} Khớp
+                    {pic.totalOrders.toLocaleString('vi-VN')}
                   </td>
                   <td
                     style={{
-                      padding: '10px 12px',
-                      textAlign: 'center',
-                      fontSize: 11.5,
-                      fontWeight: 800,
-                      color:
-                        grandSummary.passGrowthRate > 5
-                          ? '#16a34a'
-                          : grandSummary.passGrowthRate < -5
-                            ? '#dc2626'
-                            : '#475569'
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      color: '#16a34a',
+                      fontWeight: 600
                     }}
                   >
-                    {grandSummary.passGrowthRate > 5
-                      ? 'TĂNG TRƯỞNG'
-                      : grandSummary.passGrowthRate < -5
-                        ? 'SUY GIẢM'
-                        : 'ỔN ĐỊNH'}
+                    <span>{pic.khopSl.toLocaleString('vi-VN')}</span>
+                    <span style={{ fontSize: 10.5, color: '#64748b', marginLeft: 4 }}>
+                      ({pic.khopSlRate}%)
+                    </span>
+                  </td>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      color: '#8b5cf6',
+                      fontWeight: 600
+                    }}
+                  >
+                    <span>{pic.khopJob.toLocaleString('vi-VN')}</span>
+                    <span style={{ fontSize: 10.5, color: '#64748b', marginLeft: 4 }}>
+                      ({pic.khopJobRate}%)
+                    </span>
+                  </td>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      color: '#ea580c',
+                      fontWeight: 600
+                    }}
+                  >
+                    <span>{pic.sxSaiNgay.toLocaleString('vi-VN')}</span>
+                    <span style={{ fontSize: 10.5, color: '#64748b', marginLeft: 4 }}>
+                      ({pic.sxSaiNgayRate}%)
+                    </span>
+                  </td>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      color: '#dc2626',
+                      fontWeight: 600
+                    }}
+                  >
+                    <span>{pic.truotKh.toLocaleString('vi-VN')}</span>
+                    <span style={{ fontSize: 10.5, color: '#64748b', marginLeft: 4 }}>
+                      ({pic.truotKhRate}%)
+                    </span>
+                  </td>
+                  <td
+                    style={{
+                      padding: '9px 12px',
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: pic.passRate >= 80 ? '#16a34a' : '#d97706'
+                    }}
+                  >
+                    {pic.passRate}%
                   </td>
                 </tr>
-              )}
+              ))}
             </tbody>
+            <tfoot>
+              <tr
+                style={{
+                  borderTop: '2px solid #0f172a',
+                  background: '#f8fafc',
+                  fontWeight: 800,
+                  color: '#0f172a'
+                }}
+              >
+                <td colSpan={2} style={{ padding: '10px 12px', textTransform: 'uppercase' }}>
+                  TỔNG CỘNG TOÀN XƯỞNG ({picSummaryData.length} PIC)
+                </td>
+                <td
+                  style={{
+                    padding: '10px 12px',
+                    textAlign: 'right',
+                    color: '#01411b'
+                  }}
+                >
+                  {tableGrandTotal.totalOrders.toLocaleString('vi-VN')}
+                </td>
+                <td
+                  style={{
+                    padding: '10px 12px',
+                    textAlign: 'right',
+                    color: '#16a34a'
+                  }}
+                >
+                  {tableGrandTotal.khopSl.toLocaleString('vi-VN')} ({tableGrandTotal.khopSlRate}%)
+                </td>
+                <td
+                  style={{
+                    padding: '10px 12px',
+                    textAlign: 'right',
+                    color: '#8b5cf6'
+                  }}
+                >
+                  {tableGrandTotal.khopJob.toLocaleString('vi-VN')} ({tableGrandTotal.khopJobRate}%)
+                </td>
+                <td
+                  style={{
+                    padding: '10px 12px',
+                    textAlign: 'right',
+                    color: '#ea580c'
+                  }}
+                >
+                  {tableGrandTotal.sxSaiNgay.toLocaleString('vi-VN')} ({tableGrandTotal.sxSaiNgayRate}%)
+                </td>
+                <td
+                  style={{
+                    padding: '10px 12px',
+                    textAlign: 'right',
+                    color: '#dc2626'
+                  }}
+                >
+                  {tableGrandTotal.truotKh.toLocaleString('vi-VN')} ({tableGrandTotal.truotKhRate}%)
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#047857' }}>
+                  {tableGrandTotal.passRate}%
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
     </div>
   )
 }
-
-export default PlanPicTimelineSection

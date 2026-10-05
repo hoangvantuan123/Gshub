@@ -6,7 +6,6 @@ import { useSummaryPlanLogic } from './hooks/useSummaryPlanLogic'
 import { SummaryTopControlBar } from '../common/SummaryTopControlBar'
 import { PlanHeroKpiCards } from './components/PlanHeroKpiCards'
 import { PlanProductionRhythmChart } from './components/PlanProductionRhythmChart'
-import { PlanPicAnalysisSection } from './components/PlanPicAnalysisSection'
 import { PlanPicTimelineSection } from './components/PlanPicTimelineSection'
 import { PlanTimeAndCapaSection } from './components/PlanTimeAndCapaSection'
 
@@ -30,10 +29,6 @@ export default function SummaryPlanReportPage() {
     setSelectedPic,
     picBreakdown,
     picTimelineBreakdown,
-    showPicSummaryTable,
-    setShowPicSummaryTable,
-    picChartMode,
-    setPicChartMode,
     loading,
     fetchTimelineData,
     isHandbookModalOpen,
@@ -198,25 +193,15 @@ export default function SummaryPlanReportPage() {
             loading={loading}
           />
 
-          {/* 2. PHÂN TÍCH THEO PIC ĐIỀU PHỐI (HIỆU QUẢ THEO TỪNG NGƯỜI ĐIỀU PHỐI) */}
-          <PlanPicAnalysisSection
-            picBreakdown={picBreakdown || []}
-            plantName={currentPlantName}
-            selectedPic={selectedPic}
-            onSelectPic={setSelectedPic}
-            showPicTable={showPicSummaryTable}
-            setShowPicTable={setShowPicSummaryTable}
-            picChartMode={picChartMode}
-            setPicChartMode={setPicChartMode}
-          />
-
           {/* 2. TIẾN ĐỘ & XU HƯỚNG TĂNG TRƯỞNG KHSX THEO DẢI NGÀY CỦA PIC */}
           <PlanPicTimelineSection
             picTimelineBreakdown={picTimelineBreakdown || { dailyList: [], picList: [] }}
+            picBreakdown={picBreakdown || []}
             plantName={currentPlantName}
             totalDays={totalDays}
             selectedPic={selectedPic}
             onSelectPic={setSelectedPic}
+            picOptions={filterOptions?.pics || []}
           />
 
           {/* 3 & 4. TRẠNG THÁI THỜI GIAN & TRẠNG THÁI CAPA (SO VỚI ĐỊNH MỨC & NĂNG LỰC) */}

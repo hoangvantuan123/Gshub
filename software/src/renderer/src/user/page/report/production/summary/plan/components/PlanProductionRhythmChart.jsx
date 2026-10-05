@@ -11,7 +11,7 @@ import {
   Tooltip as RechartsTooltip,
   LabelList
 } from 'recharts'
-import { TableProperties } from 'lucide-react'
+import { TableProperties, TrendingUp } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import {
@@ -270,8 +270,20 @@ function ExecutiveRhythmTooltip({ active, payload, label, visibleSeries }) {
  * Custom Bar Shape vẽ cột và tự động nối đường giữa các đỉnh của cột cùng loại qua các ngày
  */
 const CustomBarWithPeak = (props) => {
-  const { x, y, width, height, value, index, fill, stroke, dashArray, seriesKey, collectorRef } =
-    props
+  const {
+    x,
+    y,
+    width,
+    height,
+    value,
+    index,
+    fill,
+    stroke,
+    dashArray,
+    seriesKey,
+    collectorRef,
+    showPeakLine = true
+  } = props
 
   if (x === undefined || y === undefined || width === undefined || height === undefined) return null
 
@@ -303,7 +315,7 @@ const CustomBarWithPeak = (props) => {
       />
 
       {/* 2. Đường nối từ đỉnh cột ngày trước đến đỉnh cột ngày này */}
-      {prev && prev.cx !== undefined && !isNaN(prev.cx) && !isNaN(prev.cy) && (
+      {showPeakLine && prev && prev.cx !== undefined && !isNaN(prev.cx) && !isNaN(prev.cy) && (
         <line
           x1={prev.cx}
           y1={prev.cy}
@@ -317,7 +329,9 @@ const CustomBarWithPeak = (props) => {
       )}
 
       {/* 3. Điểm đánh dấu đỉnh */}
-      <circle cx={cx} cy={cy} r={3.5} fill={fill} stroke="#ffffff" strokeWidth={1.5} />
+      {showPeakLine && (
+        <circle cx={cx} cy={cy} r={3.5} fill={fill} stroke="#ffffff" strokeWidth={1.5} />
+      )}
 
       {/* 4. Nhãn số lượng thuần túy trên đỉnh cột (không kèm %) */}
       {displayVal && (
@@ -345,9 +359,9 @@ export function PlanProductionRhythmChart({
   totalDays = 1,
   loading = false
 }) {
-  const [periodType, setPeriodType] = useState('daily') // 'daily' | 'monthly' | 'quarterly'
+  const [periodType, setPeriodType] = useState('daily') // 'daily' | 'weekly' | 'monthly' | 'quarterly'
   const [showTable, setShowTable] = useState(true)
-  const [rangeFilter, setRangeFilter] = useState('all')
+  const [showPeakLine, setShowPeakLine] = useState(true) // Bật/tắt đường line nối đỉnh
 
   const pointsCollector = useMemo(() => ({ current: {} }), [])
   pointsCollector.current = {}
@@ -419,12 +433,15 @@ export function PlanProductionRhythmChart({
     return []
   }, [serverDailyData, picTimelineBreakdown, planMetrics, dateRange])
 
-  // 2. Gom nhóm theo khoảng thời gian Ngày / Tháng / Quý
+  // 2. Gom nhóm theo khoảng thời gian Ngày / Tuần / Tháng / Quý
   const periodData = useMemo(() => {
     return groupPlanDailyDataByPeriod(actualMasterDailyData)
   }, [actualMasterDailyData])
 
   const activeRawList = useMemo(() => {
+    if (periodType === 'weekly' && periodData.weeklyList?.length > 0) {
+      return periodData.weeklyList
+    }
     if (periodType === 'monthly' && periodData.monthlyList?.length > 0) {
       return periodData.monthlyList
     }
@@ -452,12 +469,7 @@ export function PlanProductionRhythmChart({
     })
   }, [activeRawList])
 
-  const displayedChartData = useMemo(() => {
-    if (!Array.isArray(chartProcessedData) || chartProcessedData.length === 0) return []
-    if (rangeFilter === '10') return chartProcessedData.slice(-10)
-    if (rangeFilter === '30') return chartProcessedData.slice(-30)
-    return chartProcessedData
-  }, [chartProcessedData, rangeFilter])
+  const displayedChartData = chartProcessedData
 
   // 4. Tổng cộng cho bảng số liệu
   const grandTotal = useMemo(() => {
@@ -483,15 +495,29 @@ export function PlanProductionRhythmChart({
   }, [chartProcessedData])
 
   const periodUnitText =
-    periodType === 'monthly' ? 'THÁNG' : periodType === 'quarterly' ? 'QUÝ' : 'NGÀY'
+    periodType === 'weekly'
+      ? 'TUẦN'
+      : periodType === 'monthly'
+        ? 'THÁNG'
+        : periodType === 'quarterly'
+          ? 'QUÝ'
+          : 'NGÀY'
   const periodUnitLower =
-    periodType === 'monthly' ? 'tháng' : periodType === 'quarterly' ? 'quý' : 'ngày'
+    periodType === 'weekly'
+      ? 'tuần'
+      : periodType === 'monthly'
+        ? 'tháng'
+        : periodType === 'quarterly'
+          ? 'quý'
+          : 'ngày'
   const periodLabelText =
-    periodType === 'monthly'
-      ? `${chartProcessedData.length} tháng`
-      : periodType === 'quarterly'
-        ? `${chartProcessedData.length} quý`
-        : `chu kỳ ${totalDays || chartProcessedData.length} ngày`
+    periodType === 'weekly'
+      ? `${chartProcessedData.length} tuần`
+      : periodType === 'monthly'
+        ? `${chartProcessedData.length} tháng`
+        : periodType === 'quarterly'
+          ? `${chartProcessedData.length} quý`
+          : `chu kỳ ${totalDays || chartProcessedData.length} ngày`
 
   return (
     <div style={{ marginBottom: 44, width: '100%', background: '#ffffff', padding: '8px 0' }}>
@@ -534,7 +560,7 @@ export function PlanProductionRhythmChart({
           </div>
         </div>
 
-        {/* Nút Tabs chuyển Ngày / Tháng / Quý và nút mở/đóng bảng */}
+        {/* Nút Tabs chuyển Ngày / Tuần / Tháng / Quý và Nút mở/đóng bảng */}
         <div
           className="screenshot-hide"
           style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}
@@ -542,6 +568,9 @@ export function PlanProductionRhythmChart({
           <Tabs value={periodType} onValueChange={setPeriodType}>
             <TabsList>
               <TabsTrigger value="daily">Ngày</TabsTrigger>
+              {periodData.weeklyList?.length > 0 && (
+                <TabsTrigger value="weekly">Tuần</TabsTrigger>
+              )}
               {periodData.monthlyList?.length > 0 && (
                 <TabsTrigger value="monthly">Tháng</TabsTrigger>
               )}
@@ -578,7 +607,7 @@ export function PlanProductionRhythmChart({
           padding: '16px'
         }}
       >
-        {/* Thanh chú giải văn bản phẳng & Bộ lọc xem 10 ngày / 30 ngày / Tất cả */}
+        {/* Thanh chú giải văn bản phẳng & Line nối đỉnh */}
         <div
           style={{
             display: 'flex',
@@ -639,53 +668,48 @@ export function PlanProductionRhythmChart({
                 </div>
               )
             })}
-          </div>
 
-          {/* Bộ lọc xem nhanh 10 ngày / 30 ngày / Tất cả */}
-          {chartProcessedData.length > 5 && periodType === 'daily' && (
+            {/* 6. Line nối đỉnh (Click để ẩn/hiện trực tiếp) */}
             <div
+              onClick={() => setShowPeakLine(!showPeakLine)}
               style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: 3,
-                background: '#f1f5f9',
-                padding: '2px 4px',
-                borderRadius: 6,
-                border: '1px solid #e2e8f0',
-                fontSize: 11
+                gap: 7,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: showPeakLine ? 700 : 500,
+                color: showPeakLine ? '#01411b' : '#94a3b8',
+                textDecoration: showPeakLine ? 'none' : 'line-through',
+                opacity: showPeakLine ? 1 : 0.55,
+                transition: 'all 0.15s ease'
               }}
+              title={`Bấm để ${showPeakLine ? 'ẩn' : 'hiện'} đường line nối đỉnh trên các cột`}
             >
-              {[
-                { value: '10', label: '10 ngày' },
-                { value: '30', label: '30 ngày' },
-                { value: 'all', label: `Tất cả (${chartProcessedData.length}N)` }
-              ].map((opt) => {
-                const isActive = rangeFilter === opt.value
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setRangeFilter(opt.value)}
-                    style={{
-                      border: 'none',
-                      outline: 'none',
-                      padding: '3px 8px',
-                      borderRadius: 4,
-                      background: isActive ? '#01411b' : 'transparent',
-                      color: isActive ? '#ffffff' : '#475569',
-                      fontWeight: isActive ? 700 : 600,
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    title={`Hiển thị ${opt.label}`}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              })}
+              <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: 16 }}>
+                <span
+                  style={{
+                    width: 16,
+                    height: 2,
+                    backgroundColor: showPeakLine ? '#01411b' : '#cbd5e1',
+                    borderRadius: 1
+                  }}
+                />
+                <span
+                  style={{
+                    position: 'absolute',
+                    left: 4,
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    backgroundColor: '#ffffff',
+                    border: `1.5px solid ${showPeakLine ? '#01411b' : '#cbd5e1'}`
+                  }}
+                />
+              </div>
+              <span>Line nối đỉnh</span>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Thân biểu đồ ComposedChart */}
@@ -714,7 +738,7 @@ export function PlanProductionRhythmChart({
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
 
-                {/* Trục X: Lấy đúng theo các ngày/tháng/quý thực tế */}
+                {/* Trục X: Lấy đúng theo các ngày/tuần/tháng/quý thực tế */}
                 <XAxis
                   dataKey="shortDate"
                   tickLine={false}
@@ -765,6 +789,7 @@ export function PlanProductionRhythmChart({
                         stroke="#01411b"
                         seriesKey="totalOrders"
                         collectorRef={pointsCollector}
+                        showPeakLine={showPeakLine}
                       />
                     )}
                   />
@@ -786,6 +811,7 @@ export function PlanProductionRhythmChart({
                         stroke="#ea580c"
                         seriesKey="wrongPlanDate"
                         collectorRef={pointsCollector}
+                        showPeakLine={showPeakLine}
                       />
                     )}
                   />
@@ -808,6 +834,7 @@ export function PlanProductionRhythmChart({
                         dashArray="4 4"
                         seriesKey="slippedPlan"
                         collectorRef={pointsCollector}
+                        showPeakLine={showPeakLine}
                       />
                     )}
                   />
@@ -829,6 +856,7 @@ export function PlanProductionRhythmChart({
                         stroke="#16a34a"
                         seriesKey="matchedQuantity"
                         collectorRef={pointsCollector}
+                        showPeakLine={showPeakLine}
                       />
                     )}
                   />
@@ -850,6 +878,7 @@ export function PlanProductionRhythmChart({
                         stroke="#8b5cf6"
                         seriesKey="matchedJob"
                         collectorRef={pointsCollector}
+                        showPeakLine={showPeakLine}
                       />
                     )}
                   />

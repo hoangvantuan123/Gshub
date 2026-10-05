@@ -306,6 +306,16 @@ INSERT INTO "_ERPUsers" (
     '01a0ecf1-c441-7803-8e98-3452a268800a', 1, 3, 'IT_TUANHV', 'IT_TUANHV', 'Hoàng Văn Tuấn',
     'Phòng Công Nghệ Thông Tin', 'Trưởng Phòng IT', 'IT_TUANHV', 1, 'IT_TUANHV', 1,
     '$2a$10$I5w4wR8RihIslif36IAkBuxXhpnr7V70nsjDzD/z9EVRvulbhXI2K', true, false, 'ACTIVE', true, 6, 'SYSTEM_INIT' -- Mật khẩu: Tuan3112@
+),
+(
+    '01a0ecf1-c441-7803-8e98-3452a268800b', 1, 4, 'IT_MINH', 'IT_MINH', 'IT Minh',
+    'Phòng Công Nghệ Thông Tin', 'Trưởng Phòng IT', 'IT_MINH', 1, 'IT_MINH', 1,
+    '$2a$10$LlL1OPhpt5ecj7PXZJHq1uzhEasaLgzIUpfopRwQnlVnBzTqGp6ee', true, false, 'ACTIVE', true, 6, 'SYSTEM_INIT' -- Mật khẩu: IT@GoldSun123
+),
+(
+    '01a0ecf1-c441-7803-8e98-3452a268800c', 1, 5, 'IT_KIEN', 'IT_KIEN', 'IT Kiên',
+    'Phòng Công Nghệ Thông Tin', 'Trưởng Phòng IT', 'IT_KIEN', 1, 'IT_KIEN', 1,
+    '$2a$10$LlL1OPhpt5ecj7PXZJHq1uzhEasaLgzIUpfopRwQnlVnBzTqGp6ee', true, false, 'ACTIVE', true, 6, 'SYSTEM_INIT' -- Mật khẩu: IT@GoldSun123
 )
 ON CONFLICT ("UserId") DO UPDATE SET
     "Password2" = EXCLUDED."Password2",
@@ -338,7 +348,7 @@ INSERT INTO "_ERPMenus" ("Id", "MenuRootId", "Key", "Label", "Link", "Type", "Or
 (6, 4, 'DATAHUB_CONFIG', 'Cấu Hình Cổng DataHub', '/utilities/datahub-config', 'menu', 1, 'SYSTEM_INIT')
 ON CONFLICT ("Id") DO NOTHING;
 
--- 12.5. Cấp toàn quyền cho SuperAdmin và Admin
+-- 12.5. Cấp toàn quyền cho SuperAdmin, Admin và IT
 INSERT INTO "_ERPRolesUsers" ("GroupId", "UserId", "RootMenuId", "Type", "Name", "View", "Create", "Edit", "Delete", "CreatedBy") VALUES
 (1, 'superadmin', 1, 'rootmenu', 'Hệ Thống', true, true, true, true, 'SYSTEM_INIT'),
 (1, 'superadmin', 2, 'rootmenu', 'Sản Xuất', true, true, true, true, 'SYSTEM_INIT'),
@@ -349,7 +359,15 @@ INSERT INTO "_ERPRolesUsers" ("GroupId", "UserId", "RootMenuId", "Type", "Name",
 (1, 'admin', 3, 'rootmenu', 'Báo Cáo Thống Kê', true, true, true, true, 'SYSTEM_INIT'),
 (1, 'IT_TUANHV', 1, 'rootmenu', 'Hệ Thống', true, true, true, true, 'SYSTEM_INIT'),
 (1, 'IT_TUANHV', 2, 'rootmenu', 'Sản Xuất', true, true, true, true, 'SYSTEM_INIT'),
-(1, 'IT_TUANHV', 3, 'rootmenu', 'Báo Cáo Thống Kê', true, true, true, true, 'SYSTEM_INIT');
+(1, 'IT_TUANHV', 3, 'rootmenu', 'Báo Cáo Thống Kê', true, true, true, true, 'SYSTEM_INIT'),
+(1, 'IT_MINH', 1, 'rootmenu', 'Hệ Thống', true, true, true, true, 'SYSTEM_INIT'),
+(1, 'IT_MINH', 2, 'rootmenu', 'Sản Xuất', true, true, true, true, 'SYSTEM_INIT'),
+(1, 'IT_MINH', 3, 'rootmenu', 'Báo Cáo Thống Kê', true, true, true, true, 'SYSTEM_INIT'),
+(1, 'IT_MINH', 4, 'rootmenu', 'Tiện Ích & Cấu Hình', true, true, true, true, 'SYSTEM_INIT'),
+(1, 'IT_KIEN', 1, 'rootmenu', 'Hệ Thống', true, true, true, true, 'SYSTEM_INIT'),
+(1, 'IT_KIEN', 2, 'rootmenu', 'Sản Xuất', true, true, true, true, 'SYSTEM_INIT'),
+(1, 'IT_KIEN', 3, 'rootmenu', 'Báo Cáo Thống Kê', true, true, true, true, 'SYSTEM_INIT'),
+(1, 'IT_KIEN', 4, 'rootmenu', 'Tiện Ích & Cấu Hình', true, true, true, true, 'SYSTEM_INIT');
 
 -- 12.6. Seed Cấu hình kết nối Bravo ERP
 INSERT INTO "ErpConfig" (

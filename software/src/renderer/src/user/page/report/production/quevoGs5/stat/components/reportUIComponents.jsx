@@ -850,7 +850,7 @@ export const PureDateRangePicker = ({ value, onChange }) => {
 }
 
 // 4. Tooltip Doanh Nghiệp Cấp Cao
-export const ExecutiveChartTooltip = ({ active, payload, label, unit = '' }) => {
+export const ExecutiveChartTooltip = ({ active, payload, label, unit = '', customFormatter }) => {
   if (active && payload && payload.length) {
     const pData = payload[0]?.payload || {}
     return (
@@ -882,18 +882,42 @@ export const ExecutiveChartTooltip = ({ active, payload, label, unit = '' }) => 
             </span>
           )}
         </div>
-        {payload.map((item, index) => (
-          <div
-            key={index}
-            style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 3 }}
-          >
-            <span style={{ color: '#cbd5e1' }}>{item.name || 'Chỉ số'}:</span>
-            <span style={{ fontWeight: 700, color: '#ffffff' }}>
-              {typeof item.value === 'number' ? item.value.toLocaleString('vi-VN') : item.value}
-              {unit || item.unit || ''}
-            </span>
-          </div>
-        ))}
+        {payload
+          .filter((item) => item.dataKey !== 'totalOrders' && item.name)
+          .map((item, index) => {
+            const itemColor =
+              item.color || item.fill || item.stroke || item.payload?.fill || '#38bdf8'
+            const formattedVal = customFormatter
+              ? customFormatter(item.value, item.name, item)
+              : `${typeof item.value === 'number' ? item.value.toLocaleString('vi-VN') : item.value}${unit || item.unit || ''}`
+            return (
+              <div
+                key={index}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 16,
+                  marginTop: 3
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: 2,
+                      backgroundColor: itemColor,
+                      display: 'inline-block',
+                      flexShrink: 0
+                    }}
+                  />
+                  <span style={{ color: '#cbd5e1' }}>{item.name || 'Chỉ số'}:</span>
+                </div>
+                <span style={{ fontWeight: 700, color: '#ffffff' }}>{formattedVal}</span>
+              </div>
+            )
+          })}
         {pData.ticketCount !== undefined && payload.every((p) => p.dataKey !== 'ticketCount') && (
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 3 }}>
             <span style={{ color: '#94a3b8' }}>Số phiếu thống kê:</span>

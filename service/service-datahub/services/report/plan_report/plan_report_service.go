@@ -306,6 +306,9 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 	teamBreakdown := accumulator.BuildTeamBreakdown()
 	machineBreakdown := accumulator.BuildMachineBreakdown()
 	dailyTrendData := accumulator.BuildDailyTrendData()
+	picTimelineBreakdown := accumulator.BuildPicTimelineBreakdown()
+	timeTimelineBreakdown := accumulator.BuildTimeTimelineBreakdown()
+	capaTimelineBreakdown := accumulator.BuildCapaTimelineBreakdown()
 	_ = mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(100).Find(&masterList).Error
 
 	planMasterOpts := make([]models.PlanMasterOption, 0, len(masterList))
@@ -366,16 +369,19 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 	totalRecords := int64(len(items))
 
 	return &models.PlanReportResponse{
-		Summary:             summary,
-		DpStatusBreakdown:   dpStatusBreakdown,
-		TimeStatusBreakdown: timeStatusBreakdown,
-		CapaStatusBreakdown: capaStatusBreakdown,
-		PicBreakdown:        picBreakdown,
-		TeamBreakdown:       teamBreakdown,
-		MachineBreakdown:    machineBreakdown,
-		DailyTrendData:      dailyTrendData,
-		FilterOptions:       filterOpts,
-		Items:               pagedItems,
+		Summary:               summary,
+		DpStatusBreakdown:     dpStatusBreakdown,
+		TimeStatusBreakdown:   timeStatusBreakdown,
+		CapaStatusBreakdown:   capaStatusBreakdown,
+		PicBreakdown:          picBreakdown,
+		TeamBreakdown:         teamBreakdown,
+		MachineBreakdown:      machineBreakdown,
+		DailyTrendData:        dailyTrendData,
+		PicTimelineBreakdown:  picTimelineBreakdown,
+		TimeTimelineBreakdown: timeTimelineBreakdown,
+		CapaTimelineBreakdown: capaTimelineBreakdown,
+		FilterOptions:         filterOpts,
+		Items:                 pagedItems,
 		Pagination: models.PlanPageInfo{
 			Page:        1,
 			PageSize:    len(pagedItems),

@@ -4,7 +4,6 @@ import ExportExcelModal from '../../../../components/modal/ExportExcelModal'
 import { useTimelineSummaryLogic } from './hooks/useTimelineSummaryLogic'
 import { TopControlBar } from './components/TopControlBar'
 import { HeroKpiCards } from './components/HeroKpiCards'
-import { DailyTimelineProgressSection } from './components/DailyTimelineProgressSection'
 import { MachineRuntimeSection } from './components/MachineRuntimeSection'
 import { TeamOutputSection } from './components/TeamOutputSection'
 import { SyncLatencySection } from './components/SyncLatencySection'
@@ -31,8 +30,6 @@ export default function TimelineSummaryReportPage() {
     filterOptions,
     loading,
     fetchTimelineData,
-    showDailySummaryTable,
-    setShowDailySummaryTable,
     showMachineSummaryTable,
     setShowMachineSummaryTable,
     showTeamSummaryTable,
@@ -51,10 +48,14 @@ export default function TimelineSummaryReportPage() {
     reportRootRef,
     factoryOptions,
     kpiMetrics,
+    rawDataset,
+    backendReportData,
     dailyAggregates,
+    machineTimelineBreakdown,
     displayMachineList,
     machineGrandTotal,
     teamAggregates,
+    teamTimelineBreakdown,
     teamGrandTotal,
     missingAutoExportTickets,
     displayDetailList,
@@ -190,6 +191,7 @@ export default function TimelineSummaryReportPage() {
             {/* 4. MỤC 1: TỔNG GIỜ CHẠY MÁY & PHÂN BỔ TẢI TRỌNG THEO CỤM MÁY */}
             <MachineRuntimeSection
               displayMachineList={displayMachineList}
+              machineTimelineBreakdown={machineTimelineBreakdown}
               machineGrandTotal={machineGrandTotal}
               showMachineSummaryTable={showMachineSummaryTable}
               setShowMachineSummaryTable={setShowMachineSummaryTable}
@@ -205,43 +207,35 @@ export default function TimelineSummaryReportPage() {
             {/* 5. MỤC 2: SẢN LƯỢNG SẢN XUẤT & ĐẠT THEO TỔ SẢN XUẤT */}
             <TeamOutputSection
               teamAggregates={teamAggregates}
+              teamTimelineBreakdown={teamTimelineBreakdown}
               teamGrandTotal={teamGrandTotal}
               showTeamSummaryTable={showTeamSummaryTable}
               setShowTeamSummaryTable={setShowTeamSummaryTable}
               plantName={currentPlantName}
             />
 
-            {/* 6. MỤC 3: TIẾN TRÌNH SẢN LƯỢNG THEO DÒNG THỜI GIAN */}
-            <DailyTimelineProgressSection
-              dailyAggregates={dailyAggregates}
-              plantName={currentPlantName}
-              totalDays={totalDays}
-              showDailySummaryTable={showDailySummaryTable}
-              setShowDailySummaryTable={setShowDailySummaryTable}
-            />
-
-            {/* 6 & 7. EXECUTIVE ROW: BIỂU ĐỒ III & BIỂU ĐỒ IV (CHIA ĐÔI 1 HÀNG) */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
-                gap: 24,
-                marginBottom: 44,
-                width: '100%',
-                alignItems: 'start'
-              }}
-            >
-              {/* MỤC 3: THỐNG KÊ ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG */}
+            {/* 4.1. THỐNG KÊ ĐỘ TRỄ THỜI GIAN ĐỒNG BỘ 2 HỆ THỐNG */}
+            <div style={{ marginBottom: 44, width: '100%' }}>
               <SyncLatencySection
+                sectionNumber="4.1"
                 kpiMetrics={kpiMetrics}
+                filteredData={rawDataset || displayDetailList}
+                dailyAggregates={dailyAggregates}
+                backendReportData={backendReportData}
                 showSyncTable={showSyncTable}
                 setShowSyncTable={setShowSyncTable}
                 plantName={currentPlantName}
               />
+            </div>
 
-              {/* MỤC 4: THỐNG KÊ PHÂN BỔ LOẠI CHỨNG TỪ XUẤT/NHẬP TỰ ĐỘNG */}
+            {/* 4.2. THỐNG KÊ PHÂN BỔ LOẠI CHỨNG TỪ XUẤT/NHẬP TỰ ĐỘNG */}
+            <div style={{ marginBottom: 44, width: '100%' }}>
               <AutoExportSection
+                sectionNumber="4.2"
                 kpiMetrics={kpiMetrics}
+                filteredData={rawDataset || displayDetailList}
+                dailyAggregates={dailyAggregates}
+                backendReportData={backendReportData}
                 missingAutoExportTickets={missingAutoExportTickets}
                 showAutoExportTable={showAutoExportTable}
                 setShowAutoExportTable={setShowAutoExportTable}

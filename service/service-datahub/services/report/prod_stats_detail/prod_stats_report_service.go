@@ -12,6 +12,14 @@ import (
 	models "service-datahub/models/report"
 )
 
+type machineDateStat struct {
+	runtimeHours float64
+	actualQty    float64
+	passQty      float64
+	planQty      float64
+	ticketCount  int
+}
+
 // Helper: Lấy giá trị filter không phân biệt chữ hoa/thường
 func getFilterValue(filters map[string]string, keys ...string) string {
 	for _, k := range keys {
@@ -143,11 +151,36 @@ func calcDurationMinutes(actualRunTime, startTime, endTime *string) float64 {
 	return 0
 }
 
+// Helper: Parse nhiều định dạng DateTime khác nhau
+func parseAnyDateTime(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}, fmt.Errorf("empty time string")
+	}
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04:05.000",
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04:05.000",
+		"2006-01-02 15:04",
+		"02/01/2006 15:04:05",
+		"02/01/2006 15:04",
+		"2006/01/02 15:04:05",
+	}
+	for _, l := range layouts {
+		if t, err := time.Parse(l, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("cannot parse time: %s", s)
+}
+
 // Helper: Phân tích độ trễ đồng bộ sang giây
 func parseSyncDelaySeconds(syncDelay, ticketCreatedDate, mesApprovalTime *string) (float64, bool) {
 	if mesApprovalTime != nil && ticketCreatedDate != nil && strings.TrimSpace(*mesApprovalTime) != "" && strings.TrimSpace(*ticketCreatedDate) != "" {
-		tMes, errM := time.Parse(time.RFC3339, strings.TrimSpace(*mesApprovalTime))
-		tCre, errC := time.Parse(time.RFC3339, strings.TrimSpace(*ticketCreatedDate))
+		tMes, errM := parseAnyDateTime(*mesApprovalTime)
+		tCre, errC := parseAnyDateTime(*ticketCreatedDate)
 		if errM == nil && errC == nil && !tMes.Before(tCre) {
 			sec := tMes.Sub(tCre).Seconds()
 			if sec >= 0 && sec <= 86400 {
@@ -176,9 +209,20 @@ func parseSyncDelaySeconds(syncDelay, ticketCreatedDate, mesApprovalTime *string
 			}
 			return totalSec, true
 		}
+		if strings.Contains(s, "phút") || strings.Contains(s, "min") || strings.HasSuffix(s, "p") || strings.HasSuffix(s, "m") {
+			cleanStr := strings.TrimRight(strings.TrimSpace(s), "phútmin pm")
+			if num, err := strconv.ParseFloat(cleanStr, 64); err == nil && num >= 0 {
+				return num * 60, true
+			}
+		}
+		if strings.Contains(s, "giây") || strings.Contains(s, "sec") || strings.HasSuffix(s, "s") || strings.HasSuffix(s, "g") {
+			cleanStr := strings.TrimRight(strings.TrimSpace(s), "giâysec sg")
+			if num, err := strconv.ParseFloat(cleanStr, 64); err == nil && num >= 0 {
+				return num, true
+			}
+		}
 		if num, err := strconv.ParseFloat(s, 64); err == nil && num >= 0 {
-			// Nếu lưu theo phút -> quy đổi ra giây
-			return num * 60, true
+			return num, true
 		}
 	}
 	return 0, false
@@ -449,6 +493,8 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 	teamMap := make(map[string]*models.TeamStatAggregate)
 	machineMap := make(map[string]*models.MachineStatAggregate)
 	dayMap := make(map[string]*models.DailyStatAggregate)
+	machineDailyMap := make(map[string]map[string]*machineDateStat)
+	teamDailyMap := make(map[string]map[string]*teamDateStat)
 	teamSet := make(map[string]bool)
 	machineSet := make(map[string]bool)
 	shiftSet := make(map[string]bool)
@@ -785,6 +831,58 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			} else {
 				dayMap[prodDate].NonMesCount++
 			}
+			if hasSync {
+				dayMap[prodDate].TotalSyncSec += syncSec
+				dayMap[prodDate].SyncCount++
+				if syncSec <= 10 {
+					dayMap[prodDate].Under10++
+					dayMap[prodDate].SyncUnder10++
+				} else if syncSec <= 30 {
+					dayMap[prodDate].From11to30++
+					dayMap[prodDate].Sync11to30++
+				} else if syncSec <= 60 {
+					dayMap[prodDate].From31to60++
+					dayMap[prodDate].Sync31to60++
+				} else {
+					dayMap[prodDate].Over60++
+					dayMap[prodDate].SyncOver60++
+				}
+			} else {
+				dayMap[prodDate].SyncEmpty++
+			}
+
+			// Gom nhóm theo Cụm máy theo Ngày
+			if machineCodeVal != "" {
+				if _, ok := machineDailyMap[prodDate]; !ok {
+					machineDailyMap[prodDate] = make(map[string]*machineDateStat)
+				}
+				if _, ok := machineDailyMap[prodDate][machineCodeVal]; !ok {
+					machineDailyMap[prodDate][machineCodeVal] = &machineDateStat{}
+				}
+				mds := machineDailyMap[prodDate][machineCodeVal]
+				mds.runtimeHours += rtHours
+				mds.actualQty += actualQty
+				mds.passQty += passQty
+				mds.planQty += planQty
+				mds.ticketCount++
+			}
+
+			// Gom nhóm theo Tổ sản xuất theo Ngày
+			if team != "" {
+				if _, ok := teamDailyMap[prodDate]; !ok {
+					teamDailyMap[prodDate] = make(map[string]*teamDateStat)
+				}
+				if _, ok := teamDailyMap[prodDate][team]; !ok {
+					teamDailyMap[prodDate][team] = &teamDateStat{}
+				}
+				tds := teamDailyMap[prodDate][team]
+				tds.runtimeHours += rtHours
+				tds.actualQty += actualQty
+				tds.passQty += passQty
+				tds.defectQty += defectQty
+				tds.planQty += planQty
+				tds.ticketCount++
+			}
 		}
 
 		if shiftVal != "" {
@@ -905,6 +1003,13 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		if totalDayAuto > 0 {
 			agg.AutoExportRate = math.Round((float64(agg.AutoExportedCount)/float64(totalDayAuto))*10000) / 100
 		}
+		if agg.SyncCount > 0 {
+			agg.AvgSyncDelaySeconds = math.Round((agg.TotalSyncSec/float64(agg.SyncCount))*10) / 10
+			agg.AvgDelaySec = agg.AvgSyncDelaySeconds
+		}
+		if agg.TicketCount > 0 {
+			agg.InstantRate = math.Round((float64(agg.Under10)/float64(agg.TicketCount))*1000) / 10
+		}
 		agg.RuntimeHours = math.Round(agg.RuntimeHours*100) / 100
 		agg.TotalRuntimeHours = agg.RuntimeHours
 		chartByDay = append(chartByDay, *agg)
@@ -1001,19 +1106,25 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		totalPages = int(math.Ceil(float64(totalRecords) / float64(pageSize)))
 	}
 
+	// 8. Build Machine & Team Timeline Breakdown
+	machineTimelineBreakdown := buildMachineTimelineBreakdown(dayMap, machineMap, machineDailyMap, dateSet)
+	teamTimelineBreakdown := buildTeamTimelineBreakdown(dayMap, teamMap, teamDailyMap, dateSet)
+
 	return &models.ProdStatsReportResponse{
-		Summary:             summary,
-		ChartByTeam:         chartByTeam,
-		TeamBreakdown:       chartByTeam,
-		ChartByMachine:      chartByMachine,
-		MachineBreakdown:    chartByMachine,
-		ChartByDay:          chartByDay,
-		DailyTrendData:      chartByDay,
-		DailyAggregates:     chartByDay,
-		SyncDelayBreakdown:  syncBreakdown,
-		AutoExportBreakdown: autoExportBreakdown,
-		FilterOptions:       filterOpts,
-		Items:               pagedItems,
+		Summary:                  summary,
+		ChartByTeam:              chartByTeam,
+		TeamBreakdown:            chartByTeam,
+		ChartByMachine:           chartByMachine,
+		MachineBreakdown:         chartByMachine,
+		ChartByDay:               chartByDay,
+		DailyTrendData:           chartByDay,
+		DailyAggregates:          chartByDay,
+		MachineTimelineBreakdown: machineTimelineBreakdown,
+		TeamTimelineBreakdown:    teamTimelineBreakdown,
+		SyncDelayBreakdown:       syncBreakdown,
+		AutoExportBreakdown:      autoExportBreakdown,
+		FilterOptions:            filterOpts,
+		Items:                    pagedItems,
 		Pagination: models.PlanPageInfo{
 			Page:        page,
 			PageSize:    pageSize,
@@ -1081,3 +1192,583 @@ func cleanDateString(dateVal *string) string {
 	}
 	return s
 }
+
+func buildMachineTimelineBreakdown(
+	dayMap map[string]*models.DailyStatAggregate,
+	machineMap map[string]*models.MachineStatAggregate,
+	machineDailyMap map[string]map[string]*machineDateStat,
+	dateSet map[string]bool,
+) *models.MachineTimelineBreakdownDTO {
+	dateList := make([]string, 0, len(dateSet))
+	for d := range dateSet {
+		dateList = append(dateList, d)
+	}
+	sort.Strings(dateList)
+
+	machineList := make([]string, 0, len(machineMap))
+	for m := range machineMap {
+		machineList = append(machineList, m)
+	}
+	sort.Strings(machineList)
+
+	machineClusters := make([]map[string]interface{}, 0, len(machineList))
+	for _, mCode := range machineList {
+		mAgg := machineMap[mCode]
+		mName := mCode
+		team := ""
+		isManual := false
+		if mAgg != nil {
+			mName = mAgg.MachineName
+			team = mAgg.TeamName
+			isManual = mAgg.IsManual
+		}
+		machineClusters = append(machineClusters, map[string]interface{}{
+			"machineCode":  mCode,
+			"machineName":  mName,
+			"teamName":     team,
+			"isManual":     isManual,
+			"runtimeHours": mAgg.RuntimeHours,
+			"ticketCount":  mAgg.TicketCount,
+			"actualQty":    mAgg.ActualQty,
+		})
+	}
+
+	dailyList := make([]map[string]interface{}, 0, len(dateList))
+
+	type periodMachineAgg struct {
+		periodKey      string
+		name           string
+		periodLabel    string
+		totalRuntime   float64
+		totalTickets   int
+		totalActualQty float64
+		machineStats   map[string]*machineDateStat
+	}
+
+	monthMap := make(map[string]*periodMachineAgg)
+	quarterMap := make(map[string]*periodMachineAgg)
+
+	for _, dStr := range dateList {
+		shortDate := dStr
+		if len(dStr) >= 10 {
+			shortDate = dStr[8:10] + "/" + dStr[5:7]
+		}
+		dAgg := dayMap[dStr]
+		dRuntime := 0.0
+		dTickets := 0
+		dActual := 0.0
+		if dAgg != nil {
+			dRuntime = math.Round(dAgg.RuntimeHours*100) / 100
+			dTickets = dAgg.TicketCount
+			dActual = dAgg.ActualQty
+		}
+
+		row := map[string]interface{}{
+			"date":         dStr,
+			"shortDate":    shortDate,
+			"name":         shortDate,
+			"runtimeHours": dRuntime,
+			"totalRuntime": dRuntime,
+			"ticketCount":  dTickets,
+			"totalTickets": dTickets,
+			"totalOrders":  dTickets,
+			"actualQty":    dActual,
+		}
+
+		mKey := "Khác"
+		if len(dStr) >= 7 {
+			mKey = dStr[:7]
+		}
+		mNum := 1
+		if len(dStr) >= 7 {
+			mNum = int(dStr[5]-'0')*10 + int(dStr[6]-'0')
+		}
+		qNum := (mNum-1)/3 + 1
+		qKey := "Khác"
+		if len(dStr) >= 4 {
+			qKey = dStr[:4] + "-Q" + string(rune('0'+qNum))
+		}
+
+		if _, ok := monthMap[mKey]; !ok {
+			mName := mKey
+			mLabel := mKey
+			if len(mKey) >= 7 {
+				mName = "T" + mKey[5:7] + "/" + mKey[2:4]
+				mLabel = "Tháng " + mKey[5:7] + "/" + mKey[:4]
+			}
+			monthMap[mKey] = &periodMachineAgg{
+				periodKey:    mKey,
+				name:         mName,
+				periodLabel:  mLabel,
+				machineStats: make(map[string]*machineDateStat),
+			}
+		}
+		mRec := monthMap[mKey]
+		mRec.totalRuntime += dRuntime
+		mRec.totalTickets += dTickets
+		mRec.totalActualQty += dActual
+
+		if _, ok := quarterMap[qKey]; !ok {
+			quarterMap[qKey] = &periodMachineAgg{
+				periodKey:    qKey,
+				name:         qKey,
+				periodLabel:  qKey,
+				machineStats: make(map[string]*machineDateStat),
+			}
+		}
+		qRec := quarterMap[qKey]
+		qRec.totalRuntime += dRuntime
+		qRec.totalTickets += dTickets
+		qRec.totalActualQty += dActual
+
+		for _, mCode := range machineList {
+			mRuntime := 0.0
+			mTickets := 0
+			mActual := 0.0
+			if mds, ok := machineDailyMap[dStr][mCode]; ok {
+				mRuntime = math.Round(mds.runtimeHours*100) / 100
+				mTickets = mds.ticketCount
+				mActual = mds.actualQty
+
+				if _, ok := mRec.machineStats[mCode]; !ok {
+					mRec.machineStats[mCode] = &machineDateStat{}
+				}
+				mRec.machineStats[mCode].runtimeHours += mds.runtimeHours
+				mRec.machineStats[mCode].ticketCount += mds.ticketCount
+				mRec.machineStats[mCode].actualQty += mds.actualQty
+
+				if _, ok := qRec.machineStats[mCode]; !ok {
+					qRec.machineStats[mCode] = &machineDateStat{}
+				}
+				qRec.machineStats[mCode].runtimeHours += mds.runtimeHours
+				qRec.machineStats[mCode].ticketCount += mds.ticketCount
+				qRec.machineStats[mCode].actualQty += mds.actualQty
+			}
+
+			row[mCode] = mRuntime
+			row[mCode+"_runtime"] = mRuntime
+			row[mCode+"_tickets"] = mTickets
+			row[mCode+"_actualQty"] = mActual
+			mRuntimeRate := 0.0
+			if dRuntime > 0 {
+				mRuntimeRate = math.Round((mRuntime/dRuntime)*1000) / 10
+			}
+			row[mCode+"_runtimeRate"] = mRuntimeRate
+		}
+
+		dailyList = append(dailyList, row)
+	}
+
+	monthKeys := make([]string, 0, len(monthMap))
+	for k := range monthMap {
+		monthKeys = append(monthKeys, k)
+	}
+	sort.Strings(monthKeys)
+	monthlyList := make([]map[string]interface{}, 0, len(monthKeys))
+	for _, k := range monthKeys {
+		m := monthMap[k]
+		totRt := math.Round(m.totalRuntime*100) / 100
+		mRow := map[string]interface{}{
+			"periodKey":    m.periodKey,
+			"date":         m.periodKey,
+			"name":         m.name,
+			"periodLabel":  m.periodLabel,
+			"runtimeHours": totRt,
+			"totalRuntime": totRt,
+			"ticketCount":  m.totalTickets,
+			"totalTickets": m.totalTickets,
+			"totalOrders":  m.totalTickets,
+			"actualQty":    m.totalActualQty,
+		}
+		for _, mCode := range machineList {
+			mRt := 0.0
+			mTk := 0
+			mAct := 0.0
+			if ms, ok := m.machineStats[mCode]; ok {
+				mRt = math.Round(ms.runtimeHours*100) / 100
+				mTk = ms.ticketCount
+				mAct = ms.actualQty
+			}
+			mRow[mCode] = mRt
+			mRow[mCode+"_runtime"] = mRt
+			mRow[mCode+"_tickets"] = mTk
+			mRow[mCode+"_actualQty"] = mAct
+			mRate := 0.0
+			if totRt > 0 {
+				mRate = math.Round((mRt/totRt)*1000) / 10
+			}
+			mRow[mCode+"_runtimeRate"] = mRate
+		}
+		monthlyList = append(monthlyList, mRow)
+	}
+
+	quarterKeys := make([]string, 0, len(quarterMap))
+	for k := range quarterMap {
+		quarterKeys = append(quarterKeys, k)
+	}
+	sort.Strings(quarterKeys)
+	quarterlyList := make([]map[string]interface{}, 0, len(quarterKeys))
+	for _, k := range quarterKeys {
+		q := quarterMap[k]
+		totRt := math.Round(q.totalRuntime*100) / 100
+		qRow := map[string]interface{}{
+			"periodKey":    q.periodKey,
+			"date":         q.periodKey,
+			"name":         q.name,
+			"periodLabel":  q.periodLabel,
+			"runtimeHours": totRt,
+			"totalRuntime": totRt,
+			"ticketCount":  q.totalTickets,
+			"totalTickets": q.totalTickets,
+			"totalOrders":  q.totalTickets,
+			"actualQty":    q.totalActualQty,
+		}
+		for _, mCode := range machineList {
+			mRt := 0.0
+			mTk := 0
+			mAct := 0.0
+			if ms, ok := q.machineStats[mCode]; ok {
+				mRt = math.Round(ms.runtimeHours*100) / 100
+				mTk = ms.ticketCount
+				mAct = ms.actualQty
+			}
+			qRow[mCode] = mRt
+			qRow[mCode+"_runtime"] = mRt
+			qRow[mCode+"_tickets"] = mTk
+			qRow[mCode+"_actualQty"] = mAct
+			mRate := 0.0
+			if totRt > 0 {
+				mRate = math.Round((mRt/totRt)*1000) / 10
+			}
+			qRow[mCode+"_runtimeRate"] = mRate
+		}
+		quarterlyList = append(quarterlyList, qRow)
+	}
+
+	return &models.MachineTimelineBreakdownDTO{
+		DailyList:       dailyList,
+		MonthlyList:     monthlyList,
+		QuarterlyList:   quarterlyList,
+		MachineList:     machineList,
+		MachineClusters: machineClusters,
+	}
+}
+
+type teamDateStat struct {
+	actualQty    float64
+	passQty      float64
+	defectQty    float64
+	planQty      float64
+	ticketCount  int
+	runtimeHours float64
+}
+
+func buildTeamTimelineBreakdown(
+	dayMap map[string]*models.DailyStatAggregate,
+	teamMap map[string]*models.TeamStatAggregate,
+	teamDailyMap map[string]map[string]*teamDateStat,
+	dateSet map[string]bool,
+) *models.TeamTimelineBreakdownDTO {
+	dateList := make([]string, 0, len(dateSet))
+	for d := range dateSet {
+		dateList = append(dateList, d)
+	}
+	sort.Strings(dateList)
+
+	teamList := make([]string, 0, len(teamMap))
+	for t := range teamMap {
+		teamList = append(teamList, t)
+	}
+	sort.Strings(teamList)
+
+	teamClusters := make([]map[string]interface{}, 0, len(teamList))
+	for _, tName := range teamList {
+		tAgg := teamMap[tName]
+		pRate := 100.0
+		if tAgg != nil && tAgg.TotalActualQty > 0 {
+			pRate = math.Round((tAgg.TotalPassQty/tAgg.TotalActualQty)*10000) / 100
+		}
+		teamClusters = append(teamClusters, map[string]interface{}{
+			"teamName":     tName,
+			"teamCode":     tAgg.TeamCode,
+			"actualQty":    tAgg.TotalActualQty,
+			"passQty":      tAgg.TotalPassQty,
+			"defectQty":    tAgg.TotalDefectQty,
+			"passRate":     pRate,
+			"ticketCount":  tAgg.TicketCount,
+			"runtimeHours": tAgg.TotalRuntimeHours,
+		})
+	}
+
+	dailyList := make([]map[string]interface{}, 0, len(dateList))
+
+	type periodTeamAgg struct {
+		periodKey      string
+		name           string
+		periodLabel    string
+		totalActualQty float64
+		totalPassQty   float64
+		totalDefectQty float64
+		totalTickets   int
+		totalRuntime   float64
+		teamStats      map[string]*teamDateStat
+	}
+
+	monthMap := make(map[string]*periodTeamAgg)
+	quarterMap := make(map[string]*periodTeamAgg)
+
+	for _, dStr := range dateList {
+		shortDate := dStr
+		if len(dStr) >= 10 {
+			shortDate = dStr[8:10] + "/" + dStr[5:7]
+		}
+		dAgg := dayMap[dStr]
+		dActual := 0.0
+		dPass := 0.0
+		dDefect := 0.0
+		dTickets := 0
+		dRuntime := 0.0
+		if dAgg != nil {
+			dActual = dAgg.ActualQty
+			dPass = dAgg.PassQty
+			dDefect = dAgg.DefectQty
+			dTickets = dAgg.TicketCount
+			dRuntime = math.Round(dAgg.RuntimeHours*100) / 100
+		}
+
+		row := map[string]interface{}{
+			"date":           dStr,
+			"shortDate":      shortDate,
+			"name":           shortDate,
+			"actualQty":      dActual,
+			"totalActualQty": dActual,
+			"passQty":        dPass,
+			"totalPassQty":   dPass,
+			"defectQty":      dDefect,
+			"totalDefectQty": dDefect,
+			"ticketCount":    dTickets,
+			"totalTickets":   dTickets,
+			"runtimeHours":   dRuntime,
+			"totalRuntime":   dRuntime,
+		}
+
+		mKey := "Khác"
+		if len(dStr) >= 7 {
+			mKey = dStr[:7]
+		}
+		mNum := 1
+		if len(dStr) >= 7 {
+			mNum = int(dStr[5]-'0')*10 + int(dStr[6]-'0')
+		}
+		qNum := (mNum-1)/3 + 1
+		qKey := "Khác"
+		if len(dStr) >= 4 {
+			qKey = dStr[:4] + "-Q" + string(rune('0'+qNum))
+		}
+
+		if _, ok := monthMap[mKey]; !ok {
+			mName := mKey
+			mLabel := mKey
+			if len(mKey) >= 7 {
+				mName = "T" + mKey[5:7] + "/" + mKey[2:4]
+				mLabel = "Tháng " + mKey[5:7] + "/" + mKey[:4]
+			}
+			monthMap[mKey] = &periodTeamAgg{
+				periodKey:   mKey,
+				name:        mName,
+				periodLabel: mLabel,
+				teamStats:   make(map[string]*teamDateStat),
+			}
+		}
+		mRec := monthMap[mKey]
+		mRec.totalActualQty += dActual
+		mRec.totalPassQty += dPass
+		mRec.totalDefectQty += dDefect
+		mRec.totalTickets += dTickets
+		mRec.totalRuntime += dRuntime
+
+		if _, ok := quarterMap[qKey]; !ok {
+			quarterMap[qKey] = &periodTeamAgg{
+				periodKey:   qKey,
+				name:        qKey,
+				periodLabel: qKey,
+				teamStats:   make(map[string]*teamDateStat),
+			}
+		}
+		qRec := quarterMap[qKey]
+		qRec.totalActualQty += dActual
+		qRec.totalPassQty += dPass
+		qRec.totalDefectQty += dDefect
+		qRec.totalTickets += dTickets
+		qRec.totalRuntime += dRuntime
+
+		for _, tName := range teamList {
+			tActual := 0.0
+			tPass := 0.0
+			tDefect := 0.0
+			tTickets := 0
+			tRuntime := 0.0
+			if tds, ok := teamDailyMap[dStr][tName]; ok {
+				tActual = tds.actualQty
+				tPass = tds.passQty
+				tDefect = tds.defectQty
+				tTickets = tds.ticketCount
+				tRuntime = math.Round(tds.runtimeHours*100) / 100
+
+				if _, ok := mRec.teamStats[tName]; !ok {
+					mRec.teamStats[tName] = &teamDateStat{}
+				}
+				mRec.teamStats[tName].actualQty += tds.actualQty
+				mRec.teamStats[tName].passQty += tds.passQty
+				mRec.teamStats[tName].defectQty += tds.defectQty
+				mRec.teamStats[tName].ticketCount += tds.ticketCount
+				mRec.teamStats[tName].runtimeHours += tds.runtimeHours
+
+				if _, ok := qRec.teamStats[tName]; !ok {
+					qRec.teamStats[tName] = &teamDateStat{}
+				}
+				qRec.teamStats[tName].actualQty += tds.actualQty
+				qRec.teamStats[tName].passQty += tds.passQty
+				qRec.teamStats[tName].defectQty += tds.defectQty
+				qRec.teamStats[tName].ticketCount += tds.ticketCount
+				qRec.teamStats[tName].runtimeHours += tds.runtimeHours
+			}
+
+			row[tName] = tActual
+			row[tName+"_actualQty"] = tActual
+			row[tName+"_passQty"] = tPass
+			row[tName+"_defectQty"] = tDefect
+			row[tName+"_tickets"] = tTickets
+			row[tName+"_runtime"] = tRuntime
+			tPassRate := 100.0
+			tDefectRate := 0.0
+			if tActual > 0 {
+				tPassRate = math.Round((tPass/tActual)*1000) / 10
+				tDefectRate = math.Round((tDefect/tActual)*1000) / 10
+			}
+			row[tName+"_passRate"] = tPassRate
+			row[tName+"_defectRate"] = tDefectRate
+		}
+
+		dailyList = append(dailyList, row)
+	}
+
+	monthKeys := make([]string, 0, len(monthMap))
+	for k := range monthMap {
+		monthKeys = append(monthKeys, k)
+	}
+	sort.Strings(monthKeys)
+	monthlyList := make([]map[string]interface{}, 0, len(monthKeys))
+	for _, k := range monthKeys {
+		m := monthMap[k]
+		mRow := map[string]interface{}{
+			"periodKey":      m.periodKey,
+			"date":           m.periodKey,
+			"name":           m.name,
+			"periodLabel":    m.periodLabel,
+			"actualQty":      m.totalActualQty,
+			"totalActualQty": m.totalActualQty,
+			"passQty":        m.totalPassQty,
+			"totalPassQty":   m.totalPassQty,
+			"defectQty":      m.totalDefectQty,
+			"totalDefectQty": m.totalDefectQty,
+			"ticketCount":    m.totalTickets,
+			"totalTickets":   m.totalTickets,
+			"runtimeHours":   math.Round(m.totalRuntime*100) / 100,
+			"totalRuntime":   math.Round(m.totalRuntime*100) / 100,
+		}
+		for _, tName := range teamList {
+			tAct := 0.0
+			tPass := 0.0
+			tDef := 0.0
+			tTk := 0
+			tRt := 0.0
+			if ts, ok := m.teamStats[tName]; ok {
+				tAct = ts.actualQty
+				tPass = ts.passQty
+				tDef = ts.defectQty
+				tTk = ts.ticketCount
+				tRt = math.Round(ts.runtimeHours*100) / 100
+			}
+			mRow[tName] = tAct
+			mRow[tName+"_actualQty"] = tAct
+			mRow[tName+"_passQty"] = tPass
+			mRow[tName+"_defectQty"] = tDef
+			mRow[tName+"_tickets"] = tTk
+			mRow[tName+"_runtime"] = tRt
+			pRate := 100.0
+			dRate := 0.0
+			if tAct > 0 {
+				pRate = math.Round((tPass/tAct)*1000) / 10
+				dRate = math.Round((tDef/tAct)*1000) / 10
+			}
+			mRow[tName+"_passRate"] = pRate
+			mRow[tName+"_defectRate"] = dRate
+		}
+		monthlyList = append(monthlyList, mRow)
+	}
+
+	quarterKeys := make([]string, 0, len(quarterMap))
+	for k := range quarterMap {
+		quarterKeys = append(quarterKeys, k)
+	}
+	sort.Strings(quarterKeys)
+	quarterlyList := make([]map[string]interface{}, 0, len(quarterKeys))
+	for _, k := range quarterKeys {
+		q := quarterMap[k]
+		qRow := map[string]interface{}{
+			"periodKey":      q.periodKey,
+			"date":           q.periodKey,
+			"name":           q.name,
+			"periodLabel":    q.periodLabel,
+			"actualQty":      q.totalActualQty,
+			"totalActualQty": q.totalActualQty,
+			"passQty":        q.totalPassQty,
+			"totalPassQty":   q.totalPassQty,
+			"defectQty":      q.totalDefectQty,
+			"totalDefectQty": q.totalDefectQty,
+			"ticketCount":    q.totalTickets,
+			"totalTickets":   q.totalTickets,
+			"runtimeHours":   math.Round(q.totalRuntime*100) / 100,
+			"totalRuntime":   math.Round(q.totalRuntime*100) / 100,
+		}
+		for _, tName := range teamList {
+			tAct := 0.0
+			tPass := 0.0
+			tDef := 0.0
+			tTk := 0
+			tRt := 0.0
+			if ts, ok := q.teamStats[tName]; ok {
+				tAct = ts.actualQty
+				tPass = ts.passQty
+				tDef = ts.defectQty
+				tTk = ts.ticketCount
+				tRt = math.Round(ts.runtimeHours*100) / 100
+			}
+			qRow[tName] = tAct
+			qRow[tName+"_actualQty"] = tAct
+			qRow[tName+"_passQty"] = tPass
+			qRow[tName+"_defectQty"] = tDef
+			qRow[tName+"_tickets"] = tTk
+			qRow[tName+"_runtime"] = tRt
+			pRate := 100.0
+			dRate := 0.0
+			if tAct > 0 {
+				pRate = math.Round((tPass/tAct)*1000) / 10
+				dRate = math.Round((tDef/tAct)*1000) / 10
+			}
+			qRow[tName+"_passRate"] = pRate
+			qRow[tName+"_defectRate"] = dRate
+		}
+		quarterlyList = append(quarterlyList, qRow)
+	}
+
+	return &models.TeamTimelineBreakdownDTO{
+		DailyList:     dailyList,
+		MonthlyList:   monthlyList,
+		QuarterlyList: quarterlyList,
+		TeamList:      teamList,
+		TeamClusters:  teamClusters,
+	}
+}
+

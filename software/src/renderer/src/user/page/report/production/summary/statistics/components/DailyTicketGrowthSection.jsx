@@ -23,7 +23,8 @@ export function DailyTicketGrowthSection({
     totalTickets: true,
     over12hCount: true,
     under5MinCount: true,
-    autoExportedCount: true
+    autoExportedCount: true,
+    notAutoExportedCount: true
   })
 
   // 1. Trích xuất dữ liệu thô từ API thực tế
@@ -100,8 +101,8 @@ export function DailyTicketGrowthSection({
             Thống kê diễn biến tổng số phiếu tiếp nhận &amp; nhịp độ biến động theo ngày của{' '}
             <b>{plantName || 'Nhà máy GS Hà Nội'}</b> (chu kỳ{' '}
             <b>{totalDays || chartData.length} ngày</b>) trên hệ thống{' '}
-            <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ cột khối lượng số lượng từng hạng mục nối đỉnh
-            liên tục qua các ngày và thanh trượt điều chỉnh khoảng thời gian lọc linh hoạt.
+            <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ cột khối lượng số lượng từng hạng mục nối
+            đỉnh liên tục qua các ngày và thanh trượt điều chỉnh khoảng thời gian lọc linh hoạt.
           </div>
         </div>
 

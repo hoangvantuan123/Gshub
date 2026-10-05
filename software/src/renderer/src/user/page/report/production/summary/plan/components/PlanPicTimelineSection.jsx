@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types, no-unused-vars */
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { TableProperties, RotateCcw, ChevronDown } from 'lucide-react'
+import { TableProperties, RotateCcw, ChevronDown, Check, X, Filter } from 'lucide-react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -68,8 +68,14 @@ function CleanSparkline({ data = [], color = '#059669', width = 90, height = 22 
   )
 }
 
-// Custom Executive Dropdown chuẩn ERP cho "Soi PIC" (Chỉ hiển thị tên, không icon, không thông số)
-function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] }) {
+// Custom Executive Dropdown chuẩn ERP cho "Soi PIC" hỗ trợ chọn nhiều người điều phối
+function PicSelectorDropdown({
+  selectedPics = [],
+  onTogglePic,
+  onSelectAll,
+  onClear,
+  picList = []
+}) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchKey, setSearchKey] = useState('')
   const dropdownRef = useRef(null)
@@ -105,7 +111,15 @@ function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] })
     return picList.filter((p) => p.toLowerCase().includes(q))
   }, [picList, searchKey])
 
-  const isAll = selectedPic === 'ALL'
+  const isAll = !selectedPics || selectedPics.length === 0
+  const selectedCount = selectedPics?.length || 0
+
+  const getButtonText = () => {
+    if (isAll) return 'Toàn xưởng (Tất cả)'
+    if (selectedCount === 1) return selectedPics[0]
+    if (selectedCount === 2) return `${selectedPics[0]}, ${selectedPics[1]}`
+    return `${selectedCount} PIC (${selectedPics[0]}, +${selectedCount - 1})`
+  }
 
   return (
     <div
@@ -160,7 +174,8 @@ function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] })
           cursor: 'pointer',
           outline: 'none',
           fontFamily: 'inherit',
-          minWidth: 140,
+          minWidth: 150,
+          maxWidth: 240,
           justifyContent: 'space-between',
           textAlign: 'left',
           borderTopRightRadius: 3,
@@ -176,15 +191,17 @@ function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] })
             textOverflow: 'ellipsis',
             overflow: 'hidden'
           }}
+          title={!isAll ? selectedPics.join(', ') : 'Toàn xưởng'}
         >
-          {isAll ? 'Toàn xưởng' : selectedPic}
+          {getButtonText()}
         </span>
         <ChevronDown
           size={13}
           style={{
             color: '#64748b',
             transform: isOpen ? 'rotate(180deg)' : 'none',
-            transition: 'transform 0.15s ease'
+            transition: 'transform 0.15s ease',
+            flexShrink: 0
           }}
         />
       </button>
@@ -197,8 +214,9 @@ function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] })
             top: 'calc(100% + 4px)',
             right: 0,
             zIndex: 100,
-            minWidth: 180,
+            minWidth: 240,
             width: 'max-content',
+            maxWidth: 320,
             background: '#ffffff',
             border: '1px solid #cbd5e1',
             borderRadius: 5,
@@ -208,7 +226,7 @@ function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] })
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
           }}
         >
-          {/* Search Box - Thuần ô nhập text */}
+          {/* Search Box */}
           <div
             style={{
               padding: '6px 8px',
@@ -236,22 +254,73 @@ function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] })
             />
           </div>
 
-          {/* List Options - Chỉ hiển thị Tên PIC, không icon, không thông số */}
+          {/* Quick Toolbar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '6px 10px',
+              background: '#f1f5f9',
+              borderBottom: '1px solid #e2e8f0',
+              fontSize: 11,
+              fontWeight: 600,
+              color: '#475569'
+            }}
+          >
+            <span>{isAll ? 'Toàn xưởng (Tất cả)' : `Đã chọn: ${selectedCount} PIC`}</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {!isAll && (
+                <button
+                  type="button"
+                  onClick={() => onClear()}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#dc2626',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                >
+                  Bỏ chọn
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onSelectAll()}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: isAll ? '#1d4ed8' : '#2563eb',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+              >
+                Toàn xưởng
+              </button>
+            </div>
+          </div>
+
+          {/* List Options */}
           <div style={{ maxHeight: 240, overflowY: 'auto', padding: '2px 0' }}>
             {/* Option "Toàn xưởng" */}
             <div
-              onClick={() => {
-                onSelectPic('ALL')
-                setIsOpen(false)
-              }}
+              onClick={() => onSelectAll()}
               style={{
-                padding: '6px 12px',
+                padding: '6px 10px',
                 cursor: 'pointer',
                 fontSize: 12,
                 fontWeight: isAll ? 700 : 500,
                 color: isAll ? '#1d4ed8' : '#0f172a',
                 background: isAll ? '#eff6ff' : 'transparent',
-                borderBottom: '1px solid #f1f5f9'
+                borderBottom: '1px solid #f1f5f9',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
               }}
               onMouseEnter={(e) => {
                 if (!isAll) e.currentTarget.style.background = '#f8fafc'
@@ -260,27 +329,42 @@ function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] })
                 if (!isAll) e.currentTarget.style.background = 'transparent'
               }}
             >
-              Toàn xưởng
+              <div
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: 3,
+                  border: isAll ? '1.5px solid #2563eb' : '1.5px solid #94a3b8',
+                  background: isAll ? '#2563eb' : '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                {isAll && <Check size={10} color="#ffffff" strokeWidth={3} />}
+              </div>
+              <span style={{ fontWeight: 700 }}>Toàn xưởng (Tất cả)</span>
             </div>
 
-            {/* Danh sách từng tên PIC thuần túy */}
+            {/* Danh sách từng tên PIC với Checkbox */}
             {filteredPics.map((p) => {
-              const isSelected = selectedPic === p
+              const isSelected = !isAll && selectedPics.includes(p)
 
               return (
                 <div
                   key={p}
-                  onClick={() => {
-                    onSelectPic(p)
-                    setIsOpen(false)
-                  }}
+                  onClick={() => onTogglePic(p)}
                   style={{
-                    padding: '6px 12px',
+                    padding: '6px 10px',
                     cursor: 'pointer',
                     fontSize: 12,
                     fontWeight: isSelected ? 700 : 500,
                     color: isSelected ? '#1d4ed8' : '#0f172a',
                     background: isSelected ? '#eff6ff' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
                     transition: 'background 0.1s ease'
                   }}
                   onMouseEnter={(e) => {
@@ -290,7 +374,31 @@ function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] })
                     if (!isSelected) e.currentTarget.style.background = 'transparent'
                   }}
                 >
-                  {p}
+                  <div
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 3,
+                      border: isSelected ? '1.5px solid #2563eb' : '1.5px solid #94a3b8',
+                      background: isSelected ? '#2563eb' : '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    {isSelected && <Check size={10} color="#ffffff" strokeWidth={3} />}
+                  </div>
+                  <span
+                    style={{
+                      flex: 1,
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {p}
+                  </span>
                 </div>
               )
             })}
@@ -314,58 +422,83 @@ function PicSelectorDropdown({ selectedPic = 'ALL', onSelectPic, picList = [] })
   )
 }
 
-// Custom SVG Label Renderers cho cột đứng và đường line
-const renderVBarLabel = (props) => {
-  const { x, y, width, height, value } = props
-  if (!value || Number(value) <= 0 || height < 12) return null
-  return (
-    <text
-      x={x + width / 2}
-      y={y + height / 2 + 1}
-      fill="#ffffff"
-      textAnchor="middle"
-      dominantBaseline="middle"
-      fontSize={10}
-      fontWeight={700}
-    >
-      {typeof value === 'number' ? value.toLocaleString('vi-VN') : value}
-    </text>
-  )
-}
+// Custom Bar Shape vẽ từng cột đứng riêng biệt (không xếp chồng) và tự động nối đường giữa các đỉnh của cột cùng loại qua các ngày
+const CustomBarWithPeak = (props) => {
+  const {
+    x,
+    y,
+    width,
+    height,
+    value,
+    index,
+    fill,
+    stroke,
+    dashArray,
+    seriesKey,
+    collectorRef,
+    isRate
+  } = props
 
-const renderVRateLabel = (props) => {
-  const { x, y, width, height, value } = props
-  if (!value || Number(value) < 3 || height < 12) return null
-  return (
-    <text
-      x={x + width / 2}
-      y={y + height / 2 + 1}
-      fill="#ffffff"
-      textAnchor="middle"
-      dominantBaseline="middle"
-      fontSize={10}
-      fontWeight={700}
-    >
-      {`${value}%`}
-    </text>
-  )
-}
+  if (x === undefined || y === undefined || width === undefined || height === undefined) return null
 
-const renderVTotalLabel = (props) => {
-  const { x, y, width, value } = props
-  if (!value || Number(value) <= 0) return null
+  const cx = x + width / 2
+  const cy = y
+
+  if (collectorRef && collectorRef.current) {
+    if (!collectorRef.current[seriesKey]) {
+      collectorRef.current[seriesKey] = []
+    }
+    collectorRef.current[seriesKey][index] = { cx, cy, value }
+  }
+
+  const prev = collectorRef?.current?.[seriesKey]?.[index - 1]
+  const validVal = value !== null && value !== undefined && !isNaN(value)
+  const displayVal =
+    validVal && Number(value) > 0
+      ? isRate
+        ? `${value}%`
+        : Number(value).toLocaleString('vi-VN')
+      : null
+
   return (
-    <text
-      x={x + width / 2}
-      y={y - 8}
-      fill="#0f172a"
-      textAnchor="middle"
-      dominantBaseline="auto"
-      fontSize={11}
-      fontWeight={700}
-    >
-      {`${Number(value).toLocaleString('vi-VN')} lệnh`}
-    </text>
+    <g className={`custom-pic-bar-${seriesKey}-${index}`}>
+      {/* 1. Thân cột */}
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={Math.max(0, height)}
+        fill={fill}
+        stroke={stroke || fill}
+        strokeWidth={1}
+        rx={2}
+        ry={2}
+      />
+
+      {/* 2. Đường nối từ đỉnh cột ngày trước đến đỉnh cột ngày này */}
+      {prev && prev.cx !== undefined && !isNaN(prev.cx) && !isNaN(prev.cy) && (
+        <line
+          x1={prev.cx}
+          y1={prev.cy}
+          x2={cx}
+          y2={cy}
+          stroke={stroke || fill}
+          strokeWidth={2}
+          strokeDasharray={dashArray || undefined}
+          strokeLinecap="round"
+        />
+      )}
+
+      {/* 3. Điểm đánh dấu đỉnh */}
+      <circle cx={cx} cy={cy} r={3} fill={fill} stroke="#ffffff" strokeWidth={1.5} />
+
+      {/* 4. Nhãn số lượng / % trên đỉnh cột */}
+      {displayVal && (
+        <text x={cx} y={cy - 6} textAnchor="middle" fill="#1e293b" fontSize={9.5} fontWeight={700}>
+          {displayVal}
+        </text>
+      )}
+    </g>
   )
 }
 
@@ -400,9 +533,12 @@ export function PlanPicTimelineSection({
   selectedPic = 'ALL',
   onSelectPic
 }) {
-  const [selectedChartPic, setSelectedChartPic] = useState('ALL')
+  const [selectedPics, setSelectedPics] = useState([])
   const [chartMode, setChartMode] = useState('volume') // 'volume' | 'rate'
   const [showTable, setShowTable] = useState(true)
+
+  const pointsCollector = useMemo(() => ({ current: {} }), [])
+  pointsCollector.current = {}
 
   const monthlyList = picTimelineBreakdown?.monthlyList || []
   const dailyList = picTimelineBreakdown?.dailyList || []
@@ -416,12 +552,14 @@ export function PlanPicTimelineSection({
     return { periodList: dailyList, periodType: 'Ngày' }
   }, [monthlyList, quarterlyList, dailyList])
 
-  // Lấy dữ liệu chuỗi thời gian cho Biểu đồ (Toàn xưởng hoặc từng PIC đang chọn xem chi tiết)
+  const isAll = !selectedPics || selectedPics.length === 0
+
+  // Lấy dữ liệu chuỗi thời gian cho Biểu đồ (Toàn xưởng hoặc nhiều PIC đang chọn)
   const chartData = useMemo(() => {
     return periodList.map((period, pIdx) => {
       const pName = period.name || period.periodLabel || period.periodKey || `Kỳ ${pIdx + 1}`
 
-      if (selectedChartPic === 'ALL') {
+      if (isAll) {
         const total = period.totalOrders || 0
         const khopSl = period.khopSl || 0
         const khopJob = period.khopJob || 0
@@ -451,20 +589,28 @@ export function PlanPicTimelineSection({
         }
       }
 
-      // Khi chọn xem cụ thể 1 PIC
-      const stat = period.picStats?.[selectedChartPic] || {
-        totalOrders: period[`${selectedChartPic}_orders`] || period[selectedChartPic] || 0,
-        khopSl: period[`${selectedChartPic}_khopSl`] || 0,
-        khopJob: period[`${selectedChartPic}_khopJob`] || 0,
-        sxSaiNgay: period[`${selectedChartPic}_sxSaiNgay`] || 0,
-        truotKh: period[`${selectedChartPic}_truotKh`] || 0
-      }
+      // Khi chọn 1 hoặc nhiều PIC cụ thể
+      let total = 0
+      let khopSl = 0
+      let khopJob = 0
+      let sxSaiNgay = 0
+      let truotKh = 0
 
-      const total = stat.totalOrders || 0
-      const khopSl = stat.khopSl || 0
-      const khopJob = stat.khopJob || 0
-      const sxSaiNgay = stat.sxSaiNgay || 0
-      const truotKh = stat.truotKh || 0
+      selectedPics.forEach((p) => {
+        const stat = period.picStats?.[p] || {
+          totalOrders: period[`${p}_orders`] || period[p] || 0,
+          khopSl: period[`${p}_khopSl`] || 0,
+          khopJob: period[`${p}_khopJob`] || 0,
+          sxSaiNgay: period[`${p}_sxSaiNgay`] || 0,
+          truotKh: period[`${p}_truotKh`] || 0
+        }
+        total += stat.totalOrders || 0
+        khopSl += stat.khopSl || 0
+        khopJob += stat.khopJob || 0
+        sxSaiNgay += stat.sxSaiNgay || 0
+        truotKh += stat.truotKh || 0
+      })
+
       const passOrders = khopSl + khopJob
       const passRate = total > 0 ? Number(((passOrders / total) * 100).toFixed(1)) : 0
       const khopSlRate = total > 0 ? Number(((khopSl / total) * 100).toFixed(1)) : 0
@@ -488,7 +634,7 @@ export function PlanPicTimelineSection({
         truotKhRate
       }
     })
-  }, [periodList, selectedChartPic])
+  }, [periodList, selectedPics, isAll])
 
   // Tính toán dữ liệu ma trận tổng hợp tốc độ tăng trưởng và độ khớp của từng PIC
   const matrixData = useMemo(() => {
@@ -625,9 +771,23 @@ export function PlanPicTimelineSection({
     }
   }, [matrixData])
 
-  // Xử lý chọn PIC để xem biểu đồ chi tiết mà không ẩn các PIC khác trong bảng
-  const handleSelectChartPic = (picName) => {
-    setSelectedChartPic((prev) => (prev === picName ? 'ALL' : picName))
+  // Xử lý chọn/bỏ chọn nhiều PIC
+  const handleTogglePic = (picName) => {
+    setSelectedPics((prev) => {
+      if (prev.includes(picName)) {
+        return prev.filter((p) => p !== picName)
+      } else {
+        return [...prev, picName]
+      }
+    })
+  }
+
+  const handleSelectAll = () => {
+    setSelectedPics([])
+  }
+
+  const handleClear = () => {
+    setSelectedPics([])
   }
 
   return (
@@ -720,26 +880,98 @@ export function PlanPicTimelineSection({
               }}
             >
               <span>
-                {selectedChartPic === 'ALL'
+                {isAll
                   ? `Diễn biến độ khớp & tăng trưởng toàn xưởng theo ${periodType.toLowerCase()}`
-                  : `Diễn biến độ khớp & tăng trưởng của PIC: ${selectedChartPic}`}
+                  : selectedPics.length === 1
+                    ? `Diễn biến độ khớp & tăng trưởng của PIC: ${selectedPics[0]}`
+                    : `Diễn biến độ khớp & tăng trưởng của ${selectedPics.length} PIC (${selectedPics.join(', ')})`}
               </span>
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
               {chartMode === 'rate'
-                ? `Tỷ lệ % Khớp SL, Khớp Job qua từng ${periodType.toLowerCase()}`
-                : `Phân bổ chi tiết số lệnh Khớp SL, Khớp Job, Sai ngày và Trượt KH qua từng ${periodType.toLowerCase()}`}
+                ? `Tỷ lệ % Khớp SL, Khớp Job qua từng ${periodType.toLowerCase()}${!isAll ? ` cho ${selectedPics.length} PIC đã chọn` : ''}`
+                : `Phân bổ chi tiết số lệnh Khớp SL, Khớp Job, Sai ngày và Trượt KH qua từng ${periodType.toLowerCase()}${!isAll ? ` cho ${selectedPics.length} PIC đã chọn` : ''}`}
             </div>
+
+            {/* Hiển thị danh sách PIC đang lọc nhanh */}
+            {!isAll && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  flexWrap: 'wrap',
+                  marginTop: 6
+                }}
+              >
+                <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                  Đang chọn ({selectedPics.length}):
+                </span>
+                {selectedPics.map((p) => (
+                  <span
+                    key={p}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      background: '#eff6ff',
+                      color: '#1d4ed8',
+                      border: '1px solid #bfdbfe',
+                      borderRadius: 4,
+                      padding: '1px 6px',
+                      fontSize: 11,
+                      fontWeight: 700
+                    }}
+                  >
+                    {p}
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePic(p)}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        padding: 0,
+                        color: '#3b82f6',
+                        display: 'inline-flex',
+                        alignItems: 'center'
+                      }}
+                      title={`Bỏ chọn ${p}`}
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#dc2626',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    marginLeft: 2
+                  }}
+                >
+                  Xem toàn xưởng
+                </button>
+              </div>
+            )}
           </div>
 
           <div
             className="screenshot-hide"
             style={{ display: 'flex', alignItems: 'center', gap: 10 }}
           >
-            {/* Bộ chọn PIC Dropdown chuẩn ERP tinh giản */}
+            {/* Bộ chọn PIC Dropdown chuẩn ERP hỗ trợ chọn nhiều người */}
             <PicSelectorDropdown
-              selectedPic={selectedChartPic}
-              onSelectPic={setSelectedChartPic}
+              selectedPics={selectedPics}
+              onTogglePic={handleTogglePic}
+              onSelectAll={handleSelectAll}
+              onClear={handleClear}
               picList={picList}
             />
 
@@ -758,10 +990,15 @@ export function PlanPicTimelineSection({
         </div>
 
         {/* Khung vẽ Recharts */}
-        <div style={{ height: 320, width: '100%' }}>
+        <div style={{ height: 340, width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
             {chartMode === 'rate' ? (
-              <ComposedChart data={chartData} margin={{ top: 15, right: 30, left: 10, bottom: 10 }}>
+              <ComposedChart
+                data={chartData}
+                margin={{ top: 25, right: 30, left: 10, bottom: 10 }}
+                barGap={2}
+                barCategoryGap="18%"
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
                   dataKey="name"
@@ -787,43 +1024,75 @@ export function PlanPicTimelineSection({
                 <Bar
                   dataKey="khopSlRate"
                   name="Khớp số lượng (%)"
-                  stackId="picRateStack"
                   fill="#01411b"
-                  barSize={32}
+                  stroke="#01411b"
+                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
                   isAnimationActive={false}
-                >
-                  <LabelList dataKey="khopSlRate" content={renderVRateLabel} />
-                </Bar>
+                  shape={(props) => (
+                    <CustomBarWithPeak
+                      {...props}
+                      fill="#01411b"
+                      stroke="#01411b"
+                      seriesKey="khopSlRate"
+                      collectorRef={pointsCollector}
+                      isRate={true}
+                    />
+                  )}
+                />
                 <Bar
                   dataKey="khopJobRate"
                   name="Khớp job (%)"
-                  stackId="picRateStack"
                   fill="#059669"
-                  barSize={32}
+                  stroke="#059669"
+                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
                   isAnimationActive={false}
-                >
-                  <LabelList dataKey="khopJobRate" content={renderVRateLabel} />
-                </Bar>
+                  shape={(props) => (
+                    <CustomBarWithPeak
+                      {...props}
+                      fill="#059669"
+                      stroke="#059669"
+                      seriesKey="khopJobRate"
+                      collectorRef={pointsCollector}
+                      isRate={true}
+                    />
+                  )}
+                />
                 <Bar
                   dataKey="sxSaiNgayRate"
                   name="SX sai ngày KH (%)"
-                  stackId="picRateStack"
                   fill="#ea580c"
-                  barSize={32}
+                  stroke="#ea580c"
+                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
                   isAnimationActive={false}
-                >
-                  <LabelList dataKey="sxSaiNgayRate" content={renderVRateLabel} />
-                </Bar>
+                  shape={(props) => (
+                    <CustomBarWithPeak
+                      {...props}
+                      fill="#ea580c"
+                      stroke="#ea580c"
+                      seriesKey="sxSaiNgayRate"
+                      collectorRef={pointsCollector}
+                      isRate={true}
+                    />
+                  )}
+                />
                 <Bar
                   dataKey="truotKhRate"
                   name="Trượt KH (%)"
-                  stackId="picRateStack"
                   fill="#dc2626"
-                  barSize={32}
+                  stroke="#dc2626"
+                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
                   isAnimationActive={false}
-                >
-                  <LabelList dataKey="truotKhRate" content={renderVRateLabel} />
-                </Bar>
+                  shape={(props) => (
+                    <CustomBarWithPeak
+                      {...props}
+                      fill="#dc2626"
+                      stroke="#dc2626"
+                      seriesKey="truotKhRate"
+                      collectorRef={pointsCollector}
+                      isRate={true}
+                    />
+                  )}
+                />
                 <Line
                   type="monotone"
                   dataKey="passRate"
@@ -838,7 +1107,12 @@ export function PlanPicTimelineSection({
                 </Line>
               </ComposedChart>
             ) : (
-              <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 10 }}>
+              <ComposedChart
+                data={chartData}
+                margin={{ top: 25, right: 30, left: 10, bottom: 10 }}
+                barGap={2}
+                barCategoryGap="18%"
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
                   dataKey="name"
@@ -875,47 +1149,78 @@ export function PlanPicTimelineSection({
                   yAxisId="left"
                   dataKey="khopSl"
                   name="Khớp số lượng"
-                  stackId="picVolStack"
                   fill="#01411b"
-                  barSize={32}
+                  stroke="#01411b"
+                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
                   isAnimationActive={false}
-                >
-                  <LabelList dataKey="khopSl" content={renderVBarLabel} />
-                </Bar>
+                  shape={(props) => (
+                    <CustomBarWithPeak
+                      {...props}
+                      fill="#01411b"
+                      stroke="#01411b"
+                      seriesKey="khopSl"
+                      collectorRef={pointsCollector}
+                      isRate={false}
+                    />
+                  )}
+                />
                 <Bar
                   yAxisId="left"
                   dataKey="khopJob"
                   name="Khớp công việc (Job)"
-                  stackId="picVolStack"
                   fill="#059669"
-                  barSize={32}
+                  stroke="#059669"
+                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
                   isAnimationActive={false}
-                >
-                  <LabelList dataKey="khopJob" content={renderVBarLabel} />
-                </Bar>
+                  shape={(props) => (
+                    <CustomBarWithPeak
+                      {...props}
+                      fill="#059669"
+                      stroke="#059669"
+                      seriesKey="khopJob"
+                      collectorRef={pointsCollector}
+                      isRate={false}
+                    />
+                  )}
+                />
                 <Bar
                   yAxisId="left"
                   dataKey="sxSaiNgay"
                   name="SX sai ngày KH"
-                  stackId="picVolStack"
                   fill="#ea580c"
-                  barSize={32}
+                  stroke="#ea580c"
+                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
                   isAnimationActive={false}
-                >
-                  <LabelList dataKey="sxSaiNgay" content={renderVBarLabel} />
-                </Bar>
+                  shape={(props) => (
+                    <CustomBarWithPeak
+                      {...props}
+                      fill="#ea580c"
+                      stroke="#ea580c"
+                      seriesKey="sxSaiNgay"
+                      collectorRef={pointsCollector}
+                      isRate={false}
+                    />
+                  )}
+                />
                 <Bar
                   yAxisId="left"
                   dataKey="truotKh"
                   name="Trượt KH"
-                  stackId="picVolStack"
                   fill="#dc2626"
-                  barSize={32}
+                  stroke="#dc2626"
+                  barSize={periodList.length > 20 ? 8 : periodList.length > 10 ? 12 : 18}
                   isAnimationActive={false}
-                >
-                  <LabelList dataKey="truotKh" content={renderVBarLabel} />
-                  <LabelList dataKey="totalOrders" content={renderVTotalLabel} />
-                </Bar>
+                  shape={(props) => (
+                    <CustomBarWithPeak
+                      {...props}
+                      fill="#dc2626"
+                      stroke="#dc2626"
+                      seriesKey="truotKh"
+                      collectorRef={pointsCollector}
+                      isRate={false}
+                    />
+                  )}
+                />
                 <Line
                   yAxisId="right"
                   type="monotone"
@@ -1075,7 +1380,7 @@ export function PlanPicTimelineSection({
             </thead>
             <tbody>
               {matrixData.map((row, idx) => {
-                const isSelected = selectedChartPic === row.pic
+                const isSelected = !isAll && selectedPics.includes(row.pic)
                 const isUp = row.trend === 'UP'
                 const isDown = row.trend === 'DOWN'
                 const rateColor = isUp ? '#16a34a' : isDown ? '#dc2626' : '#475569'
@@ -1085,7 +1390,7 @@ export function PlanPicTimelineSection({
                 return (
                   <tr
                     key={idx}
-                    onClick={() => handleSelectChartPic(row.pic)}
+                    onClick={() => handleTogglePic(row.pic)}
                     style={{
                       borderBottom: '1px solid #e2e8f0',
                       background: isSelected
@@ -1096,27 +1401,32 @@ export function PlanPicTimelineSection({
                       cursor: 'pointer',
                       transition: 'background 0.15s ease'
                     }}
-                    title={`Nhấp để soi biểu đồ diễn biến tăng trưởng của PIC: ${row.pic}`}
+                    title={`Nhấp để chọn/bỏ chọn PIC: ${row.pic}`}
                   >
                     {/* Cột 1: Tên PIC */}
                     <td
                       style={{
                         padding: '9px 12px',
-                        fontWeight: 600,
+                        fontWeight: isSelected ? 700 : 600,
                         color: isSelected ? '#1d4ed8' : '#0f172a'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {isSelected && (
-                          <span
-                            style={{
-                              width: 7,
-                              height: 7,
-                              borderRadius: '50%',
-                              background: '#2563eb'
-                            }}
-                          />
-                        )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: 3,
+                            border: isSelected ? '1.5px solid #2563eb' : '1.5px solid #cbd5e1',
+                            background: isSelected ? '#2563eb' : '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}
+                        >
+                          {isSelected && <Check size={10} color="#ffffff" strokeWidth={3} />}
+                        </div>
                         <span>{row.pic}</span>
                       </div>
                     </td>

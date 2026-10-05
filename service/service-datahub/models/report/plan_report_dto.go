@@ -142,17 +142,46 @@ type PlanDetailReportItem struct {
 	CapaStatusText *string  `json:"capaStatusText,omitempty"`
 }
 
+// PicTimelineBreakdownDTO: Cấu trúc phân tích chi tiết tiến độ theo ngày/tháng/quý của từng PIC
+type PicTimelineBreakdownDTO struct {
+	DailyList     []map[string]interface{} `json:"dailyList"`
+	MonthlyList   []map[string]interface{} `json:"monthlyList"`
+	QuarterlyList []map[string]interface{} `json:"quarterlyList"`
+	PicList       []string                 `json:"picList"`
+	PicGrowthList []map[string]interface{} `json:"picGrowthList"`
+}
+
+// TimeTimelineBreakdownDTO: Cấu trúc phân tích chi tiết trạng thái thời gian theo ngày/tháng/quý
+type TimeTimelineBreakdownDTO struct {
+	DailyList     []map[string]interface{} `json:"dailyList"`
+	MonthlyList   []map[string]interface{} `json:"monthlyList"`
+	QuarterlyList []map[string]interface{} `json:"quarterlyList"`
+	Categories    []map[string]interface{} `json:"categories"`
+}
+
+// CapaTimelineBreakdownDTO: Cấu trúc phân tích chi tiết trạng thái Capa theo ngày/tháng/quý
+type CapaTimelineBreakdownDTO struct {
+	DailyList     []map[string]interface{} `json:"dailyList"`
+	MonthlyList   []map[string]interface{} `json:"monthlyList"`
+	QuarterlyList []map[string]interface{} `json:"quarterlyList"`
+	Categories    []map[string]interface{} `json:"categories"`
+}
+
 // PlanReportResponse: Cấu trúc dữ liệu đầy đủ trả về cho Frontend
 type PlanReportResponse struct {
-	Summary             PlanReportSummary         `json:"summary"`
-	DpStatusBreakdown   []PlanStatusBreakdownItem `json:"dpStatusBreakdown"`
-	TimeStatusBreakdown []PlanStatusBreakdownItem `json:"timeStatusBreakdown"`
-	CapaStatusBreakdown []PlanStatusBreakdownItem `json:"capaStatusBreakdown"`
-	PicBreakdown        []PicPlanAggregate        `json:"picBreakdown"`
-	TeamBreakdown       []TeamPlanAggregate       `json:"teamBreakdown"`
-	MachineBreakdown    []MachinePlanAggregate    `json:"machineBreakdown"`
-	DailyTrendData      []DailyPlanAggregate      `json:"dailyTrendData"`
-	FilterOptions       PlanFilterOptionList      `json:"filterOptions"`
-	Items               []PlanDetailReportItem    `json:"items"`
-	Pagination          PlanPageInfo              `json:"pagination"`
+	Summary               PlanReportSummary         `json:"summary"`
+	DpStatusBreakdown     []PlanStatusBreakdownItem `json:"dpStatusBreakdown"`
+	TimeStatusBreakdown   []PlanStatusBreakdownItem `json:"timeStatusBreakdown"`
+	CapaStatusBreakdown   []PlanStatusBreakdownItem `json:"capaStatusBreakdown"`
+	PicBreakdown          []PicPlanAggregate        `json:"picBreakdown"`
+	TeamBreakdown         []TeamPlanAggregate       `json:"teamBreakdown"`
+	MachineBreakdown      []MachinePlanAggregate    `json:"machineBreakdown"`
+	DailyTrendData        []DailyPlanAggregate      `json:"dailyTrendData"`
+	PicTimelineBreakdown  *PicTimelineBreakdownDTO  `json:"picTimelineBreakdown,omitempty"`
+	TimeTimelineBreakdown *TimeTimelineBreakdownDTO `json:"timeTimelineBreakdown,omitempty"`
+	CapaTimelineBreakdown *CapaTimelineBreakdownDTO `json:"capaTimelineBreakdown,omitempty"`
+	FilterOptions         PlanFilterOptionList      `json:"filterOptions"`
+	Items                 []PlanDetailReportItem    `json:"items"`
+	Pagination            PlanPageInfo              `json:"pagination"`
 }
+

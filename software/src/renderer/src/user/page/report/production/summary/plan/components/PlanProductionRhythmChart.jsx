@@ -23,7 +23,6 @@ import {
   formatToShortDate
 } from '../utils/planChartCalculations'
 
-
 /**
  * Custom Tooltip chuẩn Executive Dashboard
  * Đồng bộ phong cách thẻ báo cáo, hiển thị đúng ngày thực tế và theo dõi các chỉ tiêu đang bật
@@ -269,19 +268,8 @@ function ExecutiveRhythmTooltip({ active, payload, label, visibleSeries }) {
  * Custom Bar Shape vẽ cột và tự động nối đường giữa các đỉnh của cột cùng loại qua các ngày
  */
 const CustomBarWithPeak = (props) => {
-  const {
-    x,
-    y,
-    width,
-    height,
-    value,
-    index,
-    fill,
-    stroke,
-    dashArray,
-    seriesKey,
-    collectorRef
-  } = props
+  const { x, y, width, height, value, index, fill, stroke, dashArray, seriesKey, collectorRef } =
+    props
 
   if (x === undefined || y === undefined || width === undefined || height === undefined) return null
 
@@ -327,25 +315,11 @@ const CustomBarWithPeak = (props) => {
       )}
 
       {/* 3. Điểm đánh dấu đỉnh */}
-      <circle
-        cx={cx}
-        cy={cy}
-        r={3.5}
-        fill={fill}
-        stroke="#ffffff"
-        strokeWidth={1.5}
-      />
+      <circle cx={cx} cy={cy} r={3.5} fill={fill} stroke="#ffffff" strokeWidth={1.5} />
 
       {/* 4. Nhãn số lượng thuần túy trên đỉnh cột (không kèm %) */}
       {displayVal && (
-        <text
-          x={cx}
-          y={cy - 6}
-          textAnchor="middle"
-          fill="#1e293b"
-          fontSize={10}
-          fontWeight={700}
-        >
+        <text x={cx} y={cy - 6} textAnchor="middle" fill="#1e293b" fontSize={10} fontWeight={700}>
           {displayVal}
         </text>
       )}
@@ -530,8 +504,8 @@ export function PlanProductionRhythmChart({
             Thống kê nhịp sản xuất &amp; chất lượng thực thi kế hoạch theo ngày của{' '}
             <b>{plantName || 'Nhà máy GS1 Hà Nội'}</b> (chu kỳ{' '}
             <b>{totalDays || chartProcessedData.length} ngày</b>) trên hệ thống{' '}
-            <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ cột khối lượng số lượng từng hạng mục nối đỉnh
-            liên tục qua các ngày và thanh trượt điều chỉnh khoảng thời gian lọc linh hoạt.
+            <b>MES Engine &amp; Bravo ERP</b>. Biểu đồ cột khối lượng số lượng từng hạng mục nối
+            đỉnh liên tục qua các ngày và thanh trượt điều chỉnh khoảng thời gian lọc linh hoạt.
           </div>
         </div>
 
@@ -733,7 +707,9 @@ export function PlanProductionRhythmChart({
                 />
 
                 {/* Tooltip không nội suy, hiển thị chính xác ngày */}
-                <RechartsTooltip content={<ExecutiveRhythmTooltip visibleSeries={visibleSeries} />} />
+                <RechartsTooltip
+                  content={<ExecutiveRhythmTooltip visibleSeries={visibleSeries} />}
+                />
 
                 {/* 1. Tổng LSX: Cột xanh lá đậm GS Hub (#01411b) + Line nối đỉnh đúng vị trí cột */}
                 {visibleSeries.totalOrders && (
@@ -840,8 +816,6 @@ export function PlanProductionRhythmChart({
                     )}
                   />
                 )}
-
-
               </ComposedChart>
             </ResponsiveContainer>
           )}

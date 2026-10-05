@@ -6,7 +6,6 @@ import { useSummaryStatisticsLogic } from './hooks/useSummaryStatisticsLogic'
 import { SummaryTopControlBar } from '../common/SummaryTopControlBar'
 import { HeroKpiCards } from '../../timelineSummary/components/HeroKpiCards'
 import { DailyTicketGrowthSection } from './components/DailyTicketGrowthSection'
-import { DailyTimelineProgressSection } from '../../timelineSummary/components/DailyTimelineProgressSection'
 import { MachineRuntimeSection } from '../../timelineSummary/components/MachineRuntimeSection'
 import { TeamOutputSection } from '../../timelineSummary/components/TeamOutputSection'
 import { SyncLatencySection } from '../../timelineSummary/components/SyncLatencySection'
@@ -33,8 +32,6 @@ export default function SummaryStatisticsReportPage() {
     filterOptions,
     loading,
     fetchTimelineData,
-    showDailySummaryTable,
-    setShowDailySummaryTable,
     showMachineSummaryTable,
     setShowMachineSummaryTable,
     showTeamSummaryTable,
@@ -58,7 +55,9 @@ export default function SummaryStatisticsReportPage() {
     dailyAggregates,
     displayMachineList,
     machineGrandTotal,
+    machineTimelineBreakdown,
     teamAggregates,
+    teamTimelineBreakdown,
     teamGrandTotal,
     missingAutoExportTickets,
     displayDetailList,
@@ -211,6 +210,7 @@ export default function SummaryStatisticsReportPage() {
             sectionNumber={2}
             displayMachineList={displayMachineList}
             machineGrandTotal={machineGrandTotal}
+            machineTimelineBreakdown={machineTimelineBreakdown}
             machineChartMode={machineChartMode}
             setMachineChartMode={setMachineChartMode}
             showManualMachines={showManualMachines}
@@ -227,6 +227,7 @@ export default function SummaryStatisticsReportPage() {
           <TeamOutputSection
             sectionNumber={3}
             teamAggregates={teamAggregates}
+            teamTimelineBreakdown={teamTimelineBreakdown}
             teamGrandTotal={teamGrandTotal}
             showTeamSummaryTable={showTeamSummaryTable}
             setShowTeamSummaryTable={setShowTeamSummaryTable}
@@ -234,36 +235,29 @@ export default function SummaryStatisticsReportPage() {
             handleDownloadSingleChart={handleDownloadSingleChart}
           />
 
-          {/* 4. DAILY TIMELINE & PROGRESS EVOLUTION ANALYSIS */}
-          <DailyTimelineProgressSection
-            sectionNumber={4}
-            dailyAggregates={dailyAggregates}
-            plantName={currentPlantName}
-            totalDays={totalDays}
-            showDailySummaryTable={showDailySummaryTable}
-            setShowDailySummaryTable={setShowDailySummaryTable}
-          />
-
-          {/* 5. SYNC LATENCY & AUTO EXPORT LOGISTICS ANALYSIS */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
-              gap: 24,
-              marginBottom: 28
-            }}
-          >
+          {/* 4.1. SYNC LATENCY ANALYSIS */}
+          <div style={{ marginBottom: 44, width: '100%' }}>
             <SyncLatencySection
-              sectionNumber="5.1"
+              sectionNumber="4.1"
               kpiMetrics={kpiMetrics}
+              filteredData={filteredData}
+              dailyAggregates={dailyAggregates}
+              backendReportData={backendReportData}
               showSyncTable={showSyncTable}
               setShowSyncTable={setShowSyncTable}
               plantName={currentPlantName}
               handleDownloadSingleChart={handleDownloadSingleChart}
             />
+          </div>
+
+          {/* 4.2. AUTO EXPORT LOGISTICS ANALYSIS */}
+          <div style={{ marginBottom: 44, width: '100%' }}>
             <AutoExportSection
-              sectionNumber="5.2"
+              sectionNumber="4.2"
               kpiMetrics={kpiMetrics}
+              filteredData={filteredData}
+              dailyAggregates={dailyAggregates}
+              backendReportData={backendReportData}
               missingAutoExportTickets={missingAutoExportTickets}
               showAutoExportTable={showAutoExportTable}
               setShowAutoExportTable={setShowAutoExportTable}

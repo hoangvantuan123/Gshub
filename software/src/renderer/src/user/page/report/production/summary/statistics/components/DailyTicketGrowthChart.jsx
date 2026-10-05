@@ -49,7 +49,6 @@ const renderActiveDiamondDot = (props) => {
   )
 }
 
-
 /**
  * Custom Executive Tooltip đồng bộ hoàn toàn với hệ thống báo cáo Gshub
  */
@@ -309,6 +308,36 @@ function DailyTicketGrowthTooltip({ active, payload, label, visibleSeries }) {
             </div>
           </div>
         )}
+
+        {/* 5. X/N chưa sinh */}
+        {(!visibleSeries || visibleSeries.notAutoExportedCount !== false) && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '2px 0'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 9,
+                  height: 9,
+                  borderRadius: 2,
+                  background: '#d97706'
+                }}
+              />
+              <span style={{ fontWeight: 600, color: '#334155' }}>X/N chưa sinh:</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontWeight: 700, color: '#0f172a' }}>
+                {Number(row.notAutoExportedCount || 0).toLocaleString('vi-VN')}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Thông tin bổ sung */}
@@ -415,26 +444,12 @@ const CustomBarWithPeak = (props) => {
           strokeWidth={1.5}
         />
       ) : (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={3.5}
-          fill={fill}
-          stroke="#ffffff"
-          strokeWidth={1.5}
-        />
+        <circle cx={cx} cy={cy} r={3.5} fill={fill} stroke="#ffffff" strokeWidth={1.5} />
       )}
 
       {/* 4. Nhãn số lượng thuần túy trên đỉnh cột (không kèm %) */}
       {displayVal && (
-        <text
-          x={cx}
-          y={cy - 6}
-          textAnchor="middle"
-          fill="#1e293b"
-          fontSize={10}
-          fontWeight={700}
-        >
+        <text x={cx} y={cy - 6} textAnchor="middle" fill="#1e293b" fontSize={10} fontWeight={700}>
           {displayVal}
         </text>
       )}
@@ -457,7 +472,8 @@ export function DailyTicketGrowthChart({
     totalTickets: true,
     over12hCount: true,
     under5MinCount: true,
-    autoExportedCount: true
+    autoExportedCount: true,
+    notAutoExportedCount: true
   })
 
   const visibleSeries = externalVisibleSeries || internalVisibleSeries
@@ -487,7 +503,8 @@ export function DailyTicketGrowthChart({
     { key: 'totalTickets', label: 'Tổng phiếu thống kê', color: '#01411b' },
     { key: 'over12hCount', label: 'Phiếu > 12 giờ', color: '#ea580c' },
     { key: 'under5MinCount', label: 'Phiếu < 5 phút', color: '#8b5cf6' },
-    { key: 'autoExportedCount', label: 'Sinh phiếu X/N tự động', color: '#10b981' }
+    { key: 'autoExportedCount', label: 'Sinh phiếu X/N tự động', color: '#10b981' },
+    { key: 'notAutoExportedCount', label: 'X/N chưa sinh', color: '#d97706' }
   ]
 
   return (
@@ -609,7 +626,10 @@ export function DailyTicketGrowthChart({
 
       <div style={{ width: '100%', flex: 1, minHeight: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={displayedChartData} margin={{ top: 25, right: 25, left: 10, bottom: 0 }}>
+          <ComposedChart
+            data={displayedChartData}
+            margin={{ top: 25, right: 25, left: 10, bottom: 0 }}
+          >
             {/* Lưới nền nhạt */}
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
 
@@ -717,7 +737,7 @@ export function DailyTicketGrowthChart({
             )}
 
             {/* 4. Sinh phiếu X/N tự động: Cột xanh ngọc (#10b981) + Đường nối đỉnh xanh ngọc đúng vị trí cột */}
-            {visibleSeries?.autoExportedCount !== false && visibleSeries?.autoExportRate !== false && (
+            {visibleSeries?.autoExportedCount !== false && (
               <Bar
                 dataKey="autoExportedCount"
                 name="Sinh phiếu X/N tự động"
@@ -738,7 +758,26 @@ export function DailyTicketGrowthChart({
               />
             )}
 
-
+            {/* 5. X/N chưa sinh: Cột màu hổ phách (#d97706) + Đường nối đỉnh đúng vị trí cột */}
+            {visibleSeries?.notAutoExportedCount !== false && (
+              <Bar
+                dataKey="notAutoExportedCount"
+                name="X/N chưa sinh"
+                fill="#d97706"
+                stroke="#d97706"
+                barSize={chartData.length > 20 ? 10 : 20}
+                isAnimationActive={false}
+                shape={(props) => (
+                  <CustomBarWithPeak
+                    {...props}
+                    fill="#d97706"
+                    stroke="#d97706"
+                    seriesKey="notAutoExportedCount"
+                    collectorRef={pointsCollector}
+                  />
+                )}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

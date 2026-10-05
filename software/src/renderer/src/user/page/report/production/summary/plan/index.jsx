@@ -6,11 +6,9 @@ import { useSummaryPlanLogic } from './hooks/useSummaryPlanLogic'
 import { SummaryTopControlBar } from '../common/SummaryTopControlBar'
 import { PlanHeroKpiCards } from './components/PlanHeroKpiCards'
 import { PlanProductionRhythmChart } from './components/PlanProductionRhythmChart'
-import { PlanGrowthEvolutionSection } from './components/PlanGrowthEvolutionSection'
 import { PlanPicAnalysisSection } from './components/PlanPicAnalysisSection'
 import { PlanPicTimelineSection } from './components/PlanPicTimelineSection'
 import { PlanTimeAndCapaSection } from './components/PlanTimeAndCapaSection'
-import { PlanTeamBottleneckSection } from './components/PlanTeamBottleneckSection'
 
 export default function SummaryPlanReportPage() {
   const {
@@ -48,8 +46,8 @@ export default function SummaryPlanReportPage() {
     dailyTrendData,
     timeStatusBreakdown,
     capaStatusBreakdown,
-    planTeamBreakdown,
-    advancedPlanMetrics,
+    timeTimelineBreakdown,
+    capaTimelineBreakdown,
     displayDetailList,
     detailGridCols,
     handleExportExcel,
@@ -225,12 +223,11 @@ export default function SummaryPlanReportPage() {
           <PlanTimeAndCapaSection
             timeStatusBreakdown={timeStatusBreakdown || []}
             capaStatusBreakdown={capaStatusBreakdown || []}
-          />
-
-          {/* 5. ĐÁNH GIÁ CHUYÊN SÂU TIẾN ĐỘ & CÂN BẰNG TẢI CÔNG ĐOẠN */}
-          <PlanTeamBottleneckSection
-            advancedPlanMetrics={advancedPlanMetrics || {}}
-            teamBreakdown={planTeamBreakdown || []}
+            timeTimelineBreakdown={timeTimelineBreakdown}
+            capaTimelineBreakdown={capaTimelineBreakdown}
+            plantName={currentPlantName}
+            totalDays={totalDays}
+            dateRange={dateRange}
           />
 
           {/* MODAL CẨM NANG CÔNG THỨC */}

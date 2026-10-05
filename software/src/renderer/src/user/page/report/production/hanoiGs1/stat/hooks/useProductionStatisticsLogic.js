@@ -105,17 +105,21 @@ export function getAutoExportType(item) {
   return 'Không áp dụng XNTĐ'
 }
 
-// Helper parse Sync Delay to seconds
 export const parseSyncDelayToSeconds = (val, item = null) => {
-  if (val === null || val === undefined || val === '') {
-    if (item && item.MesApprovalTime && item.TicketCreatedDate) {
-      const tCreated = new Date(item.TicketCreatedDate).getTime()
-      const tMes = new Date(item.MesApprovalTime).getTime()
-      if (!isNaN(tCreated) && !isNaN(tMes) && tMes >= tCreated) {
-        const diffSec = (tMes - tCreated) / 1000
+  if (item) {
+    const tCre = item.TicketCreatedDate || item.ticketCreatedDate
+    const tMes = item.MesApprovalTime || item.mesApprovalTime
+    if (tCre && tMes) {
+      const dCre = new Date(tCre).getTime()
+      const dMes = new Date(tMes).getTime()
+      if (!isNaN(dCre) && !isNaN(dMes) && dMes >= dCre) {
+        const diffSec = (dMes - dCre) / 1000
         if (diffSec >= 0 && diffSec <= 86400) return diffSec
       }
     }
+  }
+
+  if (val === null || val === undefined || val === '') {
     return null
   }
 

@@ -114,6 +114,20 @@ type DailyStatAggregate struct {
 	NonMesCount          int     `json:"nonMesCount"`
 	MesRate              float64 `json:"mesRate"`
 	AutoExportRate       float64 `json:"autoExportRate"`
+	Under10              int     `json:"under10"`
+	SyncUnder10          int     `json:"syncUnder10"`
+	From11to30           int     `json:"from11to30"`
+	Sync11to30           int     `json:"sync11to30"`
+	From31to60           int     `json:"from31to60"`
+	Sync31to60           int     `json:"sync31to60"`
+	Over60               int     `json:"over60"`
+	SyncOver60           int     `json:"syncOver60"`
+	SyncEmpty            int     `json:"syncEmpty"`
+	AvgSyncDelaySeconds  float64 `json:"avgSyncDelaySeconds"`
+	AvgDelaySec          float64 `json:"avgDelaySec"`
+	InstantRate          float64 `json:"instantRate"`
+	TotalSyncSec         float64 `json:"totalSyncSec"`
+	SyncCount            int     `json:"syncCount"`
 }
 
 // SyncDelayGroupItem: Nhóm độ trễ đồng bộ
@@ -171,19 +185,40 @@ type ProdStatsDetailReportItem struct {
 	StatusVal       *string  `json:"status,omitempty"`
 }
 
+// MachineTimelineBreakdownDTO: Cấu trúc phân tích diễn biến thời gian chạy máy & số phiếu theo ngày/tháng/quý của từng cụm máy
+type MachineTimelineBreakdownDTO struct {
+	DailyList       []map[string]interface{} `json:"dailyList"`
+	MonthlyList     []map[string]interface{} `json:"monthlyList"`
+	QuarterlyList   []map[string]interface{} `json:"quarterlyList"`
+	MachineList     []string                 `json:"machineList"`
+	MachineClusters []map[string]interface{} `json:"machineClusters"`
+}
+
+// TeamTimelineBreakdownDTO: Cấu trúc phân tích diễn biến sản lượng SX, Đạt KCS, Lỗi theo ngày/tháng/quý của từng tổ sản xuất
+type TeamTimelineBreakdownDTO struct {
+	DailyList     []map[string]interface{} `json:"dailyList"`
+	MonthlyList   []map[string]interface{} `json:"monthlyList"`
+	QuarterlyList []map[string]interface{} `json:"quarterlyList"`
+	TeamList      []string                 `json:"teamList"`
+	TeamClusters  []map[string]interface{} `json:"teamClusters"`
+}
+
 // ProdStatsReportResponse: Toàn bộ kết quả trả về cho FE
 type ProdStatsReportResponse struct {
-	Summary             ProdStatsSummary            `json:"summary"`
-	ChartByTeam         []TeamStatAggregate         `json:"chartByTeam"`
-	TeamBreakdown       []TeamStatAggregate         `json:"teamBreakdown"`
-	ChartByMachine      []MachineStatAggregate      `json:"chartByMachine"`
-	MachineBreakdown    []MachineStatAggregate      `json:"machineBreakdown"`
-	ChartByDay          []DailyStatAggregate        `json:"chartByDay"`
-	DailyTrendData      []DailyStatAggregate        `json:"dailyTrendData"`
-	DailyAggregates     []DailyStatAggregate        `json:"dailyAggregates"`
-	SyncDelayBreakdown  []SyncDelayGroupItem        `json:"syncDelayBreakdown"`
-	AutoExportBreakdown []AutoExportGroupItem       `json:"autoExportBreakdown"`
-	FilterOptions       FilterOptionList            `json:"filterOptions"`
-	Items               []ProdStatsDetailReportItem `json:"items"`
-	Pagination          PlanPageInfo                `json:"pagination"`
+	Summary                  ProdStatsSummary             `json:"summary"`
+	ChartByTeam              []TeamStatAggregate          `json:"chartByTeam"`
+	TeamBreakdown            []TeamStatAggregate          `json:"teamBreakdown"`
+	ChartByMachine           []MachineStatAggregate       `json:"chartByMachine"`
+	MachineBreakdown         []MachineStatAggregate       `json:"machineBreakdown"`
+	ChartByDay               []DailyStatAggregate         `json:"chartByDay"`
+	DailyTrendData           []DailyStatAggregate         `json:"dailyTrendData"`
+	DailyAggregates          []DailyStatAggregate         `json:"dailyAggregates"`
+	MachineTimelineBreakdown *MachineTimelineBreakdownDTO `json:"machineTimelineBreakdown,omitempty"`
+	TeamTimelineBreakdown    *TeamTimelineBreakdownDTO    `json:"teamTimelineBreakdown,omitempty"`
+	SyncDelayBreakdown       []SyncDelayGroupItem         `json:"syncDelayBreakdown"`
+	AutoExportBreakdown      []AutoExportGroupItem        `json:"autoExportBreakdown"`
+	FilterOptions            FilterOptionList             `json:"filterOptions"`
+	Items                    []ProdStatsDetailReportItem  `json:"items"`
+	Pagination               PlanPageInfo                 `json:"pagination"`
 }
+

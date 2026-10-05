@@ -757,8 +757,34 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
 
   // Statistics KPI Metrics
   const kpiMetrics = useMemo(() => {
-    if (filteredData.length === 0 && backendReportData?.summary) {
-      const s = backendReportData.summary
+    if (
+      filteredData.length === 0 &&
+      (backendReportData?.summary || backendReportData?.data?.summary)
+    ) {
+      const s = backendReportData?.summary || backendReportData?.data?.summary || {}
+      const autoCount = s.autoExportCount ?? 0
+      const noAutoCount = s.noAutoExportCount ?? 0
+      const noMatCount = s.noMaterialCount ?? s.noMaterialAutoIoCount ?? 0
+      const autoRate =
+        s.autoExportRate ??
+        (autoCount + noAutoCount > 0
+          ? Number(((autoCount / (autoCount + noAutoCount)) * 100).toFixed(2))
+          : 0)
+      const noAutoRate =
+        s.noAutoExportRate ??
+        (autoCount + noAutoCount > 0
+          ? Number(((noAutoCount / (autoCount + noAutoCount)) * 100).toFixed(2))
+          : 0)
+
+      const syncList =
+        backendReportData?.syncDelayBreakdown || backendReportData?.data?.syncDelayBreakdown || []
+      const under10Item = syncList.find((x) => (x.group || x.label || '').includes('10'))
+      const instantRateVal =
+        under10Item?.rate ??
+        (s.totalTickets > 0 && under10Item?.count
+          ? Number(((under10Item.count / s.totalTickets) * 100).toFixed(1))
+          : 100)
+
       return {
         totalTickets: s.totalTickets || s.totalOrders || 0,
         totalActualQty: s.totalActualQty || 0,
@@ -779,17 +805,21 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
         under5MinRate: s.under5MinRate ?? 0,
         syncDelayCount: s.syncDelayCount ?? 0,
         avgSyncDelaySeconds: s.avgSyncDelaySeconds ?? 0,
-        syncLatencyFormatted: s.syncLatencyFormatted || '00:00:00',
+        syncLatencyFormatted: s.syncLatencyFormatted || s.avgSyncDelayFormatted || '00:00:00',
         maxSyncDelayFormatted: s.maxSyncDelayFormatted || '00:00:00',
-        syncSuccessRate: s.syncSuccessRate || '100%',
-        syncBreakdown: backendReportData.syncDelayBreakdown || [],
-        autoExportBreakdown: backendReportData.autoExportBreakdown || [],
-        autoExportRate: s.autoExportRate ?? 0,
-        noAutoExportRate: s.noAutoExportRate ?? 0,
-        autoExportCount: s.autoExportCount ?? 0,
-        noAutoExportCount: s.noAutoExportCount ?? 0,
-        noMaterialAutoIoCount: s.noMaterialAutoIoCount ?? 0,
-        totalApplicableAutoIo: s.totalApplicableAutoIo ?? 0
+        instantRate: instantRateVal,
+        syncSuccessRate: `${instantRateVal}%`,
+        syncBreakdown: syncList,
+        autoExportBreakdown:
+          backendReportData?.autoExportBreakdown ||
+          backendReportData?.data?.autoExportBreakdown ||
+          [],
+        autoExportRate: autoRate,
+        noAutoExportRate: noAutoRate,
+        autoExportCount: autoCount,
+        noAutoExportCount: noAutoCount,
+        noMaterialAutoIoCount: noMatCount,
+        totalApplicableAutoIo: s.totalApplicableAutoIo || autoCount + noAutoCount
       }
     }
     const total = filteredData.length
@@ -833,7 +863,17 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       if (orig.includes('MES')) mesCount++
 
       const rawDelay =
-        item.SyncDelayMinutes ?? item.syncDelayMinutes ?? item.SyncDelay ?? item.syncDelay
+        item.syncDelay !== undefined && item.syncDelay !== null && item.syncDelay !== ''
+          ? item.syncDelay
+          : item.SyncDelayMinutes !== undefined &&
+              item.SyncDelayMinutes !== null &&
+              item.SyncDelayMinutes !== ''
+            ? item.SyncDelayMinutes
+            : item.syncDelayMinutes !== undefined &&
+                item.syncDelayMinutes !== null &&
+                item.syncDelayMinutes !== ''
+              ? item.syncDelayMinutes
+              : item.SyncDelay
       const parsedSec = parseSyncDelayToSeconds(rawDelay, item)
       if (parsedSec === null || parsedSec === undefined || isNaN(parsedSec)) {
         syncEmpty++
@@ -1055,6 +1095,21 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
 
   // PIC Timeline & Growth Evolution by Date (Theo dõi tiến độ tăng trưởng theo dải ngày)
   const picTimelineBreakdown = useMemo(() => {
+    // 1. Ưu tiên lấy trực tiếp cấu trúc gom nhóm chính xác theo từng người và từng ngày do Server Datahub trả về
+    const backendTimeline =
+      backendReportData?.picTimelineBreakdown ||
+      backendReportData?.PicTimelineBreakdown ||
+      backendReportData?.data?.picTimelineBreakdown ||
+      backendReportData?.data?.PicTimelineBreakdown
+
+    if (
+      backendTimeline &&
+      ((Array.isArray(backendTimeline.dailyList) && backendTimeline.dailyList.length > 0) ||
+        (Array.isArray(backendTimeline.picList) && backendTimeline.picList.length > 0))
+    ) {
+      return backendTimeline
+    }
+
     const dateMap = new Map()
     const allPicsSet = new Set()
 
@@ -1870,6 +1925,142 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
     ]
   }, [filteredData, backendReportData])
 
+  // Time Timeline Breakdown (Diễn biến trạng thái thời gian theo ngày/tháng/quý)
+  const timeTimelineBreakdown = useMemo(() => {
+    const backendData =
+      backendReportData?.timeTimelineBreakdown ||
+      backendReportData?.TimeTimelineBreakdown ||
+      backendReportData?.data?.timeTimelineBreakdown ||
+      backendReportData?.data?.TimeTimelineBreakdown
+
+    if (
+      backendData &&
+      ((Array.isArray(backendData.dailyList) && backendData.dailyList.length > 0) ||
+        (Array.isArray(backendData.monthlyList) && backendData.monthlyList.length > 0))
+    ) {
+      return backendData
+    }
+
+    const dateMap = new Map()
+    filteredData.forEach((item) => {
+      const dateKey = item.date || item.StatDate || item.prodDate || 'Khác'
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, {
+          date: dateKey,
+          shortDate: formatVNDateShort(dateKey),
+          name: formatVNDateShort(dateKey),
+          totalOrders: 0,
+          timeCham: 0,
+          timeNhanh: 0,
+          timeDung: 0,
+          timeNoData: 0
+        })
+      }
+      const rec = dateMap.get(dateKey)
+      rec.totalOrders++
+      const t = String(item.timeStatus || item.timeStatusText || item.TimeStatus || '')
+      if (t.includes('Chậm')) rec.timeCham++
+      else if (t.includes('Nhanh')) rec.timeNhanh++
+      else if (t.includes('Đúng')) rec.timeDung++
+      else rec.timeNoData++
+    })
+
+    const sortedDates = Array.from(dateMap.values()).sort((a, b) => {
+      if (a.date === 'Khác') return 1
+      if (b.date === 'Khác') return -1
+      return String(a.date).localeCompare(String(b.date))
+    })
+
+    const dailyList = sortedDates.map((d) => {
+      const tot = d.totalOrders || 1
+      return {
+        ...d,
+        timeChamRate: Number(((d.timeCham / tot) * 100).toFixed(1)),
+        timeNhanhRate: Number(((d.timeNhanh / tot) * 100).toFixed(1)),
+        timeDungRate: Number(((d.timeDung / tot) * 100).toFixed(1)),
+        timeNoDataRate: Number(((d.timeNoData / tot) * 100).toFixed(1))
+      }
+    })
+
+    return {
+      dailyList,
+      monthlyList: [],
+      quarterlyList: [],
+      categories: [
+        { key: 'timeCham', name: 'Chậm hơn ĐM', color: '#dc2626' },
+        { key: 'timeNhanh', name: 'Nhanh hơn ĐM', color: '#0284c7' },
+        { key: 'timeDung', name: 'Đúng ĐM', color: '#01411b' },
+        { key: 'timeNoData', name: 'Chưa có dữ liệu', color: '#64748b' }
+      ]
+    }
+  }, [filteredData, backendReportData])
+
+  // Capa Timeline Breakdown (Diễn biến trạng thái Capa theo ngày/tháng/quý)
+  const capaTimelineBreakdown = useMemo(() => {
+    const backendData =
+      backendReportData?.capaTimelineBreakdown ||
+      backendReportData?.CapaTimelineBreakdown ||
+      backendReportData?.data?.capaTimelineBreakdown ||
+      backendReportData?.data?.CapaTimelineBreakdown
+
+    if (
+      backendData &&
+      ((Array.isArray(backendData.dailyList) && backendData.dailyList.length > 0) ||
+        (Array.isArray(backendData.monthlyList) && backendData.monthlyList.length > 0))
+    ) {
+      return backendData
+    }
+
+    const dateMap = new Map()
+    filteredData.forEach((item) => {
+      const dateKey = item.date || item.StatDate || item.prodDate || 'Khác'
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, {
+          date: dateKey,
+          shortDate: formatVNDateShort(dateKey),
+          name: formatVNDateShort(dateKey),
+          totalOrders: 0,
+          capaNhanh: 0,
+          capaCham: 0,
+          capaDung: 0
+        })
+      }
+      const rec = dateMap.get(dateKey)
+      rec.totalOrders++
+      const c = String(item.capaStatus || item.capaStatusText || item.CapaStatus || '')
+      if (c.includes('Nhanh')) rec.capaNhanh++
+      else if (c.includes('Chậm')) rec.capaCham++
+      else rec.capaDung++
+    })
+
+    const sortedDates = Array.from(dateMap.values()).sort((a, b) => {
+      if (a.date === 'Khác') return 1
+      if (b.date === 'Khác') return -1
+      return String(a.date).localeCompare(String(b.date))
+    })
+
+    const dailyList = sortedDates.map((d) => {
+      const tot = d.totalOrders || 1
+      return {
+        ...d,
+        capaNhanhRate: Number(((d.capaNhanh / tot) * 100).toFixed(1)),
+        capaChamRate: Number(((d.capaCham / tot) * 100).toFixed(1)),
+        capaDungRate: Number(((d.capaDung / tot) * 100).toFixed(1))
+      }
+    })
+
+    return {
+      dailyList,
+      monthlyList: [],
+      quarterlyList: [],
+      categories: [
+        { key: 'capaNhanh', name: 'Nhanh hơn ĐM', color: '#01411b' },
+        { key: 'capaCham', name: 'Chậm hơn ĐM', color: '#dc2626' },
+        { key: 'capaDung', name: 'Trống / Đúng capa', color: '#64748b' }
+      ]
+    }
+  }, [filteredData, backendReportData])
+
   // Plan Team Breakdown (Bottleneck & Load Balancing)
   const planTeamBreakdown = useMemo(() => {
     const rawTeams =
@@ -2288,6 +2479,255 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
     }
   }, [displayMachineList, standardCapacityHours])
 
+  // Machine Timeline Breakdown (Diễn biến thời gian chạy máy & phân bổ tải theo ngày/tháng/quý)
+  const machineTimelineBreakdown = useMemo(() => {
+    const backendData =
+      backendReportData?.machineTimelineBreakdown ||
+      backendReportData?.MachineTimelineBreakdown ||
+      backendReportData?.data?.machineTimelineBreakdown ||
+      backendReportData?.data?.MachineTimelineBreakdown
+
+    if (
+      backendData &&
+      ((Array.isArray(backendData.dailyList) && backendData.dailyList.length > 0) ||
+        (Array.isArray(backendData.machineList) && backendData.machineList.length > 0))
+    ) {
+      return backendData
+    }
+
+    const dateMap = new Map()
+    const machineSet = new Set()
+    const machineClusterMap = new Map()
+
+    filteredData.forEach((item) => {
+      const dateKey = item.date || item.StatDate || item.prodDate || 'Khác'
+      const mCode = item.machineCode || 'M-UNKNOWN'
+      const mName = item.machineName || mCode
+      machineSet.add(mCode)
+      if (!machineClusterMap.has(mCode)) {
+        machineClusterMap.set(mCode, {
+          machineCode: mCode,
+          machineName: mName,
+          teamName: item.team || item.teamName || 'Khác',
+          isManual: isManualMachine(item)
+        })
+      }
+
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, {
+          date: dateKey,
+          shortDate: formatVNDateShort(dateKey),
+          name: formatVNDateShort(dateKey),
+          runtimeHours: 0,
+          totalRuntime: 0,
+          ticketCount: 0,
+          totalTickets: 0,
+          actualQty: 0,
+          machineStats: {}
+        })
+      }
+
+      const rec = dateMap.get(dateKey)
+      const rt = Number(item.runtimeHours || 0)
+      const qty = Number(item.actualQty || item.ProdQty || 0)
+      rec.ticketCount++
+      rec.totalTickets++
+      rec.runtimeHours += rt
+      rec.totalRuntime += rt
+      rec.actualQty += qty
+
+      if (!rec.machineStats[mCode]) {
+        rec.machineStats[mCode] = { runtimeHours: 0, ticketCount: 0, actualQty: 0 }
+      }
+      rec.machineStats[mCode].runtimeHours += rt
+      rec.machineStats[mCode].ticketCount++
+      rec.machineStats[mCode].actualQty += qty
+    })
+
+    const machineList = Array.from(machineSet).sort()
+    const sortedDates = Array.from(dateMap.values()).sort((a, b) => {
+      if (a.date === 'Khác') return 1
+      if (b.date === 'Khác') return -1
+      return String(a.date).localeCompare(String(b.date))
+    })
+
+    const dailyList = sortedDates.map((d) => {
+      const row = {
+        date: d.date,
+        shortDate: d.shortDate,
+        name: d.name,
+        runtimeHours: Number(d.runtimeHours.toFixed(1)),
+        totalRuntime: Number(d.runtimeHours.toFixed(1)),
+        ticketCount: d.ticketCount,
+        totalTickets: d.ticketCount,
+        totalOrders: d.ticketCount,
+        actualQty: d.actualQty
+      }
+      machineList.forEach((m) => {
+        const ms = d.machineStats[m] || { runtimeHours: 0, ticketCount: 0, actualQty: 0 }
+        row[m] = Number(ms.runtimeHours.toFixed(1))
+        row[`${m}_runtime`] = Number(ms.runtimeHours.toFixed(1))
+        row[`${m}_tickets`] = ms.ticketCount
+        row[`${m}_actualQty`] = ms.actualQty
+        row[`${m}_runtimeRate`] =
+          d.runtimeHours > 0 ? Number(((ms.runtimeHours / d.runtimeHours) * 100).toFixed(1)) : 0
+      })
+      return row
+    })
+
+    return {
+      dailyList,
+      monthlyList: [],
+      quarterlyList: [],
+      machineList,
+      machineClusters: Array.from(machineClusterMap.values())
+    }
+  }, [filteredData, backendReportData])
+
+  // Team Timeline Breakdown (Diễn biến sản lượng SX & Đạt KCS theo ngày/tháng/quý của từng tổ sản xuất)
+  const teamTimelineBreakdown = useMemo(() => {
+    const backendData =
+      backendReportData?.teamTimelineBreakdown ||
+      backendReportData?.TeamTimelineBreakdown ||
+      backendReportData?.data?.teamTimelineBreakdown ||
+      backendReportData?.data?.TeamTimelineBreakdown
+
+    if (
+      backendData &&
+      ((Array.isArray(backendData.dailyList) && backendData.dailyList.length > 0) ||
+        (Array.isArray(backendData.teamList) && backendData.teamList.length > 0))
+    ) {
+      return backendData
+    }
+
+    const dateMap = new Map()
+    const teamSet = new Set()
+    const teamClusterMap = new Map()
+
+    filteredData.forEach((item) => {
+      const dateKey = item.date || item.StatDate || item.prodDate || 'Khác'
+      const tName = item.team || item.teamName || 'Tổ khác'
+      teamSet.add(tName)
+      if (!teamClusterMap.has(tName)) {
+        teamClusterMap.set(tName, {
+          teamName: tName,
+          actualQty: 0,
+          passQty: 0,
+          defectQty: 0,
+          ticketCount: 0
+        })
+      }
+
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, {
+          date: dateKey,
+          shortDate: formatVNDateShort(dateKey),
+          name: formatVNDateShort(dateKey),
+          actualQty: 0,
+          totalActualQty: 0,
+          passQty: 0,
+          totalPassQty: 0,
+          defectQty: 0,
+          totalDefectQty: 0,
+          ticketCount: 0,
+          totalTickets: 0,
+          runtimeHours: 0,
+          teamStats: {}
+        })
+      }
+
+      const rec = dateMap.get(dateKey)
+      const act = Number(item.actualQty || item.ProdQty || 0)
+      const pass = Number(item.passQty || item.PassQty || act)
+      const def = Number(item.defectQty || item.DefectQty || Math.max(0, act - pass))
+      const rt = Number(item.runtimeHours || 0)
+
+      rec.ticketCount++
+      rec.totalTickets++
+      rec.actualQty += act
+      rec.totalActualQty += act
+      rec.passQty += pass
+      rec.totalPassQty += pass
+      rec.defectQty += def
+      rec.totalDefectQty += def
+      rec.runtimeHours += rt
+
+      const cluster = teamClusterMap.get(tName)
+      cluster.actualQty += act
+      cluster.passQty += pass
+      cluster.defectQty += def
+      cluster.ticketCount++
+
+      if (!rec.teamStats[tName]) {
+        rec.teamStats[tName] = {
+          actualQty: 0,
+          passQty: 0,
+          defectQty: 0,
+          ticketCount: 0,
+          runtimeHours: 0
+        }
+      }
+      rec.teamStats[tName].actualQty += act
+      rec.teamStats[tName].passQty += pass
+      rec.teamStats[tName].defectQty += def
+      rec.teamStats[tName].ticketCount++
+      rec.teamStats[tName].runtimeHours += rt
+    })
+
+    const teamList = Array.from(teamSet).sort()
+    const sortedDates = Array.from(dateMap.values()).sort((a, b) => {
+      if (a.date === 'Khác') return 1
+      if (b.date === 'Khác') return -1
+      return String(a.date).localeCompare(String(b.date))
+    })
+
+    const dailyList = sortedDates.map((d) => {
+      const row = {
+        date: d.date,
+        shortDate: d.shortDate,
+        name: d.name,
+        actualQty: d.actualQty,
+        totalActualQty: d.actualQty,
+        passQty: d.passQty,
+        totalPassQty: d.passQty,
+        defectQty: d.defectQty,
+        totalDefectQty: d.defectQty,
+        ticketCount: d.ticketCount,
+        totalTickets: d.ticketCount,
+        runtimeHours: Number(d.runtimeHours.toFixed(1)),
+        totalRuntime: Number(d.runtimeHours.toFixed(1))
+      }
+      teamList.forEach((t) => {
+        const ts = d.teamStats[t] || {
+          actualQty: 0,
+          passQty: 0,
+          defectQty: 0,
+          ticketCount: 0,
+          runtimeHours: 0
+        }
+        row[t] = ts.actualQty
+        row[`${t}_actualQty`] = ts.actualQty
+        row[`${t}_passQty`] = ts.passQty
+        row[`${t}_defectQty`] = ts.defectQty
+        row[`${t}_tickets`] = ts.ticketCount
+        row[`${t}_runtime`] = Number(ts.runtimeHours.toFixed(1))
+        row[`${t}_passRate`] =
+          ts.actualQty > 0 ? Number(((ts.passQty / ts.actualQty) * 100).toFixed(1)) : 100
+        row[`${t}_defectRate`] =
+          ts.actualQty > 0 ? Number(((ts.defectQty / ts.actualQty) * 100).toFixed(1)) : 0
+      })
+      return row
+    })
+
+    return {
+      dailyList,
+      monthlyList: [],
+      quarterlyList: [],
+      teamList,
+      teamClusters: Array.from(teamClusterMap.values())
+    }
+  }, [filteredData, backendReportData])
+
   // Team Aggregates
   const teamAggregates = useMemo(() => {
     const list = backendReportData?.teamBreakdown || backendReportData?.chartByTeam || []
@@ -2439,8 +2879,24 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
                 ? (autoExported / (autoExported + notAutoExported)) * 100
                 : 0)
           )
+          const u10 = Number(d.under10 ?? d.syncUnder10 ?? 0)
+          const f11to30 = Number(d.from11to30 ?? d.sync11to30 ?? 0)
+          const f31to60 = Number(d.from31to60 ?? d.sync31to60 ?? 0)
+          const o60 = Number(d.over60 ?? d.syncOver60 ?? 0)
+          const sEmpty = Number(
+            d.syncEmpty ?? Math.max(0, tickets - (u10 + f11to30 + f31to60 + o60))
+          )
+          const avgDelaySec = Number(d.avgSyncDelaySeconds ?? d.avgDelaySec ?? 0)
+          const instantRate = Number(
+            d.instantRate !== undefined && d.instantRate !== null
+              ? d.instantRate
+              : tickets > 0
+                ? ((u10 / tickets) * 100).toFixed(1)
+                : 100
+          )
 
           return {
+            ...d,
             date: d.date,
             ticketCount: tickets,
             tickets: tickets,
@@ -2456,13 +2912,29 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
             totalRuntimeHours: Number((runtimeHours || 0).toFixed(1)),
             passRate: Number(passRate.toFixed(1)),
             over12hCount: over12h,
+            anomalies: over12h,
             under5MinCount: under5Min,
+            under5Min: under5Min,
             autoExportedCount: autoExported,
+            autoExportPass: autoExported,
             notAutoExportedCount: notAutoExported,
+            autoExportMissing: notAutoExported,
             mesCount: mes,
             nonMesCount: nonMes,
             mesRate: Number(mesRate.toFixed(1)),
-            autoExportRate: Number(autoExportRate.toFixed(1))
+            autoExportRate: Number(autoExportRate.toFixed(1)),
+            under10: u10,
+            syncUnder10: u10,
+            from11to30: f11to30,
+            sync11to30: f11to30,
+            from31to60: f31to60,
+            sync31to60: f31to60,
+            over60: o60,
+            syncOver60: o60,
+            syncEmpty: sEmpty,
+            avgSyncDelaySeconds: avgDelaySec,
+            avgDelaySec: avgDelaySec,
+            instantRate: instantRate
           }
         })
         .sort((a, b) => {
@@ -2488,7 +2960,14 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
           autoExportedCount: 0,
           notAutoExportedCount: 0,
           mesCount: 0,
-          nonMesCount: 0
+          nonMesCount: 0,
+          under10: 0,
+          from11to30: 0,
+          from31to60: 0,
+          over60: 0,
+          syncEmpty: 0,
+          totalSyncSec: 0,
+          syncCount: 0
         })
       }
       const rec = map.get(dateKey)
@@ -2510,13 +2989,56 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
       const orig = String(item.source || item.origin || '').toUpperCase()
       if (orig.includes('MES')) rec.mesCount++
       else rec.nonMesCount++
+
+      const rawDelay =
+        item.syncDelay !== undefined && item.syncDelay !== null && item.syncDelay !== ''
+          ? item.syncDelay
+          : item.SyncDelayMinutes !== undefined &&
+              item.SyncDelayMinutes !== null &&
+              item.SyncDelayMinutes !== ''
+            ? item.SyncDelayMinutes
+            : item.syncDelayMinutes !== undefined &&
+                item.syncDelayMinutes !== null &&
+                item.syncDelayMinutes !== ''
+              ? item.syncDelayMinutes
+              : item.SyncDelay
+      const parsedSec = parseSyncDelayToSeconds(rawDelay, item)
+      if (parsedSec === null || parsedSec === undefined || isNaN(parsedSec)) {
+        rec.syncEmpty++
+      } else {
+        rec.totalSyncSec += parsedSec
+        rec.syncCount++
+        if (parsedSec <= 10) rec.under10++
+        else if (parsedSec <= 30) rec.from11to30++
+        else if (parsedSec <= 60) rec.from31to60++
+        else rec.over60++
+      }
     })
 
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.date === 'Khác') return 1
-      if (b.date === 'Khác') return -1
-      return String(a.date).localeCompare(String(b.date))
-    })
+    return Array.from(map.values())
+      .map((rec) => {
+        const avgDelaySec =
+          rec.syncCount > 0 ? Number((rec.totalSyncSec / rec.syncCount).toFixed(1)) : 0
+        const instantRate =
+          rec.ticketCount > 0 ? Number(((rec.under10 / rec.ticketCount) * 100).toFixed(1)) : 100
+        return {
+          ...rec,
+          syncUnder10: rec.under10,
+          sync11to30: rec.from11to30,
+          sync31to60: rec.from31to60,
+          syncOver60: rec.over60,
+          autoExportPass: rec.autoExportedCount,
+          autoExportMissing: rec.notAutoExportedCount,
+          avgSyncDelaySeconds: avgDelaySec,
+          avgDelaySec: avgDelaySec,
+          instantRate: instantRate
+        }
+      })
+      .sort((a, b) => {
+        if (a.date === 'Khác') return 1
+        if (b.date === 'Khác') return -1
+        return String(a.date).localeCompare(String(b.date))
+      })
   }, [filteredData, backendReportData])
 
   // Dữ liệu tăng trưởng các chỉ số KHSX theo mốc ngày từ API /api/v2/report/production/summary/plan
@@ -2991,15 +3513,19 @@ export function useSummaryReportLogic(initialReportType = 'stat') {
     planMetrics,
     timeStatusBreakdown,
     capaStatusBreakdown,
+    timeTimelineBreakdown,
+    capaTimelineBreakdown,
     planTeamBreakdown,
     advancedPlanMetrics,
     backendReportData,
     dailyTrendData,
     dailyAggregates,
     machineAggregates,
+    machineTimelineBreakdown,
     displayMachineList,
     machineGrandTotal,
     teamAggregates,
+    teamTimelineBreakdown,
     teamGrandTotal,
     missingAutoExportTickets,
     detailGridCols,

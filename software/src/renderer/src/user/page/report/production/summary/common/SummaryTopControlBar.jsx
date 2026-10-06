@@ -91,7 +91,6 @@ export function SummaryTopControlBar({
   const [appliedKey, setAppliedKey] = useState(currentKey)
   const isDirty = currentKey !== appliedKey
 
-
   const handleSearch = () => {
     if (!fetchData || loading) return
     if (!dateRange?.[0] || !dateRange?.[1]) {

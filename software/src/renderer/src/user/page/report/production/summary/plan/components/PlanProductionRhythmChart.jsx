@@ -567,9 +567,7 @@ export function PlanProductionRhythmChartComponent({
           <Tabs value={periodType} onValueChange={setPeriodType}>
             <TabsList>
               <TabsTrigger value="daily">Ngày</TabsTrigger>
-              {periodData.weeklyList?.length > 0 && (
-                <TabsTrigger value="weekly">Tuần</TabsTrigger>
-              )}
+              {periodData.weeklyList?.length > 0 && <TabsTrigger value="weekly">Tuần</TabsTrigger>}
               {periodData.monthlyList?.length > 0 && (
                 <TabsTrigger value="monthly">Tháng</TabsTrigger>
               )}
@@ -685,7 +683,9 @@ export function PlanProductionRhythmChartComponent({
               }}
               title={`Bấm để ${showPeakLine ? 'ẩn' : 'hiện'} đường line nối đỉnh trên các cột`}
             >
-              <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: 16 }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', position: 'relative', width: 16 }}
+              >
                 <span
                   style={{
                     width: 16,
@@ -1099,4 +1099,3 @@ export function PlanProductionRhythmChartComponent({
 export const PlanProductionRhythmChart = memo(PlanProductionRhythmChartComponent)
 
 export default PlanProductionRhythmChart
-

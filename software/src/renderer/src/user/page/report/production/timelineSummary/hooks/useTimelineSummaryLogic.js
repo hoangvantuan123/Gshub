@@ -751,7 +751,7 @@ export function useTimelineSummaryLogic() {
       const durMin = Number(item.durationMinutes || rHours * 60) || 0
       durationMinutes += durMin
       if (rHours > 12 || durMin > 720) over12hCount++
-      if (durMin < 5 && durMin >= 0) under5MinCount++
+      if (durMin < 5) under5MinCount++
 
       const orig = String(item.source || item.origin || '').toUpperCase()
       if (orig.includes('MES')) mesCount++
@@ -1195,7 +1195,7 @@ export function useTimelineSummaryLogic() {
       if (durMin > 720) {
         rec.anomalies++
       }
-      if (durMin < 5 && durMin >= 0) {
+      if (durMin < 5) {
         rec.under5Min++
       }
 
@@ -1620,7 +1620,7 @@ export function useTimelineSummaryLogic() {
       rec.runtimeHours += rHours
       const durMin = Number(item.durationMinutes ?? rHours * 60) || 0
       if (rHours > 12 || durMin > 720) rec.over12hCount++
-      if (durMin < 5 && durMin >= 0) rec.under5MinCount++
+      if (durMin < 5) rec.under5MinCount++
 
       const typeKey = getAutoExportType(item)
       if (isPassAutoIo(typeKey)) rec.autoExportedCount++

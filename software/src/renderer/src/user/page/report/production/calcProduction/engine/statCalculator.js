@@ -19,25 +19,44 @@ export const calculateTKSX = (files = {}) => {
   const statByTechnician = {}
 
   statReportData.forEach((row) => {
-    const produced = parseFloat(
-      String(row.ProducedQty ?? row['Số lượng sản xuất'] ?? row['Số lượng thực hiện'] ?? 0).replace(/,/g, '')
-    ) || 0
-    const qualified = parseFloat(
-      String(row.QualifiedQty ?? row['Số lượng đạt'] ?? 0).replace(/,/g, '')
-    ) || 0
-    const defect = parseFloat(
-      String(row.DefectQty ?? row['Số lượng lỗi'] ?? 0).replace(/,/g, '')
-    ) || 0
-    const downtime = parseFloat(
-      String(row.TotalDowntimeMinutes ?? row['Tổng tg hao phí (5)=1+2+3+4'] ?? row['Tổng tg hao phí'] ?? 0).replace(/,/g, '')
-    ) || 0
-    const syncDelay = parseFloat(
-      String(row.SyncLatencySeconds ?? row['Độ trễ thời gian đồng bộ 2 hệ thống'] ?? 0).replace(/,/g, '')
-    ) || 0
+    const produced =
+      parseFloat(
+        String(
+          row.ProducedQty ?? row['Số lượng sản xuất'] ?? row['Số lượng thực hiện'] ?? 0
+        ).replace(/,/g, '')
+      ) || 0
+    const qualified =
+      parseFloat(String(row.QualifiedQty ?? row['Số lượng đạt'] ?? 0).replace(/,/g, '')) || 0
+    const defect =
+      parseFloat(String(row.DefectQty ?? row['Số lượng lỗi'] ?? 0).replace(/,/g, '')) || 0
+    const downtime =
+      parseFloat(
+        String(
+          row.TotalDowntimeMinutes ??
+            row['Tổng tg hao phí (5)=1+2+3+4'] ??
+            row['Tổng tg hao phí'] ??
+            0
+        ).replace(/,/g, '')
+      ) || 0
+    const syncDelay =
+      parseFloat(
+        String(row.SyncLatencySeconds ?? row['Độ trễ thời gian đồng bộ 2 hệ thống'] ?? 0).replace(
+          /,/g,
+          ''
+        )
+      ) || 0
 
-    const machine = String(row.MachineName ?? row['Tên máy sản xuất'] ?? row.MachineCode ?? row['Mã máy sản xuất'] ?? 'Khác').trim()
+    const machine = String(
+      row.MachineName ??
+        row['Tên máy sản xuất'] ??
+        row.MachineCode ??
+        row['Mã máy sản xuất'] ??
+        'Khác'
+    ).trim()
     const team = String(row.ProductionTeam ?? row['Tổ sản xuất'] ?? 'Khác').trim()
-    const leadTech = String(row.LeadTechnicianName ?? row['Thợ chính'] ?? row['Họ tên thợ chính'] ?? 'Khác').trim()
+    const leadTech = String(
+      row.LeadTechnicianName ?? row['Thợ chính'] ?? row['Họ tên thợ chính'] ?? 'Khác'
+    ).trim()
     const asst1 = String(row.AssistantWorker1Name ?? row['Thợ phụ 1'] ?? '').trim()
     const asst2 = String(row.AssistantWorker2Name ?? row['Thợ phụ 2'] ?? '').trim()
 
@@ -53,7 +72,13 @@ export const calculateTKSX = (files = {}) => {
 
     // Thống kê theo máy
     if (!statByMachine[machine]) {
-      statByMachine[machine] = { machine, producedQty: 0, qualifiedQty: 0, defectQty: 0, ticketCount: 0 }
+      statByMachine[machine] = {
+        machine,
+        producedQty: 0,
+        qualifiedQty: 0,
+        defectQty: 0,
+        ticketCount: 0
+      }
     }
     statByMachine[machine].producedQty += produced
     statByMachine[machine].qualifiedQty += qualified
@@ -71,7 +96,12 @@ export const calculateTKSX = (files = {}) => {
     // Thống kê theo thợ chính
     if (leadTech && leadTech !== 'Khác') {
       if (!statByTechnician[leadTech]) {
-        statByTechnician[leadTech] = { technician: leadTech, producedQty: 0, qualifiedQty: 0, defectQty: 0 }
+        statByTechnician[leadTech] = {
+          technician: leadTech,
+          producedQty: 0,
+          qualifiedQty: 0,
+          defectQty: 0
+        }
       }
       statByTechnician[leadTech].producedQty += produced
       statByTechnician[leadTech].qualifiedQty += qualified
@@ -93,7 +123,8 @@ export const calculateTKSX = (files = {}) => {
     mesApprovedDefectQty += d
   })
 
-  const defectRate = totalProducedQty > 0 ? Number(((totalDefectQty / totalProducedQty) * 100).toFixed(2)) : 0
+  const defectRate =
+    totalProducedQty > 0 ? Number(((totalDefectQty / totalProducedQty) * 100).toFixed(2)) : 0
   const avgSyncDelay = syncCount > 0 ? Number((totalSyncDelaySec / syncCount).toFixed(1)) : 0
 
   return {
@@ -114,6 +145,8 @@ export const calculateTKSX = (files = {}) => {
     },
     machineBreakdown: Object.values(statByMachine).sort((a, b) => b.producedQty - a.producedQty),
     teamBreakdown: Object.values(statByTeam).sort((a, b) => b.producedQty - a.producedQty),
-    technicianBreakdown: Object.values(statByTechnician).sort((a, b) => b.producedQty - a.producedQty)
+    technicianBreakdown: Object.values(statByTechnician).sort(
+      (a, b) => b.producedQty - a.producedQty
+    )
   }
 }

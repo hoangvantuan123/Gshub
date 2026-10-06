@@ -90,12 +90,7 @@ export const TAB_SIGNATURES = {
   [ARCHITECTURE_FILE_TYPES.MES_APPROVAL]: {
     id: ARCHITECTURE_FILE_TYPES.MES_APPROVAL,
     title: '4. Duyệt Sản Lượng MES',
-    specificKeywords: [
-      'số phiếu duyệt',
-      'phiếu duyệt',
-      'người duyệt',
-      'thời gian duyệt'
-    ]
+    specificKeywords: ['số phiếu duyệt', 'phiếu duyệt', 'người duyệt', 'thời gian duyệt']
   }
 }
 
@@ -198,7 +193,11 @@ export const validateFileTypeMatch = (rawRows, expectedFileType) => {
   const expectedTitle = TAB_SIGNATURES[expectedFileType]?.title || expectedFileType
 
   // Trường hợp file khớp với Tab hiện tại
-  const threshold = expectedFileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL || expectedFileType === ARCHITECTURE_FILE_TYPES.SUMMARY_OP ? 1 : 2
+  const threshold =
+    expectedFileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ||
+    expectedFileType === ARCHITECTURE_FILE_TYPES.SUMMARY_OP
+      ? 1
+      : 2
   if (expectedScore >= threshold) {
     return { valid: true, detectedType: expectedFileType }
   }
@@ -252,11 +251,24 @@ const isActualDataRow = (row) => {
   nonEmpty.forEach((c) => {
     const str = String(c).trim()
     // Nhận diện mã lệnh TT/CD/SO/PO
-    if (/^(TT|CD|SO|PO|REG|SA)\d+/i.test(str) || str.includes('(170)') || str.includes('(964)') || str.includes('(165)') || str.includes('(163)') || str.includes('(161)') || str.includes('(159)') || str.includes('(157)') || str.includes('CD05-')) {
+    if (
+      /^(TT|CD|SO|PO|REG|SA)\d+/i.test(str) ||
+      str.includes('(170)') ||
+      str.includes('(964)') ||
+      str.includes('(165)') ||
+      str.includes('(163)') ||
+      str.includes('(161)') ||
+      str.includes('(159)') ||
+      str.includes('(157)') ||
+      str.includes('CD05-')
+    ) {
       dataPatternCount += 2
     }
     // Nhận diện mã sản phẩm / mã vật tư
-    if (/^[A-Z0-9]{2,4}-[A-Z0-9]{2,4}-\d+/i.test(str) || /^[A-Z0-9]{2,4}-[A-Z0-9]{2,4}/i.test(str)) {
+    if (
+      /^[A-Z0-9]{2,4}-[A-Z0-9]{2,4}-\d+/i.test(str) ||
+      /^[A-Z0-9]{2,4}-[A-Z0-9]{2,4}/i.test(str)
+    ) {
       dataPatternCount += 2
     }
     // Số lượng lớn
@@ -342,15 +354,25 @@ export const parseUploadedFile = async (file, fileType) => {
           const isNextData = isActualDataRow(nextRow)
 
           const hasSubWords = (nextRow || []).some((c) => {
-            const str = String(c || '').toLowerCase().trim()
+            const str = String(c || '')
+              .toLowerCase()
+              .trim()
             return SUB_HEADER_KEYWORDS.some((kw) => str.includes(kw))
           })
 
-          const nextRowNonEmptyCount = (nextRow || []).filter((c) => c !== '' && c !== null && c !== undefined).length
-          const row0NonEmptyCount = (rawRows[headerRow0Idx] || []).filter((c) => c !== '' && c !== null && c !== undefined).length
+          const nextRowNonEmptyCount = (nextRow || []).filter(
+            (c) => c !== '' && c !== null && c !== undefined
+          ).length
+          const row0NonEmptyCount = (rawRows[headerRow0Idx] || []).filter(
+            (c) => c !== '' && c !== null && c !== undefined
+          ).length
 
           // Nếu dòng kế tiếp KHÔNG phải là data thực tế VÀ (có từ khóa sub-header HOẶC phần lớn ô bị trống do gộp cột)
-          if (!isNextData && (hasSubWords || (nextRowNonEmptyCount > 0 && nextRowNonEmptyCount <= row0NonEmptyCount * 0.8))) {
+          if (
+            !isNextData &&
+            (hasSubWords ||
+              (nextRowNonEmptyCount > 0 && nextRowNonEmptyCount <= row0NonEmptyCount * 0.8))
+          ) {
             isTwoTier = true
             dataStartRow = headerRow0Idx + 2
           } else {
@@ -398,7 +420,7 @@ export const parseUploadedFile = async (file, fileType) => {
 
         for (let c = 0; c < maxCols; c++) {
           const val0 = row0[c] || ''
-          const val1 = isTwoTier ? (row1[c] || '') : ''
+          const val1 = isTwoTier ? row1[c] || '' : ''
 
           // Kiểm tra xem cột c có bất kỳ dữ liệu nào trong toàn bộ bảng không
           let hasColumnData = false
@@ -462,7 +484,10 @@ export const parseUploadedFile = async (file, fileType) => {
             }
           }
           // Phân giải Đơn hàng bán chi tiết > Số lượng
-          else if (groupLower.includes('đơn hàng') && (titleLower.includes('số lượng') || titleLower === 'số lượng')) {
+          else if (
+            groupLower.includes('đơn hàng') &&
+            (titleLower.includes('số lượng') || titleLower === 'số lượng')
+          ) {
             resolvedKey = 'DetailQty'
             resolvedTitle = 'Số lượng'
           }
@@ -526,7 +551,10 @@ export const parseUploadedFile = async (file, fileType) => {
             }
 
             // Tự động định dạng số serial ngày Excel (VD: 46261 -> 27/08/2026) nếu cột là Ngày
-            if ((title.toLowerCase().includes('ngày') || key.toLowerCase().includes('date')) && typeof val === 'number') {
+            if (
+              (title.toLowerCase().includes('ngày') || key.toLowerCase().includes('date')) &&
+              typeof val === 'number'
+            ) {
               val = formatExcelDate(val)
             }
 

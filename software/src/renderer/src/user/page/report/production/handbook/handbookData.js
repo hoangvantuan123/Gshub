@@ -354,8 +354,7 @@ export const STAT_FORMULA_DATABASE = [
     scope: 'Bảng 2: Thời gian chạy máy theo ngày & Báo cáo Matrix',
     formula: 'COUNT(Days) WHERE RuntimeHours > 0',
     source: 'Tổng hợp số ngày phát sinh thời gian chạy máy > 0h trong chu kỳ lọc',
-    description:
-      'Đếm tổng số ngày mà máy có phát sinh thời gian sản xuất thực tế lớn hơn 0 giờ.',
+    description: 'Đếm tổng số ngày mà máy có phát sinh thời gian sản xuất thực tế lớn hơn 0 giờ.',
     notes: 'Được sử dụng làm mẫu số để tính toán chỉ số TB/NG.'
   },
   {

@@ -15,7 +15,11 @@ export function FileTabViewer({ fileData, expectedColumns = [] }) {
     if (!searchTerm.trim()) return rows
     const term = searchTerm.toLowerCase().trim()
     return rows.filter((r) => {
-      return Object.values(r).some((v) => String(v || '').toLowerCase().includes(term))
+      return Object.values(r).some((v) =>
+        String(v || '')
+          .toLowerCase()
+          .includes(term)
+      )
     })
   }, [rows, searchTerm])
 
@@ -49,7 +53,14 @@ export function FileTabViewer({ fileData, expectedColumns = [] }) {
   }
 
   return (
-    <div style={{ border: '1px solid #e2e8f0', borderRadius: 6, background: '#ffffff', overflow: 'hidden' }}>
+    <div
+      style={{
+        border: '1px solid #e2e8f0',
+        borderRadius: 6,
+        background: '#ffffff',
+        overflow: 'hidden'
+      }}
+    >
       {/* Header toolbar */}
       <div
         style={{
@@ -77,12 +88,15 @@ export function FileTabViewer({ fileData, expectedColumns = [] }) {
             allowClear
           />
           <span style={{ fontSize: 12, color: '#64748b' }}>
-            Hiển thị <b>{filteredRows.length.toLocaleString('vi-VN')}</b> / {rows.length.toLocaleString('vi-VN')} dòng
+            Hiển thị <b>{filteredRows.length.toLocaleString('vi-VN')}</b> /{' '}
+            {rows.length.toLocaleString('vi-VN')} dòng
           </span>
         </div>
 
         {/* Pagination controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#475569' }}>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#475569' }}
+        >
           <span>
             Trang {page} / {totalPages}
           </span>
@@ -130,7 +144,15 @@ export function FileTabViewer({ fileData, expectedColumns = [] }) {
         >
           <thead>
             <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #cbd5e1' }}>
-              <th style={{ padding: '8px 10px', width: 48, textAlign: 'center', color: '#64748b', fontWeight: 700 }}>
+              <th
+                style={{
+                  padding: '8px 10px',
+                  width: 48,
+                  textAlign: 'center',
+                  color: '#64748b',
+                  fontWeight: 700
+                }}
+              >
                 STT
               </th>
               {columns.map((col, idx) => (

@@ -59,7 +59,7 @@ export const saveArchitectureFileSQLite = async (fileType, fileData) => {
         fileType,
         fileName: fileData.fileName || '',
         fileSize: fileData.fileSize || 0,
-        rowCount: fileData.rowCount || (fileData.data?.length || 0),
+        rowCount: fileData.rowCount || fileData.data?.length || 0,
         columns: JSON.stringify(fileData.columns || []),
         data: JSON.stringify(fileData.data || []),
         uploadedAt: fileData.uploadedAt || new Date().toISOString()

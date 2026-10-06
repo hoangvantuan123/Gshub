@@ -67,7 +67,7 @@ export function useArchitectureStorage({ autoLoad = false } = {}) {
         fileType,
         fileName: fileData.fileName || '',
         fileSize: fileData.fileSize || 0,
-        rowCount: fileData.rowCount || (fileData.data?.length || 0),
+        rowCount: fileData.rowCount || fileData.data?.length || 0,
         columns: fileData.columns || [],
         uploadedAt: fileData.uploadedAt || new Date().toISOString()
       }

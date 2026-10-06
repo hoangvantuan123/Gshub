@@ -38,8 +38,10 @@ export function CalculationControlBar({
               borderRadius: 12,
               fontSize: 12,
               fontWeight: 700,
-              background: uploadedCount === totalTabs ? '#dcfce7' : uploadedCount > 0 ? '#fef3c7' : '#f1f5f9',
-              color: uploadedCount === totalTabs ? '#15803d' : uploadedCount > 0 ? '#b45309' : '#64748b'
+              background:
+                uploadedCount === totalTabs ? '#dcfce7' : uploadedCount > 0 ? '#fef3c7' : '#f1f5f9',
+              color:
+                uploadedCount === totalTabs ? '#15803d' : uploadedCount > 0 ? '#b45309' : '#64748b'
             }}
           >
             {uploadedCount} / {totalTabs} file đã nạp
@@ -52,12 +54,7 @@ export function CalculationControlBar({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRefresh}
-          title="Tải lại từ bộ nhớ đệm"
-        >
+        <Button variant="outline" size="sm" onClick={onRefresh} title="Tải lại từ bộ nhớ đệm">
           <RotateCcw size={14} className="mr-1" /> Làm mới
         </Button>
 

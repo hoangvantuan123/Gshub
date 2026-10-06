@@ -98,7 +98,10 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
         await saveFile(fileType, parsed)
         setIsRegistered(false)
         const tabTitle = TAB_DEFINITIONS.find((t) => t.id === fileType)?.title || fileType
-        notify('success', `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng cho ${tabTitle}`)
+        notify(
+          'success',
+          `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng cho ${tabTitle}`
+        )
       } catch (err) {
         notify('error', `Lỗi nạp file: ${err.message}`)
       } finally {

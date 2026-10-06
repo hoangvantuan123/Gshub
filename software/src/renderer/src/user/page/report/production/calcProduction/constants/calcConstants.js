@@ -23,13 +23,43 @@ export const ARCHITECTURE_FILE_TYPES = {
  */
 export const STAT_REPORT_COLUMN_SCHEMA = [
   // Nhóm 1: Thông tin lệnh thao tác
-  { group: 'Thông tin lệnh thao tác', title: 'Mã vật tư', key: 'MaterialCode', kind: 'Text', width: 140 },
-  { group: 'Thông tin lệnh thao tác', title: 'Tên vật tư', key: 'MaterialName', kind: 'Text', width: 260 },
+  {
+    group: 'Thông tin lệnh thao tác',
+    title: 'Mã vật tư',
+    key: 'MaterialCode',
+    kind: 'Text',
+    width: 140
+  },
+  {
+    group: 'Thông tin lệnh thao tác',
+    title: 'Tên vật tư',
+    key: 'MaterialName',
+    kind: 'Text',
+    width: 260
+  },
   { group: 'Thông tin lệnh thao tác', title: 'Version', key: 'Version', kind: 'Text', width: 80 },
   { group: 'Thông tin lệnh thao tác', title: 'Model', key: 'Model', kind: 'Text', width: 100 },
-  { group: 'Thông tin lệnh thao tác', title: 'Trọng lượng Sp/lề NG', key: 'ProductNgWeight', kind: 'Number', width: 140 },
-  { group: 'Thông tin lệnh thao tác', title: 'Trọng lượng lề kỹ thuật', key: 'TechnicalMarginWeight', kind: 'Number', width: 150 },
-  { group: 'Thông tin lệnh thao tác', title: 'Số lệnh thao tác', key: 'OperationOrderNo', kind: 'Text', width: 150 },
+  {
+    group: 'Thông tin lệnh thao tác',
+    title: 'Trọng lượng Sp/lề NG',
+    key: 'ProductNgWeight',
+    kind: 'Number',
+    width: 140
+  },
+  {
+    group: 'Thông tin lệnh thao tác',
+    title: 'Trọng lượng lề kỹ thuật',
+    key: 'TechnicalMarginWeight',
+    kind: 'Number',
+    width: 150
+  },
+  {
+    group: 'Thông tin lệnh thao tác',
+    title: 'Số lệnh thao tác',
+    key: 'OperationOrderNo',
+    kind: 'Text',
+    width: 150
+  },
 
   // Nhóm 2: Thợ máy (Đã phân tách để tránh trùng lặp Họ tên)
   { group: 'Thợ chính', title: 'Họ tên', key: 'LeadTechnicianName', kind: 'Text', width: 150 },
@@ -37,23 +67,95 @@ export const STAT_REPORT_COLUMN_SCHEMA = [
   { group: 'Thợ phụ 2', title: 'Họ tên', key: 'AssistantWorker2Name', kind: 'Text', width: 150 },
 
   // Nhóm 3: Máy & Phân loại
-  { group: 'Thiết bị & Thao tác', title: 'Nguyên nhân hỏng máy', key: 'MachineBreakdownReason', kind: 'Text', width: 160 },
-  { group: 'Thiết bị & Thao tác', title: 'Mã máy sản xuất', key: 'MachineCode', kind: 'Text', width: 120 },
-  { group: 'Thiết bị & Thao tác', title: 'Tên máy sản xuất', key: 'MachineName', kind: 'Text', width: 180 },
-  { group: 'Thiết bị & Thao tác', title: 'Mã phân loại thao tác', key: 'OperationTypeCode', kind: 'Text', width: 140 },
-  { group: 'Thiết bị & Thao tác', title: 'Phân loại thao tác', key: 'OperationTypeName', kind: 'Text', width: 160 },
+  {
+    group: 'Thiết bị & Thao tác',
+    title: 'Nguyên nhân hỏng máy',
+    key: 'MachineBreakdownReason',
+    kind: 'Text',
+    width: 160
+  },
+  {
+    group: 'Thiết bị & Thao tác',
+    title: 'Mã máy sản xuất',
+    key: 'MachineCode',
+    kind: 'Text',
+    width: 120
+  },
+  {
+    group: 'Thiết bị & Thao tác',
+    title: 'Tên máy sản xuất',
+    key: 'MachineName',
+    kind: 'Text',
+    width: 180
+  },
+  {
+    group: 'Thiết bị & Thao tác',
+    title: 'Mã phân loại thao tác',
+    key: 'OperationTypeCode',
+    kind: 'Text',
+    width: 140
+  },
+  {
+    group: 'Thiết bị & Thao tác',
+    title: 'Phân loại thao tác',
+    key: 'OperationTypeName',
+    kind: 'Text',
+    width: 160
+  },
   { group: 'Thiết bị & Thao tác', title: 'Kẽm UV', key: 'UvPlate', kind: 'Text', width: 90 },
 
   // Nhóm 4: Khuôn
-  { group: 'Thông tin khuôn', title: 'SL lên khuôn 1', key: 'MoldSetupQty1', kind: 'Number', width: 110 },
-  { group: 'Thông tin khuôn', title: 'SL lên khuôn 2', key: 'MoldSetupQty2', kind: 'Number', width: 110 },
-  { group: 'Thông tin khuôn', title: 'SL lên khuôn 3', key: 'MoldSetupQty3', kind: 'Number', width: 110 },
+  {
+    group: 'Thông tin khuôn',
+    title: 'SL lên khuôn 1',
+    key: 'MoldSetupQty1',
+    kind: 'Number',
+    width: 110
+  },
+  {
+    group: 'Thông tin khuôn',
+    title: 'SL lên khuôn 2',
+    key: 'MoldSetupQty2',
+    kind: 'Number',
+    width: 110
+  },
+  {
+    group: 'Thông tin khuôn',
+    title: 'SL lên khuôn 3',
+    key: 'MoldSetupQty3',
+    kind: 'Number',
+    width: 110
+  },
 
   // Nhóm 5: Số lượng thực hiện
-  { group: 'Số lượng thực hiện', title: 'Số lượng sản xuất', key: 'ProducedQty', kind: 'Number', width: 130 },
-  { group: 'Số lượng thực hiện', title: 'Số lượng đạt', key: 'QualifiedQty', kind: 'Number', width: 120 },
-  { group: 'Số lượng thực hiện', title: 'Số mét thực tế', key: 'ActualMeters', kind: 'Number', width: 120 },
-  { group: 'Số lượng thực hiện', title: 'Số mét định mức', key: 'StandardMeters', kind: 'Number', width: 130 },
+  {
+    group: 'Số lượng thực hiện',
+    title: 'Số lượng sản xuất',
+    key: 'ProducedQty',
+    kind: 'Number',
+    width: 130
+  },
+  {
+    group: 'Số lượng thực hiện',
+    title: 'Số lượng đạt',
+    key: 'QualifiedQty',
+    kind: 'Number',
+    width: 120
+  },
+  {
+    group: 'Số lượng thực hiện',
+    title: 'Số mét thực tế',
+    key: 'ActualMeters',
+    kind: 'Number',
+    width: 120
+  },
+  {
+    group: 'Số lượng thực hiện',
+    title: 'Số mét định mức',
+    key: 'StandardMeters',
+    kind: 'Number',
+    width: 130
+  },
 
   // Nhóm 6: Tổ & Ca
   { group: 'Tổ & Ca', title: 'Tổ sản xuất', key: 'ProductionTeam', kind: 'Text', width: 180 },
@@ -62,91 +164,439 @@ export const STAT_REPORT_COLUMN_SCHEMA = [
   // Nhóm 7: Thời gian thực hiện
   { group: 'Thời gian thực hiện', title: 'Bắt đầu', key: 'StartTime', kind: 'Text', width: 90 },
   { group: 'Thời gian thực hiện', title: 'Kết thúc', key: 'EndTime', kind: 'Text', width: 90 },
-  { group: 'Thời gian thực hiện', title: 'Ngày bắt đầu', key: 'StartDate', kind: 'Text', width: 100 },
-  { group: 'Thời gian thực hiện', title: 'Ngày kết thúc', key: 'EndDate', kind: 'Text', width: 100 },
-  { group: 'Thời gian thực hiện', title: 'Ngày thống kê', key: 'StatDate', kind: 'Text', width: 110 },
-  { group: 'Thời gian thực hiện', title: 'Số phiếu thống kê', key: 'StatSlipNo', kind: 'Text', width: 140 },
-  { group: 'Thời gian thực hiện', title: 'Nhân viên thống kê', key: 'StatEmployee', kind: 'Text', width: 130 },
+  {
+    group: 'Thời gian thực hiện',
+    title: 'Ngày bắt đầu',
+    key: 'StartDate',
+    kind: 'Text',
+    width: 100
+  },
+  {
+    group: 'Thời gian thực hiện',
+    title: 'Ngày kết thúc',
+    key: 'EndDate',
+    kind: 'Text',
+    width: 100
+  },
+  {
+    group: 'Thời gian thực hiện',
+    title: 'Ngày thống kê',
+    key: 'StatDate',
+    kind: 'Text',
+    width: 110
+  },
+  {
+    group: 'Thời gian thực hiện',
+    title: 'Số phiếu thống kê',
+    key: 'StatSlipNo',
+    kind: 'Text',
+    width: 140
+  },
+  {
+    group: 'Thời gian thực hiện',
+    title: 'Nhân viên thống kê',
+    key: 'StatEmployee',
+    kind: 'Text',
+    width: 130
+  },
 
   // Nhóm 8: Thông tin chung
   { group: 'Thông tin chung', title: 'Khách hàng', key: 'CustomerName', kind: 'Text', width: 180 },
-  { group: 'Thông tin chung', title: 'Nhân viên kinh doanh', key: 'SalesPerson', kind: 'Text', width: 150 },
+  {
+    group: 'Thông tin chung',
+    title: 'Nhân viên kinh doanh',
+    key: 'SalesPerson',
+    kind: 'Text',
+    width: 150
+  },
   { group: 'Thông tin chung', title: 'Số đơn hàng', key: 'OrderNo', kind: 'Text', width: 130 },
   { group: 'Thông tin chung', title: 'Công đoạn', key: 'StageCode', kind: 'Text', width: 100 },
   { group: 'Thông tin chung', title: 'Đvt', key: 'Unit', kind: 'Text', width: 80 },
-  { group: 'Thông tin chung', title: 'Đơn vị quy đổi', key: 'ConvertUnit', kind: 'Text', width: 160 },
+  {
+    group: 'Thông tin chung',
+    title: 'Đơn vị quy đổi',
+    key: 'ConvertUnit',
+    kind: 'Text',
+    width: 160
+  },
   { group: 'Thông tin chung', title: 'QTCN', key: 'ProcessFlow', kind: 'Text', width: 240 },
 
   // Nhóm 9: Thông tin sản phẩm
   { group: 'Thông tin sản phẩm', title: 'Số part', key: 'PartCount', kind: 'Number', width: 80 },
-  { group: 'Thông tin sản phẩm', title: 'Số part sóng', key: 'CorrugatorPartCount', kind: 'Number', width: 100 },
-  { group: 'Thông tin sản phẩm', title: 'Số part xén', key: 'CutPartCount', kind: 'Number', width: 90 },
-  { group: 'Thông tin sản phẩm', title: 'Số lượng màu in', key: 'PrintColorCount', kind: 'Number', width: 110 },
-  { group: 'Thông tin sản phẩm', title: 'Loại Out bản', key: 'PlateOutType', kind: 'Text', width: 110 },
-  { group: 'Thông tin sản phẩm', title: 'Số lượng màu in mặt 1', key: 'FrontColorCount', kind: 'Number', width: 140 },
-  { group: 'Thông tin sản phẩm', title: 'Số lượng màu in mặt 2', key: 'BackColorCount', kind: 'Number', width: 140 },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Số part sóng',
+    key: 'CorrugatorPartCount',
+    kind: 'Number',
+    width: 100
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Số part xén',
+    key: 'CutPartCount',
+    kind: 'Number',
+    width: 90
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Số lượng màu in',
+    key: 'PrintColorCount',
+    kind: 'Number',
+    width: 110
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Loại Out bản',
+    key: 'PlateOutType',
+    kind: 'Text',
+    width: 110
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Số lượng màu in mặt 1',
+    key: 'FrontColorCount',
+    kind: 'Number',
+    width: 140
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Số lượng màu in mặt 2',
+    key: 'BackColorCount',
+    kind: 'Number',
+    width: 140
+  },
   { group: 'Thông tin sản phẩm', title: 'Số Job', key: 'JobNo', kind: 'Text', width: 80 },
-  { group: 'Thông tin sản phẩm', title: 'Rộng/ khổ cuộn', key: 'RollWidth', kind: 'Number', width: 110 },
-  { group: 'Thông tin sản phẩm', title: 'Dài/ chiều chặt', key: 'CutLength', kind: 'Number', width: 110 },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Rộng/ khổ cuộn',
+    key: 'RollWidth',
+    kind: 'Number',
+    width: 110
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Dài/ chiều chặt',
+    key: 'CutLength',
+    kind: 'Number',
+    width: 110
+  },
   { group: 'Thông tin sản phẩm', title: 'Cao', key: 'Height', kind: 'Number', width: 80 },
   { group: 'Thông tin sản phẩm', title: 'Dòng hàng', key: 'ProductLine', kind: 'Text', width: 160 },
-  { group: 'Thông tin sản phẩm', title: 'Rộng/ khổ cuộn NVL', key: 'RawMaterialWidth', kind: 'Number', width: 130 },
-  { group: 'Thông tin sản phẩm', title: 'Dài/ chiều chặt NVL', key: 'RawMaterialLength', kind: 'Number', width: 130 },
-  { group: 'Thông tin sản phẩm', title: 'Mã dòng hàng NVL', key: 'RawMaterialLineCode', kind: 'Text', width: 130 },
-  { group: 'Thông tin sản phẩm', title: 'Dòng hàng NVL', key: 'RawMaterialLineName', kind: 'Text', width: 150 },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Rộng/ khổ cuộn NVL',
+    key: 'RawMaterialWidth',
+    kind: 'Number',
+    width: 130
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Dài/ chiều chặt NVL',
+    key: 'RawMaterialLength',
+    kind: 'Number',
+    width: 130
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Mã dòng hàng NVL',
+    key: 'RawMaterialLineCode',
+    kind: 'Text',
+    width: 130
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Dòng hàng NVL',
+    key: 'RawMaterialLineName',
+    kind: 'Text',
+    width: 150
+  },
   { group: 'Thông tin sản phẩm', title: 'Kiểu trở', key: 'TurnType', kind: 'Text', width: 90 },
-  { group: 'Thông tin sản phẩm', title: 'Số lượng kẽm theo BOM', key: 'BomPlateQty', kind: 'Number', width: 140 },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Số lượng kẽm theo BOM',
+    key: 'BomPlateQty',
+    kind: 'Number',
+    width: 140
+  },
   { group: 'Thông tin sản phẩm', title: 'Phủ', key: 'Coating', kind: 'Text', width: 80 },
-  { group: 'Thông tin sản phẩm', title: 'Số dao chia', key: 'SlitterKnifeCount', kind: 'Number', width: 95 },
-  { group: 'Thông tin sản phẩm', title: 'Số vị trí bắn code', key: 'CodeGunPositionCount', kind: 'Number', width: 130 },
-  { group: 'Thông tin sản phẩm', title: 'Số lỗ đột', key: 'PunchHoleCount', kind: 'Number', width: 90 },
-  { group: 'Thông tin sản phẩm', title: 'Mã loại kết cầu', key: 'StructureTypeCode', kind: 'Text', width: 120 },
-  { group: 'Thông tin sản phẩm', title: 'Tên loại kết cầu', key: 'StructureTypeName', kind: 'Text', width: 160 },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Số dao chia',
+    key: 'SlitterKnifeCount',
+    kind: 'Number',
+    width: 95
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Số vị trí bắn code',
+    key: 'CodeGunPositionCount',
+    kind: 'Number',
+    width: 130
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Số lỗ đột',
+    key: 'PunchHoleCount',
+    kind: 'Number',
+    width: 90
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Mã loại kết cầu',
+    key: 'StructureTypeCode',
+    kind: 'Text',
+    width: 120
+  },
+  {
+    group: 'Thông tin sản phẩm',
+    title: 'Tên loại kết cầu',
+    key: 'StructureTypeName',
+    kind: 'Text',
+    width: 160
+  },
 
   // Nhóm 10: Thông tin lệnh công đoạn
-  { group: 'Thông tin lệnh công đoạn', title: 'Số lệnh công đoạn', key: 'StageOrderNo', kind: 'Text', width: 150 },
-  { group: 'Thông tin lệnh công đoạn', title: 'Ngày lệnh công đoạn', key: 'StageOrderDate', kind: 'Text', width: 130 },
-  { group: 'Thông tin lệnh công đoạn', title: 'Ngày phát hành lệnh CĐ', key: 'StageOrderReleaseDate', kind: 'Text', width: 150 },
-  { group: 'Thông tin lệnh công đoạn', title: 'SL cần đạt (CĐ)', key: 'StageTargetQty', kind: 'Number', width: 120 },
-  { group: 'Thông tin lệnh công đoạn', title: 'SL cần sản xuất (CĐ)', key: 'StagePlannedQty', kind: 'Number', width: 140 },
+  {
+    group: 'Thông tin lệnh công đoạn',
+    title: 'Số lệnh công đoạn',
+    key: 'StageOrderNo',
+    kind: 'Text',
+    width: 150
+  },
+  {
+    group: 'Thông tin lệnh công đoạn',
+    title: 'Ngày lệnh công đoạn',
+    key: 'StageOrderDate',
+    kind: 'Text',
+    width: 130
+  },
+  {
+    group: 'Thông tin lệnh công đoạn',
+    title: 'Ngày phát hành lệnh CĐ',
+    key: 'StageOrderReleaseDate',
+    kind: 'Text',
+    width: 150
+  },
+  {
+    group: 'Thông tin lệnh công đoạn',
+    title: 'SL cần đạt (CĐ)',
+    key: 'StageTargetQty',
+    kind: 'Number',
+    width: 120
+  },
+  {
+    group: 'Thông tin lệnh công đoạn',
+    title: 'SL cần sản xuất (CĐ)',
+    key: 'StagePlannedQty',
+    kind: 'Number',
+    width: 140
+  },
 
   // Nhóm 11: Thông tin lệnh thao tác
-  { group: 'Lệnh thao tác chi tiết', title: 'Ngày phát hành lệnh TT', key: 'OpOrderReleaseDate', kind: 'Text', width: 150 },
-  { group: 'Lệnh thao tác chi tiết', title: 'SL cần đạt (TT)', key: 'OpTargetQty', kind: 'Number', width: 120 },
-  { group: 'Lệnh thao tác chi tiết', title: 'SL cần sản xuất (TT)', key: 'OpPlannedQty', kind: 'Number', width: 140 },
+  {
+    group: 'Lệnh thao tác chi tiết',
+    title: 'Ngày phát hành lệnh TT',
+    key: 'OpOrderReleaseDate',
+    kind: 'Text',
+    width: 150
+  },
+  {
+    group: 'Lệnh thao tác chi tiết',
+    title: 'SL cần đạt (TT)',
+    key: 'OpTargetQty',
+    kind: 'Number',
+    width: 120
+  },
+  {
+    group: 'Lệnh thao tác chi tiết',
+    title: 'SL cần sản xuất (TT)',
+    key: 'OpPlannedQty',
+    kind: 'Number',
+    width: 140
+  },
   { group: 'Lệnh thao tác chi tiết', title: 'Đvt', key: 'OpUnit', kind: 'Text', width: 80 },
 
   // Nhóm 12: Thời gian lãng phí
-  { group: 'Thời gian lãng phí', title: 'TG hỏng máy/mất điện (phút) (01)', key: 'DowntimeBreakdownMinutes', kind: 'Number', width: 180 },
-  { group: 'Thời gian lãng phí', title: 'Tg chờ NVL (phút) (02)', key: 'DowntimeWaitingMaterialMinutes', kind: 'Number', width: 160 },
-  { group: 'Thời gian lãng phí', title: 'Tg chuẩn bị (phút) (03)', key: 'DowntimeSetupMinutes', kind: 'Number', width: 150 },
-  { group: 'Thời gian lãng phí', title: 'TG sửa file/khuôn/bản (phút) (04)', key: 'DowntimeFixingMinutes', kind: 'Number', width: 180 },
-  { group: 'Thời gian lãng phí', title: 'Tổng tg hao phí (5)=1+2+3+4', key: 'TotalDowntimeMinutes', kind: 'Number', width: 170 },
+  {
+    group: 'Thời gian lãng phí',
+    title: 'TG hỏng máy/mất điện (phút) (01)',
+    key: 'DowntimeBreakdownMinutes',
+    kind: 'Number',
+    width: 180
+  },
+  {
+    group: 'Thời gian lãng phí',
+    title: 'Tg chờ NVL (phút) (02)',
+    key: 'DowntimeWaitingMaterialMinutes',
+    kind: 'Number',
+    width: 160
+  },
+  {
+    group: 'Thời gian lãng phí',
+    title: 'Tg chuẩn bị (phút) (03)',
+    key: 'DowntimeSetupMinutes',
+    kind: 'Number',
+    width: 150
+  },
+  {
+    group: 'Thời gian lãng phí',
+    title: 'TG sửa file/khuôn/bản (phút) (04)',
+    key: 'DowntimeFixingMinutes',
+    kind: 'Number',
+    width: 180
+  },
+  {
+    group: 'Thời gian lãng phí',
+    title: 'Tổng tg hao phí (5)=1+2+3+4',
+    key: 'TotalDowntimeMinutes',
+    kind: 'Number',
+    width: 170
+  },
 
   // Nhóm 13: Trạng thái & Chất lượng
-  { group: 'Trạng thái & Chất lượng', title: 'Bồi chia hộp cứng', key: 'LaminationBoxSplit', kind: 'Text', width: 130 },
-  { group: 'Trạng thái & Chất lượng', title: 'Gia công', key: 'Outsourcing', kind: 'Text', width: 90 },
-  { group: 'Trạng thái & Chất lượng', title: 'Trạng thái', key: 'Status', kind: 'Text', width: 110 },
-  { group: 'Trạng thái & Chất lượng', title: 'Số lượng lỗi', key: 'DefectQty', kind: 'Number', width: 110 },
+  {
+    group: 'Trạng thái & Chất lượng',
+    title: 'Bồi chia hộp cứng',
+    key: 'LaminationBoxSplit',
+    kind: 'Text',
+    width: 130
+  },
+  {
+    group: 'Trạng thái & Chất lượng',
+    title: 'Gia công',
+    key: 'Outsourcing',
+    kind: 'Text',
+    width: 90
+  },
+  {
+    group: 'Trạng thái & Chất lượng',
+    title: 'Trạng thái',
+    key: 'Status',
+    kind: 'Text',
+    width: 110
+  },
+  {
+    group: 'Trạng thái & Chất lượng',
+    title: 'Số lượng lỗi',
+    key: 'DefectQty',
+    kind: 'Number',
+    width: 110
+  },
   { group: 'Trạng thái & Chất lượng', title: 'Tỷ lệ NG', key: 'NgRate', kind: 'Text', width: 90 },
-  { group: 'Trạng thái & Chất lượng', title: 'Đvt chất lượng', key: 'QualityUnit', kind: 'Text', width: 95 },
+  {
+    group: 'Trạng thái & Chất lượng',
+    title: 'Đvt chất lượng',
+    key: 'QualityUnit',
+    kind: 'Text',
+    width: 95
+  },
 
   // Nhóm 14: Tự động hóa & Đồng bộ MES/Bravo
-  { group: 'Tự động hóa & Đồng bộ', title: 'Xuất tự động', key: 'IsAutoExport', kind: 'Text', width: 100 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Nhập tự động', key: 'IsAutoImport', kind: 'Text', width: 100 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Số phiếu xuất', key: 'ExportSlipNo', kind: 'Text', width: 130 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Số phiếu nhập', key: 'ImportSlipNo', kind: 'Text', width: 130 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Sai mã thao tác', key: 'IsWrongOpCode', kind: 'Text', width: 110 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Thống kê bổ sung', key: 'IsSupplementaryStat', kind: 'Text', width: 130 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Ngày tạo phiếu', key: 'SlipCreatedDate', kind: 'Text', width: 140 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Thời gian chạy thực tế', key: 'ActualRunTime', kind: 'Number', width: 140 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'capa thực tế', key: 'ActualCapa', kind: 'Number', width: 120 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'CHECK KHSX', key: 'CheckKhsx', kind: 'Text', width: 110 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Thời gian duyệt phiếu ở MES', key: 'MesApprovedTime', kind: 'Text', width: 170 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Độ trễ thời gian đồng bộ 2 hệ thống', key: 'SyncLatencySeconds', kind: 'Text', width: 180 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Phiếu sinh trùng', key: 'IsDuplicateSlip', kind: 'Text', width: 110 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Vị trí tạo phiếu tk', key: 'CreatedLocation', kind: 'Text', width: 130 },
-  { group: 'Tự động hóa & Đồng bộ', title: 'Sinh phiếu xuất/nhập tự động', key: 'AutoExportImportGenerated', kind: 'Text', width: 170 }
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Xuất tự động',
+    key: 'IsAutoExport',
+    kind: 'Text',
+    width: 100
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Nhập tự động',
+    key: 'IsAutoImport',
+    kind: 'Text',
+    width: 100
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Số phiếu xuất',
+    key: 'ExportSlipNo',
+    kind: 'Text',
+    width: 130
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Số phiếu nhập',
+    key: 'ImportSlipNo',
+    kind: 'Text',
+    width: 130
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Sai mã thao tác',
+    key: 'IsWrongOpCode',
+    kind: 'Text',
+    width: 110
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Thống kê bổ sung',
+    key: 'IsSupplementaryStat',
+    kind: 'Text',
+    width: 130
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Ngày tạo phiếu',
+    key: 'SlipCreatedDate',
+    kind: 'Text',
+    width: 140
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Thời gian chạy thực tế',
+    key: 'ActualRunTime',
+    kind: 'Number',
+    width: 140
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'capa thực tế',
+    key: 'ActualCapa',
+    kind: 'Number',
+    width: 120
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'CHECK KHSX',
+    key: 'CheckKhsx',
+    kind: 'Text',
+    width: 110
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Thời gian duyệt phiếu ở MES',
+    key: 'MesApprovedTime',
+    kind: 'Text',
+    width: 170
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Độ trễ thời gian đồng bộ 2 hệ thống',
+    key: 'SyncLatencySeconds',
+    kind: 'Text',
+    width: 180
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Phiếu sinh trùng',
+    key: 'IsDuplicateSlip',
+    kind: 'Text',
+    width: 110
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Vị trí tạo phiếu tk',
+    key: 'CreatedLocation',
+    kind: 'Text',
+    width: 130
+  },
+  {
+    group: 'Tự động hóa & Đồng bộ',
+    title: 'Sinh phiếu xuất/nhập tự động',
+    key: 'AutoExportImportGenerated',
+    kind: 'Text',
+    width: 170
+  }
 ]
 
 /**
@@ -174,7 +624,12 @@ export const UNFINISHED_OP_COLUMN_SCHEMA = [
   { title: 'Số lượng còn lại', key: 'RemainingQty', kind: 'Number', width: 120 },
   { title: 'Thời gian bắt đầu', key: 'StartTime', kind: 'Text', width: 130 },
   { title: 'Thời gian kết thúc', key: 'EndTime', kind: 'Text', width: 130 },
-  { title: 'Thời gian sản xuất (phút)', key: 'ProductionDurationMinutes', kind: 'Number', width: 150 },
+  {
+    title: 'Thời gian sản xuất (phút)',
+    key: 'ProductionDurationMinutes',
+    kind: 'Number',
+    width: 150
+  },
   { title: 'QTCN', key: 'ProcessFlow', kind: 'Text', width: 220 },
   { title: 'Thông tin tình trạng sản xuất', key: 'ProductionStatusInfo', kind: 'Text', width: 180 },
   { title: 'Thông tin NVL', key: 'RawMaterialInfo', kind: 'Text', width: 200 },

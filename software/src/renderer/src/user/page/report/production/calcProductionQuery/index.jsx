@@ -158,12 +158,18 @@ export default function CalcProductionQueryPage({
       XLSX.writeFile(wb, fileName)
 
       if (typeof setStatusMessage === 'function') {
-        setStatusMessage({ type: 'success', text: t('Đã xuất thành công file: {{name}}', { name: fileName }) })
+        setStatusMessage({
+          type: 'success',
+          text: t('Đã xuất thành công file: {{name}}', { name: fileName })
+        })
       }
     } catch (err) {
       console.error('Lỗi xuất Excel:', err)
       if (typeof setStatusMessage === 'function') {
-        setStatusMessage({ type: 'error', text: t('Lỗi xuất Excel: {{msg}}', { msg: err.message }) })
+        setStatusMessage({
+          type: 'error',
+          text: t('Lỗi xuất Excel: {{msg}}', { msg: err.message })
+        })
       }
     }
   }, [gridData, setStatusMessage, t])

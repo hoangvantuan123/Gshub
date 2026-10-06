@@ -81,8 +81,7 @@ function PlanTooltipPopup({ hoveredBar }) {
           : '1.5px solid #3b82f6',
         borderRadius: 6,
         padding: '8px 12px',
-        boxShadow:
-          '0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 8px 10px -6px rgba(15, 23, 42, 0.1)',
+        boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 8px 10px -6px rgba(15, 23, 42, 0.1)',
         zIndex: 50,
         pointerEvents: 'none',
         minWidth: 200,
@@ -127,9 +126,7 @@ function PlanTooltipPopup({ hoveredBar }) {
             }}
           >
             Khối lượng:{' '}
-            <b style={{ color: hoveredBar.picColor || '#4338ca' }}>
-              {hoveredBar.totalOrders} lệnh
-            </b>
+            <b style={{ color: hoveredBar.picColor || '#4338ca' }}>{hoveredBar.totalOrders} lệnh</b>
           </div>
           <div style={{ fontSize: 11.5, color: '#334155' }}>
             Tăng trưởng so với kỳ trước:{' '}
@@ -388,7 +385,8 @@ export function PlanPicTimelineSection({
           agg[`${p}_orders`] = (agg[`${p}_orders`] || 0) + Number(dayItem[`${p}_orders`] || 0)
           agg[`${p}_khopSl`] = (agg[`${p}_khopSl`] || 0) + Number(dayItem[`${p}_khopSl`] || 0)
           agg[`${p}_khopJob`] = (agg[`${p}_khopJob`] || 0) + Number(dayItem[`${p}_khopJob`] || 0)
-          agg[`${p}_sxSaiNgay`] = (agg[`${p}_sxSaiNgay`] || 0) + Number(dayItem[`${p}_sxSaiNgay`] || 0)
+          agg[`${p}_sxSaiNgay`] =
+            (agg[`${p}_sxSaiNgay`] || 0) + Number(dayItem[`${p}_sxSaiNgay`] || 0)
           agg[`${p}_truotKh`] = (agg[`${p}_truotKh`] || 0) + Number(dayItem[`${p}_truotKh`] || 0)
         }
       })
@@ -451,7 +449,8 @@ export function PlanPicTimelineSection({
           agg[`${p}_orders`] = (agg[`${p}_orders`] || 0) + Number(dayItem[`${p}_orders`] || 0)
           agg[`${p}_khopSl`] = (agg[`${p}_khopSl`] || 0) + Number(dayItem[`${p}_khopSl`] || 0)
           agg[`${p}_khopJob`] = (agg[`${p}_khopJob`] || 0) + Number(dayItem[`${p}_khopJob`] || 0)
-          agg[`${p}_sxSaiNgay`] = (agg[`${p}_sxSaiNgay`] || 0) + Number(dayItem[`${p}_sxSaiNgay`] || 0)
+          agg[`${p}_sxSaiNgay`] =
+            (agg[`${p}_sxSaiNgay`] || 0) + Number(dayItem[`${p}_sxSaiNgay`] || 0)
           agg[`${p}_truotKh`] = (agg[`${p}_truotKh`] || 0) + Number(dayItem[`${p}_truotKh`] || 0)
         }
       })
@@ -537,9 +536,7 @@ export function PlanPicTimelineSection({
         periodSxSaiNgay,
         periodTruotKh,
         periodKhopSlRate:
-          periodTotalOrders > 0
-            ? Number(((periodKhopSl / periodTotalOrders) * 100).toFixed(1))
-            : 0,
+          periodTotalOrders > 0 ? Number(((periodKhopSl / periodTotalOrders) * 100).toFixed(1)) : 0,
         periodKhopJobRate:
           periodTotalOrders > 0
             ? Number(((periodKhopJob / periodTotalOrders) * 100).toFixed(1))
@@ -794,11 +791,13 @@ export function PlanPicTimelineSection({
             gap: 8
           }}
         >
-          <span>2. TỔNG LỆNH VÀ CƠ CẤU KẾT QUẢ THEO NGÀY ĐĂNG KÝ KẾ HOẠCH, SO SÁNH GIỮA CÁC PIC</span>
+          <span>
+            2. TỔNG LỆNH VÀ CƠ CẤU KẾT QUẢ THEO NGÀY ĐĂNG KÝ KẾ HOẠCH, SO SÁNH GIỮA CÁC PIC
+          </span>
         </div>
         <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
-          Theo dõi khối lượng lệnh và cơ cấu kết quả điều phối (Khớp SL, Khớp Job, Sai ngày, Trượt KH) của{' '}
-          <b>{activePicList.length} nhân sự điều phối (PIC)</b> tại {plantName}.
+          Theo dõi khối lượng lệnh và cơ cấu kết quả điều phối (Khớp SL, Khớp Job, Sai ngày, Trượt
+          KH) của <b>{activePicList.length} nhân sự điều phối (PIC)</b> tại {plantName}.
         </div>
       </div>
 
@@ -960,7 +959,9 @@ export function PlanPicTimelineSection({
                 }}
                 title={`Bấm để ${showGrowthLine ? 'ẩn' : 'hiện'} đường line tăng trưởng của từng PIC`}
               >
-                <div style={{ display: 'flex', alignItems: 'center', position: 'relative', width: 16 }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', position: 'relative', width: 16 }}
+                >
                   <span
                     style={{
                       width: 16,
@@ -1038,7 +1039,9 @@ export function PlanPicTimelineSection({
                       maxBarW,
                       Math.max(minBarWidth, Math.floor(availableForBars / picCount) - 3)
                     )
-                    const barGap = isSinglePic ? 0 : Math.min(6, Math.max(2, Math.floor(barWidth * 0.2)))
+                    const barGap = isSinglePic
+                      ? 0
+                      : Math.min(6, Math.max(2, Math.floor(barWidth * 0.2)))
                     const contentWidth = picCount * barWidth + Math.max(0, picCount - 1) * barGap
                     const dayPadding = Math.max(6, (groupWidth - contentWidth) / 2)
 
@@ -1077,7 +1080,8 @@ export function PlanPicTimelineSection({
                           const yTruotKh = ySxSaiNgay - hTruotKh
                           const topY = baseBottom - heightFromVal(vTotal)
 
-                          const growthPct = picGrowthMap.get(`${item.dateKey}_${pic.fullName}`) ?? null
+                          const growthPct =
+                            picGrowthMap.get(`${item.dateKey}_${pic.fullName}`) ?? null
                           const track = rowPicTracks.get(pic.fullName)
                           if (track) {
                             track.points.push({
@@ -1237,7 +1241,8 @@ export function PlanPicTimelineSection({
                       style={{
                         position: 'relative',
                         width: '100%',
-                        borderBottom: rowIdx < timelineChunks.length - 1 ? '1px dashed #cbd5e1' : 'none',
+                        borderBottom:
+                          rowIdx < timelineChunks.length - 1 ? '1px dashed #cbd5e1' : 'none',
                         paddingBottom: rowIdx < timelineChunks.length - 1 ? 16 : 4
                       }}
                     >
@@ -1362,7 +1367,11 @@ export function PlanPicTimelineSection({
 
                                   const isThisPicHovered = hoveredBar?.picName === track.picName
                                   const isAnyPicHovered = Boolean(hoveredBar?.picName)
-                                  const lineOpacity = isThisPicHovered ? 1 : isAnyPicHovered ? 0.25 : 0.85
+                                  const lineOpacity = isThisPicHovered
+                                    ? 1
+                                    : isAnyPicHovered
+                                      ? 0.25
+                                      : 0.85
                                   const lineWidth = isThisPicHovered ? 3.5 : 2
 
                                   return (
@@ -1375,7 +1384,9 @@ export function PlanPicTimelineSection({
                                         strokeOpacity={lineOpacity}
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        style={{ transition: 'stroke-opacity 0.2s, stroke-width 0.2s' }}
+                                        style={{
+                                          transition: 'stroke-opacity 0.2s, stroke-width 0.2s'
+                                        }}
                                       />
 
                                       {track.points.map((pt, pIdx) => {
@@ -1423,10 +1434,13 @@ export function PlanPicTimelineSection({
                                               fill="#ffffff"
                                               stroke={pt.color}
                                               strokeWidth={isPointHovered ? 2.5 : 2}
-                                              strokeOpacity={isThisPicHovered ? 1 : isAnyPicHovered ? 0.35 : 0.9}
+                                              strokeOpacity={
+                                                isThisPicHovered ? 1 : isAnyPicHovered ? 0.35 : 0.9
+                                              }
                                             />
 
-                                            {(isPointHovered || (isSinglePic && pt.growthPct !== null)) &&
+                                            {(isPointHovered ||
+                                              (isSinglePic && pt.growthPct !== null)) &&
                                               pt.growthPct !== null && (
                                                 <g transform={`translate(${pt.x}, ${pt.y - 14})`}>
                                                   <rect
@@ -1465,7 +1479,9 @@ export function PlanPicTimelineSection({
                                                     fontWeight="700"
                                                     textAnchor="middle"
                                                   >
-                                                    {pt.growthPct > 0 ? `+${pt.growthPct}%` : `${pt.growthPct}%`}
+                                                    {pt.growthPct > 0
+                                                      ? `+${pt.growthPct}%`
+                                                      : `${pt.growthPct}%`}
                                                   </text>
                                                 </g>
                                               )}
@@ -1540,11 +1556,7 @@ export function PlanPicTimelineSection({
               </div>
 
               <div style={{ flex: 1, minWidth: availablePlotWidth, position: 'relative' }}>
-                <svg
-                  width="100%"
-                  height={totalChartHeight}
-                  style={{ overflow: 'visible' }}
-                >
+                <svg width="100%" height={totalChartHeight} style={{ overflow: 'visible' }}>
                   {yTicks.map((tick) => {
                     const yPos = topPadding + scaleY(tick)
                     return (
@@ -1990,7 +2002,8 @@ export function PlanPicTimelineSection({
                     color: '#ea580c'
                   }}
                 >
-                  {tableGrandTotal.sxSaiNgay.toLocaleString('vi-VN')} ({tableGrandTotal.sxSaiNgayRate}%)
+                  {tableGrandTotal.sxSaiNgay.toLocaleString('vi-VN')} (
+                  {tableGrandTotal.sxSaiNgayRate}%)
                 </td>
                 <td
                   style={{

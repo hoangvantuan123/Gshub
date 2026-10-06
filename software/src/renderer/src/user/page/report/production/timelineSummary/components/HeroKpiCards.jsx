@@ -1,21 +1,21 @@
 /* eslint-disable react/prop-types */
-export function HeroKpiCards({ kpiMetrics }) {
-  const totalTickets = kpiMetrics.totalTickets || 0
-  const mesCreatedCount = kpiMetrics.mesCreatedCount ?? kpiMetrics.mesCount ?? 0
-  const bravoCreatedCount =
-    kpiMetrics.bravoCreatedCount ?? Math.max(0, totalTickets - mesCreatedCount)
-  const mesRate = kpiMetrics.mesRate ?? 100
+export function HeroKpiCards({ kpiMetrics = {} }) {
+  const m = kpiMetrics || {}
+  const totalTickets = m.totalTickets || 0
+  const mesCreatedCount = m.mesCreatedCount ?? m.mesCount ?? 0
+  const bravoCreatedCount = m.bravoCreatedCount ?? Math.max(0, totalTickets - mesCreatedCount)
+  const mesRate = m.mesRate ?? 100
 
-  const runtimeOver12h = kpiMetrics.runtimeOver12hCheck ?? kpiMetrics.over12hCount ?? 0
+  const runtimeOver12h = m.runtimeOver12hCheck ?? m.over12hCount ?? 0
   const over12hRate = totalTickets > 0 ? ((runtimeOver12h / totalTickets) * 100).toFixed(1) : '0.0'
 
-  const runtimeUnder5Min = kpiMetrics.runtimeUnder5Min ?? kpiMetrics.under5MinCount ?? 0
-  const under5MinRate =
-    totalTickets > 0 ? ((runtimeUnder5Min / totalTickets) * 100).toFixed(1) : '0.0'
+  const runtimeUnder5Min = m.runtimeUnder5Min ?? m.under5MinCount ?? 0
+  const under5MinRate = totalTickets > 0 ? ((runtimeUnder5Min / totalTickets) * 100).toFixed(1) : '0.0'
 
-  const autoExportRate = kpiMetrics.autoExportRate ?? 0
-  const autoExportCount = kpiMetrics.autoExportCount ?? 0
-  const noAutoExportCount = kpiMetrics.noAutoExportCount ?? 0
+  const autoExportRate = m.autoExportRate ?? 0
+  const autoExportCount = m.autoExportCount ?? 0
+  const noAutoExportCount = m.noAutoExportCount ?? 0
+
 
   return (
     <div

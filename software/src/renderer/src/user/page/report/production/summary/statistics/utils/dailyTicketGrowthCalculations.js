@@ -138,7 +138,7 @@ export function extractDailyTicketGrowthData(
       if (rHours > 12 || durMin > 720) {
         rec.over12hCount += 1
       }
-      if (durMin < 5 && durMin >= 0) {
+      if (durMin < 5) {
         rec.under5MinCount += 1
       }
 

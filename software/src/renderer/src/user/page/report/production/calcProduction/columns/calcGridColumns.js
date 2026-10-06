@@ -18,8 +18,11 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
   // Nếu có dynamicColumns trả về từ file parser
   if (dynamicColumns && dynamicColumns.length > 0 && typeof dynamicColumns[0] === 'object') {
     return dynamicColumns.map((col) => {
-      const matched = schemaList.find((s) => s.key === col.key || s.key === col.id || s.title === col.title)
-      const isNum = matched?.kind === 'Number' || col.title?.includes('SL') || col.title?.includes('Số lượng')
+      const matched = schemaList.find(
+        (s) => s.key === col.key || s.key === col.id || s.title === col.title
+      )
+      const isNum =
+        matched?.kind === 'Number' || col.title?.includes('SL') || col.title?.includes('Số lượng')
       return {
         title: col.title || matched?.title || col.key,
         id: col.key || col.id || matched?.key,

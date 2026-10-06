@@ -3,11 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Select, Input } from 'antd'
 import DynamicQueryBar from '@renderer/user/components/query/core/DynamicQueryBar'
 
-export default function CalcMasterQueryFilters({
-  filters,
-  onChangeFilter,
-  onEnterQuery
-}) {
+export default function CalcMasterQueryFilters({ filters, onChangeFilter, onEnterQuery }) {
   const { t } = useTranslation()
 
   return (

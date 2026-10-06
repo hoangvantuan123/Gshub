@@ -105,7 +105,9 @@ export function setupSqliteIpc() {
         payload.fileName || '',
         payload.fileSize || 0,
         payload.rowCount || 0,
-        typeof payload.columns === 'string' ? payload.columns : JSON.stringify(payload.columns || []),
+        typeof payload.columns === 'string'
+          ? payload.columns
+          : JSON.stringify(payload.columns || []),
         typeof payload.data === 'string' ? payload.data : JSON.stringify(payload.data || []),
         payload.uploadedAt || new Date().toISOString()
       )
@@ -264,7 +266,9 @@ export function setupSqliteIpc() {
         payload.summaryOpRows || 0,
         payload.mesApprovalRows || 0,
         payload.totalRows || 0,
-        typeof payload.fileSummaries === 'string' ? payload.fileSummaries : JSON.stringify(payload.fileSummaries || {}),
+        typeof payload.fileSummaries === 'string'
+          ? payload.fileSummaries
+          : JSON.stringify(payload.fileSummaries || {}),
         payload.registeredAt || new Date().toISOString()
       )
       return { success: true }

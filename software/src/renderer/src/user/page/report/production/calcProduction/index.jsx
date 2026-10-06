@@ -22,7 +22,8 @@ export default function CalcProductionPage({
   ...restProps
 }) {
   const { t } = useTranslation()
-  const { setStatusMessage, setPageData, setSelectionStats, registerDirtyChecker } = usePageData() || {}
+  const { setStatusMessage, setPageData, setSelectionStats, registerDirtyChecker } =
+    usePageData() || {}
   const loadingBarRef = useRef(null)
 
   const {
@@ -54,7 +55,9 @@ export default function CalcProductionPage({
   useEffect(() => {
     if (!registerDirtyChecker) return
     return registerDirtyChecker(() => {
-      const uploadedCount = Object.values(fileStatusSummary || {}).filter((s) => s?.isUploaded).length
+      const uploadedCount = Object.values(fileStatusSummary || {}).filter(
+        (s) => s?.isUploaded
+      ).length
       const hasData = (activeTabFileData?.data?.length || 0) > 0 || uploadedCount > 0
       return hasData && !isRegistered
     })
@@ -123,7 +126,16 @@ export default function CalcProductionPage({
         })
       })
     }
-  }, [activeTab, currentUploadedAt, currentData, currentColumns, currentTabDef.title, setPageData, setStatusMessage, t])
+  }, [
+    activeTab,
+    currentUploadedAt,
+    currentData,
+    currentColumns,
+    currentTabDef.title,
+    setPageData,
+    setStatusMessage,
+    t
+  ])
 
   // Cleanup khi unmount trang (rời khỏi menu sang menu khác)
   useEffect(() => {

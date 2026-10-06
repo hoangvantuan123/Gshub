@@ -4,14 +4,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CompactSelection } from '@glideapps/glide-data-grid'
 import * as XLSX from 'xlsx'
-import {
-  Download,
-  Search,
-  RotateCcw,
-  ArrowLeft,
-  FileSpreadsheet,
-  CheckCircle2
-} from 'lucide-react'
+import { Download, Search, RotateCcw, ArrowLeft, FileSpreadsheet, CheckCircle2 } from 'lucide-react'
 
 import DataPageContainer from '@renderer/user/components/layout/DataPageContainer'
 import { usePageData } from '@renderer/context/PageDataContext'
@@ -68,12 +61,18 @@ export default function CalcProductionDetailView() {
   const fetchDetailData = useCallback(async () => {
     if (!targetRegCode) {
       setIsLoading(false)
-      setStatusMessage?.({ type: 'warning', text: 'Không tìm thấy mã đăng ký để truy vấn chi tiết' })
+      setStatusMessage?.({
+        type: 'warning',
+        text: 'Không tìm thấy mã đăng ký để truy vấn chi tiết'
+      })
       return
     }
 
     setIsLoading(true)
-    setStatusMessage?.({ type: 'info', text: `Đang nạp chi tiết 4 bảng cho phiếu [${targetRegCode}]...` })
+    setStatusMessage?.({
+      type: 'info',
+      text: `Đang nạp chi tiết 4 bảng cho phiếu [${targetRegCode}]...`
+    })
 
     try {
       // 1. Lấy thông tin Master

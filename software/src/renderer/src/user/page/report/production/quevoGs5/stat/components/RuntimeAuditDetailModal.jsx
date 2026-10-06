@@ -59,7 +59,7 @@ export const RuntimeAuditDetailModal = ({
       let badgeColor = '#0f766e'
       let badgeBg = '#f0fdfa'
 
-      if (durMin < 5 && durMin >= 0) {
+      if (durMin < 5) {
         category = 'UNDER_5MIN'
         auditText = '< 5p Nhập nhanh (Cảnh báo)'
         isWarning = true

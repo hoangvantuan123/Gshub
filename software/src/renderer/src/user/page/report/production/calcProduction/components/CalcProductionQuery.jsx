@@ -109,17 +109,13 @@ export default function CalcProductionQuery({
               {hasData ? (
                 <span
                   className={`text-[10px] font-semibold px-1.5 py-0.2 rounded-full ${
-                    isSelected
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'bg-emerald-100 text-emerald-800'
+                    isSelected ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-800'
                   }`}
                 >
                   {status.rowCount.toLocaleString('vi-VN')} dòng
                 </span>
               ) : (
-                <span className="text-[10px] text-slate-400 font-normal">
-                  (Trống)
-                </span>
+                <span className="text-[10px] text-slate-400 font-normal">(Trống)</span>
               )}
             </button>
           )
@@ -131,14 +127,18 @@ export default function CalcProductionQuery({
         <div className="p-2.5 bg-slate-50 border-b border-slate-200">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
             <div className="bg-white p-2 rounded border border-slate-200">
-              <div className="text-[10px] text-slate-500 font-bold uppercase">SL Kế Hoạch (KHSX)</div>
+              <div className="text-[10px] text-slate-500 font-bold uppercase">
+                SL Kế Hoạch (KHSX)
+              </div>
               <div className="text-sm font-extrabold text-emerald-800 mt-0.5">
                 {(calcResults.summary?.plannedQty || 0).toLocaleString('vi-VN')}
               </div>
             </div>
 
             <div className="bg-white p-2 rounded border border-slate-200">
-              <div className="text-[10px] text-slate-500 font-bold uppercase">SL Thực Tế (TKSX)</div>
+              <div className="text-[10px] text-slate-500 font-bold uppercase">
+                SL Thực Tế (TKSX)
+              </div>
               <div className="text-sm font-extrabold text-blue-800 mt-0.5">
                 {(calcResults.summary?.producedQty || 0).toLocaleString('vi-VN')}
               </div>
@@ -161,7 +161,8 @@ export default function CalcProductionQuery({
             <div className="bg-white p-2 rounded border border-slate-200">
               <div className="text-[10px] text-slate-500 font-bold uppercase">Phế Phẩm / Lỗi</div>
               <div className="text-sm font-extrabold text-red-600 mt-0.5">
-                {(calcResults.summary?.defectQty || 0).toLocaleString('vi-VN')} ({calcResults.summary?.defectRate || 0}%)
+                {(calcResults.summary?.defectQty || 0).toLocaleString('vi-VN')} (
+                {calcResults.summary?.defectRate || 0}%)
               </div>
             </div>
 

@@ -20,7 +20,8 @@ export const pageLoaders = {
   FormulaHandbookPage: () => import('../../page/report/production/handbook/FormulaHandbookPage'),
   CalcProductionPage: () => import('../../page/report/production/calcProduction'),
   CalcProductionQueryPage: () => import('../../page/report/production/calcProductionQuery'),
-  CalcProductionDetailPage: () => import('../../page/report/production/calcProductionQuery/detail/CalcProductionDetailView')
+  CalcProductionDetailPage: () =>
+    import('../../page/report/production/calcProductionQuery/detail/CalcProductionDetailView')
 }
 
 const SettingPrivate = lazy(pageLoaders.SettingPrivate)

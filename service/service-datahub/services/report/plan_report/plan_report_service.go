@@ -59,58 +59,73 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 	}
 
 	// 3. Lọc ngày điều phối & ngày kế hoạch
-	if planDateFrom != "" && planDateTo != "" {
-		from10 := planDateFrom
+	from10 := ""
+	to10 := ""
+	if planDateFrom != "" {
+		from10 = planDateFrom
 		if len(from10) > 10 {
 			from10 = from10[:10]
 		}
-		to10 := planDateTo
+	}
+	if planDateTo != "" {
+		to10 = planDateTo
 		if len(to10) > 10 {
 			to10 = to10[:10]
 		}
+	}
+
+	if from10 != "" && to10 != "" {
 		toEnd := to10 + "T23:59:59.999Z"
 		toEndSpace := to10 + " 23:59:59"
 
-		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
+		subDateMasterReg := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
 			Where(`(LEFT("ApplyDate", 10) >= ? AND LEFT("ApplyDate", 10) <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?)`,
 				from10, to10, from10, toEnd, from10, toEndSpace)
+		subDateMasterId := s.db.Model(&models.ERPPlanMaster{}).
+			Select(`"IdSeq"`).
+			Where(`(LEFT("ApplyDate", 10) >= ? AND LEFT("ApplyDate", 10) <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?)`,
+				from10, to10, from10, toEnd, from10, toEndSpace)
+
 		if factoryCode != "" && factoryCode != "ALL" {
-			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterReg = subDateMasterReg.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterId = subDateMasterId.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`(LEFT("OpDate", 10) >= ? AND LEFT("OpDate", 10) <= ?) OR (LEFT("RoutingDocDate", 10) >= ? AND LEFT("RoutingDocDate", 10) <= ?) OR ("RegCode" IN (?))`,
-			from10, to10, from10, to10, subDateMaster)
-	} else if planDateFrom != "" {
-		from10 := planDateFrom
-		if len(from10) > 10 {
-			from10 = from10[:10]
-		}
-		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
+		query = query.Where(`"RegCode" IN (?) OR "MasterSeq" IN (?) OR (LEFT("OpDate", 10) >= ? AND LEFT("OpDate", 10) <= ?)`,
+			subDateMasterReg, subDateMasterId, from10, to10)
+	} else if from10 != "" {
+		subDateMasterReg := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
 			Where(`LEFT("ApplyDate", 10) >= ? OR "ApplyDate" >= ?`, from10, from10)
+		subDateMasterId := s.db.Model(&models.ERPPlanMaster{}).
+			Select(`"IdSeq"`).
+			Where(`LEFT("ApplyDate", 10) >= ? OR "ApplyDate" >= ?`, from10, from10)
+
 		if factoryCode != "" && factoryCode != "ALL" {
-			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterReg = subDateMasterReg.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterId = subDateMasterId.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`LEFT("OpDate", 10) >= ? OR LEFT("RoutingDocDate", 10) >= ? OR ("RegCode" IN (?))`,
-			from10, from10, subDateMaster)
-	} else if planDateTo != "" {
-		to10 := planDateTo
-		if len(to10) > 10 {
-			to10 = to10[:10]
-		}
+		query = query.Where(`"RegCode" IN (?) OR "MasterSeq" IN (?) OR LEFT("OpDate", 10) >= ?`,
+			subDateMasterReg, subDateMasterId, from10)
+	} else if to10 != "" {
 		toEnd := to10 + "T23:59:59.999Z"
 		toEndSpace := to10 + " 23:59:59"
-		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
+		subDateMasterReg := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
 			Where(`LEFT("ApplyDate", 10) <= ? OR "ApplyDate" <= ? OR "ApplyDate" <= ?`, to10, toEnd, toEndSpace)
+		subDateMasterId := s.db.Model(&models.ERPPlanMaster{}).
+			Select(`"IdSeq"`).
+			Where(`LEFT("ApplyDate", 10) <= ? OR "ApplyDate" <= ? OR "ApplyDate" <= ?`, to10, toEnd, toEndSpace)
+
 		if factoryCode != "" && factoryCode != "ALL" {
-			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterReg = subDateMasterReg.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterId = subDateMasterId.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`LEFT("OpDate", 10) <= ? OR LEFT("RoutingDocDate", 10) <= ? OR ("RegCode" IN (?))`,
-			to10, to10, subDateMaster)
+		query = query.Where(`"RegCode" IN (?) OR "MasterSeq" IN (?) OR LEFT("OpDate", 10) <= ?`,
+			subDateMasterReg, subDateMasterId, to10)
 	}
 
 	// 4. Lọc PIC, Tổ, Máy, Item, Order, Status
@@ -231,11 +246,20 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 			}
 		}
 		if effectiveDate == "" {
-			effectiveDate = planDate
-		}
-		if effectiveDate == "" {
 			effectiveDate = actualDate
 		}
+		if effectiveDate == "" {
+			effectiveDate = planDate
+		}
+
+		// Kiểm tra lọc chặt chẽ theo khoảng ngày nếu có
+		if from10 != "" && effectiveDate != "" && effectiveDate < from10 {
+			continue
+		}
+		if to10 != "" && effectiveDate != "" && effectiveDate > to10 {
+			continue
+		}
+
 		if effectiveDate != "" {
 			dateSet[effectiveDate] = true
 		}

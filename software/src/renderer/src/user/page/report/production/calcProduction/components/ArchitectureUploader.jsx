@@ -3,13 +3,7 @@ import { useRef } from 'react'
 import { Upload, FileSpreadsheet, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 
-export function ArchitectureUploader({
-  tabDef,
-  fileData,
-  isParsing,
-  onUpload,
-  onDelete
-}) {
+export function ArchitectureUploader({ tabDef, fileData, isParsing, onUpload, onDelete }) {
   const fileInputRef = useRef(null)
 
   const hasData = Boolean(fileData && fileData.rowCount > 0)
@@ -65,9 +59,7 @@ export function ArchitectureUploader({
 
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-              {tabDef.title}
-            </span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{tabDef.title}</span>
             {hasData ? (
               <span
                 style={{
@@ -107,8 +99,8 @@ export function ArchitectureUploader({
             {hasData ? (
               <span>
                 File: <b style={{ color: '#0f172a' }}>{fileData.fileName}</b> •{' '}
-                <b style={{ color: '#01411b' }}>{fileData.rowCount.toLocaleString('vi-VN')}</b> dòng •{' '}
-                Khớp {fileData.columns?.length || 0} cột
+                <b style={{ color: '#01411b' }}>{fileData.rowCount.toLocaleString('vi-VN')}</b> dòng
+                • Khớp {fileData.columns?.length || 0} cột
               </span>
             ) : (
               <span>{tabDef.description} (Hỗ trợ định dạng Excel .xlsx, .xls, .csv)</span>

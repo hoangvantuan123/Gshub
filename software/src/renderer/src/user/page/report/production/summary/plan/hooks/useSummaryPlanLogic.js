@@ -14,30 +14,94 @@ import {
   formatVNDateFull,
   formatLocalDate,
   getMasterEffectiveDate,
-  calculateTotalDays
+  calculateTotalDays,
+  calculatePresetDateRange
 } from '../../common/utils/summaryReportUtils'
 import { executeExportSummaryExcel } from '../../common/utils/summaryExcelExporter'
 
-export function useSummaryPlanLogic() {
-  const [factoryCode, setFactoryCode] = useState('GS1')
+const STORAGE_KEY_SUMMARY_PLAN_FILTERS = 'S_SUMMARY_PLAN_FILTERS'
 
-  const [dateRange, setDateRange] = useState(() => {
-    const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    return [formatLocalDate(monthStart), formatLocalDate(now)]
-  })
-  const [selectedPreset, setSelectedPreset] = useState('this_month')
-  const [selectedMasterKey, setSelectedMasterKey] = useState('')
+const getInitialPlanFilters = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SUMMARY_PLAN_FILTERS)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') {
+        const preset = parsed.selectedPreset || 'this_month'
+        let initialDateRange = parsed.dateRange
+        if (preset !== 'custom') {
+          initialDateRange = calculatePresetDateRange(preset)
+        } else if (!initialDateRange || !initialDateRange[0] || !initialDateRange[1]) {
+          initialDateRange = calculatePresetDateRange('this_month')
+        }
+        return {
+          factoryCode: parsed.factoryCode || 'GS1',
+          dateRange: initialDateRange,
+          selectedPreset: preset,
+          selectedMasterKey: parsed.selectedMasterKey || '',
+          selectedTeam: Array.isArray(parsed.selectedTeam) ? parsed.selectedTeam : [],
+          selectedMachine: Array.isArray(parsed.selectedMachine) ? parsed.selectedMachine : [],
+          selectedPic: parsed.selectedPic || 'ALL'
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Lỗi đọc cache bộ lọc KHSX:', e)
+  }
+  return {
+    factoryCode: 'GS1',
+    dateRange: calculatePresetDateRange('this_month'),
+    selectedPreset: 'this_month',
+    selectedMasterKey: '',
+    selectedTeam: [],
+    selectedMachine: [],
+    selectedPic: 'ALL'
+  }
+}
+
+export function useSummaryPlanLogic() {
+  const initialFilters = useMemo(() => getInitialPlanFilters(), [])
+
+  const [factoryCode, setFactoryCode] = useState(initialFilters.factoryCode)
+  const [dateRange, setDateRange] = useState(initialFilters.dateRange)
+  const [selectedPreset, setSelectedPreset] = useState(initialFilters.selectedPreset)
+  const [selectedMasterKey, setSelectedMasterKey] = useState(initialFilters.selectedMasterKey)
 
   const [loading, setLoading] = useState(false)
   const [backendReportData, setBackendReportData] = useState(null)
   const [rawDataset, setRawDataset] = useState([])
   const [masterList, setMasterList] = useState([])
 
-  const [selectedTeam, setSelectedTeam] = useState([])
-  const [selectedMachine, setSelectedMachine] = useState([])
-  const [selectedPic, setSelectedPic] = useState('ALL')
+  const [selectedTeam, setSelectedTeam] = useState(initialFilters.selectedTeam)
+  const [selectedMachine, setSelectedMachine] = useState(initialFilters.selectedMachine)
+  const [selectedPic, setSelectedPic] = useState(initialFilters.selectedPic)
   const [detailSearchText, setDetailSearchText] = useState('')
+
+  // Ghi nhớ cache điều kiện lọc vào localStorage
+  useEffect(() => {
+    try {
+      const filtersToSave = {
+        factoryCode,
+        dateRange,
+        selectedPreset,
+        selectedMasterKey,
+        selectedTeam,
+        selectedMachine,
+        selectedPic
+      }
+      localStorage.setItem(STORAGE_KEY_SUMMARY_PLAN_FILTERS, JSON.stringify(filtersToSave))
+    } catch (e) {
+      console.warn('Lỗi lưu cache bộ lọc KHSX:', e)
+    }
+  }, [
+    factoryCode,
+    dateRange,
+    selectedPreset,
+    selectedMasterKey,
+    selectedTeam,
+    selectedMachine,
+    selectedPic
+  ])
 
   const [isHandbookModalOpen, setIsHandbookModalOpen] = useState(false)
   const [isCapturing, setIsCapturing] = useState(false)
@@ -73,38 +137,7 @@ export function useSummaryPlanLogic() {
 
   const handleApplyPreset = useCallback((key) => {
     setSelectedPreset(key)
-    const now = new Date()
-    let start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    let end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-
-    if (key === 'today') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    } else if (key === '7d') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
-      end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    } else if (key === '30d') {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
-      end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    } else if (key === 'this_month') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1)
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    } else if (key === 'last_month') {
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      end = new Date(now.getFullYear(), now.getMonth(), 0)
-    } else if (key === 'this_quarter') {
-      const qMonth = Math.floor(now.getMonth() / 3) * 3
-      start = new Date(now.getFullYear(), qMonth, 1)
-      end = new Date(now.getFullYear(), qMonth + 3, 0)
-    } else if (key === 'this_year') {
-      start = new Date(now.getFullYear(), 0, 1)
-      end = new Date(now.getFullYear(), 11, 31)
-    } else if (key === 'all') {
-      start = new Date(2020, 0, 1)
-      end = new Date(2030, 11, 31)
-    }
-
-    const newRange = [formatLocalDate(start), formatLocalDate(end)]
+    const newRange = calculatePresetDateRange(key)
     setDateRange(newRange)
     setSelectedMasterKey('')
   }, [])
@@ -204,10 +237,11 @@ export function useSummaryPlanLogic() {
         const regDateRaw =
           mInfo?.ApplyDate ||
           row.PlanDate ||
-          row.RoutingDocDate ||
-          row.StartDate ||
           row.OpDate ||
-          '2026-09-29'
+          row.StartDate ||
+          row.RoutingDocDate ||
+          dateRange?.[0] ||
+          ''
         const planDate = normalizeDateString(regDateRaw)
 
         const pic =
@@ -287,6 +321,9 @@ export function useSummaryPlanLogic() {
       : null
 
     return rawDataset.filter((item) => {
+      if (dateRange?.[0] && dateRange?.[1] && item.date) {
+        if (item.date < dateRange[0] || item.date > dateRange[1]) return false
+      }
       if (selectedPic && selectedPic !== 'ALL') {
         const itemPic = String(item.pic || item.PicDp || item.Pic || '')
           .trim()
@@ -330,7 +367,7 @@ export function useSummaryPlanLogic() {
       }
       return true
     })
-  }, [rawDataset, selectedPic, selectedTeam, selectedMachine, detailSearchText])
+  }, [rawDataset, selectedPic, selectedTeam, selectedMachine, detailSearchText, dateRange])
 
   const filterOptions = useMemo(() => {
     if (rawDataset.length === 0 && backendReportData?.filterOptions) {

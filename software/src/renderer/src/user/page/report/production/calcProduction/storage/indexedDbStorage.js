@@ -70,9 +70,13 @@ export const getCalcProductionDB = async () => {
 
 export const resetCalcProductionDB = () => {
   if (dbPromise) {
-    dbPromise.then((db) => {
-      try { db.close() } catch {}
-    }).catch(() => {})
+    dbPromise
+      .then((db) => {
+        try {
+          db.close()
+        } catch {}
+      })
+      .catch(() => {})
     dbPromise = null
   }
 }
@@ -87,7 +91,7 @@ export const saveArchitectureFileIDB = async (fileType, fileData) => {
       fileType,
       fileName: fileData.fileName || '',
       fileSize: fileData.fileSize || 0,
-      rowCount: fileData.rowCount || (fileData.data?.length || 0),
+      rowCount: fileData.rowCount || fileData.data?.length || 0,
       columns: fileData.columns || [],
       data: fileData.data || [],
       uploadedAt: fileData.uploadedAt || new Date().toISOString()
@@ -207,8 +211,13 @@ export const saveMasterRegistrationIDB = async (record) => {
     await db.put(STORAGE_KEYS.STORE_MASTER, record)
     return { success: true }
   } catch (error) {
-    if (String(error?.message || '').includes('object stores was not found') || error?.name === 'NotFoundError') {
-      console.warn('[IndexedDB] Object store not found on put. Resetting and forcing schema upgrade...')
+    if (
+      String(error?.message || '').includes('object stores was not found') ||
+      error?.name === 'NotFoundError'
+    ) {
+      console.warn(
+        '[IndexedDB] Object store not found on put. Resetting and forcing schema upgrade...'
+      )
       resetCalcProductionDB()
       const db = await getCalcProductionDB()
       await db.put(STORAGE_KEYS.STORE_MASTER, record)
@@ -228,7 +237,10 @@ export const getMasterRegistrationIDB = async (regCode) => {
     const db = await getCalcProductionDB()
     return await db.get(STORAGE_KEYS.STORE_MASTER, regCode)
   } catch (error) {
-    if (String(error?.message || '').includes('object stores was not found') || error?.name === 'NotFoundError') {
+    if (
+      String(error?.message || '').includes('object stores was not found') ||
+      error?.name === 'NotFoundError'
+    ) {
       resetCalcProductionDB()
       const db = await getCalcProductionDB()
       return await db.get(STORAGE_KEYS.STORE_MASTER, regCode)
@@ -247,7 +259,10 @@ export const getAllMasterRegistrationsIDB = async () => {
     const list = await db.getAll(STORAGE_KEYS.STORE_MASTER)
     return list.sort((a, b) => new Date(b.registeredAt || 0) - new Date(a.registeredAt || 0))
   } catch (error) {
-    if (String(error?.message || '').includes('object stores was not found') || error?.name === 'NotFoundError') {
+    if (
+      String(error?.message || '').includes('object stores was not found') ||
+      error?.name === 'NotFoundError'
+    ) {
       resetCalcProductionDB()
       try {
         const db = await getCalcProductionDB()

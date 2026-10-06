@@ -113,3 +113,41 @@ export const calculateTotalDays = (dateRange, dataset = []) => {
   if (distinctDates.size > 0) return distinctDates.size
   return 1
 }
+
+export const calculatePresetDateRange = (presetKey) => {
+  const now = new Date()
+  let start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  let end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  if (presetKey === 'today') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  } else if (presetKey === '7d') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
+    end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  } else if (presetKey === '30d') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
+    end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  } else if (presetKey === 'this_month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1)
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  } else if (presetKey === 'last_month') {
+    start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    end = new Date(now.getFullYear(), now.getMonth(), 0)
+  } else if (presetKey === 'this_quarter') {
+    const qMonth = Math.floor(now.getMonth() / 3) * 3
+    start = new Date(now.getFullYear(), qMonth, 1)
+    end = new Date(now.getFullYear(), qMonth + 3, 0)
+  } else if (presetKey === 'this_year') {
+    start = new Date(now.getFullYear(), 0, 1)
+    end = new Date(now.getFullYear(), 11, 31)
+  } else if (presetKey === 'all') {
+    start = new Date(2020, 0, 1)
+    end = new Date(2030, 11, 31)
+  } else {
+    start = new Date(now.getFullYear(), now.getMonth(), 1)
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  }
+
+  return [formatLocalDate(start), formatLocalDate(end)]
+}

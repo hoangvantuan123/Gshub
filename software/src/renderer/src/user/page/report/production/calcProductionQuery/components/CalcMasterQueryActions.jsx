@@ -1,12 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useTranslation } from 'react-i18next'
-import {
-  Search,
-  ExternalLink,
-  Trash2,
-  RotateCcw,
-  Download
-} from 'lucide-react'
+import { Search, ExternalLink, Trash2, RotateCcw, Download } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 
 export default function CalcMasterQueryActions({

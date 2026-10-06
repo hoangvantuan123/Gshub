@@ -340,19 +340,9 @@ export const useProductionStatisticsLogic = ({
       const pRate = a > 0 ? Number(((pass / a) * 100).toFixed(1)) : 100
 
       const rawStartDate =
-        item.startDate ||
-        item.StartDate ||
-        item.prodDate ||
-        item.StatDate ||
-        item.statDate ||
-        ''
+        item.startDate || item.StartDate || item.prodDate || item.StatDate || item.statDate || ''
       const rawEndDate =
-        item.endDate ||
-        item.EndDate ||
-        item.prodDate ||
-        item.StatDate ||
-        item.statDate ||
-        ''
+        item.endDate || item.EndDate || item.prodDate || item.StatDate || item.statDate || ''
       const rawStart =
         item.startTime || item.StartTime || item.TicketCreatedDate || item.createdTime
       const rawEnd = item.endTime || item.EndTime || item.MesApprovalTime || item.syncTime
@@ -650,7 +640,7 @@ export const useProductionStatisticsLogic = ({
         const durMin = Number(item.durationMinutes ?? item.ActualRunTime ?? 0)
 
         if (selectedDurationAudit === 'UNDER_5MIN') {
-          if (!(durMin < 5 && durMin >= 0)) return false
+          if (durMin >= 5) return false
         } else if (selectedDurationAudit === '5MIN_12H') {
           if (!(durMin >= 5 && durMin <= 720)) return false
         } else if (
@@ -797,8 +787,8 @@ export const useProductionStatisticsLogic = ({
         bravoCount++
       }
 
-      const durMinutes = Number(item.durationMinutes || rt * 60) || 0
-      if (durMinutes < 5 && durMinutes >= 0) {
+      const durMinutes = Number(item.durationMinutes ?? rt * 60) || 0
+      if (durMinutes < 5) {
         rUnder5++
       } else if (durMinutes >= 5 && durMinutes <= 720) {
         rNormal++
@@ -1167,7 +1157,7 @@ export const useProductionStatisticsLogic = ({
       if (durMin > 720) {
         rec.anomalies++
       }
-      if (durMin < 5 && durMin >= 0) {
+      if (durMin < 5) {
         rec.under5Min++
       }
 

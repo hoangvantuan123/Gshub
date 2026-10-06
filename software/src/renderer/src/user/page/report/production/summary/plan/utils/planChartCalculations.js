@@ -227,7 +227,8 @@ export function getMetricDeltaColor(metricKey, diff) {
 }
 
 export function getWeekPeriodInfo(dateStr) {
-  if (!dateStr || dateStr === 'Khác') return { weekKey: 'Khác', shortDate: 'Khác', displayDate: 'Khác' }
+  if (!dateStr || dateStr === 'Khác')
+    return { weekKey: 'Khác', shortDate: 'Khác', displayDate: 'Khác' }
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return { weekKey: dateStr, shortDate: dateStr, displayDate: dateStr }
 
@@ -238,7 +239,7 @@ export function getWeekPeriodInfo(dateStr) {
   const firstThursday = target.valueOf()
   target.setMonth(0, 1)
   if (target.getDay() !== 4) {
-    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7)
+    target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7))
   }
   const weekNum = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000)
   const year = new Date(firstThursday).getFullYear()

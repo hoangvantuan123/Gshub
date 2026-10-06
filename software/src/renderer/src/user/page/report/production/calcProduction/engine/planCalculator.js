@@ -18,10 +18,18 @@ export const calculateKHSX = (files = {}) => {
 
   // 1. Phân tích kế hoạch từ Báo cáo Tổng hợp Lệnh thao tác
   summaryOpData.forEach((row) => {
-    const rawPlanned = parseFloat(String(row['Số lượng cần sx (1)'] || row['Số lượng cần sản xuất'] || 0).replace(/,/g, '')) || 0
-    const rawTarget = parseFloat(String(row['Số lượng cần đạt (2)'] || row['Số lượng cần đạt'] || 0).replace(/,/g, '')) || 0
-    const rawDefect = parseFloat(String(row['Số lượng sai hỏng cho phép (3)'] || 0).replace(/,/g, '')) || 0
-    const rawDuration = parseFloat(String(row['Tổng thời gian kế hoạch (7)'] || 0).replace(/,/g, '')) || 0
+    const rawPlanned =
+      parseFloat(
+        String(row['Số lượng cần sx (1)'] || row['Số lượng cần sản xuất'] || 0).replace(/,/g, '')
+      ) || 0
+    const rawTarget =
+      parseFloat(
+        String(row['Số lượng cần đạt (2)'] || row['Số lượng cần đạt'] || 0).replace(/,/g, '')
+      ) || 0
+    const rawDefect =
+      parseFloat(String(row['Số lượng sai hỏng cho phép (3)'] || 0).replace(/,/g, '')) || 0
+    const rawDuration =
+      parseFloat(String(row['Tổng thời gian kế hoạch (7)'] || 0).replace(/,/g, '')) || 0
     const machine = String(row['Tên máy'] || row['Mã máy'] || 'Chưa gán máy').trim()
     const product = String(row['Tên vật tư'] || row['Mã vật tư'] || 'Khác').trim()
 

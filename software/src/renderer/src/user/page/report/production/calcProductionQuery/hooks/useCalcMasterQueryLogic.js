@@ -77,10 +77,19 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
 
       // Áp dụng bộ lọc
       const filtered = (list || []).filter((item) => {
-        if (filters.factory && filters.factory !== 'Tất cả' && item.factoryName !== filters.factory) {
+        if (
+          filters.factory &&
+          filters.factory !== 'Tất cả' &&
+          item.factoryName !== filters.factory
+        ) {
           return false
         }
-        if (filters.regCode && !String(item.regCode || '').toLowerCase().includes(filters.regCode.toLowerCase())) {
+        if (
+          filters.regCode &&
+          !String(item.regCode || '')
+            .toLowerCase()
+            .includes(filters.regCode.toLowerCase())
+        ) {
           return false
         }
         if (filters.status && filters.status !== 'Tất cả' && item.status !== filters.status) {
@@ -94,16 +103,25 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
         if (filters.keyword) {
           const kw = filters.keyword.toLowerCase()
           const match =
-            String(item.regCode || '').toLowerCase().includes(kw) ||
-            String(item.remark || '').toLowerCase().includes(kw) ||
-            String(item.factoryName || '').toLowerCase().includes(kw)
+            String(item.regCode || '')
+              .toLowerCase()
+              .includes(kw) ||
+            String(item.remark || '')
+              .toLowerCase()
+              .includes(kw) ||
+            String(item.factoryName || '')
+              .toLowerCase()
+              .includes(kw)
           if (!match) return false
         }
         return true
       })
 
       setQueriedRows(filtered)
-      notify('success', `Đã tìm thấy ${filtered.length.toLocaleString('vi-VN')} phiếu đăng ký Master`)
+      notify(
+        'success',
+        `Đã tìm thấy ${filtered.length.toLocaleString('vi-VN')} phiếu đăng ký Master`
+      )
     } catch (err) {
       console.error('Lỗi lấy danh sách master:', err)
       notify('error', `Lỗi truy vấn Master: ${err.message}`)

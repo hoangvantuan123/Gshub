@@ -221,7 +221,9 @@ export function MachineRuntimeSection({
 
     for (let mIdx = 0; mIdx < rawMachineList.length; mIdx++) {
       const mCode = rawMachineList[mIdx]
-      const cluster = machineTimelineBreakdown?.machineClusters?.find((c) => c.machineCode === mCode)
+      const cluster = machineTimelineBreakdown?.machineClusters?.find(
+        (c) => c.machineCode === mCode
+      )
       const disp = displayMachineList.find((m) => (m.machineCode || m.machineName) === mCode)
       const mName = cluster?.machineName || disp?.machineName || disp?.machineDesc || mCode
       const team = cluster?.teamName || disp?.team || disp?.teamName || 'Khác'
@@ -251,13 +253,7 @@ export function MachineRuntimeSection({
           activeValues.push(rt)
         }
 
-        const cellMeta = computeCellMeta(
-          rt,
-          isManual,
-          dateObj.shortLabel,
-          mCode,
-          mName
-        )
+        const cellMeta = computeCellMeta(rt, isManual, dateObj.shortLabel, mCode, mName)
 
         if (cellMeta.isOver24) {
           hasOver24 = true
@@ -276,9 +272,7 @@ export function MachineRuntimeSection({
 
       // TB/NG: Giờ chạy trung bình trên mỗi ngày máy có hoạt động thực tế (>0h)
       const avgDailyHours =
-        activeDaysCount > 0
-          ? Number((totalRuntime / activeDaysCount).toFixed(1))
-          : 0
+        activeDaysCount > 0 ? Number((totalRuntime / activeDaysCount).toFixed(1)) : 0
 
       // TB toàn kỳ (chia đều cho toàn bộ ngày)
       const avgPeriodHours = Number((totalRuntime / daysCount).toFixed(1))
@@ -408,10 +402,12 @@ export function MachineRuntimeSection({
         if (m.teamName) set.add(m.teamName)
       }
     })
-    return Array.from(set).sort().map((team) => ({
-      value: team,
-      label: team
-    }))
+    return Array.from(set)
+      .sort()
+      .map((team) => ({
+        value: team,
+        label: team
+      }))
   }, [heatmapData.list, showManual])
 
   // Danh sách options cho Multi-select Cụm máy (tự động ăn theo Nhóm máy đang chọn)
@@ -559,11 +555,7 @@ export function MachineRuntimeSection({
 
           m.daysData.forEach((d) => {
             const val =
-              d.runtimeHours !== undefined
-                ? d.runtimeHours
-                : d.hours !== undefined
-                  ? d.hours
-                  : 0
+              d.runtimeHours !== undefined ? d.runtimeHours : d.hours !== undefined ? d.hours : 0
             row.push(val)
           })
 
@@ -673,9 +665,9 @@ export function MachineRuntimeSection({
           <span>{sectionNumber}. THỜI GIAN CHẠY MÁY THEO NGÀY CỦA TỪNG THIẾT BỊ</span>
         </div>
         <div style={{ fontSize: 12.5, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
-          Theo dõi tổng số giờ chạy máy, số ngày chạy thực tế và số giờ vận hành chi tiết từng ngày của{' '}
-          <b style={{ color: '#0f172a' }}>{filteredSummaryKpi.count} máy sản xuất</b> tại {plantName} trong{' '}
-          <b style={{ color: '#0f172a' }}>{heatmapData.dates.length} ngày</b>.
+          Theo dõi tổng số giờ chạy máy, số ngày chạy thực tế và số giờ vận hành chi tiết từng ngày
+          của <b style={{ color: '#0f172a' }}>{filteredSummaryKpi.count} máy sản xuất</b> tại{' '}
+          {plantName} trong <b style={{ color: '#0f172a' }}>{heatmapData.dates.length} ngày</b>.
         </div>
       </div>
 

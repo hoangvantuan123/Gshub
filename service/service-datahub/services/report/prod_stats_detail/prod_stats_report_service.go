@@ -376,68 +376,121 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		query = query.Where(`"MasterSeq" = ?`, masterSeq)
 	}
 
-	// 2. Lọc theo Nhà máy (liên kết qua _ERPPlanMaster hoặc mã RegCode)
+	// 2. Lọc theo Nhà máy (liên kết qua _ERPPlanMaster, MasterSeq, RegCode, MachineCode hoặc MachineName)
 	if factoryCode != "" && factoryCode != "ALL" && regCode == "" && masterSeq == "" {
-		subMasterQuery := s.db.Model(&models.ERPPlanMaster{}).
-			Select(`"RegCode"`).
-			Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+		fcUpper := strings.ToUpper(strings.TrimSpace(factoryCode))
+		if strings.Contains(fcUpper, "GS5") || strings.Contains(fcUpper, "QV") || strings.Contains(factoryCode, "Quế Võ") {
+			subMasterReg := s.db.Table(`"_ERPPlanMaster"`).
+				Select(`"RegCode"`).
+				Where(`"FactoryCode" ILIKE '%GS5%' OR "FactoryName" ILIKE '%GS5%' OR "FactoryName" ILIKE '%Quế Võ%' OR "FactoryCode" ILIKE '%QV%' OR "RegCode" ILIKE '%GS5%' OR "RegCode" ILIKE '%QV%'`)
 
-		query = query.Where(`"RegCode" IN (?) OR "RegCode" ILIKE ?`, subMasterQuery, "%"+factoryCode+"%")
+			subMasterId := s.db.Table(`"_ERPPlanMaster"`).
+				Select(`"IdSeq"`).
+				Where(`"FactoryCode" ILIKE '%GS5%' OR "FactoryName" ILIKE '%GS5%' OR "FactoryName" ILIKE '%Quế Võ%' OR "FactoryCode" ILIKE '%QV%' OR "RegCode" ILIKE '%GS5%' OR "RegCode" ILIKE '%QV%'`)
+
+			query = query.Where(`"RegCode" IN (?) OR "MasterSeq" IN (?) OR "RegCode" ILIKE '%GS5%' OR "RegCode" ILIKE '%QV%' OR "MachineCode" ILIKE 'QV%' OR "MachineName" ILIKE '%GS5%' OR "MachineName" ILIKE '%Quế Võ%'`,
+				subMasterReg, subMasterId)
+		} else if strings.Contains(fcUpper, "GS1") || strings.Contains(fcUpper, "HN") || strings.Contains(factoryCode, "Hà Nội") {
+			subMasterReg := s.db.Table(`"_ERPPlanMaster"`).
+				Select(`"RegCode"`).
+				Where(`"FactoryCode" ILIKE '%GS1%' OR "FactoryName" ILIKE '%GS1%' OR "FactoryName" ILIKE '%Hà Nội%' OR "FactoryCode" ILIKE '%HN%'`)
+
+			subMasterId := s.db.Table(`"_ERPPlanMaster"`).
+				Select(`"IdSeq"`).
+				Where(`"FactoryCode" ILIKE '%GS1%' OR "FactoryName" ILIKE '%GS1%' OR "FactoryName" ILIKE '%Hà Nội%' OR "FactoryCode" ILIKE '%HN%'`)
+
+			query = query.Where(`("RegCode" IN (?) OR "MasterSeq" IN (?) OR "RegCode" ILIKE '%GS1%' OR "RegCode" ILIKE '%HN%') AND "MachineCode" NOT ILIKE 'QV%' AND "MachineName" NOT ILIKE '%GS5%'`,
+				subMasterReg, subMasterId)
+		} else {
+			subMasterQuery := s.db.Table(`"_ERPPlanMaster"`).
+				Select(`"RegCode"`).
+				Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+
+			subMasterIdQuery := s.db.Table(`"_ERPPlanMaster"`).
+				Select(`"IdSeq"`).
+				Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+
+			query = query.Where(`"RegCode" IN (?) OR "MasterSeq" IN (?) OR "RegCode" ILIKE ?`, subMasterQuery, subMasterIdQuery, "%"+factoryCode+"%")
+		}
 	}
 
-	// 3. Lọc ngày và thời gian linh hoạt (hỗ trợ cả StatDate, StartDate, RoutingDate, TicketCreatedDate và Master.ApplyDate)
-	if statDateFrom != "" && statDateTo != "" {
-		from10 := statDateFrom
+	// 3. Lọc ngày và thời gian linh hoạt (hỗ trợ cả StatDate, StartDate và Master.ApplyDate)
+	from10 := ""
+	to10 := ""
+	if statDateFrom != "" {
+		from10 = statDateFrom
 		if len(from10) > 10 {
 			from10 = from10[:10]
 		}
-		to10 := statDateTo
+	}
+	if statDateTo != "" {
+		to10 = statDateTo
 		if len(to10) > 10 {
 			to10 = to10[:10]
 		}
+	}
+
+	if from10 != "" && to10 != "" {
 		toEnd := to10 + "T23:59:59.999Z"
 		toEndSpace := to10 + " 23:59:59"
 
-		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
+		subDateMasterReg := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
 			Where(`(LEFT("ApplyDate", 10) >= ? AND LEFT("ApplyDate", 10) <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?)`,
 				from10, to10, from10, toEnd, from10, toEndSpace)
+		subDateMasterId := s.db.Model(&models.ERPPlanMaster{}).
+			Select(`"IdSeq"`).
+			Where(`(LEFT("ApplyDate", 10) >= ? AND LEFT("ApplyDate", 10) <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?) OR ("ApplyDate" >= ? AND "ApplyDate" <= ?)`,
+				from10, to10, from10, toEnd, from10, toEndSpace)
+
 		if factoryCode != "" && factoryCode != "ALL" {
-			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			fcUpper := strings.ToUpper(strings.TrimSpace(factoryCode))
+			if strings.Contains(fcUpper, "GS5") || strings.Contains(fcUpper, "QV") || strings.Contains(factoryCode, "Quế Võ") {
+				subDateMasterReg = subDateMasterReg.Where(`"FactoryCode" ILIKE '%GS5%' OR "FactoryName" ILIKE '%GS5%' OR "FactoryName" ILIKE '%Quế Võ%' OR "FactoryCode" ILIKE '%QV%' OR "RegCode" ILIKE '%GS5%' OR "RegCode" ILIKE '%QV%'`)
+				subDateMasterId = subDateMasterId.Where(`"FactoryCode" ILIKE '%GS5%' OR "FactoryName" ILIKE '%GS5%' OR "FactoryName" ILIKE '%Quế Võ%' OR "FactoryCode" ILIKE '%QV%' OR "RegCode" ILIKE '%GS5%' OR "RegCode" ILIKE '%QV%'`)
+			} else if strings.Contains(fcUpper, "GS1") || strings.Contains(fcUpper, "HN") || strings.Contains(factoryCode, "Hà Nội") {
+				subDateMasterReg = subDateMasterReg.Where(`"FactoryCode" ILIKE '%GS1%' OR "FactoryName" ILIKE '%GS1%' OR "FactoryName" ILIKE '%Hà Nội%' OR "FactoryCode" ILIKE '%HN%'`)
+				subDateMasterId = subDateMasterId.Where(`"FactoryCode" ILIKE '%GS1%' OR "FactoryName" ILIKE '%GS1%' OR "FactoryName" ILIKE '%Hà Nội%' OR "FactoryCode" ILIKE '%HN%'`)
+			} else {
+				subDateMasterReg = subDateMasterReg.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+				subDateMasterId = subDateMasterId.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			}
 		}
 
-		query = query.Where(`(LEFT("StatDate", 10) >= ? AND LEFT("StatDate", 10) <= ?) OR (LEFT("StartDate", 10) >= ? AND LEFT("StartDate", 10) <= ?) OR ("RegCode" IN (?))`,
-			from10, to10, from10, to10, subDateMaster)
-	} else if statDateFrom != "" {
-		from10 := statDateFrom
-		if len(from10) > 10 {
-			from10 = from10[:10]
-		}
-		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
+		query = query.Where(`"RegCode" IN (?) OR "MasterSeq" IN (?) OR (LEFT("StatDate", 10) >= ? AND LEFT("StatDate", 10) <= ?) OR (LEFT("StartDate", 10) >= ? AND LEFT("StartDate", 10) <= ?)`,
+			subDateMasterReg, subDateMasterId, from10, to10, from10, to10)
+	} else if from10 != "" {
+		subDateMasterReg := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
 			Where(`LEFT("ApplyDate", 10) >= ? OR "ApplyDate" >= ?`, from10, from10)
+		subDateMasterId := s.db.Model(&models.ERPPlanMaster{}).
+			Select(`"IdSeq"`).
+			Where(`LEFT("ApplyDate", 10) >= ? OR "ApplyDate" >= ?`, from10, from10)
+
 		if factoryCode != "" && factoryCode != "ALL" {
-			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterReg = subDateMasterReg.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterId = subDateMasterId.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`LEFT("StatDate", 10) >= ? OR LEFT("StartDate", 10) >= ? OR ("RegCode" IN (?))`,
-			from10, from10, subDateMaster)
-	} else if statDateTo != "" {
-		to10 := statDateTo
-		if len(to10) > 10 {
-			to10 = to10[:10]
-		}
+		query = query.Where(`"RegCode" IN (?) OR "MasterSeq" IN (?) OR LEFT("StatDate", 10) >= ? OR LEFT("StartDate", 10) >= ?`,
+			subDateMasterReg, subDateMasterId, from10, from10)
+	} else if to10 != "" {
 		toEnd := to10 + "T23:59:59.999Z"
 		toEndSpace := to10 + " 23:59:59"
-		subDateMaster := s.db.Model(&models.ERPPlanMaster{}).
+		subDateMasterReg := s.db.Model(&models.ERPPlanMaster{}).
 			Select(`"RegCode"`).
 			Where(`LEFT("ApplyDate", 10) <= ? OR "ApplyDate" <= ? OR "ApplyDate" <= ?`, to10, toEnd, toEndSpace)
+		subDateMasterId := s.db.Model(&models.ERPPlanMaster{}).
+			Select(`"IdSeq"`).
+			Where(`LEFT("ApplyDate", 10) <= ? OR "ApplyDate" <= ? OR "ApplyDate" <= ?`, to10, toEnd, toEndSpace)
+
 		if factoryCode != "" && factoryCode != "ALL" {
-			subDateMaster = subDateMaster.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterReg = subDateMasterReg.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+			subDateMasterId = subDateMasterId.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 
-		query = query.Where(`LEFT("StatDate", 10) <= ? OR LEFT("StartDate", 10) <= ? OR ("RegCode" IN (?))`,
-			to10, to10, subDateMaster)
+		query = query.Where(`"RegCode" IN (?) OR "MasterSeq" IN (?) OR LEFT("StatDate", 10) <= ? OR LEFT("StartDate", 10) <= ?`,
+			subDateMasterReg, subDateMasterId, to10, to10)
 	}
 	if fromTime != "" {
 		query = query.Where(`"StartTime" >= ?`, fromTime)
@@ -470,26 +523,14 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		return nil, err
 	}
 
-	// 4. Nếu bảng _ERPProdStatsDetail rỗng dòng, kiểm tra fallback sang bảng _ERPPlanDetail
-	if len(rawList) == 0 {
+	// 4. Fallback chỉ khi lọc đích danh RegCode / MasterSeq mà không có dòng nào trong _ERPProdStatsDetail
+	if len(rawList) == 0 && (regCode != "" || masterSeq != "") && statDateFrom == "" && statDateTo == "" {
 		planQuery := s.db.WithContext(ctx).Model(&models.ERPPlanDetail{})
 		if regCode != "" {
 			planQuery = planQuery.Where(`"RegCode" = ? OR "RegCode" ILIKE ?`, regCode, "%"+regCode+"%")
 		}
 		if masterSeq != "" {
 			planQuery = planQuery.Where(`"MasterSeq" = ?`, masterSeq)
-		}
-		if factoryCode != "" && regCode == "" && masterSeq == "" {
-			subPlanMasterQuery := s.db.Model(&models.ERPPlanMaster{}).
-				Select(`"RegCode"`).
-				Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
-			planQuery = planQuery.Where(`"RegCode" IN (?) OR "RegCode" ILIKE ?`, subPlanMasterQuery, "%"+factoryCode+"%")
-		}
-		if statDateFrom != "" {
-			planQuery = planQuery.Where(`"OpDate" >= ? OR "RoutingDocDate" >= ?`, statDateFrom, statDateFrom)
-		}
-		if statDateTo != "" {
-			planQuery = planQuery.Where(`"OpDate" <= ? OR "RoutingDocDate" <= ?`, statDateTo, statDateTo)
 		}
 
 		var planRows []models.ERPPlanDetail
@@ -525,7 +566,7 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		}
 	}
 
-	// Nếu vẫn rỗng và không có bộ lọc cụ thể, lấy theo đợt Master mới nhất
+	// Nếu vẫn rỗng và không có bất kỳ bộ lọc nào, lấy theo đợt Master mới nhất
 	if len(rawList) == 0 && regCode == "" && masterSeq == "" && statDateFrom == "" && statDateTo == "" {
 		var latestMaster models.ERPPlanMaster
 		masterQuery := s.db.Model(&models.ERPPlanMaster{})
@@ -539,12 +580,18 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 
 	// Tải danh sách Master TKSX (đợt thống kê) trước để ánh xạ ngày áp dụng chuẩn
 	var masterList []models.ERPPlanMaster
-	mQuery := s.db.WithContext(ctx).Model(&models.ERPPlanMaster{}).
-		Where(`"ReportType" ILIKE '%stat%' OR "ReportType" ILIKE '%thống kê%' OR "ReportType" ILIKE '%thong_ke%' OR "ReportType" = 'Thống kê sản xuất'`)
+	mQuery := s.db.WithContext(ctx).Table(`"_ERPPlanMaster"`)
 	if factoryCode != "" && factoryCode != "ALL" {
-		mQuery = mQuery.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+		fcUpper := strings.ToUpper(strings.TrimSpace(factoryCode))
+		if strings.Contains(fcUpper, "GS5") || strings.Contains(fcUpper, "QV") || strings.Contains(factoryCode, "Quế Võ") {
+			mQuery = mQuery.Where(`"FactoryCode" ILIKE '%GS5%' OR "FactoryName" ILIKE '%GS5%' OR "FactoryName" ILIKE '%Quế Võ%' OR "FactoryCode" ILIKE '%QV%' OR "RegCode" ILIKE '%GS5%' OR "RegCode" ILIKE '%QV%'`)
+		} else if strings.Contains(fcUpper, "GS1") || strings.Contains(fcUpper, "HN") || strings.Contains(factoryCode, "Hà Nội") {
+			mQuery = mQuery.Where(`("FactoryCode" ILIKE '%GS1%' OR "FactoryName" ILIKE '%GS1%' OR "FactoryName" ILIKE '%Hà Nội%' OR "FactoryCode" ILIKE '%HN%') AND "FactoryCode" NOT ILIKE '%GS5%'`)
+		} else {
+			mQuery = mQuery.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
+		}
 	}
-	_ = mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(300).Find(&masterList).Error
+	_ = mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(500).Find(&masterList).Error
 
 	masterMap := make(map[string]models.ERPPlanMaster)
 	for _, m := range masterList {
@@ -593,7 +640,7 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		rtHours := math.Round((durMin/60.0)*100) / 100
 
 		auditCat := "5MIN_12H"
-		if durMin < 5 && durMin >= 0 {
+		if durMin < 5 {
 			auditCat = "UNDER_5MIN"
 		} else if durMin > 720 {
 			auditCat = "OVER_12H"
@@ -647,6 +694,15 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		if effectiveDate == "" && row.StartDate != nil && strings.TrimSpace(*row.StartDate) != "" {
 			effectiveDate = cleanDateString(row.StartDate)
 		}
+
+		// Kiểm tra lọc chặt chẽ theo khoảng ngày nếu có
+		if from10 != "" && effectiveDate != "" && effectiveDate < from10 {
+			continue
+		}
+		if to10 != "" && effectiveDate != "" && effectiveDate > to10 {
+			continue
+		}
+
 		prodDate := effectiveDate
 		shiftVal := ""
 		if row.Shift != nil {
@@ -699,7 +755,7 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			syncEmpty++
 		}
 
-		isUnder5Min := durMin < 5 && durMin >= 0
+		isUnder5Min := durMin < 5
 		isOver12hCheck := durMin > 720 && actualQty < 50000
 
 		ticketNo := row.IdSeq

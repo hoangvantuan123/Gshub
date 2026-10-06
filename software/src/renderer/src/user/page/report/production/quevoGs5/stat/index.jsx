@@ -89,7 +89,9 @@ function parseDurationToMinutes(rawTime, startTime, endTime, startDate = '', end
           y = p[2] < 100 ? 2000 + p[2] : p[2]
         }
       }
-      let hh = 0, mm = 0, ss = 0
+      let hh = 0,
+        mm = 0,
+        ss = 0
       if (t && t.includes(':')) {
         const tp = t.split(':').map(Number)
         hh = tp[0] || 0

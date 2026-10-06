@@ -118,7 +118,8 @@ export default function CalcDataGridTable({
       }
 
       if (meta.isNum || typeof value === 'number') {
-        const numVal = typeof value === 'number' ? value : parseFloat(String(value).replace(/,/g, '')) || 0
+        const numVal =
+          typeof value === 'number' ? value : parseFloat(String(value).replace(/,/g, '')) || 0
         return {
           kind: GridCellKind.Number,
           data: numVal,

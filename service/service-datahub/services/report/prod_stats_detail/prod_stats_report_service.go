@@ -67,27 +67,102 @@ func parseNumber(val *string, defaultVal float64) float64 {
 	return n
 }
 
-// Helper: Tính số phút chạy máy từ StartTime/EndTime hoặc chuỗi ActualRunTime
-func calcDurationMinutes(actualRunTime, startTime, endTime *string) float64 {
+func parseFullDateTime(dStr, tStr string) (time.Time, bool) {
+	dStr = strings.TrimSpace(dStr)
+	tStr = strings.TrimSpace(tStr)
+	if strings.Contains(tStr, " ") && dStr == "" {
+		parts := strings.Split(tStr, " ")
+		dStr = parts[0]
+		tStr = strings.Join(parts[1:], " ")
+	}
+	if dStr == "" && tStr == "" {
+		return time.Time{}, false
+	}
+	var y, m, d int
+	if len(dStr) >= 10 && dStr[4] == '-' && dStr[7] == '-' {
+		parts := strings.Split(dStr[:10], "-")
+		if len(parts) == 3 {
+			y, _ = strconv.Atoi(parts[0])
+			p1, _ := strconv.Atoi(parts[1])
+			p2, _ := strconv.Atoi(parts[2])
+			if p2 == 10 && p1 <= 31 {
+				d = p1
+				m = p2
+			} else {
+				m = p1
+				d = p2
+			}
+		}
+	} else if strings.Contains(dStr, "/") {
+		parts := strings.Split(strings.Split(dStr, " ")[0], "/")
+		if len(parts) == 3 {
+			d, _ = strconv.Atoi(parts[0])
+			m, _ = strconv.Atoi(parts[1])
+			y, _ = strconv.Atoi(parts[2])
+			if y < 100 {
+				y += 2000
+			}
+		}
+	}
+	var hh, mm, ss int
+	if strings.Contains(tStr, ":") {
+		tp := strings.Split(tStr, ":")
+		if len(tp) >= 1 {
+			hh, _ = strconv.Atoi(tp[0])
+		}
+		if len(tp) >= 2 {
+			mm, _ = strconv.Atoi(tp[1])
+		}
+		if len(tp) >= 3 {
+			ss, _ = strconv.Atoi(tp[2])
+		}
+	}
+	if y > 0 && m > 0 && d > 0 {
+		return time.Date(y, time.Month(m), d, hh, mm, ss, 0, time.Local), true
+	}
+	return time.Time{}, false
+}
+
+// Helper: Tính số phút chạy máy từ StartTime/EndTime hoặc chuỗi ActualRunTime (hỗ trợ thông ngày)
+func calcDurationMinutes(actualRunTime, startTime, endTime, startDate, endDate *string) float64 {
+	sDateVal := ""
+	if startDate != nil {
+		sDateVal = *startDate
+	}
+	eDateVal := ""
+	if endDate != nil {
+		eDateVal = *endDate
+	}
+	sTimeVal := ""
+	if startTime != nil {
+		sTimeVal = *startTime
+	}
+	eTimeVal := ""
+	if endTime != nil {
+		eTimeVal = *endTime
+	}
+
 	// 1. Nếu có cả StartTime và EndTime: ưu tiên tính toán trực tiếp
-	if startTime != nil && endTime != nil && strings.TrimSpace(*startTime) != "" && strings.TrimSpace(*endTime) != "" {
-		sStr := strings.TrimSpace(*startTime)
-		eStr := strings.TrimSpace(*endTime)
+	if sTimeVal != "" && eTimeVal != "" {
+		t1, ok1 := parseFullDateTime(sDateVal, sTimeVal)
+		t2, ok2 := parseFullDateTime(eDateVal, eTimeVal)
+		if ok1 && ok2 && !t2.Before(t1) {
+			diffMin := t2.Sub(t1).Minutes()
+			return math.Round(diffMin*10) / 10
+		}
 
 		// Thử parse Date ISO
-		sTime, errS := time.Parse(time.RFC3339, sStr)
-		eTime, errE := time.Parse(time.RFC3339, eStr)
+		sTime, errS := time.Parse(time.RFC3339, sTimeVal)
+		eTime, errE := time.Parse(time.RFC3339, eTimeVal)
 		if errS == nil && errE == nil && !eTime.Before(sTime) {
 			diffMin := eTime.Sub(sTime).Minutes()
-			if diffMin >= 0 && diffMin <= 1440 {
-				return math.Round(diffMin*10) / 10
-			}
+			return math.Round(diffMin*10) / 10
 		}
 
 		// Parse format time HH:mm:ss
-		if strings.Contains(sStr, ":") && strings.Contains(eStr, ":") {
-			sParts := strings.Split(strings.TrimSpace(strings.Split(sStr, " ")[len(strings.Split(sStr, " "))-1]), ":")
-			eParts := strings.Split(strings.TrimSpace(strings.Split(eStr, " ")[len(strings.Split(eStr, " "))-1]), ":")
+		if strings.Contains(sTimeVal, ":") && strings.Contains(eTimeVal, ":") {
+			sParts := strings.Split(strings.TrimSpace(strings.Split(sTimeVal, " ")[len(strings.Split(sTimeVal, " "))-1]), ":")
+			eParts := strings.Split(strings.TrimSpace(strings.Split(eTimeVal, " ")[len(strings.Split(eTimeVal, " "))-1]), ":")
 
 			var sMin, eMin float64
 			if len(sParts) >= 1 {
@@ -120,9 +195,7 @@ func calcDurationMinutes(actualRunTime, startTime, endTime *string) float64 {
 			if diff < 0 {
 				diff += 1440 // Chạy xuyên đêm qua ngày hôm sau
 			}
-			if diff >= 0 && diff <= 1440 {
-				return math.Round(diff*10) / 10
-			}
+			return math.Round(diff*10) / 10
 		}
 	}
 
@@ -516,7 +589,7 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			passRate = math.Round((passQty/actualQty)*10000) / 100
 		}
 
-		durMin := calcDurationMinutes(row.ActualRunTime, row.StartTime, row.EndTime)
+		durMin := calcDurationMinutes(row.ActualRunTime, row.StartTime, row.EndTime, row.StartDate, row.EndDate)
 		rtHours := math.Round((durMin/60.0)*100) / 100
 
 		auditCat := "5MIN_12H"

@@ -167,6 +167,50 @@ export const formatSecondsToTime = (totalSec) => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+/**
+ * Trích xuất timestamp chính xác từ cặp Ngày (dVal) và Giờ (tVal)
+ * Hỗ trợ đa định dạng: YYYY-MM-DD, YYYY-DD-MM, DD/MM/YYYY, HH:mm, HH:mm:ss, ISO
+ */
+export function parseFullDateTimeTimestamp(dVal, tVal) {
+  let dStr = String(dVal || '').trim()
+  let tStr = String(tVal || '').trim()
+  if (tStr.includes(' ') && !dStr) {
+    const parts = tStr.split(' ')
+    dStr = parts[0]
+    tStr = parts.slice(1).join(' ')
+  }
+  let y, m, d
+  if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
+    const parts = dStr.slice(0, 10).split('-').map(Number)
+    y = parts[0]
+    if (parts[2] === 10 && parts[1] <= 31) {
+      d = parts[1]
+      m = parts[2]
+    } else {
+      m = parts[1]
+      d = parts[2]
+    }
+  } else if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(dStr)) {
+    const parts = dStr.split(' ')[0].split('/').map(Number)
+    d = parts[0]
+    m = parts[1]
+    y = parts[2] < 100 ? 2000 + parts[2] : parts[2]
+  }
+  let hh = 0
+  let mm = 0
+  let ss = 0
+  if (tStr.includes(':')) {
+    const tp = tStr.split(':').map(Number)
+    hh = tp[0] || 0
+    mm = tp[1] || 0
+    ss = tp[2] || 0
+  }
+  if (y && m && d) {
+    return new Date(y, m - 1, d, hh, mm, ss).getTime()
+  }
+  return null
+}
+
 // Helper format date & time chuẩn xác cho báo cáo (giữ nguyên vẹn text gốc từ DB)
 export function formatReportTimeOrDateTime(rawVal, defaultDate = '', fallbackTime = '') {
   if (rawVal === undefined || rawVal === null) return fallbackTime || defaultDate || ''
@@ -295,14 +339,34 @@ export const useProductionStatisticsLogic = ({
       const def = Number(item.defectQty) || Math.max(0, a - pass) || 0
       const pRate = a > 0 ? Number(((pass / a) * 100).toFixed(1)) : 100
 
+      const rawStartDate =
+        item.startDate ||
+        item.StartDate ||
+        item.prodDate ||
+        item.StatDate ||
+        item.statDate ||
+        ''
+      const rawEndDate =
+        item.endDate ||
+        item.EndDate ||
+        item.prodDate ||
+        item.StatDate ||
+        item.statDate ||
+        ''
       const rawStart =
         item.startTime || item.StartTime || item.TicketCreatedDate || item.createdTime
       const rawEnd = item.endTime || item.EndTime || item.MesApprovalTime || item.syncTime
 
       let durMinutes = undefined
 
-      // 1. Nếu có cả StartTime và EndTime: ưu tiên tính toán trực tiếp thời gian chạy thực tế
-      if (rawStart && rawEnd) {
+      // 1. Ưu tiên tính theo mốc Ngày + Giờ đầy đủ (Full DateTime thông ngày)
+      const startTs = parseFullDateTimeTimestamp(rawStartDate, rawStart)
+      const endTs = parseFullDateTimeTimestamp(rawEndDate, rawEnd)
+
+      if (startTs !== null && endTs !== null && endTs >= startTs) {
+        const diffMin = (endTs - startTs) / (1000 * 60)
+        durMinutes = Number(diffMin.toFixed(1))
+      } else if (rawStart && rawEnd) {
         const sStr = String(rawStart).trim()
         const eStr = String(rawEnd).trim()
 
@@ -321,9 +385,7 @@ export const useProductionStatisticsLogic = ({
           const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
           let diff = eMin - sMin
           if (diff < 0) diff += 1440 // Chạy xuyên đêm qua ngày hôm sau
-          if (diff >= 0 && diff <= 1440) {
-            durMinutes = Number(diff.toFixed(1))
-          }
+          durMinutes = Number(diff.toFixed(1))
         }
       }
 

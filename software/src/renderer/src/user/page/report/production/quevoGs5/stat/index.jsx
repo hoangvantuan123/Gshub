@@ -45,19 +45,68 @@ import {
 /**
  * Chuyển đổi và tính toán chính xác Thời gian thao tác theo PHÚT (Duration in Minutes)
  */
-function parseDurationToMinutes(rawTime, startTime, endTime) {
+function parseDurationToMinutes(rawTime, startTime, endTime, startDate = '', endDate = '') {
   // 1. Nếu có StartTime và EndTime
   if (startTime && endTime) {
     const sStr = String(startTime).trim()
     const eStr = String(endTime).trim()
+    const sDateStr = String(startDate || '').trim()
+    const eDateStr = String(endDate || '').trim()
 
-    const sDate = new Date(sStr.includes('T') ? sStr : sStr.replace(' ', 'T')).getTime()
-    const eDate = new Date(eStr.includes('T') ? eStr : eStr.replace(' ', 'T')).getTime()
-    if (!isNaN(sDate) && !isNaN(eDate) && eDate >= sDate) {
-      const diffMin = (eDate - sDate) / (1000 * 60)
-      if (diffMin >= 0 && diffMin <= 1440) {
-        return Number(diffMin.toFixed(1))
+    // Ghép đầy đủ ngày và giờ nếu có mốc ngày
+    let sFull = sStr
+    let eFull = eStr
+    if (sDateStr && !sStr.includes(' ') && !sStr.includes('T')) {
+      sFull = `${sDateStr} ${sStr}`
+    }
+    if (eDateStr && !eStr.includes(' ') && !eStr.includes('T')) {
+      eFull = `${eDateStr} ${eStr}`
+    }
+
+    const parseTS = (fullStr) => {
+      if (!fullStr) return null
+      let [d, t] = fullStr.includes('T') ? fullStr.split('T') : fullStr.split(' ')
+      if (!t && d && d.includes(':')) {
+        t = d
+        d = ''
       }
+      let y, m, day
+      if (d) {
+        if (/^\d{4}-\d{2}-\d{2}/.test(d)) {
+          const p = d.slice(0, 10).split('-').map(Number)
+          y = p[0]
+          if (p[2] === 10 && p[1] <= 31) {
+            day = p[1]
+            m = p[2]
+          } else {
+            m = p[1]
+            day = p[2]
+          }
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(d)) {
+          const p = d.split('/').map(Number)
+          day = p[0]
+          m = p[1]
+          y = p[2] < 100 ? 2000 + p[2] : p[2]
+        }
+      }
+      let hh = 0, mm = 0, ss = 0
+      if (t && t.includes(':')) {
+        const tp = t.split(':').map(Number)
+        hh = tp[0] || 0
+        mm = tp[1] || 0
+        ss = tp[2] || 0
+      }
+      if (y && m && day) {
+        return new Date(y, m - 1, day, hh, mm, ss).getTime()
+      }
+      return null
+    }
+
+    const sTs = parseTS(sFull)
+    const eTs = parseTS(eFull)
+    if (sTs !== null && eTs !== null && eTs >= sTs) {
+      const diffMin = (eTs - sTs) / (1000 * 60)
+      return Number(diffMin.toFixed(1))
     }
 
     if (sStr.includes(':') && eStr.includes(':')) {
@@ -75,7 +124,7 @@ function parseDurationToMinutes(rawTime, startTime, endTime) {
       const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
       let diff = eMin - sMin
       if (diff < 0) diff += 1440
-      if (diff >= 0 && diff <= 1440) return Number(diff.toFixed(1))
+      return Number(diff.toFixed(1))
     }
   }
 
@@ -164,8 +213,10 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
 
   const rawStart = item.StartTime || item.startTime || item.TicketCreatedDate || ''
   const rawEnd = item.EndTime || item.endTime || item.MesApprovalTime || ''
+  const rawStartDate = item.StartDate || item.startDate || item.StatDate || item.statDate || ''
+  const rawEndDate = item.EndDate || item.endDate || item.StatDate || item.statDate || ''
 
-  // Tính toán durationMinutes và runtimeHours chính xác theo phút
+  // Tính toán durationMinutes và runtimeHours chính xác theo phút (hỗ trợ thông ngày)
   const finalDurationMinutes = parseDurationToMinutes(
     item.DurationMinutes ||
       item.durationMinutes ||
@@ -173,7 +224,9 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
       item.ActualProdTime ||
       item.BreakdownMinutes,
     rawStart,
-    rawEnd
+    rawEnd,
+    rawStartDate,
+    rawEndDate
   )
 
   const runtimeHours = Number((finalDurationMinutes / 60).toFixed(2))

@@ -205,7 +205,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'submenu',
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
-    View: true,
+    View: false,
     OrderSeq: 5
   },
   {
@@ -218,7 +218,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'menu',
     Icon: 'Calculator',
     MenuIcon: 'Calculator',
-    View: true,
+    View: false,
     OrderSeq: 1
   },
   {
@@ -231,7 +231,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'menu',
     Icon: 'Search',
     MenuIcon: 'Search',
-    View: true,
+    View: false,
     OrderSeq: 2
   },
 

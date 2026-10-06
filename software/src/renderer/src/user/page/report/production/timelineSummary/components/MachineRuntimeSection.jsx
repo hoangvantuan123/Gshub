@@ -72,6 +72,7 @@ const computeCellMeta = (hours, isManual, shortDate, mCode, mName) => {
 
   return {
     hours,
+    runtimeHours: hours,
     isOver24,
     hBg,
     hColor,
@@ -267,6 +268,8 @@ export function MachineRuntimeSection({
           shortDate: dateObj.shortLabel,
           ticketCount: tk,
           actualQty: qty,
+          runtimeHours: rt,
+          hours: rt,
           ...cellMeta
         }
       }
@@ -555,13 +558,49 @@ export function MachineRuntimeSection({
           ]
 
           m.daysData.forEach((d) => {
-            row.push(d.runtimeHours)
+            const val =
+              d.runtimeHours !== undefined
+                ? d.runtimeHours
+                : d.hours !== undefined
+                  ? d.hours
+                  : 0
+            row.push(val)
           })
 
           aoaRows.push(row)
         })
 
-        // 4. Tạo Sheet & format độ rộng cột
+        // 4. Dòng tổng cộng
+        if (filteredHeatmapList.length > 0) {
+          const totalRow = [
+            '',
+            'TỔNG CỘNG',
+            `${filteredHeatmapList.length} máy`,
+            '',
+            Number(
+              filteredHeatmapList.reduce((sum, m) => sum + (m.totalRuntime || 0), 0).toFixed(1)
+            ),
+            '',
+            '',
+            ''
+          ]
+          heatmapData.dates.forEach((d, dIdx) => {
+            const daySum = filteredHeatmapList.reduce((sum, m) => {
+              const cell = m.daysData?.[dIdx]
+              const val =
+                cell?.runtimeHours !== undefined
+                  ? cell.runtimeHours
+                  : cell?.hours !== undefined
+                    ? cell.hours
+                    : 0
+              return sum + (Number(val) || 0)
+            }, 0)
+            totalRow.push(Number(daySum.toFixed(1)))
+          })
+          aoaRows.push(totalRow)
+        }
+
+        // 5. Tạo Sheet & format độ rộng cột
         const ws = XLSX.utils.aoa_to_sheet(aoaRows)
 
         const colWidths = [

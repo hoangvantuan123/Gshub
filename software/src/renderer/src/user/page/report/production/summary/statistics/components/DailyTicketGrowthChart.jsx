@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, memo } from 'react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -361,7 +361,7 @@ const CustomBarWithPeak = (props) => {
   const cy = y
 
   if (collectorRef && collectorRef.current) {
-    if (!collectorRef.current[seriesKey]) {
+    if (index === 0 || !collectorRef.current[seriesKey]) {
       collectorRef.current[seriesKey] = []
     }
     collectorRef.current[seriesKey][index] = { cx, cy, value }
@@ -424,7 +424,7 @@ const CustomBarWithPeak = (props) => {
  * Component chính: Biểu đồ kết hợp các cột số lượng và đường nối đỉnh qua các ngày
  * Kèm thanh trượt kéo lọc khoảng thời gian (Brush) ở dưới
  */
-export function DailyTicketGrowthChart({
+export function DailyTicketGrowthChartComponent({
   chartData = [],
   visibleSeries: externalVisibleSeries,
   onToggleSeries,
@@ -460,8 +460,7 @@ export function DailyTicketGrowthChart({
     return chartData
   }, [chartData, rangeFilter])
 
-  const pointsCollector = useMemo(() => ({ current: {} }), [])
-  pointsCollector.current = {}
+  const pointsCollector = useRef({})
 
   const legendItems = [
     { key: 'totalTickets', label: 'Tổng phiếu thống kê', color: '#01411b' },
@@ -770,4 +769,5 @@ export function DailyTicketGrowthChart({
   )
 }
 
+export const DailyTicketGrowthChart = memo(DailyTicketGrowthChartComponent)
 export default DailyTicketGrowthChart

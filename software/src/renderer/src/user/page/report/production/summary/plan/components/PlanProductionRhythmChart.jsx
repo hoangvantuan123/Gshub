@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types, no-unused-vars */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, memo } from 'react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -291,7 +291,7 @@ const CustomBarWithPeak = (props) => {
   const cy = y
 
   if (collectorRef && collectorRef.current) {
-    if (!collectorRef.current[seriesKey]) {
+    if (index === 0 || !collectorRef.current[seriesKey]) {
       collectorRef.current[seriesKey] = []
     }
     collectorRef.current[seriesKey][index] = { cx, cy, value }
@@ -349,7 +349,7 @@ const CustomBarWithPeak = (props) => {
  * - Thứ tự: Tiêu đề đề mục -> 5 Thẻ thông tin KPI -> Khung Biểu đồ -> Bảng số liệu chi tiết bên dưới
  * - Thời gian: Lấy đúng các ngày thực tế từ Master / Server
  */
-export function PlanProductionRhythmChart({
+export function PlanProductionRhythmChartComponent({
   serverDailyData = [],
   picTimelineBreakdown = null,
   masterList = [],
@@ -363,8 +363,7 @@ export function PlanProductionRhythmChart({
   const [showTable, setShowTable] = useState(true)
   const [showPeakLine, setShowPeakLine] = useState(true) // Bật/tắt đường line nối đỉnh
 
-  const pointsCollector = useMemo(() => ({ current: {} }), [])
-  pointsCollector.current = {}
+  const pointsCollector = useRef({})
 
   // Trạng thái bật/tắt từng chỉ tiêu trên biểu đồ
   const [visibleSeries, setVisibleSeries] = useState({
@@ -1097,4 +1096,7 @@ export function PlanProductionRhythmChart({
   )
 }
 
+export const PlanProductionRhythmChart = memo(PlanProductionRhythmChartComponent)
+
 export default PlanProductionRhythmChart
+

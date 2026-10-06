@@ -319,11 +319,62 @@ export const STAT_FORMULA_DATABASE = [
     columnId: 'runtimeHours / totalRuntimeHours',
     columnName: 'Tổng giờ chạy máy (h)',
     title: 'Thời gian chạy máy thực tế tích lũy',
-    scope: 'Mục 4.1: Cột 4 | Mục 4.2: Cột 7',
+    scope: 'Mục 4.1: Cột 4 | Mục 4.2: Cột 7 | Bảng 2: Cột 4',
     formula: 'SUM(DurationMinutes / 60)',
     source: 'CSDL _ERPProdStatsDetail (Trường: DurationMinutes)',
     description: 'Tổng thời lượng máy vận hành thực tế phục vụ sản xuất.',
     notes: 'Định dạng hiển thị 1-2 chữ số thập phân (VD: 18.5h).'
+  },
+  {
+    id: 'col_tb_ng_machine',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'avgDailyHours / TB/NG',
+    columnName: 'Giờ chạy TB trên ngày có chạy (TB/NG)',
+    title: 'Giờ chạy trung bình trên các ngày máy có hoạt động thực tế (> 0h)',
+    scope: 'Bảng 2: Thời gian chạy máy theo ngày của từng thiết bị (Cột 5)',
+    formula: 'TB/NG = Tổng số giờ chạy trong kỳ / Số ngày máy có hoạt động thực tế (> 0h)',
+    source: 'Tính toán từ totalRuntimeHours chia cho số ngày activeDaysCount',
+    description:
+      'Phản ánh chính xác cường độ và công suất vận hành trung bình của thiết bị mỗi khi vào ca làm việc thực tế, loại trừ các ngày máy nghỉ, bảo dưỡng hoặc không có lệnh (0h) để không làm loãng hiệu suất vận hành.',
+    notes:
+      'Khác với chỉ số TB toàn kỳ (chia đều cho toàn bộ 30 hoặc 31 ngày). Ví dụ: Trong tháng 31 ngày, máy chỉ chạy 10 ngày với tổng 160h ➔ TB/NG = 160 / 10 = 16.0h/ngày chạy.'
+  },
+  {
+    id: 'col_active_days_count',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'activeDaysCount',
+    columnName: 'Số ngày máy hoạt động thực tế (> 0h)',
+    title: 'Số ngày máy có phát sinh giờ chạy trong kỳ',
+    scope: 'Bảng 2: Thời gian chạy máy theo ngày & Báo cáo Matrix',
+    formula: 'COUNT(Days) WHERE RuntimeHours > 0',
+    source: 'Tổng hợp số ngày phát sinh thời gian chạy máy > 0h trong chu kỳ lọc',
+    description:
+      'Đếm tổng số ngày mà máy có phát sinh thời gian sản xuất thực tế lớn hơn 0 giờ.',
+    notes: 'Được sử dụng làm mẫu số để tính toán chỉ số TB/NG.'
+  },
+  {
+    id: 'col_trend_evaluation',
+    reportType: 'stat',
+    reportTypeName: 'Thống kê SX (TKSX)',
+    category: 'TABLES',
+    categoryName: 'IV. Bảng biểu Chi tiết',
+    columnId: 'trendText / trendSign',
+    columnName: 'Đánh giá xu hướng giờ chạy máy',
+    title: 'Đánh giá xu hướng vận hành máy (Nửa sau kỳ so với nửa đầu kỳ)',
+    scope: 'Bảng 2: Thời gian chạy máy theo ngày (Cột 6)',
+    formula:
+      'Tốc độ tăng trưởng % = ((TB nửa sau kỳ - TB nửa đầu kỳ) / TB nửa đầu kỳ) × 100% (chỉ tính trên các ngày có chạy > 0h)',
+    source: 'So sánh chuỗi giờ chạy máy thực tế giữa 2 nửa chu kỳ vận hành',
+    description:
+      'Tự động phân loại xu hướng vận hành của thiết bị: Tích cực (tăng trưởng ≥ 10%), Giảm tải (tăng trưởng ≤ -10%), Ổn định (-10% < tăng trưởng < +10%), hoặc Nghỉ chạy (0h toàn kỳ).',
+    notes:
+      'Hiển thị trực tiếp kèm % tăng/giảm và màu sắc trực quan (Xanh lá: Tích cực, Đỏ: Giảm tải, Xám: Ổn định, Xám nhạt: Nghỉ chạy).'
   },
   {
     id: 'col_actual_qty',

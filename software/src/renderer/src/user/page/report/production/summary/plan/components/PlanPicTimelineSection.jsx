@@ -1539,7 +1539,7 @@ export function PlanPicTimelineSection({
                 </svg>
               </div>
 
-              <div style={{ flex: 1, minWidth: totalPlotWidth, position: 'relative' }}>
+              <div style={{ flex: 1, minWidth: availablePlotWidth, position: 'relative' }}>
                 <svg
                   width="100%"
                   height={totalChartHeight}

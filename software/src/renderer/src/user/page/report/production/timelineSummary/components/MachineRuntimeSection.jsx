@@ -1,10 +1,10 @@
 /* eslint-disable react/prop-types, no-unused-vars */
 import { useState, useMemo, useRef, useCallback } from 'react'
 import { Eye, EyeOff, Search, FileSpreadsheet } from 'lucide-react'
-import { message } from 'antd'
 import * as XLSX from 'xlsx'
 import dayjs from 'dayjs'
 import { Button } from '@renderer/components/ui/button'
+import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import { SearchableMultiSelectDropdown } from '../../summary/common/SearchableMultiSelectDropdown'
 import { saveWorkbookToFile } from '@renderer/utils/exportExcelUtils'
 
@@ -14,6 +14,15 @@ const getVNDayOfWeek = (dateStr) => {
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return ''
   const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
+  return days[d.getDay()]
+}
+
+// Lấy thứ viết tắt chuẩn tiếng Việt (T2, T3, T4, T5, T6, T7, CN)
+const getVNShortDayOfWeek = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
   return days[d.getDay()]
 }
 
@@ -473,91 +482,113 @@ export function MachineRuntimeSection({
     }
   }, [filteredHeatmapList, heatmapData.dates.length])
 
-  // Xuất file Excel riêng cho bảng giờ chạy máy
-  const handleExportMatrixExcel = useCallback(async () => {
-    if (isExportingExcel) return
-    try {
-      setIsExportingExcel(true)
-      message.loading({ content: 'Đang chuẩn bị dữ liệu Excel giờ chạy máy...', key: 'matrix-export' })
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
-      const aoaRows = []
-
-      // 1. Tiêu đề báo cáo
-      aoaRows.push([`BÁO CÁO THỜI GIAN CHẠY MÁY CHI TIẾT THEO NGÀY`])
-      aoaRows.push([`Nhà máy: ${plantName} | Số lượng máy: ${filteredHeatmapList.length} máy | Số ngày: ${heatmapData.dates.length} ngày`])
-      aoaRows.push([`Ghi chú công thức TB/NG: Giờ chạy trung bình trên các ngày máy có hoạt động thực tế (>0h)`])
-      aoaRows.push([`Ngày xuất báo cáo: ${dayjs().format('DD/MM/YYYY HH:mm:ss')}`])
-      aoaRows.push([]) // Dòng trống
-
-      // 2. Dòng tiêu đề cột (Headers)
-      const headerRow = [
-        'STT',
-        'Mã máy',
-        'Tên máy / Thiết bị',
-        'Tổ / Nhóm máy',
-        'Tổng giờ chạy (h)',
-        'Số ngày chạy',
-        'TB/ngày chạy (h)',
-        'Đánh giá xu hướng'
-      ]
-
-      heatmapData.dates.forEach((d) => {
-        headerRow.push(`${d.shortLabel} (${d.dayOfWeek ? d.dayOfWeek.slice(0, 3) : ''})`)
+  // Danh sách cột phục vụ ExportExcelModal
+  const matrixExcelColumns = useMemo(() => {
+    const cols = [
+      { id: 'MachineCode', title: 'Mã máy', width: 100 },
+      { id: 'MachineName', title: 'Tên máy / Thiết bị', width: 180 },
+      { id: 'TeamName', title: 'Tổ / Nhóm máy', width: 120 },
+      { id: 'TotalRuntime', title: 'Tổng giờ chạy (h)', width: 110 },
+      { id: 'ActiveDaysCount', title: 'Số ngày chạy', width: 100 },
+      { id: 'AvgDailyHours', title: 'TB/ngày chạy (h)', width: 110 },
+      { id: 'TrendText', title: 'Đánh giá xu hướng', width: 130 }
+    ]
+    heatmapData.dates.forEach((d) => {
+      const shortDay = getVNShortDayOfWeek(d.dateKey)
+      cols.push({
+        id: `Date_${d.dateKey}`,
+        title: shortDay ? `${d.shortLabel} (${shortDay})` : d.shortLabel,
+        width: 70
       })
-      aoaRows.push(headerRow)
+    })
+    return cols
+  }, [heatmapData.dates])
 
-      // 3. Dữ liệu từng máy
-      filteredHeatmapList.forEach((m, idx) => {
-        const row = [
-          idx + 1,
-          m.machineCode,
-          m.machineName,
-          m.teamName,
-          m.totalRuntime,
-          m.activeDaysCount,
-          m.avgDailyHours,
-          `${m.trendText} ${m.trendSign ? `(${m.trendSign})` : ''}`
+  // Xuất file Excel bảng giờ chạy máy thông qua khung chuẩn hệ thống
+  const executeExportMatrixExcel = useCallback(
+    async ({ fileName, saveDirectory, overwriteExisting }) => {
+      try {
+        const aoaRows = []
+
+        // 1. Tiêu đề báo cáo
+        aoaRows.push([`BÁO CÁO THỜI GIAN CHẠY MÁY CHI TIẾT THEO NGÀY`])
+        aoaRows.push([
+          `Nhà máy: ${plantName} | Số lượng máy: ${filteredHeatmapList.length} máy | Số ngày: ${heatmapData.dates.length} ngày`
+        ])
+        aoaRows.push([
+          `Ghi chú công thức TB/NG: Giờ chạy trung bình trên các ngày máy có hoạt động thực tế (>0h)`
+        ])
+        aoaRows.push([`Ngày xuất báo cáo: ${dayjs().format('DD/MM/YYYY HH:mm:ss')}`])
+        aoaRows.push([]) // Dòng trống
+
+        // 2. Dòng tiêu đề cột (Headers)
+        const headerRow = [
+          'STT',
+          'Mã máy',
+          'Tên máy / Thiết bị',
+          'Tổ / Nhóm máy',
+          'Tổng giờ chạy (h)',
+          'Số ngày chạy',
+          'TB/ngày chạy (h)',
+          'Đánh giá xu hướng'
         ]
 
-        m.daysData.forEach((d) => {
-          row.push(d.runtimeHours)
+        heatmapData.dates.forEach((d) => {
+          const shortDay = getVNShortDayOfWeek(d.dateKey)
+          headerRow.push(shortDay ? `${d.shortLabel} (${shortDay})` : d.shortLabel)
+        })
+        aoaRows.push(headerRow)
+
+        // 3. Dữ liệu từng máy
+        filteredHeatmapList.forEach((m, idx) => {
+          const row = [
+            idx + 1,
+            m.machineCode,
+            m.machineName,
+            m.teamName,
+            m.totalRuntime,
+            m.activeDaysCount,
+            m.avgDailyHours,
+            `${m.trendText} ${m.trendSign ? `(${m.trendSign})` : ''}`
+          ]
+
+          m.daysData.forEach((d) => {
+            row.push(d.runtimeHours)
+          })
+
+          aoaRows.push(row)
         })
 
-        aoaRows.push(row)
-      })
+        // 4. Tạo Sheet & format độ rộng cột
+        const ws = XLSX.utils.aoa_to_sheet(aoaRows)
 
-      // 4. Tạo Sheet & format độ rộng cột
-      const ws = XLSX.utils.aoa_to_sheet(aoaRows)
+        const colWidths = [
+          { wch: 6 }, // STT
+          { wch: 15 }, // Mã máy
+          { wch: 28 }, // Tên máy
+          { wch: 16 }, // Tổ / Nhóm
+          { wch: 16 }, // Tổng giờ
+          { wch: 14 }, // Số ngày chạy
+          { wch: 16 }, // TB ngày chạy
+          { wch: 20 } // Đánh giá xu hướng
+        ]
+        heatmapData.dates.forEach(() => {
+          colWidths.push({ wch: 8 })
+        })
+        ws['!cols'] = colWidths
 
-      const colWidths = [
-        { wch: 6 },  // STT
-        { wch: 15 }, // Mã máy
-        { wch: 28 }, // Tên máy
-        { wch: 16 }, // Tổ / Nhóm
-        { wch: 16 }, // Tổng giờ
-        { wch: 14 }, // Số ngày chạy
-        { wch: 16 }, // TB ngày chạy
-        { wch: 20 }  // Đánh giá xu hướng
-      ]
-      heatmapData.dates.forEach(() => {
-        colWidths.push({ wch: 8 })
-      })
-      ws['!cols'] = colWidths
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'GioChayMay')
 
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'GioChayMay')
-
-      const fileName = `BaoCao_GioChayMay_${plantName.replace(/\s+/g, '_')}_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`
-      await saveWorkbookToFile(wb, fileName)
-
-      message.success({ content: `Đã xuất file Excel ${fileName} thành công!`, key: 'matrix-export', duration: 3 })
-    } catch (err) {
-      console.error('Lỗi khi xuất Excel bảng giờ chạy máy:', err)
-      message.error({ content: 'Không thể xuất file Excel, vui lòng thử lại!', key: 'matrix-export' })
-    } finally {
-      setIsExportingExcel(false)
-    }
-  }, [filteredHeatmapList, heatmapData.dates, plantName, isExportingExcel])
+        await saveWorkbookToFile(wb, fileName, saveDirectory, { overwriteExisting })
+      } catch (err) {
+        console.error('Lỗi khi xuất Excel bảng giờ chạy máy:', err)
+      }
+    },
+    [filteredHeatmapList, heatmapData.dates, plantName]
+  )
 
   return (
     <div
@@ -742,8 +773,7 @@ export function MachineRuntimeSection({
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleExportMatrixExcel}
-            disabled={isExportingExcel}
+            onClick={() => setIsExportModalOpen(true)}
             style={{
               height: 28,
               padding: '0 8px',
@@ -1258,6 +1288,24 @@ export function MachineRuntimeSection({
           </tbody>
         </table>
       </div>
+
+      {/* MODAL XUẤT EXCEL CHUẨN HỆ THỐNG CHO BẢNG GIỜ CHẠY MÁY */}
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title="XÁC NHẬN XUẤT EXCEL - THỜI GIAN CHẠY MÁY THEO NGÀY"
+        reportName={`Báo cáo Thời gian chạy máy theo ngày (${plantName})`}
+        totalRows={filteredHeatmapList.length}
+        loadedCount={filteredHeatmapList.length}
+        columns={matrixExcelColumns}
+        activeFilters={{
+          FactoryName: plantName,
+          TotalMachines: `${filteredHeatmapList.length} máy`,
+          TotalDays: `${heatmapData.dates.length} ngày`
+        }}
+        defaultFileName={`BaoCao_GioChayMay_${plantName.replace(/\s+/g, '_')}_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`}
+        onConfirmExport={executeExportMatrixExcel}
+      />
     </div>
   )
 }

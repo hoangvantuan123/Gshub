@@ -91,8 +91,6 @@ export function SummaryTopControlBar({
   const [appliedKey, setAppliedKey] = useState(currentKey)
   const isDirty = currentKey !== appliedKey
 
-  // Nhãn phạm vi ngày theo loại báo cáo
-  const rangePrefix = reportType === 'plan' ? 'Kế hoạch' : 'Thống kê'
 
   const handleSearch = () => {
     if (!fetchData || loading) return

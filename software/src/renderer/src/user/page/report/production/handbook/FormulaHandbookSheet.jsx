@@ -1,10 +1,9 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, RotateCw, FileSpreadsheet } from 'lucide-react'
 import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid'
 import '@glideapps/glide-data-grid/dist/index.css'
-import * as XLSX from 'xlsx'
 
 import DataPageContainer from '../../../../components/layout/DataPageContainer'
 import DynamicQueryBar from '../../../../components/query/core/DynamicQueryBar'

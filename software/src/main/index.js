@@ -19,6 +19,7 @@ import icon from '../../resources/icon.png?asset'
 import { setupRealtimeIpc } from './realtime/index.js'
 import { setupSecurityIpc } from './security/cryptoService.js'
 import { setupDataHubIpc } from './datahub/datahubClient.js'
+import { setupSqliteIpc } from './sqlite/sqliteManager.js'
 import {
   setupUpdaterIpc,
   initNativeAutoUpdater,
@@ -1194,6 +1195,9 @@ app.whenReady().then(() => {
 
   // DataHub gRPC IPC setup (WorkProcess, Factories...)
   setupDataHubIpc(ipcMain)
+
+  // SQLite Database for Production Calculation setup
+  setupSqliteIpc()
 
   createWindow()
 

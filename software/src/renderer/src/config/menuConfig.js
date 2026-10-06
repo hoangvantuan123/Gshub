@@ -196,7 +196,46 @@ export const DEFAULT_SETTING_ITEMS = [
     OrderSeq: 3
   },
 
-  // ── Nhóm 5: Cẩm nang & Tra cứu ───────────────────────────────────────────
+  // ── Nhóm 5: Tính KHSX và TKSX ─────────────────────────────────────────────
+  {
+    Id: 'sub_report_calc_production',
+    MenuKey: 'report_calc_production_group',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Tính toán sản xuất',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 5
+  },
+  {
+    Id: 'menu_report_calc_production',
+    MenuKey: 'report_calc_production',
+    MenuSubRootId: 'sub_report_calc_production',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Tính KHSX và TKSX',
+    MenuLink: '/erp/u/report/calc-production',
+    MenuType: 'menu',
+    Icon: 'Calculator',
+    MenuIcon: 'Calculator',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_report_calc_production_query',
+    MenuKey: 'report_calc_production_query',
+    MenuSubRootId: 'sub_report_calc_production',
+    MenuRootId: 'ROOT_REPORT',
+    MenuLabel: 'Truy vấn tính KHSX & TKSX',
+    MenuLink: '/erp/u/report/calc-production-query',
+    MenuType: 'menu',
+    Icon: 'Search',
+    MenuIcon: 'Search',
+    View: true,
+    OrderSeq: 2
+  },
+
+  // ── Nhóm 6: Cẩm nang & Tra cứu ───────────────────────────────────────────
   {
     Id: 'sub_report_handbook',
     MenuKey: 'report_handbook_group',
@@ -206,7 +245,7 @@ export const DEFAULT_SETTING_ITEMS = [
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
     View: true,
-    OrderSeq: 5
+    OrderSeq: 6
   },
   {
     Id: 'menu_report_handbook_formula',

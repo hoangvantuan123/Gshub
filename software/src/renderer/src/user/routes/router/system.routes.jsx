@@ -17,7 +17,10 @@ export const pageLoaders = {
     import('../../page/report/registration/components/PlanRegistrationDetailView'),
   PlanRegistrationCreateView: () =>
     import('../../page/report/registration/components/PlanRegistrationCreateView'),
-  FormulaHandbookPage: () => import('../../page/report/production/handbook/FormulaHandbookPage')
+  FormulaHandbookPage: () => import('../../page/report/production/handbook/FormulaHandbookPage'),
+  CalcProductionPage: () => import('../../page/report/production/calcProduction'),
+  CalcProductionQueryPage: () => import('../../page/report/production/calcProductionQuery'),
+  CalcProductionDetailPage: () => import('../../page/report/production/calcProductionQuery/detail/CalcProductionDetailView')
 }
 
 const SettingPrivate = lazy(pageLoaders.SettingPrivate)
@@ -34,6 +37,9 @@ const StatDetailQueryPage = lazy(pageLoaders.StatDetailQueryPage)
 const PlanRegistrationDetailView = lazy(pageLoaders.PlanRegistrationDetailView)
 const PlanRegistrationCreateView = lazy(pageLoaders.PlanRegistrationCreateView)
 const FormulaHandbookPage = lazy(pageLoaders.FormulaHandbookPage)
+const CalcProductionPage = lazy(pageLoaders.CalcProductionPage)
+const CalcProductionQueryPage = lazy(pageLoaders.CalcProductionQueryPage)
+const CalcProductionDetailPage = lazy(pageLoaders.CalcProductionDetailPage)
 
 export const routeToLoaderMap = {
   '/erp/u/setting': pageLoaders.SettingPrivate,
@@ -46,6 +52,8 @@ export const routeToLoaderMap = {
   '/erp/u/report/production/timeline-summary': pageLoaders.TimelineSummaryReportPage,
   '/erp/u/report/production/timeline-summary/stat': pageLoaders.TimelineSummaryReportPage,
   '/erp/u/report/production/timeline-summary/plan': pageLoaders.SummaryPlanReportPage,
+  '/erp/u/report/calc-production': pageLoaders.CalcProductionPage,
+  '/erp/u/report/calc-production-query': pageLoaders.CalcProductionQueryPage,
   '/erp/u/report/registration': pageLoaders.RegistrationPage,
   '/erp/u/report/plan-query': pageLoaders.PlanDetailQueryPage,
   '/erp/u/report/stat-query': pageLoaders.StatDetailQueryPage,
@@ -294,6 +302,44 @@ export const systemsRoutes = [
     path: '/erp/u/report/registration/stat-query/*',
     element: StatDetailQueryPage,
     permission: 'report_registration',
+    public: true
+  },
+
+  // ── Tính KHSX và TKSX ──────────────────────────────────────────────────
+  {
+    path: '/erp/u/report/calc-production',
+    element: CalcProductionPage,
+    permission: 'report_calc_production',
+    public: true
+  },
+  {
+    path: '/erp/u/report/calc-production/*',
+    element: CalcProductionPage,
+    permission: 'report_calc_production',
+    public: true
+  },
+  {
+    path: '/erp/u/report/calc-production-query',
+    element: CalcProductionQueryPage,
+    permission: 'report_calc_production_query',
+    public: true
+  },
+  {
+    path: '/erp/u/report/calc-production-query/detail/:seq',
+    element: CalcProductionDetailPage,
+    permission: 'report_calc_production_query',
+    public: true
+  },
+  {
+    path: '/erp/u/report/calc-production-query/:seq',
+    element: CalcProductionDetailPage,
+    permission: 'report_calc_production_query',
+    public: true
+  },
+  {
+    path: '/erp/u/report/calc-production-query/*',
+    element: CalcProductionQueryPage,
+    permission: 'report_calc_production_query',
     public: true
   },
 

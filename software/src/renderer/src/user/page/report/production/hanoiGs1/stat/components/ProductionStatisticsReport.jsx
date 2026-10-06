@@ -7,6 +7,7 @@ import {
   Cpu,
   Users,
   Clock,
+  AlertTriangle,
   Download,
   Search,
   ChevronsUpDown,
@@ -56,6 +57,7 @@ import {
   gridCustomCss
 } from './reportUIComponents'
 import { FormulaHandbookModal } from '../../../handbook/FormulaHandbookModal'
+import { RuntimeAuditDetailModal } from './RuntimeAuditDetailModal'
 import { useProductionStatisticsLogic } from '../hooks/useProductionStatisticsLogic'
 
 export default function ProductionStatisticsReport(props) {
@@ -167,6 +169,7 @@ export default function ProductionStatisticsReport(props) {
     detailGridRef,
 
     // Computed Data
+    rawData,
     filteredData,
     filterOptions,
     hasActiveFilters,
@@ -196,6 +199,7 @@ export default function ProductionStatisticsReport(props) {
     isExportModalOpen,
     setIsExportModalOpen,
     executeExportStatExcel,
+    invalidTimeCount = 0,
     handleDownloadSingleChart,
     handleCaptureScreenshot,
 
@@ -2948,6 +2952,45 @@ export default function ProductionStatisticsReport(props) {
             xuất tại {plantName || 'Nhà máy'}. Tổng hợp chi tiết thời gian chạy máy, công đoạn, phân
             xưởng, sản lượng thực tế và tỷ lệ đạt KCS theo từng phiếu.
           </div>
+
+          {/* Cảnh báo Phiếu Sai Mốc Ngày / Ngược Giờ (Thời gian bắt đầu > Thời gian kết thúc trong cùng ngày) */}
+          {invalidTimeCount > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 14px',
+                background: '#fff1f2',
+                border: '1px solid #fecdd3',
+                borderLeft: '4px solid #e11d48',
+                borderRadius: 2,
+                marginTop: 12,
+                gap: 12,
+                flexWrap: 'wrap'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <AlertTriangle size={18} className="text-rose-600 shrink-0" />
+                <div style={{ fontSize: 12.5, color: '#9f1239', lineHeight: 1.4 }}>
+                  <b>Phát hiện {invalidTimeCount} phiếu bị sai mốc thời gian / nhập ngược giờ</b> (Giờ bắt đầu &gt; Giờ kết thúc trong cùng ngày).
+                  Hệ thống đã tự động hiệu chỉnh giờ chạy thực tế để tránh sai lệch KPI.
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setAuditModalCategory('INVALID_TIME')
+                  setShowAuditModal(true)
+                }}
+                className="uppercase text-[11px] font-bold text-rose-700 hover:text-rose-800 bg-white border border-rose-300 hover:bg-rose-50"
+              >
+                <Clock size={13} className="text-rose-600" />
+                <span>XEM {invalidTimeCount} PHIẾU SAI THỜI GIAN</span>
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Header toolbar & Tổng hợp số liệu chi tiết */}
@@ -2976,41 +3019,6 @@ export default function ProductionStatisticsReport(props) {
             }}
           >
             <span>
-              Tổng SL Sản xuất:{' '}
-              <b style={{ color: '#0f172a' }}>
-                {displayDetailList
-                  .reduce((acc, d) => acc + (Number(d.ProdQty ?? d.actualQty ?? d.output) || 0), 0)
-                  .toLocaleString('vi-VN')}
-              </b>
-            </span>
-            <span>
-              Tổng SL Đạt:{' '}
-              <b style={{ color: '#01411b' }}>
-                {displayDetailList
-                  .reduce(
-                    (acc, d) => acc + (Number(d.PassQty ?? d.passQty ?? d.passQuantity) || 0),
-                    0
-                  )
-                  .toLocaleString('vi-VN')}
-              </b>
-            </span>
-            <span>
-              Tổng Mét Thực tế:{' '}
-              <b style={{ color: '#0f172a' }}>
-                {displayDetailList
-                  .reduce((acc, d) => acc + (Number(d.ActualMeters ?? d.actualMeters) || 0), 0)
-                  .toLocaleString('vi-VN')}
-              </b>
-            </span>
-            <span>
-              Tổng Mét Định mức:{' '}
-              <b style={{ color: '#475569' }}>
-                {displayDetailList
-                  .reduce((acc, d) => acc + (Number(d.StandardMeters ?? d.standardMeters) || 0), 0)
-                  .toLocaleString('vi-VN')}
-              </b>
-            </span>
-            <span>
               Tổng giờ chạy:{' '}
               <b style={{ color: '#01411b' }}>
                 {displayDetailList
@@ -3025,6 +3033,28 @@ export default function ProductionStatisticsReport(props) {
             className="screenshot-hide"
             style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
           >
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setAuditModalCategory(invalidTimeCount > 0 ? 'INVALID_TIME' : 'ALL')
+                setShowAuditModal(true)
+              }}
+              className={`uppercase text-[11px] font-semibold ${
+                invalidTimeCount > 0
+                  ? 'text-rose-700 hover:text-rose-800 bg-rose-50 border border-rose-200'
+                  : 'text-slate-700 hover:text-slate-900'
+              }`}
+              title="Mở bảng đối soát kỷ luật thời gian chạy máy & cảnh báo phiếu lỗi"
+            >
+              <Clock size={13} className={invalidTimeCount > 0 ? 'text-rose-600' : 'text-blue-500'} />
+              <span>ĐỐI SOÁT THỜI GIAN</span>
+              {invalidTimeCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 text-[9.5px] font-mono font-bold bg-rose-600 text-white rounded-none leading-none shadow-xs">
+                  {invalidTimeCount}
+                </span>
+              )}
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -3122,14 +3152,17 @@ export default function ProductionStatisticsReport(props) {
         totalRows={(displayDetailList || []).length}
         loadedCount={(displayDetailList || []).length}
         columns={detailGridCols}
-        activeFilters={{
-          FactoryName:
-            plantName ||
-            (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội'),
-          MasterKey: selectedMasterKey || ''
-        }}
         defaultFileName={`NhatTrinh_ChiTiet_ThongKe_SanXuat_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`}
         onConfirmExport={executeExportStatExcel}
+      />
+
+      {/* MODAL ĐỐI SOÁT KỶ LUẬT THỜI GIAN & CẢNH BÁO QLSX */}
+      <RuntimeAuditDetailModal
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+        initialCategory={auditModalCategory}
+        data={rawData || filteredData}
+        plantName={plantName || (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội')}
       />
     </div>
   )

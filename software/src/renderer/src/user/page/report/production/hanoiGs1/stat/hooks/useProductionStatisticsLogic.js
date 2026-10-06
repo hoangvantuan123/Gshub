@@ -347,15 +347,45 @@ export const useProductionStatisticsLogic = ({
         item.startTime || item.StartTime || item.TicketCreatedDate || item.createdTime
       const rawEnd = item.endTime || item.EndTime || item.MesApprovalTime || item.syncTime
 
+      // Helper đọc giá trị từ cột thời gian chạy thực tế (ActualRunTime / DurationMinutes từ BE)
+      const parseRawActualRunTime = () => {
+        const rawRt =
+          item.ActualRunTime ??
+          item.actualRunTime ??
+          item.DurationMinutes ??
+          item.durationMinutes ??
+          item.ActualProdTime ??
+          item.actualProdTime
+        if (rawRt !== undefined && rawRt !== null && rawRt !== '') {
+          const str = String(rawRt).trim().replace(',', '.')
+          if (str.includes(':')) {
+            const parts = str.split(':').map((v) => parseFloat(v) || 0)
+            return Number((parts[0] * 60 + (parts[1] || 0) + (parts[2] || 0) / 60).toFixed(1))
+          }
+          const val = parseFloat(str)
+          if (!isNaN(val) && val >= 0) {
+            return Number(val.toFixed(1))
+          }
+        }
+        return undefined
+      }
+
+      let isTimeReversed = false
       let durMinutes = undefined
 
-      // 1. Ưu tiên tính theo mốc Ngày + Giờ đầy đủ (Full DateTime thông ngày)
+      // 1. Kiểm tra mốc Ngày + Giờ đầy đủ
       const startTs = parseFullDateTimeTimestamp(rawStartDate, rawStart)
       const endTs = parseFullDateTimeTimestamp(rawEndDate, rawEnd)
 
-      if (startTs !== null && endTs !== null && endTs >= startTs) {
-        const diffMin = (endTs - startTs) / (1000 * 60)
-        durMinutes = Number(diffMin.toFixed(1))
+      if (startTs !== null && endTs !== null) {
+        if (endTs >= startTs) {
+          const diffMin = (endTs - startTs) / (1000 * 60)
+          durMinutes = Number(diffMin.toFixed(1))
+        } else {
+          // Bị ngược thời gian (endTs < startTs): Lấy theo cột thời gian chạy thực tế (ActualRunTime) từ BE
+          isTimeReversed = true
+          durMinutes = parseRawActualRunTime()
+        }
       } else if (rawStart && rawEnd) {
         const sStr = String(rawStart).trim()
         const eStr = String(rawEnd).trim()
@@ -374,57 +404,30 @@ export const useProductionStatisticsLogic = ({
           const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
           const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
           let diff = eMin - sMin
-          if (diff < 0) diff += 1440 // Chạy xuyên đêm qua ngày hôm sau
-          durMinutes = Number(diff.toFixed(1))
-        }
-      }
-
-      // 2. Nếu không có đủ 2 mốc hoặc không tính được, đọc DurationMinutes / ActualRunTime
-      if (durMinutes === undefined) {
-        if (
-          item.DurationMinutes !== undefined &&
-          item.DurationMinutes !== null &&
-          item.DurationMinutes !== ''
-        ) {
-          durMinutes = Number(item.DurationMinutes)
-        } else if (
-          item.durationMinutes !== undefined &&
-          item.durationMinutes !== null &&
-          item.durationMinutes !== ''
-        ) {
-          durMinutes = Number(item.durationMinutes)
-        }
-      }
-
-      if (durMinutes === undefined) {
-        const rawRt =
-          item.ActualRunTime !== undefined &&
-          item.ActualRunTime !== null &&
-          item.ActualRunTime !== ''
-            ? item.ActualRunTime
-            : item.ActualProdTime !== undefined &&
-                item.ActualProdTime !== null &&
-                item.ActualProdTime !== ''
-              ? item.ActualProdTime
-              : item.runtimeHours !== undefined &&
-                  item.runtimeHours !== null &&
-                  item.runtimeHours !== ''
-                ? item.runtimeHours
-                : undefined
-
-        if (rawRt !== undefined && rawRt !== null && rawRt !== '') {
-          const str = String(rawRt).trim().replace(',', '.')
-          if (str.includes(':')) {
-            const parts = str.split(':').map((v) => parseFloat(v) || 0)
-            const totalMin = parts[0] * 60 + (parts[1] || 0) + (parts[2] || 0) / 60
-            durMinutes = Number(totalMin.toFixed(1))
+          if (diff >= 0) {
+            durMinutes = Number(diff.toFixed(1))
           } else {
-            const val = parseFloat(str)
-            if (!isNaN(val) && val >= 0) {
-              durMinutes = Number(val.toFixed(1))
+            const sDateClean = String(rawStartDate || '').trim().slice(0, 10)
+            const eDateClean = String(rawEndDate || '').trim().slice(0, 10)
+            if ((sDateClean && eDateClean && sDateClean === eDateClean) || (!sDateClean && !eDateClean)) {
+              isTimeReversed = true
+              durMinutes = parseRawActualRunTime()
+            } else {
+              diff += 1440 // Chạy xuyên đêm qua ngày hôm sau
+              durMinutes = Number(diff.toFixed(1))
             }
           }
         }
+      }
+
+      // 2. Nếu không có đủ 2 mốc hoặc bị lỗi ngược giờ, đọc trực tiếp từ BE (ActualRunTime / DurationMinutes / RuntimeHours)
+      if (durMinutes === undefined) {
+        durMinutes = parseRawActualRunTime()
+      }
+
+      if (durMinutes === undefined && (item.runtimeHours !== undefined || item.RuntimeHours !== undefined)) {
+        const rh = Number(item.runtimeHours ?? item.RuntimeHours) || 0
+        durMinutes = Number((rh * 60).toFixed(1))
       }
 
       if (durMinutes === undefined) {
@@ -531,6 +534,22 @@ export const useProductionStatisticsLogic = ({
         id: item.id || item.IdSeq || rawTicketNo || String(idx + 1),
         ticketCode: rawTicketNo,
         orderCode: rawOpNo,
+        isTimeReversed: Boolean(isTimeReversed),
+        timeError: isTimeReversed ? 'REVERSED_TIME' : null,
+        auditCategory: isTimeReversed
+          ? 'INVALID_TIME'
+          : durMinutes < 5
+            ? 'UNDER_5MIN'
+            : durMinutes > 720
+              ? 'OVER_12H'
+              : 'NORMAL',
+        auditText: isTimeReversed
+          ? '⚠️ Ngược giờ (Bắt đầu > Kết thúc)'
+          : durMinutes < 5
+            ? '< 5p Nhập nhanh (Cảnh báo)'
+            : durMinutes > 720
+              ? '> 12h Cần kiểm tra (Cảnh báo)'
+              : 'Chuẩn tiến độ (5p - 12h)',
         // ── Khung đăng ký chuẩn Thống kê sản xuất (statisticsImportColumns.js) ──
         StatTicketNo: rawTicketNo,
         OperationNo: rawOpNo,
@@ -735,7 +754,8 @@ export const useProductionStatisticsLogic = ({
         runtimeUnder5Min: 0,
         runtimeNormal: 0,
         runtimeOver12hValid: 0,
-        runtimeOver12hCheck: 0
+        runtimeOver12hCheck: 0,
+        invalidTimeCount: 0
       }
     }
 
@@ -753,6 +773,7 @@ export const useProductionStatisticsLogic = ({
     let rNormal = 0
     let rOver12Valid = 0
     let rOver12Check = 0
+    let invalidTimeCount = 0
 
     let totalSyncDelaySec = 0
     let syncDelayCount = 0
@@ -768,6 +789,9 @@ export const useProductionStatisticsLogic = ({
     const autoExportTypeMap = new Map()
 
     filteredData.forEach((item) => {
+      if (item.isTimeReversed || item.auditCategory === 'INVALID_TIME') {
+        invalidTimeCount++
+      }
       const p = Number(item.planQty) || 0
       const a = Number(item.actualQty) || 0
       const pass = Number(item.passQty) || 0
@@ -968,7 +992,8 @@ export const useProductionStatisticsLogic = ({
       runtimeUnder5Min: rUnder5,
       runtimeNormal: rNormal,
       runtimeOver12hValid: rOver12Valid,
-      runtimeOver12hCheck: rOver12Check
+      runtimeOver12hCheck: rOver12Check,
+      invalidTimeCount: invalidTimeCount
     }
   }, [filteredData])
 
@@ -2101,6 +2126,7 @@ export const useProductionStatisticsLogic = ({
     isExportModalOpen,
     setIsExportModalOpen,
     executeExportStatExcel,
+    invalidTimeCount: kpiMetrics.invalidTimeCount || 0,
     handleDownloadSingleChart,
     handleCaptureScreenshot,
 

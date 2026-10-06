@@ -1,11 +1,10 @@
 /* eslint-disable react/prop-types */
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { Clock, Download, Copy, Search } from 'lucide-react'
-import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid'
+import { useState, useMemo, useEffect } from 'react'
+import { Download, Copy, Search, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
-import { PureButton, PureSelect, executiveGridTheme } from './reportUIComponents'
+import { PureButton, PureSelect } from './reportUIComponents'
 
-// Modal Đối Soát Kỷ Luật Thời Gian & Cảnh Báo QLSX (Chuẩn Modal Vuông Trực Quan, Bộ Lọc & Data Grid)
+// Modal Đối Soát Thời Gian Chạy Máy (Layout màu trắng tối giản, tinh tế)
 export const RuntimeAuditDetailModal = ({
   isOpen,
   onClose,
@@ -18,8 +17,6 @@ export const RuntimeAuditDetailModal = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTeam, setSelectedTeam] = useState('ALL')
   const [selectedMachine, setSelectedMachine] = useState('ALL')
-  const [rowHeight, setRowHeight] = useState(30)
-  const gridRef = useRef(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -30,11 +27,12 @@ export const RuntimeAuditDetailModal = ({
     }
   }, [isOpen, initialCategory])
 
-  // Lấy danh sách tổ & máy duy nhất để lọc dropdown
+  // Lấy danh sách tổ & máy duy nhất
   const teamOptions = useMemo(() => {
     const set = new Set()
     data.forEach((item) => {
-      if (item.teamName) set.add(item.teamName)
+      const t = item.TeamName || item.teamName || item.OpTypeName || item.opTypeName
+      if (t) set.add(String(t).trim())
     })
     return Array.from(set).sort()
   }, [data])
@@ -42,47 +40,110 @@ export const RuntimeAuditDetailModal = ({
   const machineOptions = useMemo(() => {
     const set = new Set()
     data.forEach((item) => {
-      if (item.machineCode) set.add(item.machineCode)
+      const m = item.MachineCode || item.machineCode
+      if (m) set.add(String(m).trim())
     })
     return Array.from(set).sort()
   }, [data])
 
-  // Phân loại kiểm toán từng dòng
+  // Chuẩn hóa dữ liệu từng dòng
   const classifiedData = useMemo(() => {
-    return data.map((item) => {
-      const durMin = Number(item.durationMinutes || (Number(item.runtimeHours) || 0) * 60) || 0
-      const actual = Number(item.actualQty || item.output) || 0
-      const plan = Number(item.planQty) || 0
-      let category = 'NORMAL'
-      let auditText = 'Chuẩn tiến độ (5p - 12h)'
-      let isWarning = false
-      let badgeColor = '#0f766e'
-      let badgeBg = '#f0fdfa'
+    return data.map((item, idx) => {
+      const ticketNo =
+        item.StatTicketNo ||
+        item.statTicketNo ||
+        item.ticketCode ||
+        item.ticketNo ||
+        item.RegCode ||
+        `P-${idx + 1}`
+      const orderNo =
+        item.OperationNo ||
+        item.operationNo ||
+        item.RoutingDocNo ||
+        item.routingDocNo ||
+        item.docNo ||
+        item.orderCode ||
+        ''
+      const machineCode = item.MachineCode || item.machineCode || item.MachineId || ''
+      const machineName =
+        item.MachineName || item.machineName || item.WorkCenter || item.workCenter || machineCode
+      const teamName =
+        item.TeamName || item.teamName || item.OpTypeName || item.opTypeName || item.SectionName || ''
 
-      if (durMin < 5) {
+      const startDate =
+        item.StartDate ||
+        item.startDate ||
+        item.StatDate ||
+        item.statDate ||
+        item.prodDate ||
+        item.date ||
+        ''
+      const startTime = item.StartTime || item.startTime || item.createdTime || ''
+      const endDate =
+        item.EndDate ||
+        item.endDate ||
+        item.StatDate ||
+        item.statDate ||
+        item.prodDate ||
+        item.date ||
+        startDate ||
+        ''
+      const endTime = item.EndTime || item.endTime || item.syncTime || ''
+
+      const durMin = Number(item.durationMinutes || (Number(item.runtimeHours) || 0) * 60) || 0
+      const runtimeH = Number(item.runtimeHours || durMin / 60 || 0)
+      const actual = Number(item.ProdQty || item.prodQty || item.actualQty || item.output || 0)
+      const pass = Number(item.PassQty || item.passQty || item.passQuantity || actual)
+      const passRate = actual > 0 ? Number(((pass / actual) * 100).toFixed(1)) : 100
+      const operator =
+        item.MainWorker || item.mainWorker || item.operator || item.StatStaff || item.statStaff || ''
+
+      const isReversed = Boolean(
+        item.isTimeReversed ||
+          item.auditCategory === 'INVALID_TIME' ||
+          item.timeError === 'REVERSED_TIME' ||
+          (startDate &&
+            endDate &&
+            String(startDate).slice(0, 10) === String(endDate).slice(0, 10) &&
+            startTime &&
+            endTime &&
+            String(endTime) < String(startTime))
+      )
+
+      let category = 'NORMAL'
+      let auditText = 'Bình thường'
+
+      if (isReversed) {
+        category = 'INVALID_TIME'
+        auditText = `Sai mốc giờ (${startTime} > ${endTime})`
+      } else if (durMin < 5) {
         category = 'UNDER_5MIN'
-        auditText = '< 5p Nhập nhanh (Cảnh báo)'
-        isWarning = true
-        badgeColor = '#be123c'
-        badgeBg = '#fff1f2'
+        auditText = '< 5 phút'
       } else if (durMin > 720) {
         category = 'OVER_12H'
-        auditText = '> 12h Cần kiểm tra (Cảnh báo)'
-        isWarning = true
-        badgeColor = '#b45309'
-        badgeBg = '#fffbeb'
+        auditText = '> 12 giờ'
       }
 
       return {
         ...item,
+        ticketNo,
+        orderNo,
+        machineCode,
+        machineName,
+        teamName,
+        startDate: String(startDate).slice(0, 10),
+        startTime: String(startTime).trim(),
+        endDate: String(endDate).slice(0, 10),
+        endTime: String(endTime).trim(),
+        runtimeH,
+        durMin,
+        actual,
+        pass,
+        passRate,
+        operator,
+        isTimeReversed: isReversed,
         auditCategory: category,
-        auditText,
-        isWarning,
-        badgeColor,
-        badgeBg,
-        actualQtyNum: actual,
-        planQtyNum: plan,
-        durMin
+        auditText
       }
     })
   }, [data])
@@ -90,20 +151,22 @@ export const RuntimeAuditDetailModal = ({
   // Đếm số lượng từng loại
   const categoryCounts = useMemo(() => {
     let all = classifiedData.length
+    let invalidTime = 0
     let normal = 0
     let over12 = 0
     let under5 = 0
 
     classifiedData.forEach((d) => {
-      if (d.auditCategory === 'NORMAL') normal++
+      if (d.auditCategory === 'INVALID_TIME') invalidTime++
+      else if (d.auditCategory === 'NORMAL') normal++
       else if (d.auditCategory === 'OVER_12H') over12++
       else if (d.auditCategory === 'UNDER_5MIN') under5++
     })
 
-    return { all, normal, over12, under5 }
+    return { all, invalidTime, normal, over12, under5 }
   }, [classifiedData])
 
-  // Lọc dữ liệu theo Category + Search Query + Team + Machine
+  // Lọc dữ liệu
   const filteredData = useMemo(() => {
     return classifiedData.filter((item) => {
       if (activeCategory !== 'ALL' && item.auditCategory !== activeCategory) return false
@@ -113,14 +176,12 @@ export const RuntimeAuditDetailModal = ({
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
         const match =
-          (item.ticketCode && item.ticketCode.toLowerCase().includes(q)) ||
-          (item.ticketNo && item.ticketNo.toLowerCase().includes(q)) ||
-          (item.orderCode && item.orderCode.toLowerCase().includes(q)) ||
-          (item.docNo && item.docNo.toLowerCase().includes(q)) ||
-          (item.machineCode && item.machineCode.toLowerCase().includes(q)) ||
-          (item.machineName && item.machineName.toLowerCase().includes(q)) ||
-          (item.teamName && item.teamName.toLowerCase().includes(q)) ||
-          (item.operator && item.operator.toLowerCase().includes(q))
+          item.ticketNo.toLowerCase().includes(q) ||
+          item.orderNo.toLowerCase().includes(q) ||
+          item.machineCode.toLowerCase().includes(q) ||
+          item.machineName.toLowerCase().includes(q) ||
+          item.teamName.toLowerCase().includes(q) ||
+          item.operator.toLowerCase().includes(q)
         if (!match) return false
       }
 
@@ -128,275 +189,90 @@ export const RuntimeAuditDetailModal = ({
     })
   }, [classifiedData, activeCategory, selectedTeam, selectedMachine, searchQuery])
 
-  // Cột Glide Data Grid & Custom Resize State
-  const [auditColWidths, setAuditColWidths] = useState({})
-
-  const onAuditColumnResize = useCallback((column, newSize) => {
-    setAuditColWidths((prev) => ({
-      ...prev,
-      [column.id]: newSize
-    }))
-  }, [])
-
-  const auditGridCols = useMemo(() => {
-    const base = [
-      { title: 'Mã phiếu', width: 130, id: 'ticketCode' },
-      { title: 'Lệnh SX / CT', width: 125, id: 'orderCode' },
-      { title: 'Mã máy', width: 95, id: 'machineCode' },
-      { title: 'Tên máy sản xuất', width: 175, id: 'machineName' },
-      { title: 'Tổ sản xuất', width: 140, id: 'teamName' },
-      { title: 'Thời gian bắt đầu', width: 130, id: 'startTime' },
-      { title: 'Thời gian kết thúc', width: 130, id: 'endTime' },
-      { title: 'SL Sản xuất', width: 110, id: 'actualQty' },
-      { title: 'SL Đạt', width: 110, id: 'passQty' },
-      { title: 'SL Lỗi', width: 100, id: 'defectQty' },
-      { title: 'Tỷ lệ đạt (%)', width: 105, id: 'passRate' },
-      { title: 'Giờ chạy (h)', width: 100, id: 'runtimeHours' },
-      { title: 'Kiểm toán & Cảnh báo QLSX', width: 200, id: 'auditStatus' },
-      { title: 'Nguồn gốc', width: 95, id: 'origin' },
-      { title: 'Người thực hiện', width: 140, id: 'operator' }
-    ]
-    return base.map((col) => ({
-      ...col,
-      width: auditColWidths[col.id] || col.width
-    }))
-  }, [auditColWidths])
-
-  const getAuditCellContent = useCallback(
-    ([col, row]) => {
-      const item = filteredData[row]
-      if (!item) {
-        return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
-      }
-      const colId = auditGridCols[col]?.id
-      const actual = Number(item.actualQty || item.output) || 0
-      const pass = Number(item.passQty || item.passQuantity) || 0
-      const parsedDef =
-        item.defectQty !== undefined && item.defectQty !== null ? Number(item.defectQty) : 0
-      const defect = parsedDef > 0 ? parsedDef : Math.max(0, actual - pass)
-      const passRateVal = actual > 0 ? ((pass / actual) * 100).toFixed(1) : '100.0'
-
-      switch (colId) {
-        case 'ticketCode':
-          return {
-            kind: GridCellKind.Text,
-            data: item.ticketCode || item.ticketNo || '',
-            displayData: item.ticketCode || item.ticketNo || '',
-            allowOverlay: false
-          }
-        case 'orderCode':
-          return {
-            kind: GridCellKind.Text,
-            data: item.orderCode || item.docNo || '',
-            displayData: item.orderCode || item.docNo || '',
-            allowOverlay: false
-          }
-        case 'machineCode':
-          return {
-            kind: GridCellKind.Text,
-            data: item.machineCode || '',
-            displayData: item.machineCode || '',
-            allowOverlay: false
-          }
-        case 'machineName':
-          return {
-            kind: GridCellKind.Text,
-            data: item.machineName || '',
-            displayData: maskText(item.machineName || '', 5),
-            allowOverlay: false
-          }
-        case 'teamName':
-          return {
-            kind: GridCellKind.Text,
-            data: item.teamName || '',
-            displayData: item.teamName || '',
-            allowOverlay: false
-          }
-        case 'startTime':
-          return {
-            kind: GridCellKind.Text,
-            data: item.startTime || item.prodDate || '',
-            displayData: item.startTime || item.prodDate || '',
-            allowOverlay: false,
-            contentAlign: 'center'
-          }
-        case 'endTime':
-          return {
-            kind: GridCellKind.Text,
-            data: item.endTime || item.prodDate || '',
-            displayData: item.endTime || item.prodDate || '',
-            allowOverlay: false,
-            contentAlign: 'center'
-          }
-        case 'actualQty':
-          return {
-            kind: GridCellKind.Number,
-            data: actual,
-            displayData: actual.toLocaleString('vi-VN'),
-            allowOverlay: false,
-            contentAlign: 'right'
-          }
-        case 'passQty':
-          return {
-            kind: GridCellKind.Number,
-            data: pass,
-            displayData: pass.toLocaleString('vi-VN'),
-            allowOverlay: false,
-            contentAlign: 'right'
-          }
-        case 'defectQty':
-          return {
-            kind: GridCellKind.Number,
-            data: defect,
-            displayData: defect > 0 ? defect.toLocaleString('vi-VN') : '0',
-            allowOverlay: false,
-            contentAlign: 'right'
-          }
-        case 'passRate':
-          return {
-            kind: GridCellKind.Text,
-            data: `${passRateVal}%`,
-            displayData: `${passRateVal}%`,
-            allowOverlay: false,
-            contentAlign: 'right'
-          }
-        case 'runtimeHours':
-          return {
-            kind: GridCellKind.Text,
-            data: `${(Number(item.runtimeHours) || 0).toFixed(1)}h`,
-            displayData: `${(Number(item.runtimeHours) || 0).toFixed(1)}h`,
-            allowOverlay: false,
-            contentAlign: 'right'
-          }
-        case 'auditStatus':
-          return {
-            kind: GridCellKind.Text,
-            data: item.auditText,
-            displayData: item.auditText,
-            allowOverlay: false,
-            contentAlign: 'center'
-          }
-        case 'origin':
-          return {
-            kind: GridCellKind.Text,
-            data: item.origin || '',
-            displayData: item.origin || '',
-            allowOverlay: false,
-            contentAlign: 'center'
-          }
-        case 'operator':
-          return {
-            kind: GridCellKind.Text,
-            data: item.operator ? maskText(item.operator, 3) : '',
-            displayData: item.operator ? maskText(item.operator, 3) : '',
-            allowOverlay: false
-          }
-        default:
-          return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
-      }
-    },
-    [filteredData, auditGridCols, maskText]
-  )
-
+  // Xuất Excel
   const handleExportExcel = () => {
     try {
-      const wsData = filteredData.map((item, idx) => {
-        const actual = Number(item.actualQty || item.output) || 0
-        const pass = Number(item.passQty || item.passQuantity) || 0
-        const parsedDef =
-          item.defectQty !== undefined && item.defectQty !== null ? Number(item.defectQty) : 0
-        const defect = parsedDef > 0 ? parsedDef : Math.max(0, actual - pass)
-        const passRateVal = actual > 0 ? ((pass / actual) * 100).toFixed(1) : '100.0'
-        return {
-          STT: idx + 1,
-          'Mã phiếu': item.ticketCode || item.ticketNo || '',
-          'Lệnh sản xuất / CT': item.orderCode || item.docNo || '',
-          'Mã máy': item.machineCode || '',
-          'Tên máy sản xuất': item.machineName || '',
-          'Tổ sản xuất': item.teamName || '',
-          'Thời gian bắt đầu': item.startTime || item.prodDate || '',
-          'Thời gian kết thúc': item.endTime || item.prodDate || '',
-          'SL Sản xuất': actual,
-          'SL Đạt': pass,
-          'SL Lỗi': defect,
-          'Tỷ lệ đạt (%)': `${passRateVal}%`,
-          'Giờ chạy (h)': (Number(item.runtimeHours) || 0).toFixed(1),
-          'Kiểm toán & Cảnh báo QLSX': item.auditText,
-          'Nguồn gốc': item.origin || '',
-          'Người thực hiện': item.operator || ''
-        }
-      })
+      const wsData = filteredData.map((item, idx) => ({
+        STT: idx + 1,
+        'Mã phiếu': item.ticketNo,
+        'Lệnh SX / CT': item.orderNo,
+        'Mã máy': item.machineCode,
+        'Tên máy sản xuất': item.machineName,
+        'Tổ sản xuất': item.teamName,
+        'Ngày bắt đầu': item.startDate,
+        'Giờ bắt đầu': item.startTime,
+        'Ngày kết thúc': item.endDate,
+        'Giờ kết thúc': item.endTime,
+        'Giờ chạy (h)': Number(item.runtimeH.toFixed(2)),
+        'SL Sản xuất': item.actual,
+        'SL Đạt': item.pass,
+        'Tỷ lệ đạt (%)': `${item.passRate}%`,
+        'Cảnh báo / Đối soát': item.auditText,
+        'Người thực hiện': item.operator
+      }))
       const ws = XLSX.utils.json_to_sheet(wsData)
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'DoiSoatKyLuatQLSX')
+      XLSX.utils.book_append_sheet(wb, ws, 'DoiSoatThoiGian')
       const dateStr = new Date().toISOString().slice(0, 10)
-      XLSX.writeFile(wb, `DoiSoat_KyLuat_ThoiGian_${plantName || 'GS'}_${dateStr}.xlsx`)
+      XLSX.writeFile(wb, `DoiSoat_ThoiGian_${plantName || 'GS'}_${dateStr}.xlsx`)
     } catch (err) {
-      console.error('Export audit excel error:', err)
+      console.error('Export excel error:', err)
     }
   }
 
+  // Sao chép TSV
   const handleCopyTSV = () => {
     try {
       const headers = [
+        'STT',
         'Mã phiếu',
-        'Lệnh SX / CT',
+        'Lệnh SX',
         'Mã máy',
         'Tên máy',
         'Tổ SX',
-        'Bắt đầu',
-        'Kết thúc',
+        'Ngày BĐ',
+        'Giờ BĐ',
+        'Ngày KT',
+        'Giờ KT',
+        'Giờ chạy (h)',
         'SL SX',
         'SL Đạt',
-        'SL Lỗi',
-        'Tỷ lệ đạt (%)',
-        'Giờ chạy (h)',
-        'Kiểm toán QLSX',
-        'Nguồn',
+        'Tỷ lệ (%)',
+        'Cảnh báo',
         'Người làm'
       ]
-      const headerRow = headers.join('\t')
-      const bodyRows = filteredData
-        .map((item) => {
-          const actual = Number(item.actualQty || item.output) || 0
-          const pass = Number(item.passQty || item.passQuantity) || 0
-          const parsedDef =
-            item.defectQty !== undefined && item.defectQty !== null ? Number(item.defectQty) : 0
-          const defect = parsedDef > 0 ? parsedDef : Math.max(0, actual - pass)
-          const passRateVal = actual > 0 ? ((pass / actual) * 100).toFixed(1) : '100.0'
-          return [
-            item.ticketCode || item.ticketNo || '',
-            item.orderCode || item.docNo || '',
-            item.machineCode || '',
-            item.machineName || '',
-            item.teamName || '',
-            item.startTime || item.prodDate || '',
-            item.endTime || item.prodDate || '',
-            actual,
-            pass,
-            defect,
-            `${passRateVal}%`,
-            (Number(item.runtimeHours) || 0).toFixed(1),
-            item.auditText,
-            item.origin || '',
-            item.operator || ''
-          ].join('\t')
-        })
-        .join('\n')
-      navigator.clipboard.writeText(`${headerRow}\n${bodyRows}`)
-      alert('Đã sao chép danh sách phiếu kiểm toán vào Clipboard (định dạng Excel/TSV)')
+      const rows = filteredData.map((item, idx) => [
+        idx + 1,
+        item.ticketNo,
+        item.orderNo,
+        item.machineCode,
+        item.machineName,
+        item.teamName,
+        item.startDate,
+        item.startTime,
+        item.endDate,
+        item.endTime,
+        item.runtimeH.toFixed(2),
+        item.actual,
+        item.pass,
+        `${item.passRate}%`,
+        item.auditText,
+        item.operator
+      ])
+      const tsvContent = [headers.join('\t'), ...rows.map((r) => r.join('\t'))].join('\n')
+      navigator.clipboard.writeText(tsvContent)
+      alert(`Đã sao chép ${filteredData.length} dòng vào clipboard`)
     } catch (err) {
-      console.error('Copy audit error:', err)
+      console.error('Copy TSV error:', err)
     }
   }
 
   if (!isOpen) return null
 
   // Tổng hợp số liệu đang lọc
-  const totalActual = filteredData.reduce((acc, d) => acc + (d.actualQtyNum || 0), 0)
-  const totalPass = filteredData.reduce((acc, d) => acc + (Number(d.passQty) || 0), 0)
-  const totalRuntime = filteredData.reduce((acc, d) => acc + (Number(d.runtimeHours) || 0), 0)
-  const totalWarnings = filteredData.filter((d) => d.isWarning).length
+  const totalActual = filteredData.reduce((acc, d) => acc + d.actual, 0)
+  const totalPass = filteredData.reduce((acc, d) => acc + d.pass, 0)
+  const totalRuntime = filteredData.reduce((acc, d) => acc + d.runtimeH, 0)
 
   return (
     <div
@@ -404,338 +280,426 @@ export const RuntimeAuditDetailModal = ({
         position: 'fixed',
         inset: 0,
         zIndex: 99999,
-        background: 'rgba(15, 23, 42, 0.72)',
+        background: 'rgba(0, 0, 0, 0.45)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16,
-        backdropFilter: 'blur(3px)'
+        padding: 16
       }}
       onClick={onClose}
     >
       <div
         style={{
           background: '#ffffff',
-          width: 'clamp(920px, 86vw, 1380px)',
-          height: 'clamp(620px, 88vh, 880px)',
-          maxHeight: '94vh',
+          width: 'clamp(960px, 92vw, 1440px)',
+          height: 'clamp(580px, 88vh, 860px)',
+          maxHeight: '92vh',
           maxWidth: '96vw',
-          border: '1.5px solid #01411b',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
-          borderRadius: 2
+          overflow: 'hidden'
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
+        {/* Modal Header - Trắng toàn bộ */}
         <div
           style={{
-            background: '#01411b',
-            color: '#ffffff',
+            background: '#ffffff',
+            color: '#0f172a',
             padding: '12px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid #0a2e16',
+            borderBottom: '1px solid #e2e8f0',
             flexShrink: 0
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '0.01em' }}>
-                ĐỐI SOÁT KỶ LUẬT THỜI GIAN CHẠY MÁY & CẢNH BÁO QUẢN LÝ SẢN XUẤT (QLSX AUDIT)
-              </div>
-              <div style={{ fontSize: 11.5, color: '#e2e8f0', marginTop: 1 }}>
-                Cơ sở: <b>{plantName || 'Nhà máy GS'}</b> • Tự động lọc các đơn hàng &lt; 5 phút
-                hoặc &gt; 12 giờ
-              </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+              Đối soát thời gian bắt đầu & kết thúc phiếu sản xuất
+            </div>
+            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+              Cơ sở: {plantName || 'Nhà máy'} • Hiển thị chi tiết ngày, giờ của từng phiếu
             </div>
           </div>
-        </div>
-
-        {/* Modal Category Filter Bar (Pills with Counts) */}
-        <div
-          style={{
-            background: '#f8fafc',
-            borderBottom: '1px solid #e2e8f0',
-            padding: '8px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            overflowX: 'auto',
-            flexShrink: 0
-          }}
-        >
           <button
-            onClick={() => setActiveCategory('ALL')}
+            onClick={onClose}
             style={{
-              padding: '4px 12px',
-              fontSize: 12,
-              fontWeight: 700,
+              background: 'transparent',
+              border: 'none',
+              color: '#64748b',
               cursor: 'pointer',
-              border: '1px solid',
-              borderColor: activeCategory === 'ALL' ? '#01411b' : '#cbd5e1',
-              background: activeCategory === 'ALL' ? '#01411b' : '#ffffff',
-              color: activeCategory === 'ALL' ? '#ffffff' : '#334155',
-              borderRadius: 2,
+              padding: 4,
               display: 'flex',
-              alignItems: 'center',
-              gap: 6
+              alignItems: 'center'
             }}
           >
-            <span>Tất cả phiếu</span>
-            <span
-              style={{
-                fontSize: 11,
-                padding: '1px 6px',
-                borderRadius: 10,
-                background: activeCategory === 'ALL' ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
-                color: activeCategory === 'ALL' ? '#ffffff' : '#475569'
-              }}
-            >
-              {categoryCounts.all}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveCategory('NORMAL')}
-            style={{
-              padding: '4px 12px',
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: 'pointer',
-              border: '1px solid',
-              borderColor: activeCategory === 'NORMAL' ? '#01411b' : '#cbd5e1',
-              background: activeCategory === 'NORMAL' ? '#01411b' : '#ffffff',
-              color: activeCategory === 'NORMAL' ? '#ffffff' : '#334155',
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-          >
-            <span>1. Chuẩn tiến độ (5p - 12h)</span>
-            <span
-              style={{
-                fontSize: 11,
-                padding: '1px 6px',
-                borderRadius: 10,
-                background: activeCategory === 'NORMAL' ? 'rgba(255,255,255,0.25)' : '#ecfdf5',
-                color: activeCategory === 'NORMAL' ? '#ffffff' : '#01411b'
-              }}
-            >
-              {categoryCounts.normal}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveCategory('OVER_12H')}
-            style={{
-              padding: '4px 12px',
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: 'pointer',
-              border: '1px solid',
-              borderColor: activeCategory === 'OVER_12H' ? '#d97706' : '#fde68a',
-              background: activeCategory === 'OVER_12H' ? '#d97706' : '#fffbeb',
-              color: activeCategory === 'OVER_12H' ? '#ffffff' : '#92400e',
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-          >
-            <span>2. Thao tác &gt; 12 giờ (Cảnh báo)</span>
-            <span
-              style={{
-                fontSize: 11,
-                padding: '1px 6px',
-                borderRadius: 10,
-                background: activeCategory === 'OVER_12H' ? 'rgba(255,255,255,0.25)' : '#fef3c7',
-                color: activeCategory === 'OVER_12H' ? '#ffffff' : '#b45309'
-              }}
-            >
-              {categoryCounts.over12}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveCategory('UNDER_5MIN')}
-            style={{
-              padding: '4px 12px',
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: 'pointer',
-              border: '1px solid',
-              borderColor: activeCategory === 'UNDER_5MIN' ? '#be123c' : '#fecaca',
-              background: activeCategory === 'UNDER_5MIN' ? '#be123c' : '#fff1f2',
-              color: activeCategory === 'UNDER_5MIN' ? '#ffffff' : '#9f1239',
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-          >
-            <span>3. Thao tác &lt; 5 phút (Cảnh báo)</span>
-            <span
-              style={{
-                fontSize: 11,
-                padding: '1px 6px',
-                borderRadius: 10,
-                background: activeCategory === 'UNDER_5MIN' ? 'rgba(255,255,255,0.25)' : '#fee2e2',
-                color: activeCategory === 'UNDER_5MIN' ? '#ffffff' : '#be123c'
-              }}
-            >
-              {categoryCounts.under5}
-            </span>
+            <X size={18} />
           </button>
         </div>
 
-        {/* Modal Secondary Toolbar (Search + Filters + Spacing) */}
+        {/* Toolbar lọc đơn giản - Nền trắng */}
         <div
           style={{
             background: '#ffffff',
             borderBottom: '1px solid #e2e8f0',
-            padding: '8px 16px',
+            padding: '8px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: 10,
+            gap: 8,
             flexShrink: 0
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {/* Lọc theo tổ */}
+          {/* Nhóm tab lọc nhanh */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setActiveCategory('ALL')}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: activeCategory === 'ALL' ? 600 : 400,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: activeCategory === 'ALL' ? '#0f172a' : '#e2e8f0',
+                background: activeCategory === 'ALL' ? '#f8fafc' : '#ffffff',
+                color: activeCategory === 'ALL' ? '#0f172a' : '#64748b'
+              }}
+            >
+              Tất cả ({categoryCounts.all})
+            </button>
+
+            {categoryCounts.invalidTime > 0 && (
+              <button
+                onClick={() => setActiveCategory('INVALID_TIME')}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  fontWeight: activeCategory === 'INVALID_TIME' ? 600 : 400,
+                  cursor: 'pointer',
+                  border: '1px solid',
+                  borderColor: activeCategory === 'INVALID_TIME' ? '#dc2626' : '#fca5a5',
+                  background: activeCategory === 'INVALID_TIME' ? '#fef2f2' : '#ffffff',
+                  color: '#dc2626'
+                }}
+              >
+                Sai mốc giờ ({categoryCounts.invalidTime})
+              </button>
+            )}
+
+            <button
+              onClick={() => setActiveCategory('NORMAL')}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: activeCategory === 'NORMAL' ? 600 : 400,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: activeCategory === 'NORMAL' ? '#0f172a' : '#e2e8f0',
+                background: activeCategory === 'NORMAL' ? '#f8fafc' : '#ffffff',
+                color: activeCategory === 'NORMAL' ? '#0f172a' : '#64748b'
+              }}
+            >
+              Chuẩn (5p - 12h) ({categoryCounts.normal})
+            </button>
+
+            <button
+              onClick={() => setActiveCategory('OVER_12H')}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: activeCategory === 'OVER_12H' ? 600 : 400,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: activeCategory === 'OVER_12H' ? '#0f172a' : '#e2e8f0',
+                background: activeCategory === 'OVER_12H' ? '#f8fafc' : '#ffffff',
+                color: activeCategory === 'OVER_12H' ? '#0f172a' : '#64748b'
+              }}
+            >
+              &gt; 12 giờ ({categoryCounts.over12})
+            </button>
+
+            <button
+              onClick={() => setActiveCategory('UNDER_5MIN')}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: activeCategory === 'UNDER_5MIN' ? 600 : 400,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: activeCategory === 'UNDER_5MIN' ? '#0f172a' : '#e2e8f0',
+                background: activeCategory === 'UNDER_5MIN' ? '#f8fafc' : '#ffffff',
+                color: activeCategory === 'UNDER_5MIN' ? '#0f172a' : '#64748b'
+              }}
+            >
+              &lt; 5 phút ({categoryCounts.under5})
+            </button>
+          </div>
+
+          {/* Lọc dropdown & Tìm kiếm */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                padding: '3px 8px',
+                width: 180
+              }}
+            >
+              <Search size={13} color="#94a3b8" style={{ marginRight: 6 }} />
+              <input
+                type="text"
+                placeholder="Tìm phiếu, máy, tổ..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: 12,
+                  width: '100%',
+                  color: '#0f172a'
+                }}
+              />
+            </div>
+
             <PureSelect
               value={selectedTeam}
               onChange={setSelectedTeam}
               options={[
-                { value: 'ALL', label: 'Tất cả tổ sản xuất' },
+                { value: 'ALL', label: 'Tất cả tổ' },
                 ...teamOptions.map((t) => ({ value: t, label: t }))
               ]}
-              style={{ width: 170, border: '1px solid #cbd5e1' }}
+              style={{ width: 140 }}
             />
 
-            {/* Lọc theo máy */}
             <PureSelect
               value={selectedMachine}
               onChange={setSelectedMachine}
               options={[
-                { value: 'ALL', label: 'Tất cả cụm máy' },
+                { value: 'ALL', label: 'Tất cả máy' },
                 ...machineOptions.map((m) => ({ value: m, label: m }))
               ]}
-              style={{ width: 170, border: '1px solid #cbd5e1' }}
+              style={{ width: 140 }}
             />
 
-            {(searchQuery ||
-              selectedTeam !== 'ALL' ||
-              selectedMachine !== 'ALL' ||
-              activeCategory !== 'ALL') && (
-              <button
-                onClick={() => {
-                  setSearchQuery('')
-                  setSelectedTeam('ALL')
-                  setSelectedMachine('ALL')
-                  setActiveCategory('ALL')
-                }}
-                style={{
-                  background: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
-                  padding: '3px 8px',
-                  fontSize: 11.5,
-                  cursor: 'pointer',
-                  color: '#475569',
-                  borderRadius: 2,
-                  fontWeight: 600
-                }}
-              >
-                Đặt lại lọc
-              </button>
-            )}
+            <button
+              onClick={handleCopyTSV}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 10px',
+                fontSize: 12,
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                cursor: 'pointer',
+                color: '#334155'
+              }}
+            >
+              <Copy size={13} />
+              <span>Sao chép</span>
+            </button>
+
+            <button
+              onClick={handleExportExcel}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: 500,
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                cursor: 'pointer',
+                color: '#0f172a'
+              }}
+            >
+              <Download size={13} />
+              <span>Xuất Excel</span>
+            </button>
           </div>
         </div>
 
-        {/* Summary Indicators Strip */}
+        {/* Thanh tóm tắt số liệu */}
         <div
           style={{
-            background: '#f8fafc',
+            background: '#ffffff',
             borderBottom: '1px solid #e2e8f0',
-            padding: '6px 16px',
+            padding: '6px 18px',
             fontSize: 12,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
+            color: '#475569',
             flexShrink: 0
           }}
         >
-          <div style={{ color: '#475569', fontWeight: 600 }}>
-            Hiển thị: <b style={{ color: '#0f172a' }}>{filteredData.length}</b> phiếu kiểm toán
-            {totalWarnings > 0 && (
-              <span style={{ marginLeft: 8, color: '#b91c1c', fontSize: 12, fontWeight: 700 }}>
-                • {totalWarnings} phiếu cần đối soát
+          <div>
+            Hiển thị: <b style={{ color: '#0f172a' }}>{filteredData.length}</b> phiếu
+            {categoryCounts.invalidTime > 0 && (
+              <span style={{ marginLeft: 8, color: '#dc2626' }}>
+                ({categoryCounts.invalidTime} phiếu sai mốc giờ)
               </span>
             )}
           </div>
-
-          <div style={{ display: 'flex', gap: 16, color: '#334155', fontWeight: 700 }}>
+          <div style={{ display: 'flex', gap: 16 }}>
             <span>
               Tổng SL SX: <b style={{ color: '#0f172a' }}>{totalActual.toLocaleString('vi-VN')}</b>
             </span>
             <span>
-              Tổng SL Đạt: <b style={{ color: '#01411b' }}>{totalPass.toLocaleString('vi-VN')}</b>
+              Tổng SL Đạt: <b style={{ color: '#0f172a' }}>{totalPass.toLocaleString('vi-VN')}</b>
             </span>
             <span>
-              Tổng Giờ chạy: <b style={{ color: '#01411b' }}>{totalRuntime.toFixed(1)}h</b>
+              Tổng giờ: <b style={{ color: '#0f172a' }}>{totalRuntime.toFixed(1)}h</b>
             </span>
           </div>
         </div>
 
-        {/* Table Container (Glide Data Grid DataEditor) */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#ffffff' }}>
-          <DataEditor
-            ref={gridRef}
-            columns={auditGridCols}
-            rows={filteredData.length}
-            getCellContent={getAuditCellContent}
-            onColumnResize={onAuditColumnResize}
-            getCellsForSelection={true}
-            rangeSelect="rect"
-            columnSelect="multi"
-            rowSelect="multi"
-            rowMarkers="number"
-            rowHeight={rowHeight}
-            headerHeight={32}
-            smoothScrollX={true}
-            smoothScrollY={true}
-            theme={executiveGridTheme}
-            width="100%"
-            height="100%"
-          />
-        </div>
-
-        {/* Modal Footer */}
+        {/* Bảng dữ liệu HTML thuần - Nền trắng sạch sẽ */}
         <div
           style={{
-            padding: '10px 16px',
-            background: '#f8fafc',
+            flex: 1,
+            overflow: 'auto',
+            background: '#ffffff'
+          }}
+        >
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: 12,
+              textAlign: 'left'
+            }}
+          >
+            <thead
+              style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+                background: '#f8fafc',
+                color: '#334155',
+                borderBottom: '1px solid #cbd5e1'
+              }}
+            >
+              <tr>
+                <th style={{ padding: '6px 6px', textAlign: 'center', width: 40, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>STT</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 120, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Mã phiếu</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 110, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Lệnh SX</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 80, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Mã máy</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 140, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Tên máy</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 90, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Tổ SX</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', minWidth: 90, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Ngày BĐ</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', minWidth: 80, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Giờ BĐ</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', minWidth: 90, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Ngày KT</th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', minWidth: 80, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Giờ KT</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', minWidth: 80, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Giờ chạy</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', minWidth: 85, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>SL SX</th>
+                <th style={{ padding: '6px 8px', textAlign: 'right', minWidth: 85, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>SL Đạt</th>
+                <th style={{ padding: '6px 6px', textAlign: 'right', minWidth: 65, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Tỷ lệ</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 160, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Cảnh báo</th>
+                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 110, fontWeight: 600 }}>Người làm</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredData.length === 0 ? (
+                <tr>
+                  <td colSpan={16} style={{ textAlign: 'center', padding: '32px 16px', color: '#94a3b8' }}>
+                    Không có phiếu nào phù hợp.
+                  </td>
+                </tr>
+              ) : (
+                filteredData.map((item, idx) => {
+                  const isErr = item.isTimeReversed
+                  return (
+                    <tr
+                      key={item.ticketNo || idx}
+                      style={{
+                        background: '#ffffff',
+                        borderBottom: '1px solid #f1f5f9'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f8fafc'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#ffffff'
+                      }}
+                    >
+                      <td style={{ padding: '5px 6px', textAlign: 'center', color: '#94a3b8', borderRight: '1px solid #f1f5f9' }}>
+                        {idx + 1}
+                      </td>
+                      <td style={{ padding: '5px 8px', fontWeight: 500, color: '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.ticketNo}
+                      </td>
+                      <td style={{ padding: '5px 8px', color: '#475569', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.orderNo || '-'}
+                      </td>
+                      <td style={{ padding: '5px 8px', color: '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.machineCode || '-'}
+                      </td>
+                      <td style={{ padding: '5px 8px', color: '#334155', borderRight: '1px solid #f1f5f9' }}>
+                        {maskText(item.machineName, 5)}
+                      </td>
+                      <td style={{ padding: '5px 8px', color: '#475569', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.teamName || '-'}
+                      </td>
+                      <td style={{ padding: '5px 8px', textAlign: 'center', color: '#334155', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.startDate || '-'}
+                      </td>
+                      <td style={{ padding: '5px 8px', textAlign: 'center', color: isErr ? '#dc2626' : '#0f172a', fontWeight: isErr ? 600 : 400, borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.startTime || '-'}
+                      </td>
+                      <td style={{ padding: '5px 8px', textAlign: 'center', color: '#334155', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.endDate || '-'}
+                      </td>
+                      <td style={{ padding: '5px 8px', textAlign: 'center', color: isErr ? '#dc2626' : '#0f172a', fontWeight: isErr ? 600 : 400, borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.endTime || '-'}
+                      </td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 500, color: isErr ? '#dc2626' : '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.runtimeH.toFixed(2)}h
+                      </td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', color: '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.actual.toLocaleString('vi-VN')}
+                      </td>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', color: '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.pass.toLocaleString('vi-VN')}
+                      </td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', color: '#334155', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.passRate}%
+                      </td>
+                      <td style={{ padding: '5px 8px', color: isErr ? '#dc2626' : '#64748b', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                        {item.auditText}
+                      </td>
+                      <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                        {item.operator ? maskText(item.operator, 3) : '-'}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Modal Footer - Trắng đơn giản */}
+        <div
+          style={{
+            padding: '8px 18px',
+            background: '#ffffff',
             borderTop: '1px solid #e2e8f0',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-end',
             flexShrink: 0
           }}
         >
-          <div style={{ fontSize: 11.5, color: '#64748b' }}>
-            * Quy chuẩn QLSX: Thao tác &lt; 5 phút yêu cầu nhập đúng quy trình; thời gian &gt; 12h
-            với sản lượng lớn được tự động xác nhận đạt chuẩn.
-          </div>
-          <PureButton type="primary" onClick={onClose} style={{ padding: '5px 16px' }}>
-            Đóng bảng kiểm toán
+          <PureButton onClick={onClose} style={{ padding: '4px 16px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155' }}>
+            Đóng
           </PureButton>
         </div>
       </div>

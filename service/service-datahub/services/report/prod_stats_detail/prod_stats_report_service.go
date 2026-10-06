@@ -125,6 +125,32 @@ func parseFullDateTime(dStr, tStr string) (time.Time, bool) {
 
 // Helper: Tính số phút chạy máy từ StartTime/EndTime hoặc chuỗi ActualRunTime (hỗ trợ thông ngày)
 func calcDurationMinutes(actualRunTime, startTime, endTime, startDate, endDate *string) float64 {
+	// Helper đọc ActualRunTime từ DB (Thời gian chạy thực tế - phút hoặc HH:mm)
+	parseActualRunTime := func() float64 {
+		if actualRunTime != nil && strings.TrimSpace(*actualRunTime) != "" {
+			s := strings.TrimSpace(strings.ReplaceAll(*actualRunTime, ",", "."))
+			if strings.Contains(s, ":") {
+				parts := strings.Split(s, ":")
+				var hrs float64
+				if len(parts) >= 1 {
+					if h, err := strconv.ParseFloat(parts[0], 64); err == nil {
+						hrs += h
+					}
+				}
+				if len(parts) >= 2 {
+					if m, err := strconv.ParseFloat(parts[1], 64); err == nil {
+						hrs += m / 60.0
+					}
+				}
+				return math.Round((hrs * 60.0) * 10) / 10
+			}
+			if v, err := strconv.ParseFloat(s, 64); err == nil && v >= 0 {
+				return math.Round(v*10) / 10
+			}
+		}
+		return 0
+	}
+
 	sDateVal := ""
 	if startDate != nil {
 		sDateVal = *startDate
@@ -142,21 +168,34 @@ func calcDurationMinutes(actualRunTime, startTime, endTime, startDate, endDate *
 		eTimeVal = *endTime
 	}
 
-	// 1. Nếu có cả StartTime và EndTime: ưu tiên tính toán trực tiếp
+	// 1. Nếu có cả StartTime và EndTime:
 	if sTimeVal != "" && eTimeVal != "" {
 		t1, ok1 := parseFullDateTime(sDateVal, sTimeVal)
 		t2, ok2 := parseFullDateTime(eDateVal, eTimeVal)
-		if ok1 && ok2 && !t2.Before(t1) {
-			diffMin := t2.Sub(t1).Minutes()
-			return math.Round(diffMin*10) / 10
+		if ok1 && ok2 {
+			if !t2.Before(t1) {
+				diffMin := t2.Sub(t1).Minutes()
+				return math.Round(diffMin*10) / 10
+			} else {
+				// Nếu bị lỗi ngược thời gian (t2 < t1): Lấy theo cột thời gian chạy thực tế (ActualRunTime)
+				if val := parseActualRunTime(); val > 0 {
+					return val
+				}
+			}
 		}
 
 		// Thử parse Date ISO
 		sTime, errS := time.Parse(time.RFC3339, sTimeVal)
 		eTime, errE := time.Parse(time.RFC3339, eTimeVal)
-		if errS == nil && errE == nil && !eTime.Before(sTime) {
-			diffMin := eTime.Sub(sTime).Minutes()
-			return math.Round(diffMin*10) / 10
+		if errS == nil && errE == nil {
+			if !eTime.Before(sTime) {
+				diffMin := eTime.Sub(sTime).Minutes()
+				return math.Round(diffMin*10) / 10
+			} else {
+				if val := parseActualRunTime(); val > 0 {
+					return val
+				}
+			}
 		}
 
 		// Parse format time HH:mm:ss
@@ -192,36 +231,24 @@ func calcDurationMinutes(actualRunTime, startTime, endTime, startDate, endDate *
 			}
 
 			diff := eMin - sMin
-			if diff < 0 {
-				diff += 1440 // Chạy xuyên đêm qua ngày hôm sau
+			if diff >= 0 {
+				return math.Round(diff*10) / 10
+			} else {
+				// Nếu cùng ngày (hoặc sDateVal == eDateVal): lỗi ngược giờ -> lấy theo cột thời gian chạy thực tế (ActualRunTime)
+				if (sDateVal != "" && eDateVal != "" && sDateVal == eDateVal) || (sDateVal == "" && eDateVal == "") {
+					if val := parseActualRunTime(); val > 0 {
+						return val
+					}
+				} else {
+					diff += 1440 // Chạy xuyên đêm qua ngày hôm sau
+					return math.Round(diff*10) / 10
+				}
 			}
-			return math.Round(diff*10) / 10
 		}
 	}
 
-	// 2. Nếu có chuỗi ActualRunTime
-	if actualRunTime != nil && strings.TrimSpace(*actualRunTime) != "" {
-		s := strings.TrimSpace(strings.ReplaceAll(*actualRunTime, ",", "."))
-		if strings.Contains(s, ":") {
-			parts := strings.Split(s, ":")
-			var hrs float64
-			if len(parts) >= 1 {
-				if h, err := strconv.ParseFloat(parts[0], 64); err == nil {
-					hrs += h
-				}
-			}
-			if len(parts) >= 2 {
-				if m, err := strconv.ParseFloat(parts[1], 64); err == nil {
-					hrs += m / 60.0
-				}
-			}
-			return math.Round((hrs*60.0)*10) / 10
-		}
-		if v, err := strconv.ParseFloat(s, 64); err == nil && v >= 0 {
-			return math.Round(v*10) / 10
-		}
-	}
-	return 0
+	// 2. Nếu không tính được từ Start/End, lấy trực tiếp từ ActualRunTime
+	return parseActualRunTime()
 }
 
 // Helper: Parse nhiều định dạng DateTime khác nhau

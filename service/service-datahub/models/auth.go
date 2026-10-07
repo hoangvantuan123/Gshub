@@ -73,6 +73,8 @@ type ERPRolesUser struct {
 	Create     bool      `gorm:"column:Create;default:true" json:"Create"`
 	Edit       bool      `gorm:"column:Edit;default:true" json:"Edit"`
 	Delete     bool      `gorm:"column:Delete;default:true" json:"Delete"`
+	Import     bool      `gorm:"column:Import;default:true" json:"Import"`
+	Export     bool      `gorm:"column:Export;default:true" json:"Export"`
 	CreatedBy  string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
 	CreatedAt  time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
 	UpdatedBy  string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`

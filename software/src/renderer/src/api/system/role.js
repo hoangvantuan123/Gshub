@@ -31,5 +31,7 @@ export const PostQRootMenuRole = (result, options = {}) =>
 
 export const PostRolesUser = (userIds, groupId, type, options = {}) =>
   apiPost('/mssql/system-users/metasys-roles-users', { userIds, groupId, type }, options)
+export const PostRolesMenu = (menuIds, groupId, type, options = {}) =>
+  apiPost('/system-users/metasys-roles-menus', { menuIds, groupId, type }, options)
 export const getUsersNotInRole = (roleId, options = {}) =>
   apiGet('/mssql/system-users/users-not-in-role', { roleId }, options)

@@ -19,10 +19,77 @@ export const DEFAULT_ROOT_MENUS = [
     RootMenuUtilities: true,
     View: true,
     OrderSeq: 1
+  },
+  {
+    Id: 'ROOT_SYSTEM',
+    RootMenuId: 'ROOT_SYSTEM',
+    RootMenuKey: 'system',
+    RootMenuName: 'Quản Trị Hệ Thống',
+    RootMenuLabel: 'Quản Trị Hệ Thống',
+    Icon: 'Settings',
+    MenuIcon: 'Settings',
+    RootMenuIcon: 'Settings',
+    RootMenuUtilities: true,
+    View: true,
+    OrderSeq: 2
   }
 ]
 
 export const DEFAULT_SETTING_ITEMS = [
+  // =========================================================================
+  // ── ROOT_SYSTEM: Module Quản Trị Hệ Thống ────────────────────────────────
+  // =========================================================================
+  {
+    Id: 'sub_system_admin',
+    MenuKey: 'system_admin_group',
+    MenuRootId: 'ROOT_SYSTEM',
+    MenuLabel: 'Quản trị hệ thống',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_system_users',
+    MenuKey: 'system_users',
+    MenuSubRootId: 'sub_system_admin',
+    MenuRootId: 'ROOT_SYSTEM',
+    MenuLabel: 'Quản lý & Đăng ký Người dùng',
+    MenuLink: '/erp/u/system/users',
+    MenuType: 'menu',
+    Icon: 'Users',
+    MenuIcon: 'Users',
+    View: true,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_system_menus',
+    MenuKey: 'system_menus',
+    MenuSubRootId: 'sub_system_admin',
+    MenuRootId: 'ROOT_SYSTEM',
+    MenuLabel: 'Đăng ký Menu Hệ thống',
+    MenuLink: '/erp/u/system/menus',
+    MenuType: 'menu',
+    Icon: 'LayoutGrid',
+    MenuIcon: 'LayoutGrid',
+    View: true,
+    OrderSeq: 2
+  },
+  {
+    Id: 'menu_system_permissions',
+    MenuKey: 'system_permissions',
+    MenuSubRootId: 'sub_system_admin',
+    MenuRootId: 'ROOT_SYSTEM',
+    MenuLabel: 'Phân quyền & Nhóm người dùng',
+    MenuLink: '/erp/u/system/permissions',
+    MenuType: 'menu',
+    Icon: 'ShieldCheck',
+    MenuIcon: 'ShieldCheck',
+    View: true,
+    OrderSeq: 3
+  },
+
   // =========================================================================
   // ── ROOT_REPORT: Module Báo cáo ──────────────────────────────────────────
   // =========================================================================
@@ -265,12 +332,7 @@ export const DEFAULT_SETTING_ITEMS = [
 // Menu Items Cấp 4 (nếu có các mục con sâu hơn)
 export const DEFAULT_MENU_ITEMS = []
 
-const EXCLUDED_ROOT_IDENTIFIERS = new Set([
-  'ROOT_SYSTEM',
-  'ROOT_PRODUCTION',
-  'system',
-  'production'
-])
+const EXCLUDED_ROOT_IDENTIFIERS = new Set(['ROOT_PRODUCTION', 'production'])
 
 /**
  * Merge server roles menu with default code config

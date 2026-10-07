@@ -2,6 +2,9 @@ import { lazy } from 'react'
 
 export const pageLoaders = {
   SettingPrivate: () => import('../../page/private/setting'),
+  SystemUserPage: () => import('../../page/system/users'),
+  SystemMenuPage: () => import('../../page/system/menus'),
+  SystemPermissionPage: () => import('../../page/system/permissions'),
   HanoiGs1StatPage: () => import('../../page/report/production/hanoiGs1/stat'),
   HanoiGs1PlanPage: () => import('../../page/report/production/hanoiGs1/plan'),
   QuevoGs5StatPage: () => import('../../page/report/production/quevoGs5/stat'),
@@ -25,6 +28,9 @@ export const pageLoaders = {
 }
 
 const SettingPrivate = lazy(pageLoaders.SettingPrivate)
+const SystemUserPage = lazy(pageLoaders.SystemUserPage)
+const SystemMenuPage = lazy(pageLoaders.SystemMenuPage)
+const SystemPermissionPage = lazy(pageLoaders.SystemPermissionPage)
 const HanoiGs1StatPage = lazy(pageLoaders.HanoiGs1StatPage)
 const HanoiGs1PlanPage = lazy(pageLoaders.HanoiGs1PlanPage)
 const QuevoGs5StatPage = lazy(pageLoaders.QuevoGs5StatPage)
@@ -44,6 +50,9 @@ const CalcProductionDetailPage = lazy(pageLoaders.CalcProductionDetailPage)
 
 export const routeToLoaderMap = {
   '/erp/u/setting': pageLoaders.SettingPrivate,
+  '/erp/u/system/users': pageLoaders.SystemUserPage,
+  '/erp/u/system/menus': pageLoaders.SystemMenuPage,
+  '/erp/u/system/permissions': pageLoaders.SystemPermissionPage,
   '/erp/u/report/production/hanoi-gs1/statistics': pageLoaders.HanoiGs1StatPage,
   '/erp/u/report/production/hanoi-gs1/plan': pageLoaders.HanoiGs1PlanPage,
   '/erp/u/report/production/quevo-gs5/statistics': pageLoaders.QuevoGs5StatPage,
@@ -124,7 +133,47 @@ export const systemsRoutes = [
   },
 
   // =========================================================================
-  // 2. MODULE BÁO CÁO (ROOT_REPORT)
+  // 2. MODULE QUẢN TRỊ HỆ THỐNG (ROOT_SYSTEM)
+  // =========================================================================
+  {
+    path: '/erp/u/system/users',
+    element: SystemUserPage,
+    permission: 'system_users',
+    public: true
+  },
+  {
+    path: '/erp/u/system/users/*',
+    element: SystemUserPage,
+    permission: 'system_users',
+    public: true
+  },
+  {
+    path: '/erp/u/system/menus',
+    element: SystemMenuPage,
+    permission: 'system_menus',
+    public: true
+  },
+  {
+    path: '/erp/u/system/menus/*',
+    element: SystemMenuPage,
+    permission: 'system_menus',
+    public: true
+  },
+  {
+    path: '/erp/u/system/permissions',
+    element: SystemPermissionPage,
+    permission: 'system_permissions',
+    public: true
+  },
+  {
+    path: '/erp/u/system/permissions/*',
+    element: SystemPermissionPage,
+    permission: 'system_permissions',
+    public: true
+  },
+
+  // =========================================================================
+  // 3. MODULE BÁO CÁO (ROOT_REPORT)
   // =========================================================================
   // ── GS1 Hà Nội ──────────────────────────────────────────────────────────
   {

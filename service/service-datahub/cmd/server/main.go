@@ -23,6 +23,7 @@ import (
 	"service-datahub/services/report/prod_stats_detail"
 	"service-datahub/services/report/summary_plan_report"
 	"service-datahub/services/report/summary_stat_report"
+	"service-datahub/services/system/action"
 	"service-datahub/services/system/menu"
 	"service-datahub/services/system/role_group"
 	"service-datahub/services/system/role_perm"
@@ -80,6 +81,7 @@ func main() {
 	rolePermService := role_perm.NewRolePermService(sqlDB, logger)
 	rootMenuService := root_menu.NewRootMenuService(sqlDB, logger)
 	menuService := menu.NewMenuService(sqlDB, logger)
+	actionService := action.NewActionService(sqlDB, logger)
 
 	// Báo cáo Master & Detail Services (KHSX & TKSX tách biệt từng thư mục A/U/D/Q)
 	planMasterService := plan_master.NewPlanMasterService(db, logger)
@@ -96,6 +98,7 @@ func main() {
 	rolePermHandler := system.NewRolePermHandler(rolePermService, logger)
 	rootMenuHandler := system.NewRootMenuHandler(rootMenuService, logger)
 	menuHandler := system.NewMenuHandler(menuService, logger)
+	actionHandler := system.NewActionHandler(actionService, logger)
 
 	loginHandler := handlers.NewLoginHandler(loginService, logger)
 	configHandler := handlers.NewConfigHandler(configService, logger)
@@ -121,6 +124,7 @@ func main() {
 		rolePermHandler,
 		rootMenuHandler,
 		menuHandler,
+		actionHandler,
 		loginHandler,
 		configHandler,
 		workProcessHandler,

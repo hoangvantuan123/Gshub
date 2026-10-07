@@ -164,8 +164,12 @@ func (h *RolePermHandler) MenuRoleQ(c *gin.Context) {
 			rmid = c.Query("menuRootId")
 		}
 	}
+	if strings.EqualFold(rmid, "all") || rmid == "0" {
+		rmid = ""
+	}
 
 	menus, err := h.rolePermService.QueryMenuRoles(c.Request.Context(), gid, rmid)
+
 	if err != nil {
 		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
 		return
@@ -243,4 +247,129 @@ func (h *RolePermHandler) RootMenuRoleQ(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: rootMenus})
 }
+
+// ─── SAVE ROOT MENU ROLES (U) ───
+func (h *RolePermHandler) RootMenuRoleU(c *gin.Context) {
+	var req struct {
+		GroupId   string                             `json:"groupId"`
+		RootMenus []role_perm.RootMenuRoleAssignment `json:"rootMenus"`
+		Result    struct {
+			GroupId   string                             `json:"groupId"`
+			RootMenus []role_perm.RootMenuRoleAssignment `json:"rootMenus"`
+		} `json:"result"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	gid := req.Result.GroupId
+	if gid == "" {
+		gid = req.GroupId
+	}
+	rms := req.Result.RootMenus
+	if len(rms) == 0 {
+		rms = req.RootMenus
+	}
+
+	updatedBy := ""
+	if uid, ok := c.Get("user_id"); ok {
+		updatedBy, _ = uid.(string)
+	}
+
+	err := h.rolePermService.SaveRootMenuRoles(c.Request.Context(), gid, rms, updatedBy)
+	if err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: gin.H{"saved": true}})
+}
+
+
+// ─── QUERY ACTION ROLES (Q) ───
+func (h *RolePermHandler) ActionRoleQ(c *gin.Context) {
+	var body map[string]interface{}
+	_ = c.ShouldBindJSON(&body)
+
+	var gid, mid string
+	if resVal, ok := body["result"]; ok && resVal != nil {
+		if resMap, ok := resVal.(map[string]interface{}); ok {
+			for k, v := range resMap {
+				lk := strings.ToLower(k)
+				if lk == "groupid" || lk == "roleid" {
+					gid = fmt.Sprintf("%v", v)
+				}
+				if lk == "menuid" || lk == "id" {
+					mid = fmt.Sprintf("%v", v)
+				}
+			}
+		}
+	}
+	for k, v := range body {
+		lk := strings.ToLower(k)
+		if gid == "" && (lk == "groupid" || lk == "roleid") {
+			gid = fmt.Sprintf("%v", v)
+		}
+		if mid == "" && (lk == "menuid" || lk == "id") {
+			mid = fmt.Sprintf("%v", v)
+		}
+	}
+	if gid == "" {
+		gid = c.Query("groupId")
+		if gid == "" {
+			gid = c.Query("roleId")
+		}
+	}
+	if mid == "" {
+		mid = c.Query("menuId")
+		if mid == "" {
+			mid = c.Query("id")
+		}
+	}
+
+	actions, err := h.rolePermService.QueryActionRoles(c.Request.Context(), gid, mid)
+	if err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: actions})
+}
+
+// ─── SAVE ACTION ROLES (U) ───
+func (h *RolePermHandler) ActionRoleU(c *gin.Context) {
+	var req struct {
+		GroupId string                           `json:"groupId"`
+		MenuId  string                           `json:"menuId"`
+		Actions []role_perm.ActionRoleAssignment `json:"actions"`
+		Result  struct {
+			GroupId string                           `json:"groupId"`
+			MenuId  string                           `json:"menuId"`
+			Actions []role_perm.ActionRoleAssignment `json:"actions"`
+		} `json:"result"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	gid := req.Result.GroupId
+	if gid == "" {
+		gid = req.GroupId
+	}
+	mid := req.Result.MenuId
+	if mid == "" {
+		mid = req.MenuId
+	}
+	actions := req.Result.Actions
+	if len(actions) == 0 {
+		actions = req.Actions
+	}
+
+	updatedBy := ""
+	if uid, ok := c.Get("user_id"); ok {
+		updatedBy, _ = uid.(string)
+	}
+
+	err := h.rolePermService.SaveActionRoles(c.Request.Context(), gid, mid, actions, updatedBy)
+	if err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: gin.H{"saved": true}})
+}
+
 

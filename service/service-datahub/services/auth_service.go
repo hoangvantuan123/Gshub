@@ -416,63 +416,110 @@ func (s *AuthService) UpdatePasswords(ctx context.Context, userId, newPassword s
 		}).Error
 }
 
-// GetUserRolesAndMenus retrieves assigned roles and menu permissions
+// GetUserRolesAndMenus retrieves assigned roles and menu permissions with multi-group aggregation
 func (s *AuthService) GetUserRolesAndMenus(ctx context.Context, userId string) ([]map[string]interface{}, error) {
-	var results []map[string]interface{}
+	userId = strings.TrimSpace(userId)
 
-	// Query roles and menu permissions based on User's assigned GroupId or direct user assignment
-	rows, err := s.db.WithContext(ctx).Raw(`
-		WITH user_group AS (
-			SELECT "GroupId" 
+	var rootMenus []map[string]interface{}
+	var menus []map[string]interface{}
+
+	// 1. Query Root Menus with multi-group aggregated permissions (BOOL_OR)
+	rootMenuRows, err := s.db.WithContext(ctx).Raw(`
+		WITH user_groups AS (
+			SELECT DISTINCT "GroupId" 
 			FROM "_ERPRolesUsers" 
 			WHERE "Type" = 'user' AND LOWER("UserId") = LOWER(?)
-			LIMIT 1
 		)
 		SELECT 
-			r."Id" AS "Id",
-			COALESCE(r."View", false) AS "View",
-			COALESCE(r."Edit", false) AS "Edit",
-			COALESCE(r."Create", false) AS "Create",
-			COALESCE(r."Delete", false) AS "Delete",
-			COALESCE(r."Import", false) AS "Import",
-			COALESCE(r."Export", false) AS "Export",
-			r."MenuId" AS "MenuId",
-			r."GroupId" AS "GroupId",
-			COALESCE(r."UserId", ?) AS "UserId",
-			r."RootMenuId" AS "RootMenuId",
-			r."Type" AS "Type",
-			COALESCE(r."Name", m."Label", '') AS "Name",
-			COALESCE(m."Key", '') AS "MenuKey",
-			COALESCE(m."Label", '') AS "MenuLabel",
-			COALESCE(m."Link", '') AS "MenuLink",
-			COALESCE(m."Type", '') AS "MenuType",
+			rm."Id" AS "Id",
+			rm."Id" AS "RootMenuId",
+			rm."Key" AS "RootMenuKey",
+			rm."Key" AS "Key",
+			rm."Label" AS "RootMenuLabel",
+			rm."Label" AS "Label",
+			rm."Icon" AS "RootMenuIcon",
+			rm."Icon" AS "Icon",
+			rm."Link" AS "RootMenuLink",
+			rm."Link" AS "Link",
+			rm."IdxNo" AS "IdxNo",
+			rm."IdxNo" AS "OrderSeq",
+			COALESCE(rm."Utilities", true) AS "RootMenuUtilities",
+			COALESCE(
+				BOOL_OR(ru_root."View") OR BOOL_OR(ru_menu."View"),
+				false
+			) AS "View"
+		FROM "_ERPRootMenus" rm
+		LEFT JOIN "_ERPRolesUsers" ru_root ON ru_root."RootMenuId" = rm."Id" AND ru_root."Type" = 'rootmenu' AND ru_root."GroupId" IN (SELECT "GroupId" FROM user_groups)
+		LEFT JOIN "_ERPMenus" m ON m."MenuRootId" = rm."Id"
+		LEFT JOIN "_ERPRolesUsers" ru_menu ON ru_menu."MenuId" = m."Id" AND ru_menu."Type" = 'menu' AND ru_menu."GroupId" IN (SELECT "GroupId" FROM user_groups)
+		GROUP BY rm."Id", rm."Key", rm."Label", rm."Icon", rm."Link", rm."IdxNo", rm."Utilities"
+		ORDER BY rm."IdxNo" ASC, rm."Id" ASC
+	`, userId).Rows()
+
+	if err == nil && rootMenuRows != nil {
+		defer rootMenuRows.Close()
+		for rootMenuRows.Next() {
+			entry := make(map[string]interface{})
+			_ = s.db.ScanRows(rootMenuRows, &entry)
+			rootMenus = append(rootMenus, entry)
+		}
+	} else if err != nil {
+		s.logger.Warn("Failed to query user root menus", zap.Error(err))
+	}
+
+	// 2. Query Submenus & Menus with multi-group aggregated permissions (BOOL_OR)
+	menuRows, err := s.db.WithContext(ctx).Raw(`
+		WITH user_groups AS (
+			SELECT DISTINCT "GroupId" 
+			FROM "_ERPRolesUsers" 
+			WHERE "Type" = 'user' AND LOWER("UserId") = LOWER(?)
+		)
+		SELECT 
+			m."Id" AS "Id",
+			m."Id" AS "MenuId",
+			m."Key" AS "MenuKey",
+			m."Key" AS "Key",
+			m."MenuRootId" AS "MenuRootId",
+			m."MenuSubRootId" AS "MenuSubRootId",
+			m."Label" AS "MenuLabel",
+			m."Label" AS "Label",
+			m."Link" AS "MenuLink",
+			m."Link" AS "Link",
+			m."Type" AS "MenuType",
+			m."Type" AS "Type",
+			m."Icon" AS "MenuIcon",
+			m."Icon" AS "Icon",
+			m."OrderSeq" AS "OrderSeq",
+			m."DictSeq" AS "DictSeq",
+			m."IdxNo" AS "IdxNo",
 			COALESCE(rm."Key", '') AS "RootMenuKey",
 			COALESCE(rm."Label", '') AS "RootMenuLabel",
 			COALESCE(rm."Icon", 'AppWindow') AS "RootMenuIcon",
-			COALESCE(rm."Link", '') AS "RootMenuLink"
-		FROM "_ERPRolesUsers" r
-		LEFT JOIN "_ERPMenus" m ON r."MenuId" = m."Id"
-		LEFT JOIN "_ERPRootMenus" rm ON COALESCE(r."RootMenuId", m."MenuRootId") = rm."Id"
-		WHERE (
-			(r."Type" = 'menu' AND r."GroupId" IN (SELECT "GroupId" FROM user_group))
-			OR (LOWER(r."UserId") = LOWER(?))
-		)
-		ORDER BY rm."IdxNo" ASC, m."OrderSeq" ASC, r."Id" ASC
-	`, userId, userId, userId).Rows()
+			COALESCE(BOOL_OR(ru."View"), false) AS "View"
+		FROM "_ERPMenus" m
+		LEFT JOIN "_ERPRootMenus" rm ON m."MenuRootId" = rm."Id"
+		LEFT JOIN "_ERPRolesUsers" ru ON ru."MenuId" = m."Id" AND ru."Type" = 'menu' AND ru."GroupId" IN (SELECT "GroupId" FROM user_groups)
+		GROUP BY m."Id", m."Key", m."MenuRootId", m."MenuSubRootId", m."Label", m."Link", m."Type", m."Icon", m."OrderSeq", m."DictSeq", m."IdxNo", rm."Key", rm."Label", rm."Icon"
+		ORDER BY m."MenuRootId" ASC, COALESCE(m."MenuSubRootId", 0) ASC, m."OrderSeq" ASC, m."Id" ASC
+	`, userId).Rows()
 
-	if err != nil {
-		s.logger.Error("GetUserRolesAndMenus query error", zap.Error(err))
-		return []map[string]interface{}{}, nil
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		entry := make(map[string]interface{})
-		_ = s.db.ScanRows(rows, &entry)
-		results = append(results, entry)
+	if err == nil && menuRows != nil {
+		defer menuRows.Close()
+		for menuRows.Next() {
+			entry := make(map[string]interface{})
+			_ = s.db.ScanRows(menuRows, &entry)
+			menus = append(menus, entry)
+		}
+	} else if err != nil {
+		s.logger.Warn("Failed to query user menus", zap.Error(err))
 	}
 
-	return results, nil
+	return []map[string]interface{}{
+		{"menu": menus},
+		{"rootMenu": rootMenus},
+		{"menuItem": []map[string]interface{}{}},
+		{"roleTable": []map[string]interface{}{}},
+	}, nil
 }
 
 // Menus and Roles queries

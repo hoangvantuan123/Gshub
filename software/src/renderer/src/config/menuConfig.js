@@ -29,15 +29,15 @@ export const DEFAULT_ROOT_MENUS = [
     Icon: 'Settings',
     MenuIcon: 'Settings',
     RootMenuIcon: 'Settings',
-    RootMenuUtilities: false,
-    View: false,
+    RootMenuUtilities: true,
+    View: true,
     OrderSeq: 2
   }
 ]
 
 export const DEFAULT_SETTING_ITEMS = [
   // =========================================================================
-  // ── ROOT_SYSTEM: Module Quản Trị Hệ Thống (Tạm ẩn) ───────────────────────
+  // ── ROOT_SYSTEM: Module Quản Trị Hệ Thống ───────────────────────────────
   // =========================================================================
   {
     Id: 'sub_system_users_roles',
@@ -47,7 +47,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'submenu',
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
-    View: false,
+    View: true,
     OrderSeq: 1
   },
   {
@@ -60,7 +60,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'menu',
     Icon: 'Users',
     MenuIcon: 'Users',
-    View: false,
+    View: true,
     OrderSeq: 1
   },
   {
@@ -73,7 +73,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'menu',
     Icon: 'Shield',
     MenuIcon: 'Shield',
-    View: false,
+    View: true,
     OrderSeq: 2
   },
   {
@@ -86,7 +86,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'menu',
     Icon: 'ShieldCheck',
     MenuIcon: 'ShieldCheck',
-    View: false,
+    View: true,
     OrderSeq: 3
   },
   {
@@ -97,7 +97,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'submenu',
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
-    View: false,
+    View: true,
     OrderSeq: 2
   },
   {
@@ -110,7 +110,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'menu',
     Icon: 'FolderGit2',
     MenuIcon: 'FolderGit2',
-    View: false,
+    View: true,
     OrderSeq: 1
   },
   {
@@ -123,8 +123,21 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuType: 'menu',
     Icon: 'LayoutGrid',
     MenuIcon: 'LayoutGrid',
-    View: false,
+    View: true,
     OrderSeq: 2
+  },
+  {
+    Id: 'menu_system_actions',
+    MenuKey: 'system_actions',
+    MenuSubRootId: 'sub_system_structure',
+    MenuRootId: 'ROOT_SYSTEM',
+    MenuLabel: 'Đăng ký Danh mục Hành động (Action)',
+    MenuLink: '/erp/u/system/actions',
+    MenuType: 'menu',
+    Icon: 'Zap',
+    MenuIcon: 'Zap',
+    View: true,
+    OrderSeq: 3
   },
 
   // =========================================================================
@@ -369,15 +382,11 @@ export const DEFAULT_SETTING_ITEMS = [
 // Menu Items Cấp 4 (nếu có các mục con sâu hơn)
 export const DEFAULT_MENU_ITEMS = []
 
-const EXCLUDED_ROOT_IDENTIFIERS = new Set([
-  'ROOT_PRODUCTION',
-  'production',
-  'ROOT_SYSTEM',
-  'system'
-])
+const EXCLUDED_ROOT_IDENTIFIERS = new Set(['ROOT_PRODUCTION', 'production'])
 
 /**
  * Merge server roles menu with default code config
+ * Prioritizes dynamic Database config and seamlessly supports custom modules & menus
  */
 export function mergeWithDefaultMenuConfig(
   serverSettingItems = [],
@@ -385,52 +394,148 @@ export function mergeWithDefaultMenuConfig(
   serverMenuItems = []
 ) {
   const rootMenuMap = new Map()
-  ;[...DEFAULT_ROOT_MENUS, ...(Array.isArray(serverRootMenus) ? serverRootMenus : [])].forEach(
-    (r) => {
-      if (!r) return
-      const key = r.RootMenuKey || r.Id || r.RootMenuId
-      const id = r.Id || r.RootMenuId
-      if (
-        (key && EXCLUDED_ROOT_IDENTIFIERS.has(key)) ||
-        (id && EXCLUDED_ROOT_IDENTIFIERS.has(id)) ||
-        (r.RootMenuKey && EXCLUDED_ROOT_IDENTIFIERS.has(r.RootMenuKey))
-      ) {
-        return
-      }
-      if (key) rootMenuMap.set(key, { ...r, View: r.View !== false })
-    }
-  )
-  const mergedRoots = Array.from(rootMenuMap.values())
 
-  const itemMap = new Map()
-  ;[
-    ...DEFAULT_SETTING_ITEMS,
-    ...(Array.isArray(serverSettingItems) ? serverSettingItems : [])
-  ].forEach((item) => {
-    if (!item) return
-    const rootId = item.MenuRootId
-    if (rootId && EXCLUDED_ROOT_IDENTIFIERS.has(rootId)) {
-      return
+  // 1. Process Default Root Menus
+  DEFAULT_ROOT_MENUS.forEach((r) => {
+    if (!r) return
+    const key = r.RootMenuKey || r.Key || r.Id || r.RootMenuId
+    if (key && !EXCLUDED_ROOT_IDENTIFIERS.has(key)) {
+      rootMenuMap.set(String(key).toLowerCase(), { ...r, View: r.View !== false })
     }
-    const key = item.MenuKey || item.Id
-    if (key) itemMap.set(key, { ...item, View: item.View !== false })
   })
-  const mergedItems = Array.from(itemMap.values())
 
+  // 2. Overlay Dynamic Server Root Menus from DB (takes priority)
+  if (Array.isArray(serverRootMenus) && serverRootMenus.length > 0) {
+    serverRootMenus.forEach((r) => {
+      if (!r) return
+      const rawKey = r.RootMenuKey || r.Key || r.Id || r.RootMenuId
+      if (!rawKey || EXCLUDED_ROOT_IDENTIFIERS.has(rawKey)) return
+
+      const lowerKey = String(rawKey).toLowerCase()
+      const canonicalKey =
+        lowerKey === 'root_report' || lowerKey === 'report'
+          ? 'report'
+          : lowerKey === 'root_system' || lowerKey === 'system'
+            ? 'system'
+            : rawKey
+
+      const normalizedRoot = {
+        ...r,
+        Id: r.Id || r.RootMenuId,
+        RootMenuId: r.RootMenuId || r.Id,
+        RootMenuKey:
+          canonicalKey === 'report'
+            ? 'report'
+            : canonicalKey === 'system'
+              ? 'system'
+              : r.RootMenuKey || r.Key || rawKey,
+        RootMenuName: r.RootMenuName || r.Label || r.RootMenuLabel || rawKey,
+        RootMenuLabel: r.RootMenuLabel || r.Label || r.RootMenuName || rawKey,
+        RootMenuIcon: r.RootMenuIcon || r.Icon || r.MenuIcon || 'AppWindow',
+        Icon: r.Icon || r.RootMenuIcon || r.MenuIcon || 'AppWindow',
+        MenuIcon: r.MenuIcon || r.Icon || r.RootMenuIcon || 'AppWindow',
+        RootMenuUtilities:
+          r.RootMenuUtilities !== undefined
+            ? Boolean(r.RootMenuUtilities)
+            : r.Utilities !== undefined
+              ? Boolean(r.Utilities)
+              : true,
+        View: r.View !== false,
+        Create: r.Create !== false,
+        Edit: r.Edit !== false,
+        Delete: r.Delete !== false,
+        Import: r.Import !== false,
+        Export: r.Export !== false,
+        OrderSeq: r.OrderSeq !== undefined ? r.OrderSeq : r.IdxNo || 1
+      }
+      rootMenuMap.set(String(canonicalKey).toLowerCase(), normalizedRoot)
+      if (r.Id) {
+        rootMenuMap.set(`id_${r.Id}`, normalizedRoot)
+      }
+    })
+  }
+
+  // Deduplicate roots
+  const seenRootKeys = new Set()
+  const mergedRoots = []
+  rootMenuMap.forEach((root) => {
+    const uniqueKey = root.RootMenuKey || root.Id
+    if (uniqueKey && !seenRootKeys.has(uniqueKey)) {
+      seenRootKeys.add(uniqueKey)
+      mergedRoots.push(root)
+    }
+  })
+  mergedRoots.sort((a, b) => (a.OrderSeq || 0) - (b.OrderSeq || 0))
+
+  // 3. Process Default Setting Items
+  const itemMap = new Map()
+  DEFAULT_SETTING_ITEMS.forEach((item) => {
+    if (!item) return
+    const key = item.MenuKey || item.Key || item.Id
+    if (key && !EXCLUDED_ROOT_IDENTIFIERS.has(item.MenuRootId)) {
+      itemMap.set(key, { ...item, View: item.View !== false })
+    }
+  })
+
+  // 4. Overlay Dynamic Server Menus from DB (takes priority)
+  if (Array.isArray(serverSettingItems) && serverSettingItems.length > 0) {
+    serverSettingItems.forEach((item) => {
+      if (!item) return
+      const rootId = item.MenuRootId
+      if (rootId && EXCLUDED_ROOT_IDENTIFIERS.has(rootId)) return
+
+      const key = item.MenuKey || item.Key || item.Id
+      if (!key) return
+
+      // Map root identifier to canonical string if needed
+      let resolvedRootId = item.MenuRootId
+      if (resolvedRootId === 1 || String(resolvedRootId) === '1') {
+        resolvedRootId = 'ROOT_REPORT'
+      } else if (resolvedRootId === 2 || String(resolvedRootId) === '2') {
+        resolvedRootId = 'ROOT_SYSTEM'
+      }
+
+      const normalizedItem = {
+        ...item,
+        Id: item.Id || item.MenuId,
+        MenuId: item.MenuId || item.Id,
+        MenuKey: item.MenuKey || item.Key || key,
+        MenuLabel: item.MenuLabel || item.Label || item.Name || key,
+        MenuLink: item.MenuLink || item.Link || '',
+        MenuType: item.MenuType || item.Type || 'menu',
+        MenuIcon: item.MenuIcon || item.Icon || 'FileText',
+        Icon: item.Icon || item.MenuIcon || 'FileText',
+        MenuRootId: resolvedRootId || item.MenuRootId,
+        MenuSubRootId: item.MenuSubRootId || item.ParentId || null,
+        View: item.View !== false,
+        Create: item.Create !== false,
+        Edit: item.Edit !== false,
+        Delete: item.Delete !== false,
+        Import: item.Import !== false,
+        Export: item.Export !== false,
+        OrderSeq: item.OrderSeq !== undefined ? item.OrderSeq : item.IdxNo || 0
+      }
+      itemMap.set(key, normalizedItem)
+    })
+  }
+
+  const mergedItems = Array.from(itemMap.values())
+  mergedItems.sort((a, b) => (a.OrderSeq || 0) - (b.OrderSeq || 0))
+
+  // 5. Process SubMenuItems (Level 4+)
   const subItemMap = new Map()
   ;[...DEFAULT_MENU_ITEMS, ...(Array.isArray(serverMenuItems) ? serverMenuItems : [])].forEach(
     (sub) => {
       if (!sub) return
       const rootId = sub.MenuRootId
-      if (rootId && EXCLUDED_ROOT_IDENTIFIERS.has(rootId)) {
-        return
-      }
+      if (rootId && EXCLUDED_ROOT_IDENTIFIERS.has(rootId)) return
       const key = sub.MenuKey || sub.Id
       if (key) subItemMap.set(key, { ...sub, View: sub.View !== false })
     }
   )
   const mergedSubItems = Array.from(subItemMap.values())
 
+  // 6. Build dynamic tree
   const transformedMenu = transformDataMenu(mergedItems, mergedRoots, mergedSubItems)
 
   return {

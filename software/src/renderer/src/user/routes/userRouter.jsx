@@ -164,47 +164,14 @@ const getRefreshToken = () => {
 }
 
 const getInitialRolesMenu = () => {
-  try {
-    let settingItems = []
-    let rootMenuItems = []
-    let menuItemList = []
-    let roleTable = []
-
-    const rawRolesMenu = localStorage.getItem('roles_menu')
-    if (rawRolesMenu) {
-      const data = decodeJWT(rawRolesMenu)
-      if (data) {
-        settingItems = data?.data?.find((x) => x.menu)?.menu || data?.data[0]?.menu || []
-        rootMenuItems =
-          data?.data?.find((x) => x.rootMenu)?.rootMenu || data?.data[1]?.rootMenu || []
-        menuItemList =
-          data?.data?.find((x) => x.menuItem)?.menuItem || data?.data[2]?.menuItem || []
-        roleTable =
-          data?.data?.find((x) => x.roleTable)?.roleTable || data?.data[3]?.roleTable || []
-      }
-    }
-
-    const merged = mergeWithDefaultMenuConfig(settingItems, rootMenuItems, menuItemList)
-    const permissionsTree = buildPermissionsTree(roleTable)
-
-    return {
-      settingItems: merged.settingItems,
-      rootMenuItems: merged.rootMenuItems,
-      menuItemList: merged.menuItemList,
-      roleTable,
-      transformedMenu: merged.transformedMenu,
-      permissionsTree
-    }
-  } catch {
-    const merged = mergeWithDefaultMenuConfig([], [], [])
-    return {
-      settingItems: merged.settingItems,
-      rootMenuItems: merged.rootMenuItems,
-      menuItemList: merged.menuItemList,
-      roleTable: [],
-      transformedMenu: merged.transformedMenu,
-      permissionsTree: []
-    }
+  const merged = mergeWithDefaultMenuConfig([], [], [])
+  return {
+    settingItems: merged.settingItems,
+    rootMenuItems: merged.rootMenuItems,
+    menuItemList: merged.menuItemList,
+    roleTable: [],
+    transformedMenu: merged.transformedMenu,
+    permissionsTree: []
   }
 }
 
@@ -380,47 +347,45 @@ const UserRouter = () => {
     }
   }, [])
 
-  const processRolesMenu = useCallback((force = false) => {
-    const rawRolesMenu = localStorage.getItem('roles_menu')
-    if (!rawRolesMenu) {
+  const processRolesMenu = useCallback(async (rolesMenuJwt = null, force = false) => {
+    try {
+      // 1. Nếu có chuỗi rolesMenuJwt truyền trực tiếp từ Login (In-Memory)
+      if (rolesMenuJwt && typeof rolesMenuJwt === 'string') {
+        lastProcessedRolesMenuRef.current = rolesMenuJwt
+        const data = decodeJWT(rolesMenuJwt)
+        const settingItems = data?.data?.find((x) => x.menu)?.menu || data?.data[0]?.menu || []
+        const rootMenuItems =
+          data?.data?.find((x) => x.rootMenu)?.rootMenu || data?.data[1]?.rootMenu || []
+        const menuItemList =
+          data?.data?.find((x) => x.menuItem)?.menuItem || data?.data[2]?.menuItem || []
+        const roleTable =
+          data?.data?.find((x) => x.roleTable)?.roleTable || data?.data[3]?.roleTable || []
+
+        const merged = mergeWithDefaultMenuConfig(settingItems, rootMenuItems, menuItemList)
+        const permissionsTree = buildPermissionsTree(roleTable)
+
+        setUserPermissions(merged.settingItems)
+        setRootMenuItems(merged.rootMenuItems)
+        setMenuTransForm(merged.transformedMenu)
+        setRoleTable(permissionsTree)
+        return
+      }
+
+      // 2. Khi F5 / Khởi động lại: Đọc và giải mã bảo mật AES-256 từ IndexedDB
+      const idbData = await getMenuData()
+      if (idbData && (idbData.settingItems || idbData.transformedMenu)) {
+        setUserPermissions(idbData.settingItems || [])
+        setRootMenuItems(idbData.rootMenuItems || [])
+        setMenuTransForm(idbData.transformedMenu || [])
+        setRoleTable(idbData.permissionsTree || [])
+        return
+      }
+
+      // 3. Fallback an toàn
       const merged = mergeWithDefaultMenuConfig([], [], [])
       setUserPermissions(merged.settingItems)
       setRootMenuItems(merged.rootMenuItems)
       setMenuTransForm(merged.transformedMenu)
-      return
-    }
-    if (!force && lastProcessedRolesMenuRef.current === rawRolesMenu) {
-      return
-    }
-    lastProcessedRolesMenuRef.current = rawRolesMenu
-    try {
-      const data = decodeJWT(rawRolesMenu)
-      const settingItems = data?.data?.find((x) => x.menu)?.menu || data?.data[0]?.menu || []
-      const rootMenuItems =
-        data?.data?.find((x) => x.rootMenu)?.rootMenu || data?.data[1]?.rootMenu || []
-      const menuItemList =
-        data?.data?.find((x) => x.menuItem)?.menuItem || data?.data[2]?.menuItem || []
-      const roleTable =
-        data?.data?.find((x) => x.roleTable)?.roleTable || data?.data[3]?.roleTable || []
-
-      const merged = mergeWithDefaultMenuConfig(settingItems, rootMenuItems, menuItemList)
-      const permissionsTree = buildPermissionsTree(roleTable)
-
-      setUserPermissions(merged.settingItems)
-      setRootMenuItems(merged.rootMenuItems)
-      setMenuTransForm(merged.transformedMenu)
-      setRoleTable(permissionsTree)
-      saveMenuData(
-        {
-          settingItems: merged.settingItems,
-          rootMenuItems: merged.rootMenuItems,
-          menuItemList: merged.menuItemList,
-          transformedMenu: merged.transformedMenu,
-          permissionsTree,
-          userId: JSON.parse(localStorage.getItem('userInfo') || '{}')?.UserName || ''
-        },
-        rawRolesMenu
-      ).catch((e) => console.warn('Lỗi lưu menu IndexedDB:', e))
     } catch (error) {
       console.warn('Could not parse roles menu:', error)
       const merged = mergeWithDefaultMenuConfig([], [], [])

@@ -14,8 +14,7 @@ export const PostUUserAuth = (result, options = {}) =>
 export const PostDUserAuth = (result, options = {}) =>
   apiPost('/acc/UsersAuthD', { result }, options)
 
-export const PostUPass = (result, options = {}) =>
-  apiPost('/acc/UPass2', { result }, options)
+export const PostUPass = (result, options = {}) => apiPost('/acc/UPass2', { result }, options)
 
 export const PostUUserAuthStatusAcc = (result, options = {}) =>
   apiPost('/acc/UsersAuthUStatusAcc', { result }, options)

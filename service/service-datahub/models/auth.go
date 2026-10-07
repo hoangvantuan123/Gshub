@@ -67,14 +67,9 @@ type ERPRolesUser struct {
 	UserId     string    `gorm:"column:UserId;type:varchar(100);index" json:"UserId"`
 	MenuId     *int64    `gorm:"column:MenuId;index" json:"MenuId"`
 	RootMenuId *int64    `gorm:"column:RootMenuId;index" json:"RootMenuId"`
-	Type       string    `gorm:"column:Type;type:varchar(50)" json:"Type"` // 'rootmenu', 'menu', 'menuitem'
+	Type       string    `gorm:"column:Type;type:varchar(50)" json:"Type"` // 'rootmenu', 'menu', 'action', 'user'
 	Name       string    `gorm:"column:Name;type:varchar(255)" json:"Name"`
 	View       bool      `gorm:"column:View;default:true" json:"View"`
-	Create     bool      `gorm:"column:Create;default:true" json:"Create"`
-	Edit       bool      `gorm:"column:Edit;default:true" json:"Edit"`
-	Delete     bool      `gorm:"column:Delete;default:true" json:"Delete"`
-	Import     bool      `gorm:"column:Import;default:true" json:"Import"`
-	Export     bool      `gorm:"column:Export;default:true" json:"Export"`
 	CreatedBy  string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
 	CreatedAt  time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
 	UpdatedBy  string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`
@@ -87,6 +82,23 @@ func (ERPRolesUser) TableName() string {
 	return "_ERPRolesUsers"
 }
 
+// ERPRolePermLog represents audit trail for permission changes (_ERPRolePermLogs)
+type ERPRolePermLog struct {
+	Id         int64     `gorm:"primaryKey;autoIncrement;column:Id" json:"Id"`
+	GroupId    *int64    `gorm:"column:GroupId;index" json:"GroupId"`
+	MenuId     *int64    `gorm:"column:MenuId;index" json:"MenuId"`
+	RootMenuId *int64    `gorm:"column:RootMenuId;index" json:"RootMenuId"`
+	TargetType string    `gorm:"column:TargetType;type:varchar(50)" json:"TargetType"` // 'MENU', 'ACTION', 'ROOTMENU', 'USER_ASSIGNMENT'
+	ActionType string    `gorm:"column:ActionType;type:varchar(50)" json:"ActionType"` // 'SAVE_MENU', 'SAVE_ACTION', 'SAVE_ROOTMENU', 'ASSIGN_USER', 'REMOVE_USER'
+	Details    string    `gorm:"column:Details;type:text" json:"Details"`
+	ChangedBy  string    `gorm:"column:ChangedBy;type:varchar(100)" json:"ChangedBy"`
+	CreatedAt  time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
+}
+
+func (ERPRolePermLog) TableName() string {
+	return "_ERPRolePermLogs"
+}
+
 // ERPRootMenu represents the high-level root menu entity (_ERPRootMenus)
 type ERPRootMenu struct {
 	Id         int64     `gorm:"primaryKey;autoIncrement;column:Id" json:"Id"`
@@ -97,11 +109,6 @@ type ERPRootMenu struct {
 	Link       string    `gorm:"column:Link;type:varchar(255)" json:"Link"`
 	Utilities  bool      `gorm:"column:Utilities;default:true" json:"Utilities"`
 	View       bool      `gorm:"column:View;default:true" json:"View"`
-	Create     bool      `gorm:"column:Create;default:true" json:"Create"`
-	Edit       bool      `gorm:"column:Edit;default:true" json:"Edit"`
-	Delete     bool      `gorm:"column:Delete;default:true" json:"Delete"`
-	Import     bool      `gorm:"column:Import;default:true" json:"Import"`
-	Export     bool      `gorm:"column:Export;default:true" json:"Export"`
 	CreatedBy  string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
 	CreatedAt  time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
 	UpdatedBy  string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`
@@ -128,11 +135,6 @@ type ERPMenu struct {
 	DictSeq       int       `gorm:"column:DictSeq;default:0" json:"DictSeq"`
 	IdxNo         int       `gorm:"column:IdxNo;default:0" json:"IdxNo"`
 	View          bool      `gorm:"column:View;default:true" json:"View"`
-	Create        bool      `gorm:"column:Create;default:true" json:"Create"`
-	Edit          bool      `gorm:"column:Edit;default:true" json:"Edit"`
-	Delete        bool      `gorm:"column:Delete;default:true" json:"Delete"`
-	Import        bool      `gorm:"column:Import;default:true" json:"Import"`
-	Export        bool      `gorm:"column:Export;default:true" json:"Export"`
 	CreatedBy     string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
 	CreatedAt     time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
 	UpdatedBy     string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`

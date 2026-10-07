@@ -7,13 +7,16 @@ import (
 )
 
 type UserRoleAssignment struct {
-	Id        string `json:"Id"`
-	UserId    string `json:"UserId"`
-	UserName  string `json:"UserName"`
-	GroupId   string `json:"GroupId"`
-	GroupName string `json:"GroupName"`
-	CreatedBy string `json:"CreatedBy"`
-	CreatedAt string `json:"CreatedAt"`
+	Id         string `json:"Id"`
+	UserSeq    string `json:"UserSeq"`
+	UserId     string `json:"UserId"`
+	UserName   string `json:"UserName"`
+	GroupId    string `json:"GroupId"`
+	GroupName  string `json:"GroupName"`
+	WorkingTag string `json:"WorkingTag"`
+	Status     string `json:"Status"`
+	CreatedBy  string `json:"CreatedBy"`
+	CreatedAt  string `json:"CreatedAt"`
 }
 
 type MenuRoleAssignment struct {
@@ -29,23 +32,23 @@ type MenuRoleAssignment struct {
 	Label         string `json:"Label"`
 	MenuType      string `json:"MenuType"`
 	Type          string `json:"Type"`
-	OrderSeq   int    `json:"OrderSeq"`
-	CanView    bool   `json:"CanView"`
-	View       bool   `json:"View"`
-	CanCreate  bool   `json:"CanCreate"`
-	Create     bool   `json:"Create"`
-	CanEdit    bool   `json:"CanEdit"`
-	Edit       bool   `json:"Edit"`
-	CanDelete  bool   `json:"CanDelete"`
-	Delete     bool   `json:"Delete"`
-	CanImport  bool   `json:"CanImport"`
-	Import     bool   `json:"Import"`
-	CanExport  bool   `json:"CanExport"`
-	Export     bool   `json:"Export"`
-	CanPrint   bool   `json:"CanPrint"`
-	DataScope  string `json:"DataScope"`
-	Rowversion int64  `json:"Rowversion"`
-	RowVersion int64  `json:"RowVersion"`
+	OrderSeq      int    `json:"OrderSeq"`
+	CanView       bool   `json:"CanView"`
+	View          bool   `json:"View"`
+	CanCreate     bool   `json:"CanCreate"`
+	Create        bool   `json:"Create"`
+	CanEdit       bool   `json:"CanEdit"`
+	Edit          bool   `json:"Edit"`
+	CanDelete     bool   `json:"CanDelete"`
+	Delete        bool   `json:"Delete"`
+	CanImport     bool   `json:"CanImport"`
+	Import        bool   `json:"Import"`
+	CanExport     bool   `json:"CanExport"`
+	Export        bool   `json:"Export"`
+	CanPrint      bool   `json:"CanPrint"`
+	DataScope     string `json:"DataScope"`
+	Rowversion    int64  `json:"Rowversion"`
+	RowVersion    int64  `json:"RowVersion"`
 }
 
 type RootMenuRoleAssignment struct {
@@ -62,6 +65,25 @@ type RootMenuRoleAssignment struct {
 	CanView      bool   `json:"CanView"`
 	Rowversion   int64  `json:"Rowversion"`
 	RowVersion   int64  `json:"RowVersion"`
+}
+
+type ActionRoleAssignment struct {
+	Id          string `json:"Id"`
+	GroupId     string `json:"GroupId"`
+	MenuId      string `json:"MenuId"`
+	ActionKey   string `json:"ActionKey"`
+	Key         string `json:"Key"`
+	ActionName  string `json:"ActionName"`
+	Name        string `json:"Name"`
+	Description string `json:"Description"`
+	Icon        string `json:"Icon"`
+	IdxNo       int    `json:"IdxNo"`
+	Allow       bool   `json:"Allow"`
+	Active      bool   `json:"Active"`
+	Status      string `json:"Status"`
+	WorkingTag  string `json:"WorkingTag"`
+	Rowversion  int64  `json:"Rowversion"`
+	RowVersion  int64  `json:"RowVersion"`
 }
 
 type RolePermService struct {

@@ -585,24 +585,33 @@ export default function GenericCodeHelpModal({
         return
       }
 
-      // 2. Click đơn CHỈ chọn khi bấm vào cột Checkbox "Chọn" (__selection__)
+      // 2. Click đơn trên cột Checkbox (__selection__)
       if (column?.id === '__selection__') {
         toggleRowSelection(row)
       }
-      // Các ô dữ liệu khác click đơn sẽ focus bình thường để copy text/cell trên sheet
     },
     [filteredData, cols, handleConfirmSelect, toggleRowSelection]
   )
 
-  // Toggle checkbox khi edit ô boolean
+  // Toggle checkbox khi edit ô boolean trong Glide Data Grid
   const handleCellEdited = useCallback(
-    ([col, row]) => {
+    ([col, row], cell) => {
       const column = cols[col]
       if (column?.id === '__selection__' && row >= 0 && row < filteredData.length) {
-        toggleRowSelection(row)
+        if (cell && typeof cell.data === 'boolean') {
+          setSelectedRowIndices((prev) => {
+            const next = new Set(isMultiSelect ? prev : [])
+            if (cell.data) {
+              next.add(row)
+            } else {
+              next.delete(row)
+            }
+            return next
+          })
+        }
       }
     },
-    [cols, filteredData.length, toggleRowSelection]
+    [cols, filteredData.length, isMultiSelect]
   )
 
   const onColumnResize = useCallback(

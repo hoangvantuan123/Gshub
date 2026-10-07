@@ -21,7 +21,7 @@ import useTableConfig from '../../../../components/hooks/sheet/useTableConfig'
 import { usePageData } from '../../../../../context/PageDataContext'
 import { togglePageInteraction } from '../../../../../utils/togglePageInteraction'
 
-const BOOLEAN_COLS = new Set(['View', 'Create', 'Edit', 'Delete', 'Import', 'Export', 'CanPrint'])
+const BOOLEAN_COLS = new Set(['View'])
 
 export default function RoleMenuTable({
   setSelection,
@@ -126,11 +126,6 @@ export default function RoleMenuTable({
           return {
             ...row,
             View: allowAll,
-            Create: allowAll,
-            Edit: allowAll,
-            Delete: allowAll,
-            Import: allowAll,
-            Export: allowAll,
             WorkingTag: curStatus === 'A' ? 'A' : 'U',
             Status: curStatus === 'A' ? 'A' : 'U',
             isEdited: true
@@ -141,13 +136,73 @@ export default function RoleMenuTable({
     [canEdit, setGridData]
   )
 
+
   const onCellClicked = useCallback(
     (cell, event) => {
+      const [colIndex, rowIndex] = cell
+      const colDef = cols[colIndex]
+      const colId = colDef?.id
+
+      if (rowIndex >= 0 && gridData[rowIndex]) {
+        try {
+          const rowSel = CompactSelection.empty().add(rowIndex)
+          setSelection({
+            columns: CompactSelection.empty(),
+            rows: rowSel,
+            current: {
+              cell: [colIndex, rowIndex],
+              range: { x: colIndex, y: rowIndex, width: 1, height: 1 },
+              rangeStack: []
+            }
+          })
+        } catch {
+          setSelection((prev) => ({
+            ...prev,
+            current: {
+              cell: [colIndex, rowIndex],
+              range: { x: colIndex, y: rowIndex, width: 1, height: 1 },
+              rangeStack: []
+            }
+          }))
+        }
+      }
+
+      if (colId && BOOLEAN_COLS.has(colId) && canEdit) {
+        const rowData = gridData[rowIndex]
+        if (rowData) {
+          const currentVal = Boolean(
+            rowData[colId] === true ||
+            rowData[colId] === 1 ||
+            rowData[colId] === '1' ||
+            String(rowData[colId]).toLowerCase() === 'true'
+          )
+          const nextVal = !currentVal
+          setGridData((prev) => {
+            const next = [...prev]
+            if (!next[rowIndex]) return prev
+            const curStatus = next[rowIndex].WorkingTag || next[rowIndex].Status || ''
+            const statusVal = curStatus === 'A' ? 'A' : 'U'
+            next[rowIndex] = {
+              ...next[rowIndex],
+              [colId]: nextVal,
+              WorkingTag: statusVal,
+              Status: statusVal,
+              isEdited: true
+            }
+            if (selectedGroupId && !next[rowIndex].GroupId) {
+              next[rowIndex].GroupId = selectedGroupId
+            }
+            return next
+          })
+          return
+        }
+      }
+
       if (baseOnCellClicked) {
         baseOnCellClicked(cell, event)
       }
     },
-    [baseOnCellClicked]
+    [baseOnCellClicked, cols, canEdit, gridData, selectedGroupId, setGridData, setSelection]
   )
 
   const colMetadata = useMemo(() => {
@@ -201,45 +256,41 @@ export default function RoleMenuTable({
         val = ''
       }
 
-      const isSubmenu = rowData.Type === 'submenu' || rowData.MenuType === 'submenu' || rowData.Level === 0
+      const isRootModule = rowData.Level === 0 || rowData.Type === 'Phân hệ' || rowData.MenuType === 'Phân hệ'
+      const isSubmenu =
+        rowData.Level === 1 && (rowData.Type === 'Submenu' || rowData.MenuType === 'Submenu' || rowData.IsGroup)
       let customTheme = { ...cellTheme }
-      if (isSubmenu) {
+      if (isRootModule) {
         customTheme = {
           ...customTheme,
-          bgCell: '#f1f5f9',
+          bgCell: '#e0e7ff',
+          textDark: '#1e3a8a',
+          baseFontStyle: 'bold 12.5px'
+        }
+      } else if (isSubmenu) {
+        customTheme = {
+          ...customTheme,
+          bgCell: '#f8fafc',
           textDark: '#0f172a',
-          baseFontStyle: 'bold 12px'
+          baseFontStyle: '600 12px'
         }
       }
 
+
       if (isStatus) {
         const status = String(val)
-        let bg = customTheme.bgCell || '#FFFFFF'
-        let text = '#225588'
-        if (status === 'A') {
-          bg = '#ebfbee'
-          text = '#2b8a3e'
-        } else if (status === 'U') {
-          bg = '#fff9db'
-          text = '#e67700'
-        } else if (status === 'D') {
-          bg = '#fff5f5'
-          text = '#e03131'
-        }
         return {
           kind: GridCellKind.Text,
           data: status,
           displayData: status,
           allowOverlay: false,
           readonly: true,
-          themeOverride: {
-            ...customTheme,
-            bgCell: bg,
-            textDark: text,
-            baseFontStyle: '600 12px'
-          }
+          hasMenu: meta.hasMenu,
+          contentAlign: 'center',
+          themeOverride: meta.cellTheme
         }
       }
+
 
       if (isBoolean) {
         const boolVal =

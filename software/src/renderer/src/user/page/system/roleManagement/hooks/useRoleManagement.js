@@ -147,25 +147,14 @@ export function useRoleManagement({
   const [gridDataAction, setGridDataAction] = useState([])
   const [gridDataCol, setGridDataCol] = useState([])
   const [gridDataScope, setGridDataScope] = useState([])
-  const [gridDataUsers, setGridDataUsers] = useState(() =>
-    Array.from({ length: 30 }, (_, idx) => ({
-      IndexNo: idx + 1,
-      WorkingTag: 'A',
-      Status: 'A',
-      UserId: '',
-      UserName: '',
-      EmpID: '',
-      DeptName: '',
-      GroupName: ''
-    }))
-  )
+  const [gridDataUsers, setGridDataUsers] = useState([])
 
   const [numRowsA, setNumRowsA] = useState(0)
   const [numRowsB, setNumRowsB] = useState(0)
   const [numRowsAction, setNumRowsAction] = useState(0)
   const [numRowsCol, setNumRowsCol] = useState(0)
   const [numRowsScope, setNumRowsScope] = useState(0)
-  const [numRowsUsers, setNumRowsUsers] = useState(30)
+  const [numRowsUsers, setNumRowsUsers] = useState(0)
 
   const [showSearchA, setShowSearchA] = useState(false)
   const [showSearchB, setShowSearchB] = useState(false)
@@ -232,10 +221,7 @@ export function useRoleManagement({
       if (gridDataA[rowIndex]) return gridDataA[rowIndex]
     }
 
-    return (
-      (gridDataA || []).find((r) => r && (r.RootMenuId || r.Id || r.RootMenuLabel)) ||
-      null
-    )
+    return (gridDataA || []).find((r) => r && (r.RootMenuId || r.Id || r.RootMenuLabel)) || null
   }, [selectionA, gridDataA])
 
   const selectedRootMenuName =
@@ -248,10 +234,8 @@ export function useRoleManagement({
   const selectedRootMenuKey =
     selectedRootMenuInGrid?.RootMenuKey || selectedRootMenuInGrid?.Key || ''
 
-  const selectedRootMenuId =
-    selectedRootMenuInGrid?.RootMenuId || selectedRootMenuInGrid?.Id || ''
-
   // Menu đang được chọn ở Cột 2 (Bảng Sheet Menu)
+
   const selectedMenuInGrid = useMemo(() => {
     const selectedRows = selectionB.rows?.items || []
     const selected = selectedRows.flatMap(([start, end]) =>
@@ -298,6 +282,12 @@ export function useRoleManagement({
       .filter(Boolean)
   }, [selectionScope.rows.items, gridDataScope])
 
+  const getSelectedRowsUsers = useCallback(() => {
+    return selectionUsers.rows.items
+      .flatMap(([start, end]) => gridDataUsers.slice(start, end))
+      .filter(Boolean)
+  }, [selectionUsers.rows.items, gridDataUsers])
+
   // 7. Fetch Hook
   const { fetchRoleGroups, fetchGroupRoles, fetchMenuViewDetails } = useRoleManagementFetch({
     setGroupId,
@@ -342,11 +332,16 @@ export function useRoleManagement({
     setGridDataScope,
     gridDataUsers,
     setGridDataUsers,
+    selectionUsers,
+    selectionB,
+    selectionA,
+    selectionAction,
     getSelectedRowsA,
     getSelectedRowsB,
     getSelectedRowsCol,
     getSelectedRowsAction,
     getSelectedRowsScope,
+    getSelectedRowsUsers,
     canCreate,
     canEdit,
     canDelete,
@@ -372,13 +367,15 @@ export function useRoleManagement({
     }
   }, [canView, fetchRoleGroups])
 
-  // Tự động nạp phân quyền khi chọn/đổi nhóm quyền hoặc chọn Root Menu
-  const currentRootId = selectedRootMenuInGrid?.RootMenuId || selectedRootMenuInGrid?.Id || 1
+  const [selectedRootMenuId, setSelectedRootMenuId] = useState('')
+
+  // Tự động nạp phân quyền khi chọn/đổi nhóm quyền (tải toàn bộ cây phân quyền đầy đủ)
   useEffect(() => {
     if (groupId) {
-      fetchGroupRoles(groupId, currentRootId)
+      fetchGroupRoles(groupId, '')
     }
-  }, [groupId, currentRootId, fetchGroupRoles])
+  }, [groupId, fetchGroupRoles])
+
 
   // Tự động nạp Action & Setup Cột & Scope của riêng Menu khi chọn dòng menu trong Bảng B
   useEffect(() => {
@@ -407,11 +404,11 @@ export function useRoleManagement({
       }
     }
     if (groupId) {
-      fetchGroupRoles(groupId, currentRootId)
+      fetchGroupRoles(groupId, selectedRootMenuId)
     } else {
       fetchRoleGroups()
     }
-  }, [fetchGroupRoles, fetchRoleGroups, groupId, groupName, roleGroups, currentRootId])
+  }, [fetchGroupRoles, fetchRoleGroups, groupId, groupName, roleGroups, selectedRootMenuId])
 
   return {
     // Form Query & Groups List
@@ -428,8 +425,10 @@ export function useRoleManagement({
     handleSearch,
     selectedRootMenuName,
     selectedRootMenuKey,
-    selectedRootMenuId: currentRootId,
+    selectedRootMenuId,
+    setSelectedRootMenuId,
     selectedMenuInGrid,
+
     // Cột 1: Sheet Root Menu
     gridDataA,
     setGridDataA,

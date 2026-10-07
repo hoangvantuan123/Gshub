@@ -1,3 +1,36 @@
+function matchRootMenu(rootList, rootIdOrKey) {
+  if (!Array.isArray(rootList) || rootIdOrKey === undefined || rootIdOrKey === null) return null
+  const target = String(rootIdOrKey).trim().toLowerCase()
+  return (
+    rootList.find((r) => {
+      if (!r) return false
+      const rId = String(r.Id !== undefined ? r.Id : '').trim().toLowerCase()
+      const rRootId = String(r.RootMenuId !== undefined ? r.RootMenuId : '').trim().toLowerCase()
+      const rKey = String(r.RootMenuKey || r.Key || '').trim().toLowerCase()
+
+      if (rId === target || rRootId === target || rKey === target) return true
+
+      // Mapping tương đương giữa 1 <-> report <-> root_report
+      if (
+        (target === '1' || target === 'report' || target === 'root_report') &&
+        (rId === '1' || rRootId === '1' || rKey === 'report' || rKey === 'root_report')
+      ) {
+        return true
+      }
+
+      // Mapping tương đương giữa 2 <-> system <-> root_system
+      if (
+        (target === '2' || target === 'system' || target === 'root_system') &&
+        (rId === '2' || rRootId === '2' || rKey === 'system' || rKey === 'root_system')
+      ) {
+        return true
+      }
+
+      return false
+    }) || null
+  )
+}
+
 export function transformDataMenu(data = [], rootMenu = [], menuItemList = []) {
   if (!Array.isArray(data)) data = []
   if (!Array.isArray(rootMenu)) rootMenu = []
@@ -11,13 +44,7 @@ export function transformDataMenu(data = [], rootMenu = [], menuItemList = []) {
   for (let i = 0; i < data.length; i++) {
     const item = data[i]
     if (item && item.MenuType === 'submenu') {
-      const rootItem = rootMenu.find(
-        (r) =>
-          r &&
-          (r.Id === item.MenuRootId ||
-            r.RootMenuId === item.MenuRootId ||
-            r.RootMenuKey === item.MenuKey)
-      )
+      const rootItem = matchRootMenu(rootMenu, item.MenuRootId) || matchRootMenu(rootMenu, item.MenuKey)
       const rootMenuKey = rootItem ? rootItem.RootMenuKey : item.MenuKey
 
       const subMenuObj = {
@@ -31,7 +58,7 @@ export function transformDataMenu(data = [], rootMenu = [], menuItemList = []) {
         MenuIcon: item.MenuIcon || item.Icon || '',
         MenuLink: item.MenuLink,
         MenuType: item.MenuType,
-        View: item.View,
+        View: item.View !== false,
         subMenu: [],
         OrderSeq: item.OrderSeq || 0
       }
@@ -69,9 +96,7 @@ export function transformDataMenu(data = [], rootMenu = [], menuItemList = []) {
         parent.subMenu.push(menuObj)
       }
     } else if (item.MenuType === 'menu' && item.MenuRootId && !item.MenuSubRootId) {
-      const rootMenuItem = rootMenu.find(
-        (root) => root && (root.Id === item.MenuRootId || root.RootMenuId === item.MenuRootId)
-      )
+      const rootMenuItem = matchRootMenu(rootMenu, item.MenuRootId)
       if (rootMenuItem) {
         const menuObj = {
           Id: item.Id,
@@ -82,7 +107,7 @@ export function transformDataMenu(data = [], rootMenu = [], menuItemList = []) {
           MenuIcon: item.MenuIcon || item.Icon || '',
           MenuLink: item.MenuLink,
           MenuType: item.MenuType,
-          View: item.View,
+          View: item.View !== false,
           RootMenuKey: rootMenuItem.RootMenuKey,
           OrderSeq: item.OrderSeq || 0,
           menuItems: []

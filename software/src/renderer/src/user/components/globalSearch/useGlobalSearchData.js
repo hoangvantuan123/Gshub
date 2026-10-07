@@ -28,21 +28,10 @@ export function useGlobalSearchData({ permissions = [], rootMenu = [] } = {}) {
           }
         }
 
-        // 2. Nếu chưa có trong IndexedDB, giải mã từ roles_menu trong localStorage
+        // 2. Nếu chưa có, sử dụng permissions và rootMenu từ props
         if (!rawSettingItems || rawSettingItems.length === 0) {
-          const rawRolesMenu = localStorage.getItem('roles_menu')
-          if (rawRolesMenu) {
-            const decoded = decodeJWT(rawRolesMenu)
-            if (decoded?.data) {
-              rawSettingItems = decoded.data.find((x) => x.menu)?.menu || []
-              rawRootMenu = decoded.data.find((x) => x.rootMenu)?.rootMenu || []
-              // Tự động lưu vào IndexedDB
-              saveMenuData({
-                settingItems: rawSettingItems,
-                rootMenuItems: rawRootMenu
-              }).catch((e) => console.warn('Lỗi cache menu IndexedDB:', e))
-            }
-          }
+          rawSettingItems = permissions || []
+          rawRootMenu = rootMenu || []
         }
 
         // Tạo Map tra cứu submenu cha

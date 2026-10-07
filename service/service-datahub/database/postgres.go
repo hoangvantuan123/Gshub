@@ -111,6 +111,7 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		&models.ErpEndpoint{},
 		&models.ERPUser{},
 		&models.ERPRolesUser{},
+		&models.ERPRolePermLog{},
 		&models.ERPMenu{},
 		&models.ERPRootMenu{},
 		&models.ERPGroup{},
@@ -123,7 +124,23 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		return err
 	}
 
-	// 3. Chuẩn hóa các cột chuỗi trong bảng chi tiết sang TEXT (tránh giới hạn độ dài ký tự từ file Excel)
+	// 3. Dọn dẹp dữ liệu phân quyền rác / legacy và chuẩn hóa cấu trúc
+	cleanupLegacySQL := `
+	DO $$
+	BEGIN
+	    -- Xóa các dòng seed cũ bị nhầm lẫn UserId với RootMenu/Menu
+	    DELETE FROM "_ERPRolesUsers"
+	    WHERE "CreatedBy" = 'SYSTEM_INIT' AND "Type" = 'rootmenu' AND "UserId" IS NOT NULL AND "UserId" != '';
+
+	    -- Đảm bảo User gán nhóm chỉ có GroupId, UserId, Type = 'user'
+	    UPDATE "_ERPRolesUsers"
+	    SET "MenuId" = NULL, "RootMenuId" = NULL, "Name" = ''
+	    WHERE "Type" = 'user';
+	END $$;
+	`
+	_ = db.Exec(cleanupLegacySQL)
+
+	// 4. Chuẩn hóa các cột chuỗi trong bảng chi tiết sang TEXT (tránh giới hạn độ dài ký tự từ file Excel)
 	postUpgradeSQL := `
 	DO $$
 	DECLARE

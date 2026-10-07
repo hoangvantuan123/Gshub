@@ -22,12 +22,12 @@ func (s *MenuService) AddMenus(ctx context.Context, items []MenuItem) ([]MenuIte
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO "_ERPMenus" (
 			"Key", "MenuSubRootId", "MenuRootId", "Label", "Link", "Type", "Icon",
-			"OrderSeq", "View", "Create", "Edit", "Delete", "Import", "Export",
+			"OrderSeq", "View",
 			"CreatedBy", "CreatedAt", "UpdatedBy", "UpdatedAt", "RowVersion"
 		) VALUES (
 			$1, NULLIF($2, '')::bigint, NULLIF($3, '')::bigint, $4, $5, $6, $7,
-			$8, $9, $10, $11, $12, $13, $14,
-			$15, CURRENT_TIMESTAMP, $16, CURRENT_TIMESTAMP, 1
+			$8, $9,
+			$10, CURRENT_TIMESTAMP, $11, CURRENT_TIMESTAMP, 1
 		)
 		RETURNING "Id", "RowVersion"
 	`)
@@ -81,14 +81,10 @@ func (s *MenuService) AddMenus(ctx context.Context, items []MenuItem) ([]MenuIte
 			icon,
 			m.OrderSeq,
 			m.View,
-			m.Create,
-			m.Edit,
-			m.Delete,
-			m.Import,
-			m.Export,
 			m.CreatedBy,
 			m.UpdatedBy,
 		).Scan(&newId, &newRv)
+
 
 		if err != nil {
 			s.logger.Error("AddMenus insert error", zap.Error(err))

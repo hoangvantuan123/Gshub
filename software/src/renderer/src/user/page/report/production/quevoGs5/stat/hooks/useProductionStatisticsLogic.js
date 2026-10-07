@@ -488,10 +488,9 @@ export const useProductionStatisticsLogic = ({
           ) || 0
         const st =
           parseFloat(
-            String(item.SetupMinutes ?? item.setupMinutes ?? item.DowntimeSetupMinutes ?? 0).replace(
-              ',',
-              '.'
-            )
+            String(
+              item.SetupMinutes ?? item.setupMinutes ?? item.DowntimeSetupMinutes ?? 0
+            ).replace(',', '.')
           ) || 0
         const rp =
           parseFloat(
@@ -654,50 +653,28 @@ export const useProductionStatisticsLogic = ({
         SalesStaff: rawSalesStaff,
         BreakdownReason: item.BreakdownReason || item.breakdownReason || '',
         BreakdownMinutes:
-          item.BreakdownMinutes ??
-          item.breakdownMinutes ??
-          item.DowntimeBreakdownMinutes ??
-          '',
+          item.BreakdownMinutes ?? item.breakdownMinutes ?? item.DowntimeBreakdownMinutes ?? '',
         WaitingMaterialMinutes:
           item.WaitingMaterialMinutes ??
           item.waitingMaterialMinutes ??
           item.DowntimeWaitingMaterialMinutes ??
           '',
-        SetupMinutes:
-          item.SetupMinutes ??
-          item.setupMinutes ??
-          item.DowntimeSetupMinutes ??
-          '',
-        RepairMinutes:
-          item.RepairMinutes ??
-          item.repairMinutes ??
-          item.DowntimeFixingMinutes ??
-          '',
+        SetupMinutes: item.SetupMinutes ?? item.setupMinutes ?? item.DowntimeSetupMinutes ?? '',
+        RepairMinutes: item.RepairMinutes ?? item.repairMinutes ?? item.DowntimeFixingMinutes ?? '',
         TotalWasteMinutes:
           item.TotalWasteMinutes ??
           item.totalWasteMinutes ??
           item.TotalDowntimeMinutes ??
           (wasteMin > 0 ? wasteMin : ''),
         breakdownMinutes:
-          item.BreakdownMinutes ??
-          item.breakdownMinutes ??
-          item.DowntimeBreakdownMinutes ??
-          '',
+          item.BreakdownMinutes ?? item.breakdownMinutes ?? item.DowntimeBreakdownMinutes ?? '',
         waitingMaterialMinutes:
           item.WaitingMaterialMinutes ??
           item.waitingMaterialMinutes ??
           item.DowntimeWaitingMaterialMinutes ??
           '',
-        setupMinutes:
-          item.SetupMinutes ??
-          item.setupMinutes ??
-          item.DowntimeSetupMinutes ??
-          '',
-        repairMinutes:
-          item.RepairMinutes ??
-          item.repairMinutes ??
-          item.DowntimeFixingMinutes ??
-          '',
+        setupMinutes: item.SetupMinutes ?? item.setupMinutes ?? item.DowntimeSetupMinutes ?? '',
+        repairMinutes: item.RepairMinutes ?? item.repairMinutes ?? item.DowntimeFixingMinutes ?? '',
         totalWasteMinutes:
           item.TotalWasteMinutes ??
           item.totalWasteMinutes ??

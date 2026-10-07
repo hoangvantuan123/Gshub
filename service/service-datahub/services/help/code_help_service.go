@@ -119,6 +119,60 @@ func (s *CodeHelpService) QueryCodeHelp(ctx context.Context, p CodeHelpParams) (
 			results = append(results, item)
 		}
 
+	case strings.Contains(name, "ACTION"):
+		if strings.Contains(name, "MENU_ACTION") || strings.Contains(name, "MENUACTION") {
+			query := s.db.WithContext(ctx).Table(`"_ERPMenuActions"`).
+				Select(`"Id", "MenuId", "ActionKey", "ActionName", "Active"`).
+				Where(`"Active" = true`)
+
+			menuId := strings.TrimSpace(p.KeyItem1)
+			if menuId == "" {
+				menuId = strings.TrimSpace(p.KeyValue)
+			}
+			if menuId != "" {
+				query = query.Where(`"MenuId"::text = ?`, menuId)
+			}
+			if searchKeyword != "" && searchKeyword != menuId {
+				kw := "%" + strings.ToLower(searchKeyword) + "%"
+				query = query.Where(`LOWER("ActionKey") LIKE ? OR LOWER("ActionName") LIKE ?`, kw, kw)
+			}
+			rows, err := query.Order(`"IdxNo" ASC, "Id" ASC`).Limit(100).Rows()
+			if err != nil {
+				return nil, err
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				item := make(map[string]interface{})
+				_ = s.db.ScanRows(rows, &item)
+				item["Key"] = item["ActionKey"]
+				item["Label"] = fmt.Sprintf("%v - %v", item["ActionKey"], item["ActionName"])
+				results = append(results, item)
+			}
+		} else {
+			query := s.db.WithContext(ctx).Table(`"_ERPActions"`).
+				Select(`"Id", "ActionKey", "ActionName", "Description", "Icon", "IdxNo", "Active"`).
+				Where(`"Active" = true`)
+
+			if searchKeyword != "" {
+				kw := "%" + strings.ToLower(searchKeyword) + "%"
+				query = query.Where(`LOWER("ActionKey") LIKE ? OR LOWER("ActionName") LIKE ? OR LOWER("Description") LIKE ?`, kw, kw, kw)
+			}
+			rows, err := query.Order(`"IdxNo" ASC, "Id" ASC`).Limit(100).Rows()
+			if err != nil {
+				return nil, err
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				item := make(map[string]interface{})
+				_ = s.db.ScanRows(rows, &item)
+				item["Key"] = item["ActionKey"]
+				item["Label"] = fmt.Sprintf("%v - %v", item["ActionKey"], item["ActionName"])
+				results = append(results, item)
+			}
+		}
+
 	case strings.Contains(name, "MENU") || strings.Contains(name, "SUBMENU"):
 		query := s.db.WithContext(ctx).Table(`"_ERPMenus"`).
 			Select(`"Id", "Key", "Label", "Type", "Link", "MenuRootId", "MenuSubRootId"`)

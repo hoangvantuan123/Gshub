@@ -7,6 +7,7 @@ export const pageLoaders = {
   RoleGroupPage: () => import('../../page/system/roleGroup'),
   MenuTechnique: () => import('../../page/system/menuTechnique'),
   RootMenuTechnique: () => import('../../page/system/rootMenuTechnique'),
+  ActionTechnique: () => import('../../page/system/actionTechnique'),
   UserDetailPage: () => import('../../page/system/userDetailForm'),
   HanoiGs1StatPage: () => import('../../page/report/production/hanoiGs1/stat'),
   HanoiGs1PlanPage: () => import('../../page/report/production/hanoiGs1/plan'),
@@ -36,6 +37,7 @@ const RoleManagement = lazy(pageLoaders.RoleManagement)
 const RoleGroupPage = lazy(pageLoaders.RoleGroupPage)
 const MenuTechnique = lazy(pageLoaders.MenuTechnique)
 const RootMenuTechnique = lazy(pageLoaders.RootMenuTechnique)
+const ActionTechnique = lazy(pageLoaders.ActionTechnique)
 const UserDetailPage = lazy(pageLoaders.UserDetailPage)
 const HanoiGs1StatPage = lazy(pageLoaders.HanoiGs1StatPage)
 const HanoiGs1PlanPage = lazy(pageLoaders.HanoiGs1PlanPage)
@@ -63,6 +65,8 @@ export const routeToLoaderMap = {
   '/erp/u/system-settings/structure/menus': pageLoaders.MenuTechnique,
   '/erp/u/system/modules': pageLoaders.RootMenuTechnique,
   '/erp/u/system-settings/structure/modules': pageLoaders.RootMenuTechnique,
+  '/erp/u/system/actions': pageLoaders.ActionTechnique,
+  '/erp/u/system-settings/structure/actions': pageLoaders.ActionTechnique,
   '/erp/u/system/permissions': pageLoaders.RoleManagement,
   '/erp/u/system/role-management': pageLoaders.RoleManagement,
   '/erp/u/system-settings/roles/permission-assignment': pageLoaders.RoleManagement,
@@ -207,6 +211,26 @@ export const systemsRoutes = [
     path: '/erp/u/system-settings/structure/modules',
     element: RootMenuTechnique,
     permission: 'system_modules',
+    public: true
+  },
+
+  // 2.4 Đăng ký danh mục hành động / quyền nút (actionTechnique)
+  {
+    path: '/erp/u/system/actions',
+    element: ActionTechnique,
+    permission: 'system_actions',
+    public: true
+  },
+  {
+    path: '/erp/u/system/actions/*',
+    element: ActionTechnique,
+    permission: 'system_actions',
+    public: true
+  },
+  {
+    path: '/erp/u/system-settings/structure/actions',
+    element: ActionTechnique,
+    permission: 'system_actions',
     public: true
   },
 

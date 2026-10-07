@@ -6,17 +6,16 @@ import {
   PostQRoleGroup,
   PostQRootMenuRole,
   PostQMenuRole,
-  PostQUserRole
+  PostQUserRole,
+  PostQActionRole
 } from '../../../../../api/system'
 import {
-  MOCK_ROLE_GROUPS,
-  MOCK_ROOT_MENUS,
-  MOCK_MENU_TREE,
   buildMenuTreeFromFlatRows,
+  buildComprehensiveMenuTree,
   flattenMenuTree,
-  getAllGroupIds,
-  getRegisteredMenuPermissions
+  getAllGroupIds
 } from '../mock/mockRoleData'
+
 
 export function useRoleManagementFetch({
   setGroupId,
@@ -56,7 +55,7 @@ export function useRoleManagementFetch({
     try {
       const res = await PostQRoleGroup({})
       const groups = res?.data?.data || res?.data || []
-      const finalGroups = Array.isArray(groups) && groups.length > 0 ? groups : MOCK_ROLE_GROUPS
+      const finalGroups = Array.isArray(groups) ? groups : []
 
       setRoleGroups(finalGroups)
 
@@ -66,6 +65,11 @@ export function useRoleManagementFetch({
         setGroupName(first.Name || '')
         setComment(first.Comment || '')
         setCreatedByName(first.CreatedByName || first.CreatedBy || '')
+      } else {
+        setGroupId('')
+        setGroupName('')
+        setComment('')
+        setCreatedByName('')
       }
 
       if (setStatusMessage) {
@@ -75,15 +79,11 @@ export function useRoleManagementFetch({
         })
       }
     } catch (err) {
-      const groups = [...MOCK_ROLE_GROUPS]
-      setRoleGroups(groups)
-      if (groups.length > 0) {
-        const first = groups[0]
-        setGroupId(String(first.Id || ''))
-        setGroupName(first.Name || '')
-        setComment(first.Comment || '')
-        setCreatedByName(first.CreatedByName || '')
-      }
+      setRoleGroups([])
+      setGroupId('')
+      setGroupName('')
+      setComment('')
+      setCreatedByName('')
     } finally {
       loadingBarRef?.current?.complete?.()
     }
@@ -99,6 +99,58 @@ export function useRoleManagementFetch({
     t
   ])
 
+  // 3. Tải chi tiết Action Permissions của Menu đang chọn từ Backend API
+  const fetchMenuViewDetails = useCallback(
+    async (menuId, groupId, menuName = '', menuKey = '') => {
+      if (!menuId || canView === false) {
+        setGridDataAction([])
+        setNumRowsAction(0)
+        return
+      }
+
+      try {
+        const res = await PostQActionRole({
+          groupId: String(groupId || ''),
+          menuId: String(menuId)
+        })
+        const actions = res?.data?.data || res?.data || []
+        if (Array.isArray(actions) && actions.length > 0) {
+          const finalActions = updateIndexNo(
+            actions.map((act) => ({
+              ...act,
+              Id: String(act.Id || act.ActionKey || act.Key || ''),
+              ActionKey: act.ActionKey || act.Key || '',
+              Key: act.ActionKey || act.Key || '',
+              ActionName: act.ActionName || act.Name || act.ActionKey || '',
+              Name: act.ActionName || act.Name || act.ActionKey || '',
+              Description: act.Description || '',
+              Icon: act.Icon || 'Activity',
+              IdxNo: act.IdxNo || 1,
+              Allow: Boolean(act.Allow),
+              Active: Boolean(act.Active !== false),
+              MenuId: String(menuId),
+              MenuName: menuName,
+              GroupId: String(groupId || ''),
+              Status: ''
+            }))
+          )
+          setGridDataAction(finalActions)
+          setNumRowsAction(finalActions.length)
+        } else {
+          setGridDataAction([])
+          setNumRowsAction(0)
+        }
+      } catch (err) {
+        console.warn('fetchMenuViewDetails error:', err)
+        setGridDataAction([])
+        setNumRowsAction(0)
+      }
+
+      if (resetTableAction) resetTableAction()
+    },
+    [canView, resetTableAction, setGridDataAction, setNumRowsAction]
+  )
+
   // 2. Tải toàn bộ Phân hệ Root & Danh sách Menu từ Backend API cho nhóm quyền
   const fetchGroupRoles = useCallback(
     async (groupId, selectedRootId) => {
@@ -107,19 +159,11 @@ export function useRoleManagementFetch({
         setNumRowsA(0)
         setGridDataB([])
         setNumRowsB(0)
+        setGridDataAction([])
+        setNumRowsAction(0)
         if (setGridDataUsers) {
-          const initialBlank = Array.from({ length: 30 }, (_, idx) => ({
-            IndexNo: idx + 1,
-            WorkingTag: 'A',
-            Status: 'A',
-            UserId: '',
-            UserName: '',
-            EmpID: '',
-            DeptName: '',
-            GroupName: ''
-          }))
-          setGridDataUsers(initialBlank)
-          if (setNumRowsUsers) setNumRowsUsers(30)
+          setGridDataUsers([])
+          if (setNumRowsUsers) setNumRowsUsers(0)
         }
         return
       }
@@ -141,6 +185,7 @@ export function useRoleManagementFetch({
         if (setGridDataUsers) {
           const queriedUsers = (Array.isArray(userList) ? userList : []).map((u) => ({
             ...u,
+            UserSeq: u.UserSeq || '',
             UserId: u.UserId || '',
             UserName: u.UserName || u.EmpName || u.UserId || '',
             EmpID: u.EmpID || u.EmpCode || '',
@@ -150,19 +195,9 @@ export function useRoleManagementFetch({
             Status: ''
           }))
 
-          const blankRows = Array.from({ length: 30 }, () => ({
-            WorkingTag: 'A',
-            Status: 'A',
-            UserId: '',
-            UserName: '',
-            EmpID: '',
-            DeptName: '',
-            GroupName: `ID: ${groupId}`
-          }))
-
-          const combined = updateIndexNo([...queriedUsers, ...blankRows])
-          setGridDataUsers(combined)
-          if (setNumRowsUsers) setNumRowsUsers(combined.length)
+          const cleanList = updateIndexNo(queriedUsers)
+          setGridDataUsers(cleanList)
+          if (setNumRowsUsers) setNumRowsUsers(cleanList.length)
         }
 
         let finalA = []
@@ -172,7 +207,7 @@ export function useRoleManagementFetch({
               const label = m.RootMenuLabel || m.RootMenuName || m.Label || m.Name || ''
               const key = m.RootMenuKey || m.Key || ''
               const id = String(m.RootMenuId || m.Id || '')
-              const canView = m.View !== undefined ? Boolean(m.View) : m.CanView !== undefined ? Boolean(m.CanView) : true
+              const canView = Boolean(m.View || m.CanView)
 
               return {
                 ...m,
@@ -190,32 +225,18 @@ export function useRoleManagementFetch({
               }
             })
           )
-        } else {
-          finalA = updateIndexNo(
-            MOCK_ROOT_MENUS.map((m) => ({
-              ...m,
-              RootMenuLabel: m.RootMenuLabel || m.RootMenuName || m.Label || '',
-              GroupId: groupId,
-              Status: ''
-            }))
-          )
         }
 
         let finalB = []
         if (Array.isArray(menuList) && menuList.length > 0) {
           const flatRows = menuList.map((m) => {
             const isSub = m.Type === 'submenu' || m.MenuType === 'submenu'
-            const id = m.MenuId || m.Id
+            const id = String(m.MenuId || m.Id)
             const label = m.MenuLabel || m.Label || m.Name || ''
             const key = m.MenuKey || m.Key || ''
-            const parentId = isSub ? 0 : (m.MenuSubRootId || m.ParentId || 0)
+            const parentId = isSub ? 0 : m.MenuSubRootId || m.ParentId || 0
             const rootMenuId = m.RootMenuId || m.MenuRootId || selectedRootId || 1
-            const canView = m.View !== undefined ? Boolean(m.View) : m.CanView !== undefined ? Boolean(m.CanView) : true
-            const canCreate = m.Create !== undefined ? Boolean(m.Create) : m.CanCreate !== undefined ? Boolean(m.CanCreate) : true
-            const canEdit = m.Edit !== undefined ? Boolean(m.Edit) : m.CanEdit !== undefined ? Boolean(m.CanEdit) : true
-            const canDelete = m.Delete !== undefined ? Boolean(m.Delete) : m.CanDelete !== undefined ? Boolean(m.CanDelete) : true
-            const canImport = m.Import !== undefined ? Boolean(m.Import) : m.CanImport !== undefined ? Boolean(m.CanImport) : true
-            const canExport = m.Export !== undefined ? Boolean(m.Export) : m.CanExport !== undefined ? Boolean(m.CanExport) : true
+            const canView = Boolean(m.View || m.CanView)
 
             return {
               ...m,
@@ -233,39 +254,22 @@ export function useRoleManagementFetch({
               MenuType: isSub ? 'Submenu' : 'Menu',
               View: canView,
               CanView: canView,
-              Create: canCreate,
-              CanCreate: canCreate,
-              Edit: canEdit,
-              CanEdit: canEdit,
-              Delete: canDelete,
-              CanDelete: canDelete,
-              Import: canImport,
-              CanImport: canImport,
-              Export: canExport,
-              CanExport: canExport,
               GroupId: String(groupId),
               Status: ''
             }
           })
 
-          const tree = buildMenuTreeFromFlatRows(flatRows)
+          const tree = buildComprehensiveMenuTree(rootList, flatRows)
           const expandedIds = new Set(getAllGroupIds(tree))
-          const targetRoot = selectedRootId || finalA[0]?.RootMenuId || 1
+          const targetRoot =
+            selectedRootId && selectedRootId !== 'ALL' && selectedRootId !== ''
+              ? selectedRootId
+              : null
           const groupedData = flattenMenuTree(tree, expandedIds, targetRoot)
 
           finalB = updateIndexNo(groupedData.length > 0 ? groupedData : flatRows)
-        } else {
-          const targetRootId = selectedRootId || finalA[0]?.RootMenuId || 1
-          const defaultExpandedIds = new Set(getAllGroupIds(MOCK_MENU_TREE))
-          const groupedMenus = flattenMenuTree(MOCK_MENU_TREE, defaultExpandedIds, targetRootId)
-          finalB = updateIndexNo(
-            groupedMenus.map((m) => ({
-              ...m,
-              GroupId: groupId,
-              Status: ''
-            }))
-          )
         }
+
 
         setGridDataA(finalA)
         setNumRowsA(finalA.length)
@@ -274,174 +278,38 @@ export function useRoleManagementFetch({
 
         if (resetTableB) resetTableB()
 
-        // Tự nạp 3 Tabs (Action, Column, Scope) theo dữ liệu của menu đầu tiên
+        // Tự nạp Action Perms từ Backend theo dữ liệu của menu đầu tiên
         if (finalB.length > 0) {
           const firstMenu = finalB[0]
-          const menuPerms = getRegisteredMenuPermissions(
-            firstMenu.MenuId,
-            firstMenu.MenuKey || firstMenu.Key,
-            firstMenu.MenuLabel || firstMenu.Label
+          fetchMenuViewDetails(
+            firstMenu.MenuId || firstMenu.Id,
+            groupId,
+            firstMenu.MenuLabel || firstMenu.Label,
+            firstMenu.MenuKey || firstMenu.Key
           )
-
-          const finalActions = updateIndexNo(
-            menuPerms.actions.map((act) => ({
-              ...act,
-              MenuId: firstMenu.MenuId,
-              MenuName: firstMenu.MenuLabel,
-              GroupId: groupId,
-              Status: ''
-            }))
-          )
-          const finalCols = updateIndexNo(
-            menuPerms.columns.map((col) => ({
-              ...col,
-              MenuId: firstMenu.MenuId,
-              MenuName: firstMenu.MenuLabel,
-              GroupId: groupId,
-              Status: ''
-            }))
-          )
-          const finalScopes = updateIndexNo(
-            menuPerms.scopes.map((scp) => ({
-              ...scp,
-              MenuId: firstMenu.MenuId,
-              MenuName: firstMenu.MenuLabel,
-              GroupId: groupId,
-              Status: ''
-            }))
-          )
-
-          setGridDataAction(finalActions)
-          setNumRowsAction(finalActions.length)
-          setGridDataCol(finalCols)
-          setNumRowsCol(finalCols.length)
-          if (setGridDataScope) {
-            setGridDataScope(finalScopes)
-            setNumRowsScope(finalScopes.length)
-          }
-
-          if (resetTableAction) resetTableAction()
-          if (resetTableCol) resetTableCol()
-          if (resetTableScope) resetTableScope()
+        } else {
+          setGridDataAction([])
+          setNumRowsAction(0)
         }
       } catch (err) {
         console.error('fetchGroupRoles error:', err)
-        const fallbackA = updateIndexNo(
-          MOCK_ROOT_MENUS.map((m) => ({
-            ...m,
-            RootMenuLabel: m.RootMenuLabel || m.RootMenuName || m.Label || '',
-            GroupId: groupId,
-            Status: ''
-          }))
-        )
-        const defaultExpandedIds = new Set(getAllGroupIds(MOCK_MENU_TREE))
-        const fallbackB = updateIndexNo(
-          flattenMenuTree(MOCK_MENU_TREE, defaultExpandedIds, selectedRootId || 1).map((m) => ({
-            ...m,
-            GroupId: groupId,
-            Status: ''
-          }))
-        )
-        setGridDataA(fallbackA)
-        setNumRowsA(fallbackA.length)
-        setGridDataB(fallbackB)
-        setNumRowsB(fallbackB.length)
       } finally {
         loadingBarRef?.current?.complete?.()
       }
     },
     [
       canView,
+      fetchMenuViewDetails,
       loadingBarRef,
-      resetTableA,
-      resetTableAction,
       resetTableB,
-      resetTableCol,
-      resetTableScope,
       setGridDataA,
       setGridDataAction,
       setGridDataB,
-      setGridDataCol,
-      setGridDataScope,
+      setGridDataUsers,
       setNumRowsA,
       setNumRowsAction,
       setNumRowsB,
-      setNumRowsCol,
-      setNumRowsScope
-    ]
-  )
-
-  // 3. Tải chi tiết 3 Tabs theo đúng dữ liệu đã đăng ký riêng cho từng Menu
-  const fetchMenuViewDetails = useCallback(
-    (menuId, groupId, menuName = '', menuKey = '') => {
-      if (!menuId || canView === false) {
-        setGridDataCol([])
-        setNumRowsCol(0)
-        setGridDataAction([])
-        setNumRowsAction(0)
-        if (setGridDataScope) {
-          setGridDataScope([])
-          setNumRowsScope(0)
-        }
-        return
-      }
-
-      const menuPerms = getRegisteredMenuPermissions(menuId, menuKey, menuName)
-
-      const finalActions = updateIndexNo(
-        menuPerms.actions.map((act) => ({
-          ...act,
-          MenuId: menuId,
-          MenuName: menuName || act.MenuName,
-          GroupId: groupId,
-          Status: ''
-        }))
-      )
-
-      const finalCols = updateIndexNo(
-        menuPerms.columns.map((col) => ({
-          ...col,
-          MenuId: menuId,
-          MenuName: menuName || col.FieldName,
-          GroupId: groupId,
-          Status: ''
-        }))
-      )
-
-      const finalScopes = updateIndexNo(
-        menuPerms.scopes.map((scp) => ({
-          ...scp,
-          MenuId: menuId,
-          MenuName: menuName || scp.OperationName,
-          GroupId: groupId,
-          Status: ''
-        }))
-      )
-
-      setGridDataAction(finalActions)
-      setNumRowsAction(finalActions.length)
-      setGridDataCol(finalCols)
-      setNumRowsCol(finalCols.length)
-      if (setGridDataScope) {
-        setGridDataScope(finalScopes)
-        setNumRowsScope(finalScopes.length)
-      }
-
-      if (resetTableAction) resetTableAction()
-      if (resetTableCol) resetTableCol()
-      if (resetTableScope) resetTableScope()
-    },
-    [
-      canView,
-      resetTableAction,
-      resetTableCol,
-      resetTableScope,
-      setGridDataAction,
-      setGridDataCol,
-      setGridDataScope,
-      setNumRowsAction,
-      setNumRowsCol,
-      setNumRowsScope
+      setNumRowsUsers
     ]
   )
 

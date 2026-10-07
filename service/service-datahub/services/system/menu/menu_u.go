@@ -30,15 +30,10 @@ func (s *MenuService) UpdateMenus(ctx context.Context, items []MenuItem) ([]Menu
 			"Icon" = COALESCE(NULLIF($7, ''), "Icon"),
 			"OrderSeq" = $8,
 			"View" = $9,
-			"Create" = $10,
-			"Edit" = $11,
-			"Delete" = $12,
-			"Import" = $13,
-			"Export" = $14,
-			"UpdatedBy" = $15,
+			"UpdatedBy" = $10,
 			"UpdatedAt" = CURRENT_TIMESTAMP,
 			"RowVersion" = COALESCE("RowVersion", 0) + 1
-		WHERE "Id"::text = $16 AND ("RowVersion" = $17 OR $17 = 0 OR "RowVersion" IS NULL)
+		WHERE "Id"::text = $11 AND ("RowVersion" = $12 OR $12 = 0 OR "RowVersion" IS NULL)
 		RETURNING "RowVersion"
 	`)
 	if err != nil {
@@ -89,15 +84,11 @@ func (s *MenuService) UpdateMenus(ctx context.Context, items []MenuItem) ([]Menu
 			icon,
 			m.OrderSeq,
 			m.View,
-			m.Create,
-			m.Edit,
-			m.Delete,
-			m.Import,
-			m.Export,
 			m.UpdatedBy,
 			m.Id,
 			expectedRv,
 		).Scan(&newRv)
+
 
 		if err != nil {
 			s.logger.Warn("UpdateMenus concurrency conflict or not found",

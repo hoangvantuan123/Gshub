@@ -220,10 +220,7 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
 
   // Tính toán durationMinutes và runtimeHours chính xác theo phút (hỗ trợ thông ngày)
   const rawDurationMinutes = parseDurationToMinutes(
-    item.DurationMinutes ||
-      item.durationMinutes ||
-      item.ActualRunTime ||
-      item.ActualProdTime,
+    item.DurationMinutes || item.durationMinutes || item.ActualRunTime || item.ActualProdTime,
     rawStart,
     rawEnd,
     rawStartDate,

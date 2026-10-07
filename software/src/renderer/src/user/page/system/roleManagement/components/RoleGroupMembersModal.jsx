@@ -9,7 +9,12 @@ import {
   ReloadOutlined
 } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
-import { PostQUserRole, PostAUserRole, PostDUserRole, PostQUserAuth } from '../../../../../api/system'
+import {
+  PostQUserRole,
+  PostAUserRole,
+  PostDUserRole,
+  PostQUserAuth
+} from '../../../../../api/system'
 
 const { Text } = Typography
 
@@ -24,7 +29,7 @@ export default function RoleGroupMembersModal({
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(false)
   const [searchText, setSearchText] = useState('')
-  
+
   // Modal thêm người dùng
   const [isAddUserOpen, setIsAddUserOpen] = useState(false)
   const [allUsers, setAllUsers] = useState([])
@@ -66,7 +71,9 @@ export default function RoleGroupMembersModal({
         userIds: selectedUserKeys
       })
       message.success(
-        t('Đã gán {{count}} người dùng vào nhóm quyền thành công!', { count: selectedUserKeys.length })
+        t('Đã gán {{count}} người dùng vào nhóm quyền thành công!', {
+          count: selectedUserKeys.length
+        })
       )
       setIsAddUserOpen(false)
       setSelectedUserKeys([])
@@ -111,9 +118,15 @@ export default function RoleGroupMembersModal({
     if (!searchText) return true
     const q = searchText.toLowerCase()
     return (
-      String(m.UserId || '').toLowerCase().includes(q) ||
-      String(m.UserName || '').toLowerCase().includes(q) ||
-      String(m.GroupName || '').toLowerCase().includes(q)
+      String(m.UserId || '')
+        .toLowerCase()
+        .includes(q) ||
+      String(m.UserName || '')
+        .toLowerCase()
+        .includes(q) ||
+      String(m.GroupName || '')
+        .toLowerCase()
+        .includes(q)
     )
   })
 
@@ -123,9 +136,15 @@ export default function RoleGroupMembersModal({
     if (!userSearchText) return true
     const q = userSearchText.toLowerCase()
     return (
-      String(u.UserId || '').toLowerCase().includes(q) ||
-      String(u.UserName || u.EmpName || '').toLowerCase().includes(q) ||
-      String(u.DeptName || '').toLowerCase().includes(q)
+      String(u.UserId || '')
+        .toLowerCase()
+        .includes(q) ||
+      String(u.UserName || u.EmpName || '')
+        .toLowerCase()
+        .includes(q) ||
+      String(u.DeptName || '')
+        .toLowerCase()
+        .includes(q)
     )
   })
 
@@ -167,7 +186,9 @@ export default function RoleGroupMembersModal({
         canEdit ? (
           <Popconfirm
             title={t('Xóa khỏi nhóm?')}
-            description={t('Bạn có chắc muốn xóa tài khoản {{id}} khỏi nhóm này?', { id: record.UserId })}
+            description={t('Bạn có chắc muốn xóa tài khoản {{id}} khỏi nhóm này?', {
+              id: record.UserId
+            })}
             onConfirm={() => handleRemoveUser(record.UserId)}
             okText={t('Xóa')}
             cancelText={t('Hủy')}
@@ -218,7 +239,11 @@ export default function RoleGroupMembersModal({
       width: 110,
       render: (_, row) => {
         const isIn = currentMemberIds.has(String(row.UserId || '').toLowerCase())
-        return isIn ? <Tag color="green">{t('Đã trong nhóm')}</Tag> : <Tag color="default">{t('Chưa gán')}</Tag>
+        return isIn ? (
+          <Tag color="green">{t('Đã trong nhóm')}</Tag>
+        ) : (
+          <Tag color="default">{t('Chưa gán')}</Tag>
+        )
       }
     }
   ]
@@ -249,7 +274,11 @@ export default function RoleGroupMembersModal({
           <div className="bg-slate-50 p-2.5 rounded border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
             <div>
               <Text type="secondary">
-                💡 {t('Một tài khoản người dùng có thể tham gia vào')} <strong>{t('nhiều nhóm quyền khác nhau')}</strong>. {t('Quyền thực tế của người dùng khi truy cập hệ thống là phép hợp của tất cả các nhóm quyền mà họ tham gia.')}
+                💡 {t('Một tài khoản người dùng có thể tham gia vào')}{' '}
+                <strong>{t('nhiều nhóm quyền khác nhau')}</strong>.{' '}
+                {t(
+                  'Quyền thực tế của người dùng khi truy cập hệ thống là phép hợp của tất cả các nhóm quyền mà họ tham gia.'
+                )}
               </Text>
             </div>
           </div>
@@ -293,7 +322,10 @@ export default function RoleGroupMembersModal({
             rowKey={(r) => r.Id || r.UserId}
             loading={loading}
             size="small"
-            pagination={{ pageSize: 8, showTotal: (total) => t('Tổng cộng {{total}} thành viên', { total }) }}
+            pagination={{
+              pageSize: 8,
+              showTotal: (total) => t('Tổng cộng {{total}} thành viên', { total })
+            }}
             bordered
           />
         </div>

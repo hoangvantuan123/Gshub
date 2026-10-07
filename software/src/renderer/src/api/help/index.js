@@ -14,20 +14,16 @@ export const getHelpRoleRootMenu = (data = {}, options = {}) =>
 export const getHelpUsers = (data = {}, options = {}) =>
   apiPost('/help/UsersH', { result: data }, options)
 
-export const PostLangH = (result = {}, options = {}) =>
-  apiPost('/help/LangH', { result }, options)
+export const PostLangH = (result = {}, options = {}) => apiPost('/help/LangH', { result }, options)
 
-export const PostMenuH = (result, options = {}) =>
-  apiPost('/help/MenuH', { result }, options)
+export const PostMenuH = (result, options = {}) => apiPost('/help/MenuH', { result }, options)
 
 export const PostRootMenuH = (result, options = {}) =>
   apiPost('/help/RootMenuH', { result }, options)
 
-export const PostSubMenuH = (result, options = {}) =>
-  apiPost('/help/SubMenuH', { result }, options)
+export const PostSubMenuH = (result, options = {}) => apiPost('/help/SubMenuH', { result }, options)
 
-export const CodeHelpQ = (result, options = {}) =>
-  apiPost('/help/CodeHelpQ', { result }, options)
+export const CodeHelpQ = (result, options = {}) => apiPost('/help/CodeHelpQ', { result }, options)
 
 // CodeHelpCmnQ: Đầu API CodeHelp dùng chung (Common CodeHelp Engine)
 // Truyền CodeHelpName hoặc TableName ('PERM_FIELDS', 'PERM_ACTIONS', 'PERM_SCOPES', 'SUBMENU', 'USERS', ...)
@@ -49,5 +45,4 @@ export const PostPermFieldsH = (result, options = {}) =>
 export const PostPermScopesH = (result, options = {}) =>
   apiPost('/help/PermScopesH', { result }, options)
 
-export const PostUsersH = (result, options = {}) =>
-  apiPost('/help/UsersH', { result }, options)
+export const PostUsersH = (result, options = {}) => apiPost('/help/UsersH', { result }, options)

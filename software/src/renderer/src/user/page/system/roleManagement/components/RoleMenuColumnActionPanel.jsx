@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types, no-unused-vars, no-empty */
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MenuOutlined, CheckCircleFilled } from '@ant-design/icons'
+import { MenuOutlined, CheckCircleFilled, AppstoreOutlined } from '@ant-design/icons'
 
 import RoleMenuTable from './RoleMenuTable'
 import RoleActionPermTable from './RoleActionPermTable'
@@ -57,9 +57,11 @@ export default function RoleMenuColumnActionPanel({
   defaultColsScope,
   showSearchScope,
   setShowSearchScope,
-  // Context
+  // Context & Modules
+  rootMenus = [],
   selectedGroupId,
-  selectedRootMenuId,
+  selectedRootMenuId = 'ALL',
+  setSelectedRootMenuId,
   selectedMenuInGrid,
   selectedRootMenuName,
   canEdit = true,
@@ -148,53 +150,29 @@ export default function RoleMenuColumnActionPanel({
       ref={panelRef}
       className="h-full w-full flex flex-col bg-white overflow-hidden select-none border border-slate-300 rounded shadow-2xs"
     >
-      {/* 1. THANH HEADER THÔNG TIN ĐIỀU HƯỚNG MENU */}
-      <div className="bg-gradient-to-r from-slate-100 via-slate-50 to-white px-3 py-1.5 border-b border-slate-300 shrink-0 flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-700 text-white shadow-2xs">
-              <MenuOutlined className="text-[10px]" />
-            </span>
-            <span className="text-slate-500 font-semibold">{t('Phân Hệ')}:</span>
-            <span className="text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-              {currentRootName || t('Quản trị hệ thống')}
-            </span>
-          </div>
-
-          {currentSubRootName && (
-            <div className="flex items-center gap-1 text-xs text-slate-600">
-              <span className="text-slate-300">/</span>
-              <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-slate-700 font-medium">
-                {currentSubRootName}
-              </span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-            <span className="text-slate-300">/</span>
-            <span className="text-slate-500 font-semibold">{t('Menu Đang Chọn')}:</span>
-            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 px-2 py-0.5 rounded border border-amber-300 font-bold shadow-2xs">
-              <CheckCircleFilled className="text-amber-600 text-xs" />
-              <span>{currentMenuName}</span>
-            </span>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-1 text-[11px] text-slate-500 ml-2">
-            <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 text-slate-600 font-mono">
-              Key: {currentMenuId || '---'}
-            </span>
-            <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200 font-medium">
-              {currentMenuType}
-            </span>
-          </div>
+      {/* 1. THANH HEADER THÔNG TIN CÂY PHÂN QUYỀN VÀ MENU ĐANG CHỌN */}
+      <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 shrink-0 flex items-center justify-between text-xs gap-2">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-4 bg-blue-700 rounded-xs" />
+          <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+            <AppstoreOutlined className="text-blue-700 text-sm" />
+            <span>{t('system.menuHierarchyTitle', 'Cây Phân Quyền Chức Năng (Phân Hệ ➔ Submenu ➔ Chức Năng)')}</span>
+          </span>
+          <span className="text-[11px] text-slate-500 font-normal">
+            ({numRowsB} mục)
+          </span>
         </div>
 
-        <div className="text-[11px] text-slate-500 font-medium shrink-0 flex items-center gap-2">
-          <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-            {t('Số dòng menu')}: <strong className="text-blue-700 font-bold">{numRowsB}</strong>
+        <div className="flex items-center gap-2 text-slate-600 shrink-0">
+          <span className="font-medium text-slate-500">{t('Menu đang chọn')}:</span>
+          <span className="font-bold text-blue-900 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
+            {currentMenuName}
           </span>
         </div>
       </div>
+
+
+
 
       {/* 2. NỬA TRÊN: SHEET BẢNG DANH SÁCH MENU CHI TIẾT */}
       <div
@@ -241,74 +219,26 @@ export default function RoleMenuColumnActionPanel({
         </div>
       </div>
 
-      {/* 3. NỬA DƯỚI: CỤM 3 TABS PHÂN QUYỀN ERP */}
+      {/* 3. NỬA DƯỚI: BẢNG QUYỀN ACTION & NÚT LỆNH CỦA MENU ĐANG CHỌN */}
       <div className="flex-1 min-h-0 w-full flex flex-col mt-1 bg-white overflow-hidden">
-        {/* THANH TAB HEADER PHẲNG CHUẨN ERP, CỐ ĐỊNH KÍCH THƯỚC KHÔNG NHẢY LAYOUT */}
-        <div className="flex items-stretch justify-between border-b border-slate-300 bg-slate-100 h-[30px] shrink-0 select-none overflow-hidden">
-          <div className="flex items-stretch h-full overflow-x-auto overflow-y-hidden">
-            {/* Tab 1: Quyền Action & Nút Lệnh */}
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('1')}
-              className={`relative h-full flex items-center justify-center px-5 text-xs cursor-pointer select-none whitespace-nowrap border-r border-slate-300 transition-colors ${
-                activeSubTab === '1'
-                  ? 'bg-white text-blue-700 font-medium'
-                  : 'bg-transparent text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 font-medium'
-              }`}
-            >
-              {activeSubTab === '1' && (
-                <span className="absolute top-0 left-0 right-0 h-[2.5px] bg-blue-600" />
-              )}
-              <span className="text-center">
-                {t('system.actionInViewTab', 'Quyền Action & Nút Lệnh')}
+        {/* THANH HEADER ĐƠN GIẢN, RÕ RÀNG */}
+        <div className="flex items-center justify-between border-b border-slate-300 bg-slate-100 h-[30px] px-3 shrink-0 select-none">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-3.5 bg-blue-600 rounded-xs" />
+            <span className="text-xs font-semibold text-slate-800">
+              {t('system.actionInViewTab', 'Quyền Action & Nút Lệnh Chức Năng')}
+            </span>
+            {currentMenuName && (
+              <span className="text-xs text-blue-600 font-medium">
+                ({currentMenuName})
               </span>
-            </button>
-
-            {/* Tab 2: Cấu Hình Cột & Khóa Ẩn */}
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('2')}
-              className={`relative h-full flex items-center justify-center px-5 text-xs cursor-pointer select-none whitespace-nowrap border-r border-slate-300 transition-colors ${
-                activeSubTab === '2'
-                  ? 'bg-white text-blue-700 font-medium'
-                  : 'bg-transparent text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 font-medium'
-              }`}
-            >
-              {activeSubTab === '2' && (
-                <span className="absolute top-0 left-0 right-0 h-[2.5px] bg-blue-600" />
-              )}
-              <span className="text-center">
-                {t('system.colSetupInViewTab', 'Cấu Hình Cột & Khóa Ẩn')}
-              </span>
-            </button>
-
-            {/* Tab 3: Phạm Vi Dữ Liệu & Quy Tắc Sửa Phiếu */}
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('3')}
-              className={`relative h-full flex items-center justify-center px-5 text-xs cursor-pointer select-none whitespace-nowrap border-r border-slate-300 transition-colors ${
-                activeSubTab === '3'
-                  ? 'bg-white text-blue-700 font-medium'
-                  : 'bg-transparent text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 font-medium'
-              }`}
-            >
-              {activeSubTab === '3' && (
-                <span className="absolute top-0 left-0 right-0 h-[2.5px] bg-blue-600" />
-              )}
-              <span className="text-center">
-                {t('system.dataScopeTab', 'Phạm Vi Dữ Liệu & Sửa Phiếu')}
-              </span>
-            </button>
+            )}
           </div>
         </div>
 
-        {/* NỘI DUNG TỪNG TAB */}
+        {/* NỘI DUNG BẢNG ACTION PERMISSIONS */}
         <div className="flex-1 min-h-0 w-full relative overflow-hidden bg-white">
-          {/* Tab 1 Pane: Quyền Action & Nút Lệnh */}
-          <div
-            style={{ display: activeSubTab === '1' ? 'flex' : 'none' }}
-            className="absolute inset-0 h-full w-full flex flex-col min-h-0 overflow-hidden"
-          >
+          <div className="absolute inset-0 h-full w-full flex flex-col min-h-0 overflow-hidden">
             <RoleActionPermTable
               gridData={gridDataAction}
               setGridData={setGridDataAction}
@@ -321,56 +251,6 @@ export default function RoleMenuColumnActionPanel({
               defaultCols={defaultColsAction}
               showSearch={showSearchAction}
               setShowSearch={setShowSearchAction}
-              canEdit={canEdit}
-              canCreate={canCreate}
-              selectedMenuId={currentMenuId}
-              selectedMenuName={currentMenuName}
-              onAddQueryField={onAddQueryField}
-            />
-          </div>
-
-          {/* Tab 2 Pane: Cấu Hình Cột & Khóa Ẩn */}
-          <div
-            style={{ display: activeSubTab === '2' ? 'flex' : 'none' }}
-            className="absolute inset-0 h-full w-full flex flex-col min-h-0 overflow-hidden"
-          >
-            <RoleColumnSetupTable
-              gridData={gridDataCol}
-              setGridData={setGridDataCol}
-              selection={selectionCol}
-              setSelection={setSelectionCol}
-              numRows={numRowsCol}
-              setNumRows={setNumRowsCol}
-              cols={colsCol}
-              setCols={setColsCol}
-              defaultCols={defaultColsCol}
-              showSearch={showSearchCol}
-              setShowSearch={setShowSearchCol}
-              canEdit={canEdit}
-              canCreate={canCreate}
-              selectedMenuId={currentMenuId}
-              selectedMenuName={currentMenuName}
-              onAddQueryField={onAddQueryField}
-            />
-          </div>
-
-          {/* Tab 3 Pane: Phạm Vi Dữ Liệu & Quy Tắc Sửa Phiếu */}
-          <div
-            style={{ display: activeSubTab === '3' ? 'flex' : 'none' }}
-            className="absolute inset-0 h-full w-full flex flex-col min-h-0 overflow-hidden"
-          >
-            <RoleDataScopeTable
-              gridData={gridDataScope}
-              setGridData={setGridDataScope}
-              selection={selectionScope}
-              setSelection={setSelectionScope}
-              numRows={numRowsScope}
-              setNumRows={setNumRowsScope}
-              cols={colsScope}
-              setCols={setColsScope}
-              defaultCols={defaultColsScope}
-              showSearch={showSearchScope}
-              setShowSearch={setShowSearchScope}
               canEdit={canEdit}
               canCreate={canCreate}
               selectedMenuId={currentMenuId}

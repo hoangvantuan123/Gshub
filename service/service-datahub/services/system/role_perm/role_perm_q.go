@@ -2,6 +2,7 @@ package role_perm
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
@@ -12,6 +13,7 @@ func (s *RolePermService) QueryUsersInRole(ctx context.Context, groupId string) 
 	query := `
 		SELECT 
 			COALESCE(ru."Id"::text, ''),
+			COALESCE(u."UserSeq", ''),
 			COALESCE(u."UserId", ru."UserId", ''),
 			COALESCE(u."UserName", u."EmpName", ru."UserId", ''),
 			COALESCE(g."Id"::text, ''),
@@ -19,8 +21,8 @@ func (s *RolePermService) QueryUsersInRole(ctx context.Context, groupId string) 
 			COALESCE(TO_CHAR(ru."CreatedAt", 'YYYY-MM-DD HH24:MI:SS'), '')
 		FROM "_ERPRolesUsers" ru
 		LEFT JOIN "_ERPGroups" g ON ru."GroupId" = g."Id"
-		LEFT JOIN "_ERPUsers" u ON LOWER(ru."UserId") = LOWER(u."UserId")
-		WHERE ru."GroupId"::text = $1 AND ru."UserId" IS NOT NULL AND ru."UserId" != ''
+		LEFT JOIN "_ERPUsers" u ON LOWER(ru."UserId") = LOWER(u."UserId") OR ru."UserId" = u."UserSeq"
+		WHERE ru."GroupId"::text = $1 AND ru."Type" = 'user' AND ru."UserId" IS NOT NULL AND ru."UserId" != ''
 		ORDER BY ru."Id" ASC
 	`
 	rows, err := s.db.QueryContext(ctx, query, groupId)
@@ -33,9 +35,11 @@ func (s *RolePermService) QueryUsersInRole(ctx context.Context, groupId string) 
 	var list []UserRoleAssignment
 	for rows.Next() {
 		var item UserRoleAssignment
-		if err := rows.Scan(&item.Id, &item.UserId, &item.UserName, &item.GroupId, &item.GroupName, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.Id, &item.UserSeq, &item.UserId, &item.UserName, &item.GroupId, &item.GroupName, &item.CreatedAt); err != nil {
 			continue
 		}
+		item.WorkingTag = ""
+		item.Status = ""
 		list = append(list, item)
 	}
 
@@ -49,7 +53,9 @@ func (s *RolePermService) QueryUsersInRole(ctx context.Context, groupId string) 
 
 // 2. Lấy danh sách Root Menus theo nhóm vai trò (Q - Query Root Menu Roles)
 func (s *RolePermService) QueryRootMenuRoles(ctx context.Context, groupId string) ([]RootMenuRoleAssignment, error) {
-	query := `
+	defaultPerm := "false"
+
+	query := fmt.Sprintf(`
 		SELECT 
 			COALESCE(rm."Id"::text, ''),
 			$1::text,
@@ -58,7 +64,7 @@ func (s *RolePermService) QueryRootMenuRoles(ctx context.Context, groupId string
 			COALESCE(rm."Label", ''),
 			COALESCE(rm."Icon", 'AppWindow'),
 			COALESCE(rm."IdxNo", 1),
-			COALESCE(ru."View", rm."View", true),
+			COALESCE(ru."View", %s),
 			COALESCE(ru."RowVersion", rm."RowVersion", 1)
 		FROM "_ERPRootMenus" rm
 		LEFT JOIN (
@@ -68,7 +74,8 @@ func (s *RolePermService) QueryRootMenuRoles(ctx context.Context, groupId string
 			ORDER BY "RootMenuId", "Id" DESC
 		) ru ON ru."RootMenuId" = rm."Id"
 		ORDER BY rm."IdxNo" ASC, rm."Id" ASC
-	`
+	`, defaultPerm)
+
 	rows, err := s.db.QueryContext(ctx, query, groupId)
 	if err != nil {
 		s.logger.Error("QueryRootMenuRoles error", zap.Error(err))
@@ -111,7 +118,9 @@ func (s *RolePermService) QueryRootMenuRoles(ctx context.Context, groupId string
 
 // 3. Lấy ma trận quyền Menu theo nhóm vai trò (Q - Query Menu Roles)
 func (s *RolePermService) QueryMenuRoles(ctx context.Context, groupId string, rootMenuId string) ([]MenuRoleAssignment, error) {
-	query := `
+	defaultPerm := "false"
+
+	query := fmt.Sprintf(`
 		SELECT 
 			COALESCE(m."Id"::text, ''),
 			$1::text,
@@ -122,23 +131,18 @@ func (s *RolePermService) QueryMenuRoles(ctx context.Context, groupId string, ro
 			COALESCE(m."Label", ''),
 			COALESCE(m."Type", 'menu'),
 			COALESCE(m."OrderSeq", 1),
-			COALESCE(ru."View", m."View", true),
-			COALESCE(ru."Create", m."Create", true),
-			COALESCE(ru."Edit", m."Edit", true),
-			COALESCE(ru."Delete", m."Delete", true),
-			COALESCE(ru."Import", m."Import", true),
-			COALESCE(ru."Export", m."Export", true),
+			COALESCE(ru."View", %s),
 			COALESCE(ru."RowVersion", m."RowVersion", 1)
 		FROM "_ERPMenus" m
 		LEFT JOIN (
-			SELECT DISTINCT ON ("MenuId") "MenuId", "View", "Create", "Edit", "Delete", "Import", "Export", "RowVersion"
+			SELECT DISTINCT ON ("MenuId") "MenuId", "View", "RowVersion"
 			FROM "_ERPRolesUsers"
-			WHERE "GroupId"::text = $1
+			WHERE "GroupId"::text = $1 AND ("Type" = 'menu' OR "Type" IS NULL)
 			ORDER BY "MenuId", "Id" DESC
 		) ru ON ru."MenuId" = m."Id"
 		WHERE ($2 = '' OR m."MenuRootId"::text = $2)
 		ORDER BY m."MenuRootId" ASC, COALESCE(m."MenuSubRootId", 0) ASC, m."OrderSeq" ASC, m."Id" ASC
-	`
+	`, defaultPerm)
 
 	rows, err := s.db.QueryContext(ctx, query, groupId, strings.TrimSpace(rootMenuId))
 	if err != nil {
@@ -162,11 +166,6 @@ func (s *RolePermService) QueryMenuRoles(ctx context.Context, groupId string, ro
 			&item.MenuType,
 			&item.OrderSeq,
 			&item.CanView,
-			&item.CanCreate,
-			&item.CanEdit,
-			&item.CanDelete,
-			&item.CanImport,
-			&item.CanExport,
 			&rv,
 		); err != nil {
 			continue
@@ -176,12 +175,12 @@ func (s *RolePermService) QueryMenuRoles(ctx context.Context, groupId string, ro
 		item.Label = item.MenuLabel
 		item.Type = item.MenuType
 		item.View = item.CanView
-		item.Create = item.CanCreate
-		item.Edit = item.CanEdit
-		item.Delete = item.CanDelete
-		item.Import = item.CanImport
-		item.Export = item.CanExport
-		item.CanPrint = item.CanExport
+		item.Create = item.CanView
+		item.Edit = item.CanView
+		item.Delete = item.CanView
+		item.Import = item.CanView
+		item.Export = item.CanView
+		item.CanPrint = item.CanView
 		item.DataScope = "ALL"
 		item.Rowversion = rv
 		item.RowVersion = rv
@@ -190,6 +189,73 @@ func (s *RolePermService) QueryMenuRoles(ctx context.Context, groupId string, ro
 
 	if err := rows.Err(); err != nil {
 		s.logger.Error("QueryMenuRoles rows iteration error", zap.Error(err))
+		return nil, err
+	}
+
+	return list, nil
+}
+
+
+// 4. Lấy danh sách Quyền Action / Nút Lệnh theo Menu và Nhóm Vai Trò
+func (s *RolePermService) QueryActionRoles(ctx context.Context, groupId string, menuId string) ([]ActionRoleAssignment, error) {
+	defaultPerm := "false"
+
+	query := fmt.Sprintf(`
+		SELECT 
+			COALESCE(a."Id"::text, ''),
+			$1::text,
+			$2::text,
+			COALESCE(a."ActionKey", ''),
+			COALESCE(a."ActionName", ''),
+			COALESCE(a."Description", ''),
+			COALESCE(a."Icon", 'Activity'),
+			COALESCE(a."IdxNo", 1),
+			COALESCE(ru."View", %s) AS "Allow",
+			COALESCE(a."Active", true)
+		FROM "_ERPActions" a
+		LEFT JOIN (
+			SELECT DISTINCT ON ("Name") "Name", "View"
+			FROM "_ERPRolesUsers"
+			WHERE "GroupId"::text = $1 AND "MenuId"::text = $2 AND "Type" = 'action'
+			ORDER BY "Name", "Id" DESC
+		) ru ON LOWER(ru."Name") = LOWER(a."ActionKey")
+		WHERE a."Active" = true
+		ORDER BY a."IdxNo" ASC, a."Id" ASC
+	`, defaultPerm)
+
+	rows, err := s.db.QueryContext(ctx, query, groupId, menuId)
+	if err != nil {
+		s.logger.Error("QueryActionRoles error", zap.Error(err))
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []ActionRoleAssignment
+	for rows.Next() {
+		var item ActionRoleAssignment
+		if err := rows.Scan(
+			&item.Id,
+			&item.GroupId,
+			&item.MenuId,
+			&item.ActionKey,
+			&item.ActionName,
+			&item.Description,
+			&item.Icon,
+			&item.IdxNo,
+			&item.Allow,
+			&item.Active,
+		); err != nil {
+			continue
+		}
+		item.Key = item.ActionKey
+		item.Name = item.ActionName
+		item.Status = ""
+		item.WorkingTag = ""
+		list = append(list, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("QueryActionRoles rows iteration error", zap.Error(err))
 		return nil, err
 	}
 

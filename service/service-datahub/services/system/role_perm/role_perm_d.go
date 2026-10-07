@@ -2,6 +2,7 @@ package role_perm
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 )
 
@@ -19,7 +20,7 @@ func (s *RolePermService) RemoveUsersFromRole(ctx context.Context, groupId strin
 
 	stmt, err := tx.PrepareContext(ctx, `
 		DELETE FROM "_ERPRolesUsers"
-		WHERE "GroupId"::text = $1 AND "UserId" = $2
+		WHERE "GroupId"::text = $1 AND "UserId" = $2 AND "Type" = 'user'
 	`)
 	if err != nil {
 		return err
@@ -33,6 +34,13 @@ func (s *RolePermService) RemoveUsersFromRole(ctx context.Context, groupId strin
 		}
 		_, _ = stmt.ExecContext(ctx, groupId, clean)
 	}
+
+	// Ghi nhận Audit Log gỡ người dùng khỏi nhóm
+	payloadJSON, _ := json.Marshal(userIds)
+	_, _ = tx.ExecContext(ctx, `
+		INSERT INTO "_ERPRolePermLogs" ("GroupId", "TargetType", "ActionType", "Details", "ChangedBy", "CreatedAt")
+		VALUES ($1::bigint, 'USER_ASSIGNMENT', 'REMOVE_USER', $2, 'SYSTEM', CURRENT_TIMESTAMP)
+	`, groupId, string(payloadJSON))
 
 	return tx.Commit()
 }

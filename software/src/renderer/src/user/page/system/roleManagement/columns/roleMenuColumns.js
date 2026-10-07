@@ -14,9 +14,9 @@ export const useRoleMenuColumns = ({ isFieldVisible, isFieldReadOnly } = {}) => 
         readonly: true,
         width: 45,
         hasMenu: true,
-        visible: true,
-        themeOverride: { textDark: '#225588', baseFontStyle: '600 13px' }
+        visible: true
       },
+
       {
         title: t('system.roleId', 'Mã Quyền'),
         id: 'Id',
@@ -25,6 +25,16 @@ export const useRoleMenuColumns = ({ isFieldVisible, isFieldReadOnly } = {}) => 
         width: 90,
         hasMenu: true,
         visible: false,
+        trailingRowOptions: { disabled: true }
+      },
+      {
+        title: t('system.orderSeq', 'Thứ Tự'),
+        id: 'OrderSeq',
+        kind: 'Text',
+        readonly: true,
+        width: 70,
+        hasMenu: true,
+        visible: true,
         trailingRowOptions: { disabled: true }
       },
       {
@@ -42,7 +52,7 @@ export const useRoleMenuColumns = ({ isFieldVisible, isFieldReadOnly } = {}) => 
         id: 'MenuKey',
         kind: 'Text',
         readonly: true,
-        width: 170,
+        width: 200,
         hasMenu: true,
         visible: true,
         trailingRowOptions: { disabled: true }
@@ -58,61 +68,11 @@ export const useRoleMenuColumns = ({ isFieldVisible, isFieldReadOnly } = {}) => 
         trailingRowOptions: { disabled: true }
       },
       {
-        title: t('system.view', 'Xem (View)'),
+        title: t('system.view', 'Xem / Truy Cập (View)'),
         id: 'View',
         kind: 'Boolean',
         readonly: false,
-        width: 90,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.create', 'Thêm (Create)'),
-        id: 'Create',
-        kind: 'Boolean',
-        readonly: false,
-        width: 100,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.edit', 'Sửa (Edit)'),
-        id: 'Edit',
-        kind: 'Boolean',
-        readonly: false,
-        width: 90,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.delete', 'Xóa (Delete)'),
-        id: 'Delete',
-        kind: 'Boolean',
-        readonly: false,
-        width: 90,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.import', 'Nhập (Import)'),
-        id: 'Import',
-        kind: 'Boolean',
-        readonly: false,
-        width: 100,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.export', 'Xuất (Export)'),
-        id: 'Export',
-        kind: 'Boolean',
-        readonly: false,
-        width: 100,
+        width: 150,
         hasMenu: true,
         visible: true,
         trailingRowOptions: { disabled: true }
@@ -127,3 +87,4 @@ export const useRoleMenuColumns = ({ isFieldVisible, isFieldReadOnly } = {}) => 
       }))
   }, [t, isFieldVisible, isFieldReadOnly])
 }
+

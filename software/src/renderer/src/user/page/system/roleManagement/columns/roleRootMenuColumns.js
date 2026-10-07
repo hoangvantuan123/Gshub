@@ -14,9 +14,9 @@ export const useRoleRootMenuColumns = ({ isFieldVisible, isFieldReadOnly } = {})
         readonly: true,
         width: 45,
         hasMenu: true,
-        visible: true,
-        themeOverride: { textDark: '#225588', baseFontStyle: '600 13px' }
+        visible: true
       },
+
       {
         title: t('system.groupId', 'Mã Nhóm'),
         id: 'GroupId',

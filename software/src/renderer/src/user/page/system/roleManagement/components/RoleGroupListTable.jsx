@@ -16,26 +16,29 @@ export default function RoleGroupListTable({
 
   const { rowHeight, headerHeight } = useTableConfig('role_group_list')
 
-  const cols = useMemo(() => [
-    {
-      title: t('ID'),
-      id: 'Id',
-      width: 50,
-      readonly: true
-    },
-    {
-      title: t('Tên Nhóm Quyền'),
-      id: 'Name',
-      width: 190,
-      readonly: true
-    },
-    {
-      title: t('Ghi Chú'),
-      id: 'Comment',
-      width: 140,
-      readonly: true
-    }
-  ], [t])
+  const cols = useMemo(
+    () => [
+      {
+        title: t('ID'),
+        id: 'Id',
+        width: 50,
+        readonly: true
+      },
+      {
+        title: t('Tên Nhóm Quyền'),
+        id: 'Name',
+        width: 190,
+        readonly: true
+      },
+      {
+        title: t('Ghi Chú'),
+        id: 'Comment',
+        width: 140,
+        readonly: true
+      }
+    ],
+    [t]
+  )
 
   const selectedRowIndex = useMemo(() => {
     const idx = groups.findIndex((g) => String(g.Id) === String(selectedGroupId))
@@ -60,38 +63,44 @@ export default function RoleGroupListTable({
     }
   }, [selectedRowIndex, groups.length, cols.length])
 
-  const getCellContent = useCallback(([col, row]) => {
-    const rowData = groups[row] || {}
-    const colObj = cols[col]
-    const key = colObj?.id || ''
-    const val = rowData[key] !== undefined && rowData[key] !== null ? String(rowData[key]) : ''
+  const getCellContent = useCallback(
+    ([col, row]) => {
+      const rowData = groups[row] || {}
+      const colObj = cols[col]
+      const key = colObj?.id || ''
+      const val = rowData[key] !== undefined && rowData[key] !== null ? String(rowData[key]) : ''
 
-    const isSelected = String(rowData.Id) === String(selectedGroupId)
+      const isSelected = String(rowData.Id) === String(selectedGroupId)
 
-    return {
-      kind: GridCellKind.Text,
-      data: val,
-      displayData: val,
-      allowOverlay: false,
-      readonly: true,
-      themeOverride: isSelected
-        ? {
-            bgCell: '#eff6ff',
-            textDark: '#1d4ed8',
-            baseFontStyle: 'bold 12px'
-          }
-        : undefined
-    }
-  }, [cols, groups, selectedGroupId])
-
-  const onCellClicked = useCallback(([col, row]) => {
-    if (row >= 0 && groups[row]) {
-      const g = groups[row]
-      if (onSelectGroup) {
-        onSelectGroup(g)
+      return {
+        kind: GridCellKind.Text,
+        data: val,
+        displayData: val,
+        allowOverlay: false,
+        readonly: true,
+        themeOverride: isSelected
+          ? {
+              bgCell: '#eff6ff',
+              textDark: '#1d4ed8',
+              baseFontStyle: 'bold 12px'
+            }
+          : undefined
       }
-    }
-  }, [groups, onSelectGroup])
+    },
+    [cols, groups, selectedGroupId]
+  )
+
+  const onCellClicked = useCallback(
+    ([col, row]) => {
+      if (row >= 0 && groups[row]) {
+        const g = groups[row]
+        if (onSelectGroup) {
+          onSelectGroup(g)
+        }
+      }
+    },
+    [groups, onSelectGroup]
+  )
 
   return (
     <div className="h-full w-full bg-white relative overflow-hidden">

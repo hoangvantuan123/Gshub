@@ -19,9 +19,11 @@ import RoleManagementQuery from './components/RoleManagementQuery'
 import RoleGroupListTable from './components/RoleGroupListTable'
 import RoleRootMenuTable from './components/RoleRootMenuTable'
 import RoleMenuTable from './components/RoleMenuTable'
+import RoleMenuColumnActionPanel from './components/RoleMenuColumnActionPanel'
 import RoleGroupUsersTable from './components/RoleGroupUsersTable'
 import RoleGroupMembersModal from './components/RoleGroupMembersModal'
 import { useRoleManagement } from './hooks/useRoleManagement'
+
 
 export default function RoleManagementPage({
   permissions,
@@ -65,6 +67,7 @@ export default function RoleManagementPage({
     selectedRootMenuName,
     selectedRootMenuKey,
     selectedRootMenuId,
+    setSelectedRootMenuId,
     selectedMenuInGrid,
     // Cột 1: Sheet Root Menu
     gridDataA,
@@ -90,6 +93,42 @@ export default function RoleManagementPage({
     defaultColsB,
     showSearchB,
     setShowSearchB,
+    // Cột 2 -> Sub-tab 1: Action Perms
+    gridDataAction,
+    setGridDataAction,
+    selectionAction,
+    setSelectionAction,
+    numRowsAction,
+    setNumRowsAction,
+    colsAction,
+    setColsAction,
+    defaultColsAction,
+    showSearchAction,
+    setShowSearchAction,
+    // Cột 2 -> Sub-tab 2: Setup Cột
+    gridDataCol,
+    setGridDataCol,
+    selectionCol,
+    setSelectionCol,
+    numRowsCol,
+    setNumRowsCol,
+    colsCol,
+    setColsCol,
+    defaultColsCol,
+    showSearchCol,
+    setShowSearchCol,
+    // Cột 2 -> Sub-tab 3: Scope
+    gridDataScope,
+    setGridDataScope,
+    selectionScope,
+    setSelectionScope,
+    numRowsScope,
+    setNumRowsScope,
+    colsScope,
+    setColsScope,
+    defaultColsScope,
+    showSearchScope,
+    setShowSearchScope,
     // Tab Thành Viên Trong Nhóm (Users Sheet)
     gridDataUsers,
     setGridDataUsers,
@@ -111,6 +150,7 @@ export default function RoleManagementPage({
     handleSave,
     handleDelete,
     limitModalProps
+
   } = useRoleManagement({
     canCreate: pagePerms.canCreate,
     canEdit: pagePerms.canEdit,
@@ -173,7 +213,7 @@ export default function RoleManagementPage({
       setIsDraggingGroup(false)
       try {
         localStorage.setItem('erp_role_group_col_width', String(groupColWidth))
-      } catch {}
+      } catch { }
     }
 
     window.addEventListener('mousemove', handleMouseMove)
@@ -222,7 +262,7 @@ export default function RoleManagementPage({
       setIsDraggingRootY(false)
       try {
         localStorage.setItem('erp_role_root_top_height', String(rootTopHeight))
-      } catch {}
+      } catch { }
     }
 
     window.addEventListener('mousemove', handleMouseMove)
@@ -280,9 +320,8 @@ export default function RoleManagementPage({
         table={
           <div
             ref={containerRef}
-            className={`flex h-full w-full overflow-hidden bg-white ${
-              isDraggingGroup || isDraggingRootY ? 'select-none' : ''
-            }`}
+            className={`flex h-full w-full overflow-hidden bg-white ${isDraggingGroup || isDraggingRootY ? 'select-none' : ''
+              }`}
           >
             {/* CỘT 1: BẢNG TẬP TRUNG TẤT CẢ NHÓM QUYỀN HỆ THỐNG */}
             <div
@@ -311,9 +350,8 @@ export default function RoleManagementPage({
             {/* THANH KÉO SPLITTER 1 (DỌC TRÁI/PHẢI) */}
             <div
               onMouseDown={handleMouseDownGroup}
-              className={`w-1.5 h-full bg-slate-200 hover:bg-blue-500 cursor-col-resize transition-colors duration-150 flex items-center justify-center select-none ${
-                isDraggingGroup ? 'bg-blue-600' : ''
-              }`}
+              className={`w-1.5 h-full bg-slate-200 hover:bg-blue-500 cursor-col-resize transition-colors duration-150 flex items-center justify-center select-none ${isDraggingGroup ? 'bg-blue-600' : ''
+                }`}
               title={t('common.resize', 'Kéo để thay đổi độ rộng')}
             >
               <div className="w-0.5 h-8 bg-slate-400 rounded-full" />
@@ -348,61 +386,79 @@ export default function RoleManagementPage({
                   >
                     <TeamOutlined className="text-indigo-600" />
                     <span>{t('Thành Viên Thuộc Nhóm')}</span>
-                    {groupId && (
-                      <span className="ml-1.5 px-1.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-mono border border-blue-200">
-                        {groupName || groupId}
-                      </span>
-                    )}
                   </button>
-                </div>
-
-                <div className="text-xs text-slate-600 font-medium flex items-center gap-1">
-                  <span>{t('Đang chọn nhóm')}:</span>
-                  <span className="text-blue-900 bg-blue-50 px-2 py-0.5 border border-blue-200 font-bold">
-                    {groupName || (groupId ? `ID: ${groupId}` : t('Chưa chọn'))}
-                  </span>
                 </div>
               </div>
 
-              {/* NỘI DUNG TAB 1: PHÂN QUYỀN CHỨC NĂNG & MENU */}
+
+              {/* NỘI DUNG TAB 1: PHÂN QUYỀN CHỨC NĂNG & MENU + ACTION PERMS ĐỘNG */}
               {activeTab === 'permissions' && (
-                <div ref={tabContentRef} className="flex-1 min-h-0 w-full flex flex-col overflow-hidden bg-white">
-                  {/* DANH SÁCH MENU & MA TRẬN 6 QUYỀN (FULL VIEW) */}
-                  <div className="flex-1 min-h-0 w-full flex flex-col overflow-hidden bg-white">
-                    <div className="h-7 min-h-[28px] bg-slate-200/90 px-2.5 flex items-center justify-between border-b border-slate-300 text-xs font-semibold text-slate-700">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-slate-500 font-semibold">{t('Chức Năng & Menu Phân Quyền')}:</span>
-                        <span className="text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-bold">
-                          {groupName ? `${groupName}` : t('Tất cả')}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-600 font-normal">
-                        {numRowsB} chức năng
-                      </div>
-                    </div>
-                    <div className="flex-1 min-h-0 w-full relative">
-                      <RoleMenuTable
-                        gridData={gridDataB}
-                        setGridData={setGridDataB}
-                        selection={selectionB}
-                        setSelection={setSelectionB}
-                        numRows={numRowsB}
-                        setNumRows={setNumRowsB}
-                        cols={colsB}
-                        setCols={setColsB}
-                        defaultCols={defaultColsB}
-                        showSearch={showSearchB}
-                        setShowSearch={setShowSearchB}
-                        canEdit={pagePerms.canEdit}
-                        canCreate={pagePerms.canCreate}
-                        selectedGroupId={groupId}
-                        selectedRootMenuId={selectedRootMenuId}
-                        onAddQueryField={handleAddQueryField}
-                      />
-                    </div>
-                  </div>
+                <div
+                  ref={tabContentRef}
+                  className="flex-1 min-h-0 w-full flex flex-col overflow-hidden bg-white"
+                >
+                  <RoleMenuColumnActionPanel
+                    gridDataB={gridDataB}
+                    setGridDataB={setGridDataB}
+                    selectionB={selectionB}
+                    setSelectionB={setSelectionB}
+                    numRowsB={numRowsB}
+                    setNumRowsB={setNumRowsB}
+                    colsB={colsB}
+                    setColsB={setColsB}
+                    defaultColsB={defaultColsB}
+                    showSearchB={showSearchB}
+                    setShowSearchB={setShowSearchB}
+                    // Tab 1 nửa dưới: Action Perms
+                    gridDataAction={gridDataAction}
+                    setGridDataAction={setGridDataAction}
+                    selectionAction={selectionAction}
+                    setSelectionAction={setSelectionAction}
+                    numRowsAction={numRowsAction}
+                    setNumRowsAction={setNumRowsAction}
+                    colsAction={colsAction}
+                    setColsAction={setColsAction}
+                    defaultColsAction={defaultColsAction}
+                    showSearchAction={showSearchAction}
+                    setShowSearchAction={setShowSearchAction}
+                    // Tab 2 nửa dưới: Column Setup
+                    gridDataCol={gridDataCol}
+                    setGridDataCol={setGridDataCol}
+                    selectionCol={selectionCol}
+                    setSelectionCol={setSelectionCol}
+                    numRowsCol={numRowsCol}
+                    setNumRowsCol={setNumRowsCol}
+                    colsCol={colsCol}
+                    setColsCol={setColsCol}
+                    defaultColsCol={defaultColsCol}
+                    showSearchCol={showSearchCol}
+                    setShowSearchCol={setShowSearchCol}
+                    // Tab 3 nửa dưới: Scope
+                    gridDataScope={gridDataScope}
+                    setGridDataScope={setGridDataScope}
+                    selectionScope={selectionScope}
+                    setSelectionScope={setSelectionScope}
+                    numRowsScope={numRowsScope}
+                    setNumRowsScope={setNumRowsScope}
+                    colsScope={colsScope}
+                    setColsScope={setColsScope}
+                    defaultColsScope={defaultColsScope}
+                    showSearchScope={showSearchScope}
+                    setShowSearchScope={setShowSearchScope}
+                    // Modules & Context
+                    rootMenus={gridDataA}
+                    selectedGroupId={groupId}
+                    selectedRootMenuId={selectedRootMenuId}
+                    setSelectedRootMenuId={setSelectedRootMenuId}
+                    selectedMenuInGrid={selectedMenuInGrid}
+                    selectedRootMenuName={selectedRootMenuName}
+                    canEdit={pagePerms.canEdit}
+                    canCreate={pagePerms.canCreate}
+                    onAddQueryField={handleAddQueryField}
+                  />
                 </div>
               )}
+
 
               {/* NỘI DUNG TAB 2: THÀNH VIÊN TRONG NHÓM (FULL SHEET VỚI CODE HELP F2) */}
               {activeTab === 'members' && (
@@ -436,4 +492,3 @@ export default function RoleManagementPage({
     </>
   )
 }
-

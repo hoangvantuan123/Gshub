@@ -31,7 +31,7 @@ import { HandleSuccess } from '../page/default/handleSuccess'
 
 // --- Storage & Config ---
 import { getLanguageData } from '../../IndexedDB/loadLanguageData'
-import { clearMenuData } from '../../IndexedDB/loadMenuData'
+import { clearMenuData, saveEncryptedMenuFromRolesMenu } from '../../IndexedDB/loadMenuData'
 import { configApp } from '../../utils/config'
 import { getDefaultDataHubUrl, getEnvConfig, SERVER_ENVIRONMENTS } from '../../config/serverConfig'
 import { getApiServerEndpoint } from '../../services'
@@ -412,14 +412,15 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
           localStorage.setItem('last_login_username', loginVal)
           localStorage.setItem('datahub_remember_username', loginVal)
           localStorage.setItem('datahub_last_config_key', activeConfigKey)
-          localStorage.setItem('datahub_auth_session', JSON.stringify(payload))
-          localStorage.setItem('gshub_auth_session', JSON.stringify(payload))
-
-          // Xóa menu cũ của phiên trước trong IndexedDB để nạp quyền mới hoàn toàn
-          clearMenuData().catch((e) => console.warn('Lỗi clear menu IndexedDB:', e))
 
           if (rolesMenuVal) {
-            localStorage.setItem('roles_menu', rolesMenuVal)
+            // Mã hóa AES-256 bảo mật và lưu cấu trúc menu & phân quyền vào IndexedDB (Tuyệt đối không lưu plaintext roles_menu vào localStorage)
+            await saveEncryptedMenuFromRolesMenu(rolesMenuVal, userObj).catch((e) =>
+              console.warn('Lỗi lưu menu bảo mật IndexedDB khi login:', e)
+            )
+          } else {
+            // Xóa menu cũ nếu không có rolesMenu
+            clearMenuData().catch((e) => console.warn('Lỗi clear menu IndexedDB:', e))
           }
           if (langVal !== undefined) {
             localStorage.setItem('language_user', JSON.stringify(langVal))
@@ -427,6 +428,7 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
               setKeyLanguage(langVal)
             }
           }
+
           const finalToken = tokenVal || ''
           const finalRefreshToken = refreshTokenVal || tokenVal || ''
 
@@ -444,89 +446,97 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
             localStorage.setItem('r_t', finalRefreshToken)
           }
 
-          const currentUser = {
-            ...(userObj || {}),
-            LastLoginTime: new Date().toISOString(),
-            envSelection: envSelection,
-            lang: lang
+          // Xóa sạch trạng thái rác của menu cũ để không bao giờ bị đè layout
+          localStorage.removeItem('isMenu')
+          localStorage.removeItem('labelMenu')
+          localStorage.setItem('menu', JSON.stringify(true))
+          localStorage.setItem('COLLAPSED_STATE', JSON.stringify(true))
+
+          // 1. Nạp tức thì quyền vào In-Memory RAM của React (<2ms)
+          if (typeof processRolesMenu === 'function') {
+            processRolesMenu(rolesMenuVal, true)
           }
+          window.dispatchEvent(new Event('auth-state-changed'))
+          window.dispatchEvent(new Event('TITLE_UPDATE'))
 
-          if (window?.electron?.saveDataToFile && window?.electron?.readDataFromFile) {
-            const filePath = 'save_users_log.json'
-            let fileData = []
-            try {
-              fileData = await window.electron.readDataFromFile(filePath)
-              if (!Array.isArray(fileData)) fileData = []
-            } catch {
-              fileData = []
-            }
-
-            const idx = fileData.findIndex((u) => u.UserSeq === currentUser.UserSeq)
-            if (idx >= 0) {
-              fileData[idx].LastLoginTime = currentUser.LastLoginTime
+          // 2. Chạy ngầm mã hóa IndexedDB và ghi log file trong nền (Non-blocking)
+          setTimeout(() => {
+            if (rolesMenuVal) {
+              saveEncryptedMenuFromRolesMenu(rolesMenuVal, userObj).catch((e) =>
+                console.warn('Lỗi lưu menu bảo mật IndexedDB khi login:', e)
+              )
             } else {
-              fileData.push(currentUser)
+              clearMenuData().catch((e) => console.warn('Lỗi clear menu IndexedDB:', e))
             }
-            await window.electron.saveDataToFile(filePath, fileData).catch(() => {})
+
+            const currentUser = {
+              ...(userObj || {}),
+              LastLoginTime: new Date().toISOString(),
+              envSelection: envSelection,
+              lang: lang
+            }
+
+            if (window?.electron?.saveDataToFile && window?.electron?.readDataFromFile) {
+              const filePath = 'save_users_log.json'
+              window.electron
+                .readDataFromFile(filePath)
+                .then((fileData) => {
+                  const list = Array.isArray(fileData) ? fileData : []
+                  const idx = list.findIndex((u) => u.UserSeq === currentUser.UserSeq)
+                  if (idx >= 0) {
+                    list[idx].LastLoginTime = currentUser.LastLoginTime
+                  } else {
+                    list.push(currentUser)
+                  }
+                  return window.electron.saveDataToFile(filePath, list)
+                })
+                .catch(() => {})
+            }
+
+            try {
+              const raw = localStorage.getItem('save_users_log')
+              const savedUsers = raw ? JSON.parse(raw) : []
+              const list2 = Array.isArray(savedUsers) ? savedUsers : []
+              const idx2 = list2.findIndex((u) => u.UserSeq === currentUser.UserSeq)
+              if (idx2 >= 0) {
+                list2[idx2].LastLoginTime = currentUser.LastLoginTime
+              } else {
+                list2.push(currentUser)
+              }
+              localStorage.setItem('save_users_log', JSON.stringify(list2))
+            } catch {}
+
+            // Tự động kiểm tra và tải ngầm phiên bản UI mới nhất khi đăng nhập
+            if (window.electron?.updater?.checkUi) {
+              window.electron.updater.checkUi().catch(() => {})
+            }
+          }, 0)
+
+          // 3. Đóng màn hình settings nếu đang mở (cả Web & Electron)
+          setShowWebSettingsModal(false)
+          if (window.electron?.closeSettingsWindow) {
+            window.electron.closeSettingsWindow()
+          } else if (window.electron?.ipcRenderer) {
+            window.electron.ipcRenderer.send('window:close-settings-window')
           }
 
-          let savedUsers = []
-          try {
-            const raw = localStorage.getItem('save_users_log')
-            savedUsers = raw ? JSON.parse(raw) : []
-            if (!Array.isArray(savedUsers)) savedUsers = []
-          } catch {
-            savedUsers = []
+          // 4. Mở rộng kích thước cửa sổ sang chế độ Main
+          if (window.electron?.setMainSize) {
+            window.electron.setMainSize()
+          } else if (window.electron?.ipcRenderer) {
+            window.electron.ipcRenderer.send('window:set-main-size')
           }
-          const idx2 = savedUsers.findIndex((u) => u.UserSeq === currentUser.UserSeq)
-          if (idx2 >= 0) {
-            savedUsers[idx2].LastLoginTime = currentUser.LastLoginTime
-          } else {
-            savedUsers.push(currentUser)
-          }
-          localStorage.setItem('save_users_log', JSON.stringify(savedUsers))
-        } catch (storageErr) {
-          console.warn('Storage sync error:', storageErr)
-        }
 
-        // Xóa sạch trạng thái rác của menu cũ để không bao giờ bị đè/vỡ layout 2 menu cùng lúc
-        localStorage.removeItem('isMenu')
-        localStorage.removeItem('labelMenu')
-        localStorage.setItem('menu', JSON.stringify(true))
-        localStorage.setItem('COLLAPSED_STATE', JSON.stringify(true))
-
-        if (typeof processRolesMenu === 'function') {
-          processRolesMenu()
-        }
-        window.dispatchEvent(new Event('auth-state-changed'))
-        window.dispatchEvent(new Event('TITLE_UPDATE'))
-
-        // Đóng màn hình settings nếu đang mở (cả Web & Electron)
-        setShowWebSettingsModal(false)
-        if (window.electron?.closeSettingsWindow) {
-          window.electron.closeSettingsWindow()
-        } else if (window.electron?.ipcRenderer) {
-          window.electron.ipcRenderer.send('window:close-settings-window')
-        }
-
-        // Tự động kiểm tra và tải ngầm phiên bản UI mới nhất khi đăng nhập
-        if (window.electron?.updater?.checkUi) {
-          window.electron.updater.checkUi().catch(() => {})
-        }
-
-        // Mở rộng kích thước cửa sổ sang chế độ Main
-        if (window.electron?.setMainSize) {
-          window.electron.setMainSize()
-        } else if (window.electron?.ipcRenderer) {
-          window.electron.ipcRenderer.send('window:set-main-size')
-        }
-
-        // Chuyển trang mượt mà sang giao diện chính
-        setTimeout(() => {
+          // 5. Chuyển trang tức thì sang giao diện chính
           if (mountedRef.current) {
             navigate('/erp/u/home', { replace: true })
           }
-        }, 150)
+        } catch (storageErr) {
+          console.warn('Storage sync error:', storageErr)
+          if (mountedRef.current) {
+            navigate('/erp/u/home', { replace: true })
+          }
+        }
       } else {
         const errCode =
           response?.error?.code ||

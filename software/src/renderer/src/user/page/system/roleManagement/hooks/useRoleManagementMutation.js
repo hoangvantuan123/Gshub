@@ -2,7 +2,13 @@
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { togglePageInteraction } from '../../../../../utils/togglePageInteraction'
-import { PostUUserRole } from '../../../../../api/system'
+import { updateIndexNo } from '../../../../components/sheet/js/updateIndexNo'
+import {
+  PostUUserRole,
+  PostAUserRole,
+  PostURootMenuRole,
+  PostUActionRole
+} from '../../../../../api/system'
 
 export function useRoleManagementMutation({
   gridDataA,
@@ -17,16 +23,22 @@ export function useRoleManagementMutation({
   setGridDataScope,
   gridDataUsers,
   setGridDataUsers,
+  selectionUsers,
+  selectionB,
+  selectionA,
+  selectionAction,
   canCreate,
   canEdit,
   canDelete,
   loadingBarRef,
   setStatusMessage,
-  selectedGroupId
+  selectedGroupId,
+  selectedMenuInGrid,
+  fetchGroupRoles
 }) {
   const { t } = useTranslation()
 
-  // 1. Lưu phân quyền và thành viên qua Backend API
+  // 1. Lưu phân quyền (Menu, Actions, RootMenu) và thành viên qua Backend API
   const handleSave = useCallback(async () => {
     if (!canCreate && !canEdit) {
       if (setStatusMessage) {
@@ -48,33 +60,74 @@ export function useRoleManagementMutation({
       return
     }
 
-    const allPermissions = (gridDataB || []).map((m) => ({
+    const allMenuPermissions = (gridDataB || []).map((m) => ({
       MenuId: String(m.MenuId || m.Id || ''),
       RootMenuId: String(m.RootMenuId || m.MenuRootId || ''),
       MenuLabel: m.MenuLabel || m.Label || '',
       CanView: Boolean(m.View || m.CanView),
-      CanCreate: Boolean(m.Create || m.CanCreate),
-      CanEdit: Boolean(m.Edit || m.CanEdit),
-      CanDelete: Boolean(m.Delete || m.CanDelete),
-      CanImport: Boolean(m.Import || m.CanImport),
-      CanExport: Boolean(m.Export || m.CanExport)
+      View: Boolean(m.View || m.CanView)
     }))
+
+
+    const allRootMenuPermissions = (gridDataA || []).map((rm) => {
+      const rmId = String(rm.RootMenuId || rm.Id || '')
+      const hasCheckedChild = (gridDataB || []).some(
+        (m) =>
+          (String(m.RootMenuId || m.MenuRootId || '') === rmId ||
+            (rm.RootMenuKey && String(m.RootMenuKey || m.MenuKey || '').startsWith(rm.RootMenuKey))) &&
+          Boolean(m.View || m.CanView)
+      )
+      const canView = Boolean(rm.View || rm.CanView || hasCheckedChild)
+      return {
+        RootMenuId: rmId,
+        RootMenuName: rm.RootMenuLabel || rm.RootMenuName || rm.Label || '',
+        CanView: canView,
+        View: canView
+      }
+    })
 
     const validUserIds = (gridDataUsers || [])
       .map((u) => String(u?.UserId || '').trim())
       .filter(Boolean)
 
+    const selectedMenuId = String(
+      selectedMenuInGrid?.MenuId || selectedMenuInGrid?.Id || ''
+    ).trim()
+
     togglePageInteraction(true, t('Đang lưu dữ liệu phân quyền và thành viên nhóm...'))
     loadingBarRef?.current?.continuousStart?.()
 
     try {
-      const payload = {
-        groupId: String(selectedGroupId),
-        permissions: allPermissions
+      const savePromises = [
+        PostUUserRole({
+          groupId: String(selectedGroupId),
+          permissions: allMenuPermissions
+        })
+      ]
+
+      if (allRootMenuPermissions.length > 0) {
+        savePromises.push(
+          PostURootMenuRole({
+            groupId: String(selectedGroupId),
+            rootMenus: allRootMenuPermissions
+          })
+        )
       }
 
-      const savePromises = [PostUUserRole(payload)]
-      if (validUserIds.length > 0) {
+      if (selectedMenuId && Array.isArray(gridDataAction) && gridDataAction.length > 0) {
+        savePromises.push(
+          PostUActionRole({
+            groupId: String(selectedGroupId),
+            menuId: selectedMenuId,
+            actions: gridDataAction.map((a) => ({
+              ActionKey: a.ActionKey || a.Key || '',
+              Allow: Boolean(a.Allow)
+            }))
+          })
+        )
+      }
+
+      if (Array.isArray(gridDataUsers)) {
         savePromises.push(
           PostAUserRole({
             groupId: String(selectedGroupId),
@@ -86,16 +139,30 @@ export function useRoleManagementMutation({
       await Promise.all(savePromises)
 
       // Reset status 'U' và isEdited
-      setGridDataA((prev) => prev.map((r) => ({ ...r, WorkingTag: '', Status: '', isEdited: false })))
-      setGridDataB((prev) => prev.map((r) => ({ ...r, WorkingTag: '', Status: '', isEdited: false })))
+      setGridDataA((prev) =>
+        prev.map((r) => ({ ...r, WorkingTag: '', Status: '', isEdited: false }))
+      )
+      setGridDataB((prev) =>
+        prev.map((r) => ({ ...r, WorkingTag: '', Status: '', isEdited: false }))
+      )
+      if (setGridDataAction) {
+        setGridDataAction((prev) =>
+          prev.map((r) => ({ ...r, WorkingTag: '', Status: '', isEdited: false }))
+        )
+      }
       if (setGridDataUsers) {
-        setGridDataUsers((prev) => prev.map((r) => ({ ...r, WorkingTag: '', Status: '', isEdited: false })))
+        setGridDataUsers((prev) =>
+          prev.map((r) => ({ ...r, WorkingTag: '', Status: '', isEdited: false }))
+        )
       }
 
       if (setStatusMessage) {
         setStatusMessage({
           type: 'success',
-          text: t('system.savePermissionsSuccess', 'Đã lưu cấu hình phân quyền và thành viên nhóm thành công!')
+          text: t(
+            'system.savePermissionsSuccess',
+            'Đã lưu cấu hình phân quyền và thành viên nhóm thành công!'
+          )
         })
       }
     } catch (err) {
@@ -116,17 +183,20 @@ export function useRoleManagementMutation({
     canEdit,
     gridDataA,
     gridDataB,
+    gridDataAction,
     gridDataUsers,
     loadingBarRef,
     selectedGroupId,
+    selectedMenuInGrid,
     setGridDataA,
     setGridDataB,
+    setGridDataAction,
     setGridDataUsers,
     setStatusMessage,
     t
   ])
 
-  // 2. Xóa phân quyền
+  // 2. Xóa dòng đang chọn trong Sheet (XÓA SHEET - Ctrl+Shift+D)
   const handleDelete = useCallback(async () => {
     if (!canDelete) {
       if (setStatusMessage) {
@@ -138,13 +208,45 @@ export function useRoleManagementMutation({
       return
     }
 
+    // A. Xóa dòng ở bảng Thành viên trong nhóm (gridDataUsers)
+    const selectedUserRowIndices = new Set()
+    if (selectionUsers?.rows?.items) {
+      for (const [start, end] of selectionUsers.rows.items) {
+        for (let i = start; i < end; i++) {
+          selectedUserRowIndices.add(i)
+        }
+      }
+    }
+    if (selectedUserRowIndices.size === 0 && selectionUsers?.current?.cell) {
+      selectedUserRowIndices.add(selectionUsers.current.cell[1])
+    }
+
+    if (selectedUserRowIndices.size > 0 && Array.isArray(gridDataUsers) && gridDataUsers.length > 0) {
+      const hasValidRow = Array.from(selectedUserRowIndices).some(
+        (idx) => idx < gridDataUsers.length && gridDataUsers[idx]?.UserId
+      )
+      if (hasValidRow && setGridDataUsers) {
+        setGridDataUsers((prev) => {
+          const next = prev.filter((_, idx) => !selectedUserRowIndices.has(idx))
+          return updateIndexNo(next)
+        })
+        if (setStatusMessage) {
+          setStatusMessage({
+            type: 'info',
+            text: t('Đã gỡ người dùng được chọn khỏi bảng. Nhấn LƯU (Ctrl+S) để cập nhật vào hệ thống!')
+          })
+        }
+        return
+      }
+    }
+
     if (setStatusMessage) {
       setStatusMessage({
         type: 'info',
-        text: t('Đã đặt lại trạng thái phân quyền về mặc định.')
+        text: t('Vui lòng chọn dòng cần xóa trên bảng!')
       })
     }
-  }, [canDelete, setStatusMessage, t])
+  }, [canDelete, selectionUsers, gridDataUsers, setGridDataUsers, setStatusMessage, t])
 
   return {
     handleSave,
@@ -152,3 +254,4 @@ export function useRoleManagementMutation({
     limitModalProps: { isOpen: false, onClose: () => {} }
   }
 }
+

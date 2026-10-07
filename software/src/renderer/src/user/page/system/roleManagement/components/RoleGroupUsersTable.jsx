@@ -8,7 +8,8 @@ import GenericCodeHelpModal from '../../../../components/query/core/GenericCodeH
 import LayoutMenuSheet from '../../../../components/sheet/jsx/layoutMenu'
 import LayoutStatusMenuSheet from '../../../../components/sheet/jsx/layoutStatusMenu'
 import LayoutContextMenuSheet from '../../../../components/sheet/jsx/layoutContextMenu'
-import { Drawer, Checkbox } from 'antd'
+import { Drawer, Checkbox, Button, message } from 'antd'
+import { UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons'
 import { reorderColumns } from '../../../../components/sheet/js/reorderColumns'
 import { updateIndexNo } from '../../../../components/sheet/js/updateIndexNo'
 import useOnFill from '../../../../components/hooks/sheet/onFillHook'
@@ -45,7 +46,7 @@ export default function RoleGroupUsersTable({
   const onSearchClose = useCallback(() => setShowSearch && setShowSearch(false), [setShowSearch])
   const { freezeColumnsCount, handleFreezeColumn } = useTableConfig('role_group_users_sheet')
 
-  // State quản lý Modal Code Help mở tức thì khi click ô
+  // State quản lý Modal Code Help mở tức thì khi click ô hoặc nút Thêm
   const [directHelpModal, setDirectHelpModal] = useState({
     isOpen: false,
     rowIndex: -1,
@@ -66,26 +67,65 @@ export default function RoleGroupUsersTable({
         fetchHelpData: createCodeHelpFetcher(PostQUserAuth),
         onSelect: (selected, rowIndex) => {
           if (!selected) return
+          const selectedList = Array.isArray(selected) ? selected : [selected]
+          if (selectedList.length === 0) return
+
           setGridData((prev) => {
-            const next = [...prev]
-            const targetIdx = rowIndex >= 0 ? rowIndex : 0
-            while (next.length <= targetIdx) {
+            let next = [...prev]
+
+            if (rowIndex !== undefined && rowIndex >= 0 && selectedList.length === 1) {
+              const u = selectedList[0]
+              while (next.length <= rowIndex) {
+                next.push({
+                  WorkingTag: 'A',
+                  Status: 'A',
+                  GroupName: groupName || (groupId ? `ID: ${groupId}` : '')
+                })
+              }
+              const current = { ...(next[rowIndex] || {}) }
+              current.UserSeq = u.UserSeq || ''
+              current.UserId = u.UserId || ''
+              current.UserName = u.UserName || u.EmpName || u.UserId || ''
+              current.EmpID = u.EmpID || u.EmpCode || ''
+              current.DeptName = u.DeptName || ''
+              current.GroupName = groupName || (groupId ? `ID: ${groupId}` : '')
+              current.WorkingTag = current.Id ? 'U' : 'A'
+              current.Status = current.WorkingTag
+              current.isEdited = true
+              next[rowIndex] = current
+              return updateIndexNo(next)
+            }
+
+            // Gán danh sách nhiều tài khoản
+            selectedList.forEach((u) => {
+              const existingIdx = next.findIndex(
+                (item) => String(item?.UserId || '').toLowerCase() === String(u?.UserId || '').toLowerCase()
+              )
+              if (existingIdx >= 0) {
+                if (next[existingIdx].WorkingTag === 'D') {
+                  next[existingIdx] = {
+                    ...next[existingIdx],
+                    WorkingTag: 'U',
+                    Status: 'U',
+                    isEdited: true
+                  }
+                }
+                return
+              }
+
               next.push({
                 WorkingTag: 'A',
                 Status: 'A',
-                GroupName: groupName || (groupId ? `ID: ${groupId}` : '')
+                UserSeq: u.UserSeq || '',
+                UserId: u.UserId || '',
+                UserName: u.UserName || u.EmpName || u.UserId || '',
+                EmpID: u.EmpID || u.EmpCode || '',
+                DeptName: u.DeptName || '',
+                GroupName: groupName || (groupId ? `ID: ${groupId}` : ''),
+                isEdited: true
               })
-            }
-            const current = { ...(next[targetIdx] || {}) }
-            current.UserId = selected.UserId || ''
-            current.UserName = selected.UserName || selected.EmpName || selected.UserId || ''
-            current.EmpID = selected.EmpID || selected.EmpCode || ''
-            current.DeptName = selected.DeptName || ''
-            current.GroupName = groupName || (groupId ? `ID: ${groupId}` : '')
-            current.WorkingTag = current.Id ? 'U' : 'A'
-            current.Status = current.WorkingTag
-            current.isEdited = true
-            next[targetIdx] = current
+            })
+
             return updateIndexNo(next)
           })
         }
@@ -116,7 +156,8 @@ export default function RoleGroupUsersTable({
     isReadOnlyColumn,
     gridTheme,
     onCellContextMenu,
-    onHeaderContextMenu
+    onHeaderContextMenu,
+    onPaste
   } = useTableManager({
     tableId: 'role_group_users_sheet',
     defaultCols,
@@ -132,6 +173,7 @@ export default function RoleGroupUsersTable({
     codeHelpConfig,
     onAddQueryField
   })
+
 
   const onClose = () => setOpen(false)
 
@@ -178,13 +220,13 @@ export default function RoleGroupUsersTable({
       let value = ''
 
       if (columnKey === 'GroupName') {
-        value = item?.GroupName || (item?.UserId ? (groupName || `ID: ${groupId}`) : '')
+        value = item?.GroupName || (item?.UserId ? groupName || `ID: ${groupId}` : '')
       } else if (item) {
         value = item[columnKey] ?? ''
       }
 
       if (meta.isStatus) {
-        const tag = String(item?.WorkingTag || item?.Status || (item?.UserId ? '' : 'A'))
+        const tag = String(item?.WorkingTag || item?.Status || '')
         return {
           kind: GridCellKind.Text,
           data: tag,
@@ -193,16 +235,10 @@ export default function RoleGroupUsersTable({
           allowOverlay: false,
           hasMenu: meta.hasMenu,
           contentAlign: 'center',
-          themeOverride:
-            tag === 'A'
-              ? { textDark: '#d97706', baseFontStyle: 'bold 12px' }
-              : tag === 'U'
-                ? { textDark: '#2563eb', baseFontStyle: 'bold 12px' }
-                : tag === 'D'
-                  ? { textDark: '#dc2626', baseFontStyle: 'bold 12px' }
-                  : meta.cellTheme
+          themeOverride: meta.cellTheme
         }
       }
+
 
       if (meta.isCodeHelp) {
         const strVal = String(value)
@@ -346,6 +382,28 @@ export default function RoleGroupUsersTable({
     setDirectHelpModal({ isOpen: false, rowIndex: -1, initialText: '' })
   }
 
+  // Gỡ thành viên đang chọn trong sheet
+  const handleDeleteSelectedMembers = useCallback(() => {
+    if (!selection?.rows || selection.rows.length === 0) {
+      message.warning(t('Vui lòng chọn ít nhất 1 dòng thành viên để gỡ khỏi nhóm!'))
+      return
+    }
+
+    const selectedRowIndices = new Set()
+    for (const range of selection.rows) {
+      for (let i = range[0]; i < range[1]; i++) {
+        selectedRowIndices.add(i)
+      }
+    }
+
+    setGridData((prev) => {
+      const next = prev.filter((_, idx) => !selectedRowIndices.has(idx))
+      return updateIndexNo(next)
+    })
+
+    message.info(t('Đã gỡ thành viên khỏi bảng. Nhấn LƯU (Ctrl+S) để cập nhật thay đổi vào hệ thống!'))
+  }, [selection, setGridData, t])
+
   // Số lượng dòng thực tế hiển thị
   const totalRows = useMemo(() => {
     const dataLen = gridData.length
@@ -374,6 +432,7 @@ export default function RoleGroupUsersTable({
           onHeaderMenuClick={onHeaderMenuClick}
           onHeaderContextMenu={onHeaderContextMenu}
           onCellContextMenu={onCellContextMenu}
+          onPaste={onPaste}
           onFill={onFill}
           showSearch={showSearch}
           onSearchClose={onSearchClose}
@@ -408,12 +467,12 @@ export default function RoleGroupUsersTable({
         <GenericCodeHelpModal
           isOpen={directHelpModal.isOpen}
           onClose={() => setDirectHelpModal({ isOpen: false, rowIndex: -1, initialText: '' })}
-          title={t('Tra cứu người dùng hệ thống')}
+          title={t('Tra cứu và chọn tài khoản người dùng')}
           columns={codeHelpConfig.UserId.columns}
           fetchHelpData={codeHelpConfig.UserId.fetchHelpData}
           onSelect={handleSelectDirectHelp}
           initialSearchText={directHelpModal.initialText}
-          isMultiSelect={false}
+          isMultiSelect={true}
           storageKey="role_mgmt_user_help"
         />
       )}

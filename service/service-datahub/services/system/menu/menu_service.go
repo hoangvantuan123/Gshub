@@ -26,11 +26,6 @@ type MenuItem struct {
 	Icon          string `json:"Icon"`
 	OrderSeq      int    `json:"OrderSeq"`
 	View          bool   `json:"View"`
-	Create        bool   `json:"Create"`
-	Edit          bool   `json:"Edit"`
-	Delete        bool   `json:"Delete"`
-	Import        bool   `json:"Import"`
-	Export        bool   `json:"Export"`
 	CreatedBy     string `json:"CreatedBy"`
 	CreatedByName string `json:"CreatedByName"`
 	CreatedAt     string `json:"CreatedAt"`

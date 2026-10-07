@@ -18,6 +18,7 @@ func SetupRouter(
 	rolePermHandler *system.RolePermHandler,
 	rootMenuHandler *system.RootMenuHandler,
 	menuHandler *system.MenuHandler,
+	actionHandler *system.ActionHandler,
 	loginHandler *handlers.LoginHandler,
 	configHandler *handlers.ConfigHandler,
 	workProcessHandler *handlers.WorkProcessHandler,
@@ -59,8 +60,10 @@ func SetupRouter(
 		g.GET("/LangH", helpHandler.LangH)
 		g.POST("/UsersH", helpHandler.UsersH)
 		g.POST("/MenuH", helpHandler.MenuH)
-		// g.POST("/RootMenuH", helpHandler.RootMenuH)
+		g.POST("/RootMenuH", helpHandler.RootMenuH)
 		g.POST("/SubMenuH", helpHandler.SubMenuH)
+		g.POST("/PermActionsH", helpHandler.CodeHelpQ)
+		g.POST("/ActionsH", helpHandler.CodeHelpQ)
 	}
 
 	// ====================================================================
@@ -70,65 +73,128 @@ func SetupRouter(
 	v2.Use(middleware.AppSecurityMiddleware(logger))
 	v2.Use(middleware.OptionalJwtAuthMiddleware(cfg))
 	{
-		// 1. Auth & Accounts (/api/v2/acc)
-		acc := v2.Group("/acc")
-		{
-			acc.POST("/p2/login", authHandler.Login)
-			acc.POST("/p2/loginApp", authHandler.Login)
-			acc.POST("/p2/change-password", authHandler.ChangePass)
-			acc.POST("/p2/logout", authHandler.Logout)
+		// 1. Auth & Accounts (/api/v2/acc, /api/v2/system/acc, /api/v2/system-users)
+		regAcc := func(g *gin.RouterGroup) {
+			g.POST("/p2/login", authHandler.Login)
+			g.POST("/p2/loginApp", authHandler.Login)
+			g.POST("/p2/change-password", authHandler.ChangePass)
+			g.POST("/p2/logout", authHandler.Logout)
 
-			// Tách riêng User Auth A/U/D/Q Handler
-			acc.POST("/UsersAuthA", userAuthHandler.UsersAuthA)
-			acc.POST("/UsersAuthU", userAuthHandler.UsersAuthU)
-			acc.POST("/UsersAuthD", userAuthHandler.UsersAuthD)
-			acc.POST("/UsersAuthQ", userAuthHandler.UsersAuthQ)
-			acc.POST("/UsersAuthUStatusAcc", authHandler.UsersAuthUStatusAcc)
-			acc.POST("/UPass2", authHandler.UpdatePasswords)
+			g.POST("/UsersAuthA", userAuthHandler.UsersAuthA)
+			g.POST("/UsersAuthU", userAuthHandler.UsersAuthU)
+			g.POST("/UsersAuthD", userAuthHandler.UsersAuthD)
+			g.POST("/UsersAuthQ", userAuthHandler.UsersAuthQ)
+			g.POST("/UsersAuthUStatusAcc", authHandler.UsersAuthUStatusAcc)
+			g.POST("/UPass2", authHandler.UpdatePasswords)
 		}
+		regAcc(v2.Group("/acc"))
+		regAcc(v2.Group("/system/acc"))
+		regAcc(v2.Group("/system/user"))
+		regAcc(v2.Group("/system/users"))
+		regAcc(v2.Group("/system-users"))
+		regAcc(v2.Group("/mssql/system-users"))
 
-		// 2. Roles & Permissions (/api/v2/role)
-		role := v2.Group("/role")
-		{
-			// Tách riêng Role Group A/U/D/Q Handler
-			role.POST("/RoleGroupQ", roleGroupHandler.RoleGroupQ)
-			role.POST("/RoleGroupA", roleGroupHandler.RoleGroupA)
-			role.POST("/RoleGroupU", roleGroupHandler.RoleGroupU)
-			role.POST("/RoleGroupD", roleGroupHandler.RoleGroupD)
+		// 2. Roles & Permissions (/api/v2/role, /api/v2/system/role, /api/v2/system/roles)
+		regRoles := func(g *gin.RouterGroup) {
+			g.POST("/RoleGroupQ", roleGroupHandler.RoleGroupQ)
+			g.POST("/RoleGroupA", roleGroupHandler.RoleGroupA)
+			g.POST("/RoleGroupU", roleGroupHandler.RoleGroupU)
+			g.POST("/RoleGroupD", roleGroupHandler.RoleGroupD)
 
-			// Tách riêng Role Perm & Assignment Handler
-			role.POST("/RoleQ", roleGroupHandler.RoleGroupQ)
-			role.POST("/RoleA", roleGroupHandler.RoleGroupA)
-			role.POST("/RoleU", roleGroupHandler.RoleGroupU)
-			role.POST("/RoleD", roleGroupHandler.RoleGroupD)
+			g.POST("/RoleQ", roleGroupHandler.RoleGroupQ)
+			g.POST("/RoleA", roleGroupHandler.RoleGroupA)
+			g.POST("/RoleU", roleGroupHandler.RoleGroupU)
+			g.POST("/RoleD", roleGroupHandler.RoleGroupD)
 
-			role.POST("/UserRoleQ", rolePermHandler.UserRoleQ)
-			role.POST("/UserRoleA", rolePermHandler.UserRoleA)
-			role.POST("/UserRoleU", rolePermHandler.MenuRoleU)
-			role.POST("/UserRoleD", rolePermHandler.UserRoleD)
+			g.POST("/UserRoleQ", rolePermHandler.UserRoleQ)
+			g.POST("/UserRoleA", rolePermHandler.UserRoleA)
+			g.POST("/UserRoleU", rolePermHandler.MenuRoleU)
+			g.POST("/UserRoleD", rolePermHandler.UserRoleD)
 
-			role.POST("/MenuRoleQ", rolePermHandler.MenuRoleQ)
-			// role.POST("/RootMenuRoleQ", rolePermHandler.RootMenuRoleQ)
+			g.POST("/MenuRoleQ", rolePermHandler.MenuRoleQ)
+			g.POST("/MenuRoleU", rolePermHandler.MenuRoleU)
+			g.POST("/RootMenuRoleQ", rolePermHandler.RootMenuRoleQ)
+			g.POST("/RootMenuRoleU", rolePermHandler.RootMenuRoleU)
+
+			// Action Perms theo Menu & Role Group
+			g.POST("/ActionRoleQ", rolePermHandler.ActionRoleQ)
+			g.POST("/ActionRoleU", rolePermHandler.ActionRoleU)
+			g.POST("/MenuActionRoleQ", rolePermHandler.ActionRoleQ)
+			g.POST("/MenuActionRoleU", rolePermHandler.ActionRoleU)
+
+			// Table Group & Technique Perm Aliases
+			g.POST("/TblGrpQ", roleGroupHandler.RoleGroupQ)
+			g.POST("/TblGrpA", roleGroupHandler.RoleGroupA)
+			g.POST("/TblGrpU", roleGroupHandler.RoleGroupU)
+			g.POST("/TblGrpD", roleGroupHandler.RoleGroupD)
+
+			g.POST("/TblGrpItemQ", rolePermHandler.MenuRoleQ)
+			g.POST("/TblGrpItemA", rolePermHandler.MenuRoleU)
+			g.POST("/TblGrpItemU", rolePermHandler.MenuRoleU)
+			g.POST("/TblGrpItemD", rolePermHandler.MenuRoleU)
+
+			g.POST("/TblGrpPermQ", rolePermHandler.MenuRoleQ)
+			g.POST("/TblGrpPermA", rolePermHandler.MenuRoleU)
+			g.POST("/TblGrpPermU", rolePermHandler.MenuRoleU)
+			g.POST("/TblGrpPermD", rolePermHandler.MenuRoleU)
+
+			g.POST("/TblGrpPermRoleQ", rolePermHandler.MenuRoleQ)
+			g.POST("/TblGrpPermRoleA", rolePermHandler.MenuRoleU)
+			g.POST("/TblGrpPermRoleU", rolePermHandler.MenuRoleU)
+			g.POST("/TblGrpPermRoleD", rolePermHandler.MenuRoleU)
 		}
+		regRoles(v2.Group("/role"))
+		regRoles(v2.Group("/roles"))
+		regRoles(v2.Group("/system/role"))
+		regRoles(v2.Group("/system/roles"))
 
-		// 3. Menus (/api/v2/menu & /api/v2/system-users & /api/v2/mssql/system-users)
+		// 3. Menus & Actions (/api/v2/menu, /api/v2/action & /api/v2/system/*)
 		regMenus := func(g *gin.RouterGroup) {
-			// Tách riêng Menu A/U/D/Q Handler
+			// Menu CRUD
 			g.POST("/MenuQ", menuHandler.MenuQ)
 			g.POST("/MenuA", menuHandler.MenuA)
 			g.POST("/MenuU", menuHandler.MenuU)
 			g.POST("/MenuD", menuHandler.MenuD)
 
-			// Tạm ẩn API RootMenu / Module
-			// g.POST("/RootMenuQ", rootMenuHandler.RootMenuQ)
-			// g.POST("/RootMenuA", rootMenuHandler.RootMenuA)
-			// g.POST("/RootMenuU", rootMenuHandler.RootMenuU)
-			// g.POST("/RootMenuD", rootMenuHandler.RootMenuD)
-			// g.POST("/root-menu-Q", rootMenuHandler.RootMenuQ)
+			// RootMenu CRUD
+			g.POST("/RootMenuQ", rootMenuHandler.RootMenuQ)
+			g.POST("/RootMenuA", rootMenuHandler.RootMenuA)
+			g.POST("/RootMenuU", rootMenuHandler.RootMenuU)
+			g.POST("/RootMenuD", rootMenuHandler.RootMenuD)
+			g.POST("/root-menu-Q", rootMenuHandler.RootMenuQ)
+
+			// Action Registry CRUD
+			g.POST("/ActionQ", actionHandler.ActionQ)
+			g.POST("/ActionA", actionHandler.ActionA)
+			g.POST("/ActionU", actionHandler.ActionU)
+			g.POST("/ActionD", actionHandler.ActionD)
+
+			// Metasys Legacy Endpoints
+			g.POST("/metasys-menu", menuHandler.MenuA)
+			g.POST("/metasys-roles-menus", rolePermHandler.MenuRoleU)
+			g.GET("/menus-not-in-role", menuHandler.MenuQ)
+			g.POST("/search-menus", menuHandler.MenuQ)
+
+			g.POST("/metasys-root-menu", rootMenuHandler.RootMenuA)
+			g.POST("/metasys-roles-root-menus", rolePermHandler.MenuRoleU)
+			g.GET("/metasys-root-menu-all", rootMenuHandler.RootMenuQ)
+			g.GET("/root-menus-not-in-role", rootMenuHandler.RootMenuQ)
+			g.POST("/search-root-menus", rootMenuHandler.RootMenuQ)
 		}
 		regMenus(v2.Group("/menu"))
-		regMenus(v2.Group("/system-users"))
-		regMenus(v2.Group("/mssql/system-users"))
+		regMenus(v2.Group("/menus"))
+		regMenus(v2.Group("/action"))
+		regMenus(v2.Group("/actions"))
+		regMenus(v2.Group("/system/menu"))
+		regMenus(v2.Group("/system/menus"))
+		regMenus(v2.Group("/system/action"))
+		regMenus(v2.Group("/system/actions"))
+
+		// Tổng hợp trực tiếp trên /api/v2/system
+		sysGroup := v2.Group("/system")
+		regAcc(sysGroup)
+		regRoles(sysGroup)
+		regMenus(sysGroup)
 
 		// 4. CodeHelp & Common Help Engine (/api/v2/help)
 		regHelp(v2.Group("/help"))

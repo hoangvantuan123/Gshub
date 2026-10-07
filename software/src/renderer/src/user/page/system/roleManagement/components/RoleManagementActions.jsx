@@ -34,22 +34,6 @@ export default function RoleManagementActions({
         </Button>
       )}
 
-      {onOpenMembersModal && (
-        <Button
-          key="Members"
-          icon={<TeamOutlined className="text-indigo-600" style={{ fontSize: '12px' }} />}
-          size="small"
-          onClick={onOpenMembersModal}
-          className="uppercase text-[10px] whitespace-nowrap font-medium"
-          style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
-          color="default"
-          variant="link"
-          title="Xem & Gán danh sách tài khoản người dùng vào nhóm quyền này"
-        >
-          {t('THÀNH VIÊN TRONG NHÓM')}
-        </Button>
-      )}
-
       {canSave && (
         <Button
           key="Save"

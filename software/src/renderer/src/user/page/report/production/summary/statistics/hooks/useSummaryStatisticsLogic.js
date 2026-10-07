@@ -313,10 +313,15 @@ export function useSummaryStatisticsLogic() {
           wasteMin = parseFloat(String(rawWaste).replace(',', '.')) || 0
         } else {
           const bd =
-            parseFloat(String(row.BreakdownMinutes ?? row.breakdownMinutes ?? 0).replace(',', '.')) || 0
+            parseFloat(
+              String(row.BreakdownMinutes ?? row.breakdownMinutes ?? 0).replace(',', '.')
+            ) || 0
           const wm =
             parseFloat(
-              String(row.WaitingMaterialMinutes ?? row.waitingMaterialMinutes ?? 0).replace(',', '.')
+              String(row.WaitingMaterialMinutes ?? row.waitingMaterialMinutes ?? 0).replace(
+                ',',
+                '.'
+              )
             ) || 0
           const st =
             parseFloat(String(row.SetupMinutes ?? row.setupMinutes ?? 0).replace(',', '.')) || 0

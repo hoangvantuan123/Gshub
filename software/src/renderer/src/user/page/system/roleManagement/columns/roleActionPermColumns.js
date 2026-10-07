@@ -14,22 +14,22 @@ export const useRoleActionPermColumns = ({ isFieldVisible, isFieldReadOnly } = {
         readonly: true,
         width: 45,
         hasMenu: true,
-        visible: true,
-        themeOverride: { textDark: '#225588', baseFontStyle: '600 13px' }
+        visible: true
       },
+
       {
-        title: t('system.id', 'ID'),
-        id: 'Id',
+        title: t('system.orderSeq', 'Thứ Tự'),
+        id: 'IdxNo',
         kind: 'Text',
         readonly: true,
         width: 70,
         hasMenu: true,
-        visible: false,
+        visible: true,
         trailingRowOptions: { disabled: true }
       },
       {
-        title: t('system.actionCode', 'Mã Hành Động (Action Key)'),
-        id: 'ActionCode',
+        title: t('system.actionKey', 'Mã Nút Lệnh (Action Key)'),
+        id: 'ActionKey',
         kind: 'Text',
         readonly: true,
         width: 220,
@@ -42,47 +42,27 @@ export const useRoleActionPermColumns = ({ isFieldVisible, isFieldReadOnly } = {
         id: 'ActionName',
         kind: 'Text',
         readonly: true,
-        width: 220,
+        width: 260,
         hasMenu: true,
         visible: true,
         trailingRowOptions: { disabled: true }
       },
       {
-        title: t('system.targetType', 'Áp Dụng Cho'),
-        id: 'TargetType',
+        title: t('system.description', 'Mô Tả / Quy Trình'),
+        id: 'Description',
         kind: 'Text',
         readonly: true,
-        width: 140,
+        width: 320,
         hasMenu: true,
         visible: true,
         trailingRowOptions: { disabled: true }
       },
       {
-        title: t('system.targetName', 'Tên Đối Tượng (Nhóm/User)'),
-        id: 'TargetName',
-        kind: 'Text',
-        readonly: true,
-        width: 200,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.allow', 'Cho Phép Thực Hiện'),
+        title: t('system.allow', 'Cho Phép Thực Hiện (Allow)'),
         id: 'Allow',
         kind: 'Boolean',
         readonly: false,
-        width: 140,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.comment', 'Ghi Chú'),
-        id: 'Comment',
-        kind: 'Text',
-        readonly: true,
-        width: 220,
+        width: 180,
         hasMenu: true,
         visible: true,
         trailingRowOptions: { disabled: true }
@@ -97,3 +77,4 @@ export const useRoleActionPermColumns = ({ isFieldVisible, isFieldReadOnly } = {
       }))
   }, [t, isFieldVisible, isFieldReadOnly])
 }
+

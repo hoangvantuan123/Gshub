@@ -57,7 +57,10 @@ export function buildCodeHelpParams(
       colUpper === 'SCOPENAME'
     ) {
       params.KeyItem2 = cleanKeyword
-    } else if (!params.KeyItem3 && (colUpper === 'ID' || colUpper === 'IDSEQ' || colUpper === 'MENUROOTID')) {
+    } else if (
+      !params.KeyItem3 &&
+      (colUpper === 'ID' || colUpper === 'IDSEQ' || colUpper === 'MENUROOTID')
+    ) {
       params.KeyItem3 = cleanKeyword
     } else {
       params[cleanColumn] = cleanKeyword
@@ -73,10 +76,13 @@ export function buildCodeHelpParams(
 export function createCodeHelpFetcher(apiFn, getExtraParams = null) {
   return async (searchText = '', page = 1, limit = 50, searchColumn = 'ALL', currentRow = null) => {
     try {
-      const extraParams = typeof getExtraParams === 'function' ? getExtraParams(currentRow) : getExtraParams || {}
+      const extraParams =
+        typeof getExtraParams === 'function' ? getExtraParams(currentRow) : getExtraParams || {}
       const params = buildCodeHelpParams(searchText, searchColumn, page, limit, extraParams)
       const res = await apiFn(params)
-      return res?.data?.data || res?.data || res?.Data || res?.result || (Array.isArray(res) ? res : [])
+      return (
+        res?.data?.data || res?.data || res?.Data || res?.result || (Array.isArray(res) ? res : [])
+      )
     } catch (err) {
       console.error('CodeHelp fetch error:', err)
       return []
@@ -125,4 +131,3 @@ export function createCmnCodeHelpFetcher(codeHelpName, getExtraParams = null) {
     })
   }, getExtraParams)
 }
-

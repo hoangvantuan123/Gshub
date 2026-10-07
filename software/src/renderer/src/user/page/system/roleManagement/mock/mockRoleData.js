@@ -463,6 +463,120 @@ export const MOCK_FLAT_MENUS_SQL = [
 // =========================================================================
 // HÀM TỰ ĐỘNG CHUYỂN ĐỔI MẢNG PHẲNG TỪ SQL THÀNH CÂY TREE
 // =========================================================================
+// HÀM TỰ ĐỘNG CHUYỂN ĐỔI MẢNG PHẲNG TỪ SQL THÀNH CÂY TREE TOÀN DIỆN (3 TẦNG: PHÂN HỆ -> SUBMENU -> MENU)
+// =========================================================================
+export function buildComprehensiveMenuTree(rootList = [], menuList = []) {
+  if (!Array.isArray(rootList) || rootList.length === 0) {
+    return buildMenuTreeFromFlatRows(menuList)
+  }
+
+  const rootMap = new Map()
+  const subMap = new Map()
+  const tree = []
+
+  // 1. Level 0: Phân Hệ Lớn (Root Modules)
+  for (const rm of rootList) {
+    const rmId = String(rm.RootMenuId || rm.Id || '')
+    const label = rm.RootMenuLabel || rm.RootMenuName || rm.Label || rm.Name || `Phân hệ ${rmId}`
+    const key = rm.RootMenuKey || rm.Key || `root_${rmId}`
+    const rootNode = {
+      Id: `root_${rmId}`,
+      RawId: rmId,
+      RootMenuId: rmId,
+      MenuId: `root_${rmId}`,
+      Key: key,
+      MenuKey: key,
+      Label: label,
+      RawLabel: label,
+      Type: 'Phân hệ',
+      MenuType: 'Phân hệ',
+      Level: 0,
+      IsGroup: true,
+      View: Boolean(rm.View || rm.CanView),
+      OrderSeq: rm.IdxNo || rm.OrderSeq || 1,
+      Children: []
+    }
+    rootMap.set(rmId, rootNode)
+    tree.push(rootNode)
+  }
+
+  // 2. Level 1: Submenus & Menu Groups
+  for (const m of menuList) {
+    const isSub = m.Type === 'submenu' || m.MenuType === 'submenu'
+    if (isSub) {
+      const id = String(m.MenuId || m.Id || '')
+      const rootId = String(m.RootMenuId || m.MenuRootId || '')
+      const label = m.MenuLabel || m.Label || m.Name || ''
+      const key = m.MenuKey || m.Key || ''
+      const subNode = {
+        ...m,
+        Id: id,
+        RawId: id,
+        MenuId: id,
+        RootMenuId: rootId,
+        Key: key,
+        MenuKey: key,
+        Label: label,
+        RawLabel: label,
+        Type: 'Submenu',
+        MenuType: 'Submenu',
+        Level: 1,
+        IsGroup: true,
+        View: Boolean(m.View || m.CanView),
+        Children: []
+      }
+      subMap.set(id, subNode)
+
+      const parentRoot = rootMap.get(rootId)
+      if (parentRoot) {
+        parentRoot.Children.push(subNode)
+      } else {
+        tree.push(subNode)
+      }
+    }
+  }
+
+  // 3. Level 2 (hoặc 1 nếu không có submenu): Menu Chi Tiết
+  for (const m of menuList) {
+    const isSub = m.Type === 'submenu' || m.MenuType === 'submenu'
+    if (!isSub) {
+      const id = String(m.MenuId || m.Id || '')
+      const rootId = String(m.RootMenuId || m.MenuRootId || '')
+      const subId = String(m.MenuSubRootId || m.ParentId || '0')
+      const label = m.MenuLabel || m.Label || m.Name || ''
+      const key = m.MenuKey || m.Key || ''
+      const menuNode = {
+        ...m,
+        Id: id,
+        RawId: id,
+        MenuId: id,
+        RootMenuId: rootId,
+        MenuSubRootId: subId,
+        Key: key,
+        MenuKey: key,
+        Label: label,
+        RawLabel: label,
+        Type: 'Menu',
+        MenuType: 'Menu',
+        Level: subId !== '0' && subId !== '' && subMap.has(subId) ? 2 : 1,
+        IsGroup: false,
+        View: Boolean(m.View || m.CanView),
+        Children: []
+      }
+
+      if (subId !== '0' && subId !== '' && subMap.has(subId)) {
+        subMap.get(subId).Children.push(menuNode)
+      } else if (rootMap.has(rootId)) {
+        rootMap.get(rootId).Children.push(menuNode)
+      } else {
+        tree.push(menuNode)
+      }
+    }
+  }
+
+  return tree
+}
+
 export function buildMenuTreeFromFlatRows(flatRows = []) {
   if (!Array.isArray(flatRows) || flatRows.length === 0) return []
 
@@ -528,7 +642,13 @@ export function flattenMenuTree(tree = [], expandedIds = new Set(), rootMenuId =
 
   function traverse(nodes, depth = 0) {
     for (const node of nodes) {
-      if (rootMenuId && node.RootMenuId && node.RootMenuId !== rootMenuId) {
+      if (
+        rootMenuId &&
+        rootMenuId !== 'ALL' &&
+        node.RootMenuId &&
+        String(node.RootMenuId) !== String(rootMenuId) &&
+        String(node.RawId) !== String(rootMenuId)
+      ) {
         continue
       }
 
@@ -538,23 +658,29 @@ export function flattenMenuTree(tree = [], expandedIds = new Set(), rootMenuId =
 
       let displayPrefix = ''
       if (node.Level === 0) {
-        displayPrefix = isExpanded ? '[-] ' : '[+] '
+        displayPrefix = hasChildren ? (isExpanded ? '[-] 📁 ' : '[+] 📁 ') : '📁 '
       } else if (node.Level === 1) {
-        displayPrefix = hasChildren ? (isExpanded ? '    [-] ' : '    [+] ') : '    - '
+        displayPrefix = hasChildren
+          ? isExpanded
+            ? '    [-] 📂 '
+            : '    [+] 📂 '
+          : node.IsGroup
+            ? '    📂 '
+            : '    📄 '
       } else {
-        displayPrefix = '        - '
+        displayPrefix = '        📄 '
       }
 
       const countSuffix = hasChildren ? ` (${count})` : ''
-      const treeDisplay = `${displayPrefix}${node.Label}${countSuffix}`
+      const treeDisplay = `${displayPrefix}${node.RawLabel || node.Label}${countSuffix}`
 
       result.push({
         ...node,
-        MenuId: node.Id,
+        MenuId: node.RawId || node.Id,
         MenuKey: node.Key,
         MenuLabel: treeDisplay,
-        RawLabel: node.Label,
-        MenuType: node.Type,
+        RawLabel: node.RawLabel || node.Label,
+        MenuType: node.MenuType || node.Type,
         _depth: depth,
         _hasChildren: hasChildren,
         _isExpanded: isExpanded,
@@ -570,6 +696,7 @@ export function flattenMenuTree(tree = [], expandedIds = new Set(), rootMenuId =
   traverse(tree, 0)
   return result
 }
+
 
 export function getFlatMenuList(flatOrTree = [], rootMenuId = null) {
   if (Array.isArray(flatOrTree) && flatOrTree.length > 0 && flatOrTree[0].Type) {

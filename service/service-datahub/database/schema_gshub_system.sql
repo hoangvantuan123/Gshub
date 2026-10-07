@@ -88,14 +88,9 @@ CREATE TABLE IF NOT EXISTS "_ERPRolesUsers" (
     "UserId"      VARCHAR(100),
     "MenuId"      BIGINT,
     "RootMenuId"  BIGINT,
-    "Type"        VARCHAR(50) DEFAULT 'menu', -- 'rootmenu', 'menu', 'user'
+    "Type"        VARCHAR(50) DEFAULT 'menu', -- 'rootmenu', 'menu', 'action', 'user'
     "Name"        VARCHAR(255),
-    "View"        BOOLEAN DEFAULT true,
-    "Create"      BOOLEAN DEFAULT true,
-    "Edit"        BOOLEAN DEFAULT true,
-    "Delete"      BOOLEAN DEFAULT true,
-    "Import"      BOOLEAN DEFAULT true,
-    "Export"      BOOLEAN DEFAULT true,
+    "View"        BOOLEAN DEFAULT false,
     "CreatedBy"   VARCHAR(100),
     "CreatedAt"   TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "UpdatedBy"   VARCHAR(100),
@@ -119,11 +114,6 @@ CREATE TABLE IF NOT EXISTS "_ERPRootMenus" (
     "IdxNo"       INTEGER DEFAULT 1,
     "Utilities"   BOOLEAN DEFAULT true,
     "View"        BOOLEAN DEFAULT true,
-    "Create"      BOOLEAN DEFAULT true,
-    "Edit"        BOOLEAN DEFAULT true,
-    "Delete"      BOOLEAN DEFAULT true,
-    "Import"      BOOLEAN DEFAULT true,
-    "Export"      BOOLEAN DEFAULT true,
     "CreatedBy"   VARCHAR(100),
     "CreatedAt"   TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "UpdatedBy"   VARCHAR(100),
@@ -150,17 +140,13 @@ CREATE TABLE IF NOT EXISTS "_ERPMenus" (
     "DictSeq"       INTEGER DEFAULT 0,
     "IdxNo"         INTEGER DEFAULT 1,
     "View"          BOOLEAN DEFAULT true,
-    "Create"        BOOLEAN DEFAULT true,
-    "Edit"          BOOLEAN DEFAULT true,
-    "Delete"        BOOLEAN DEFAULT true,
-    "Import"        BOOLEAN DEFAULT true,
-    "Export"        BOOLEAN DEFAULT true,
     "CreatedBy"     VARCHAR(100),
     "CreatedAt"     TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "UpdatedBy"     VARCHAR(100),
     "UpdatedAt"     TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "RowVersion"    BIGINT DEFAULT 1
 );
+
 
 CREATE INDEX IF NOT EXISTS "idx_menus_key" ON "_ERPMenus" ("Key");
 CREATE INDEX IF NOT EXISTS "idx_menus_rootid" ON "_ERPMenus" ("MenuRootId");
@@ -306,7 +292,7 @@ VALUES
     (1, 'superadmin', 2, 802, 'menu', 'Đăng ký Cấu trúc Submenu & Menu', true, true, true, true, true, true, 'SYSTEM', 1);
 
 -- Đồng bộ lại Serial Sequence của các bảng
-SELECT setval(pg_get_serial_sequence('''_ERPRootMenus''', 'Id'), COALESCE((SELECT MAX("Id") FROM "_ERPRootMenus"), 0) + 1, false);
-SELECT setval(pg_get_serial_sequence('''_ERPMenus''', 'Id'), COALESCE((SELECT MAX("Id") FROM "_ERPMenus"), 0) + 1, false);
-SELECT setval(pg_get_serial_sequence('''_ERPGroups''', 'Id'), COALESCE((SELECT MAX("Id") FROM "_ERPGroups"), 0) + 1, false);
-SELECT setval(pg_get_serial_sequence('''_ERPRolesUsers''', 'Id'), COALESCE((SELECT MAX("Id") FROM "_ERPRolesUsers"), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('"_ERPRootMenus"', 'Id'), COALESCE((SELECT MAX("Id") FROM "_ERPRootMenus"), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('"_ERPMenus"', 'Id'), COALESCE((SELECT MAX("Id") FROM "_ERPMenus"), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('"_ERPGroups"', 'Id'), COALESCE((SELECT MAX("Id") FROM "_ERPGroups"), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('"_ERPRolesUsers"', 'Id'), COALESCE((SELECT MAX("Id") FROM "_ERPRolesUsers"), 0) + 1, false);

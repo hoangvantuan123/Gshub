@@ -19,9 +19,21 @@ export const PostQUserRole = (result, options = {}) =>
 // Quyền truy cập Menu và RootMenu theo vai trò
 export const PostQMenuRole = (result, options = {}) =>
   apiPost('/role/MenuRoleQ', { result }, options)
+export const PostUMenuRole = (result, options = {}) =>
+  apiPost('/role/MenuRoleU', { result }, options)
 export const PostQRootMenuRole = (result, options = {}) =>
   apiPost('/role/RootMenuRoleQ', { result }, options)
+export const PostURootMenuRole = (result, options = {}) =>
+  apiPost('/role/RootMenuRoleU', { result }, options)
+
+
+// Quyền Action / Nút Lệnh theo Menu & Vai trò
+export const PostQActionRole = (result, options = {}) =>
+  apiPost('/role/ActionRoleQ', { result }, options)
+export const PostUActionRole = (result, options = {}) =>
+  apiPost('/role/ActionRoleU', { result }, options)
 
 // Ma trận quyền tài nguyên & cây menu
 export const PostQPermResourceTree = (result = {}, options = {}) =>
   apiPost('/role/RoleQ', { result: { Sheet: 'perm_resource_tree', ...result } }, options)
+

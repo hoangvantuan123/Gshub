@@ -29,65 +29,102 @@ export const DEFAULT_ROOT_MENUS = [
     Icon: 'Settings',
     MenuIcon: 'Settings',
     RootMenuIcon: 'Settings',
-    RootMenuUtilities: true,
-    View: true,
+    RootMenuUtilities: false,
+    View: false,
     OrderSeq: 2
   }
 ]
 
 export const DEFAULT_SETTING_ITEMS = [
   // =========================================================================
-  // ── ROOT_SYSTEM: Module Quản Trị Hệ Thống ────────────────────────────────
+  // ── ROOT_SYSTEM: Module Quản Trị Hệ Thống (Tạm ẩn) ───────────────────────
   // =========================================================================
   {
-    Id: 'sub_system_admin',
-    MenuKey: 'system_admin_group',
+    Id: 'sub_system_users_roles',
+    MenuKey: 'system_users_roles_group',
     MenuRootId: 'ROOT_SYSTEM',
-    MenuLabel: 'Quản trị hệ thống',
+    MenuLabel: 'Người dùng & Phân quyền',
     MenuType: 'submenu',
     Icon: 'FolderOutlined',
     MenuIcon: 'FolderOutlined',
-    View: true,
+    View: false,
     OrderSeq: 1
   },
   {
     Id: 'menu_system_users',
     MenuKey: 'system_users',
-    MenuSubRootId: 'sub_system_admin',
+    MenuSubRootId: 'sub_system_users_roles',
     MenuRootId: 'ROOT_SYSTEM',
-    MenuLabel: 'Quản lý & Đăng ký Người dùng',
+    MenuLabel: 'Đăng ký Người dùng / Tài khoản',
     MenuLink: '/erp/u/system/users',
     MenuType: 'menu',
     Icon: 'Users',
     MenuIcon: 'Users',
-    View: true,
+    View: false,
     OrderSeq: 1
   },
   {
-    Id: 'menu_system_menus',
-    MenuKey: 'system_menus',
-    MenuSubRootId: 'sub_system_admin',
+    Id: 'menu_system_role_groups',
+    MenuKey: 'system_role_groups',
+    MenuSubRootId: 'sub_system_users_roles',
     MenuRootId: 'ROOT_SYSTEM',
-    MenuLabel: 'Đăng ký Menu Hệ thống',
-    MenuLink: '/erp/u/system/menus',
+    MenuLabel: 'Đăng ký Nhóm phân quyền (Vai trò)',
+    MenuLink: '/erp/u/system/role-groups',
     MenuType: 'menu',
-    Icon: 'LayoutGrid',
-    MenuIcon: 'LayoutGrid',
-    View: true,
+    Icon: 'Shield',
+    MenuIcon: 'Shield',
+    View: false,
     OrderSeq: 2
   },
   {
     Id: 'menu_system_permissions',
     MenuKey: 'system_permissions',
-    MenuSubRootId: 'sub_system_admin',
+    MenuSubRootId: 'sub_system_users_roles',
     MenuRootId: 'ROOT_SYSTEM',
-    MenuLabel: 'Phân quyền & Nhóm người dùng',
+    MenuLabel: 'Quản lý Phân quyền (Gắn User & Quyền)',
     MenuLink: '/erp/u/system/permissions',
     MenuType: 'menu',
     Icon: 'ShieldCheck',
     MenuIcon: 'ShieldCheck',
-    View: true,
+    View: false,
     OrderSeq: 3
+  },
+  {
+    Id: 'sub_system_structure',
+    MenuKey: 'system_structure_group',
+    MenuRootId: 'ROOT_SYSTEM',
+    MenuLabel: 'Cấu trúc Hệ thống & Menu',
+    MenuType: 'submenu',
+    Icon: 'FolderOutlined',
+    MenuIcon: 'FolderOutlined',
+    View: false,
+    OrderSeq: 2
+  },
+  {
+    Id: 'menu_system_root_modules',
+    MenuKey: 'system_root_modules',
+    MenuSubRootId: 'sub_system_structure',
+    MenuRootId: 'ROOT_SYSTEM',
+    MenuLabel: 'Đăng ký Module gốc (Phân hệ)',
+    MenuLink: '/erp/u/system/modules',
+    MenuType: 'menu',
+    Icon: 'FolderGit2',
+    MenuIcon: 'FolderGit2',
+    View: false,
+    OrderSeq: 1
+  },
+  {
+    Id: 'menu_system_menus',
+    MenuKey: 'system_menus',
+    MenuSubRootId: 'sub_system_structure',
+    MenuRootId: 'ROOT_SYSTEM',
+    MenuLabel: 'Đăng ký Cấu trúc Submenu & Menu',
+    MenuLink: '/erp/u/system/menus',
+    MenuType: 'menu',
+    Icon: 'LayoutGrid',
+    MenuIcon: 'LayoutGrid',
+    View: false,
+    OrderSeq: 2
   },
 
   // =========================================================================
@@ -332,7 +369,12 @@ export const DEFAULT_SETTING_ITEMS = [
 // Menu Items Cấp 4 (nếu có các mục con sâu hơn)
 export const DEFAULT_MENU_ITEMS = []
 
-const EXCLUDED_ROOT_IDENTIFIERS = new Set(['ROOT_PRODUCTION', 'production'])
+const EXCLUDED_ROOT_IDENTIFIERS = new Set([
+  'ROOT_PRODUCTION',
+  'production',
+  'ROOT_SYSTEM',
+  'system'
+])
 
 /**
  * Merge server roles menu with default code config

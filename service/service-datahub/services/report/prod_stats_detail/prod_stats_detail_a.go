@@ -3,6 +3,7 @@ package prod_stats_detail
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -88,6 +89,25 @@ func (s *ProdStatsDetailService) ProdStatsDetailA(
 		items[i].StandardMeters = cleanNumberStr(items[i].StandardMeters)
 		items[i].TargetProdQty = cleanNumberStr(items[i].TargetProdQty)
 		items[i].TargetPassQty = cleanNumberStr(items[i].TargetPassQty)
+
+		items[i].BreakdownMinutes = cleanNumberStr(items[i].BreakdownMinutes)
+		items[i].WaitingMaterialMinutes = cleanNumberStr(items[i].WaitingMaterialMinutes)
+		items[i].SetupMinutes = cleanNumberStr(items[i].SetupMinutes)
+		items[i].RepairMinutes = cleanNumberStr(items[i].RepairMinutes)
+		items[i].TotalWasteMinutes = cleanNumberStr(items[i].TotalWasteMinutes)
+
+		if items[i].TotalWasteMinutes == nil || strings.TrimSpace(*items[i].TotalWasteMinutes) == "" || *items[i].TotalWasteMinutes == "0" {
+			bd := parseNumber(items[i].BreakdownMinutes, 0)
+			wm := parseNumber(items[i].WaitingMaterialMinutes, 0)
+			st := parseNumber(items[i].SetupMinutes, 0)
+			rp := parseNumber(items[i].RepairMinutes, 0)
+			sum := bd + wm + st + rp
+			if sum > 0 {
+				sumStr := fmt.Sprintf("%.1f", sum)
+				sumStr = strings.TrimSuffix(sumStr, ".0")
+				items[i].TotalWasteMinutes = &sumStr
+			}
+		}
 	}
 
 	if err := s.db.WithContext(ctx).CreateInBatches(items, 500).Error; err != nil {

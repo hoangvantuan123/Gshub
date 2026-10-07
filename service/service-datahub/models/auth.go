@@ -52,6 +52,8 @@ type ERPUser struct {
 	CreatedAt          time.Time  `gorm:"column:CreatedAt" json:"CreatedAt"`
 	UpdatedBy          string     `gorm:"column:UpdatedBy;type:varchar(36)" json:"UpdatedBy"`
 	UpdatedAt          time.Time  `gorm:"column:UpdatedAt" json:"UpdatedAt"`
+	RowVersion         int64      `gorm:"column:RowVersion;default:1" json:"RowVersion"`
+	Rowversion         int64      `gorm:"-" json:"Rowversion,omitempty"`
 }
 
 func (ERPUser) TableName() string {
@@ -75,6 +77,8 @@ type ERPRolesUser struct {
 	CreatedAt  time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
 	UpdatedBy  string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`
 	UpdatedAt  time.Time `gorm:"column:UpdatedAt" json:"UpdatedAt"`
+	RowVersion int64     `gorm:"column:RowVersion;default:1" json:"RowVersion"`
+	Rowversion int64     `gorm:"-" json:"Rowversion,omitempty"`
 }
 
 func (ERPRolesUser) TableName() string {
@@ -83,17 +87,25 @@ func (ERPRolesUser) TableName() string {
 
 // ERPRootMenu represents the high-level root menu entity (_ERPRootMenus)
 type ERPRootMenu struct {
-	Id        int64     `gorm:"primaryKey;autoIncrement;column:Id" json:"Id"`
-	Key       string    `gorm:"column:Key;type:varchar(100);index" json:"Key"`
-	IdxNo     int       `gorm:"column:IdxNo;default:0" json:"IdxNo"`
-	Label     string    `gorm:"column:Label;type:varchar(255)" json:"Label"`
-	Icon      string    `gorm:"column:Icon;type:varchar(100)" json:"Icon"`
-	Link      string    `gorm:"column:Link;type:varchar(255)" json:"Link"`
-	Utilities bool      `gorm:"column:Utilities;default:true" json:"Utilities"`
-	CreatedBy string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
-	CreatedAt time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
-	UpdatedBy string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`
-	UpdatedAt time.Time `gorm:"column:UpdatedAt" json:"UpdatedAt"`
+	Id         int64     `gorm:"primaryKey;autoIncrement;column:Id" json:"Id"`
+	Key        string    `gorm:"column:Key;type:varchar(100);index" json:"Key"`
+	IdxNo      int       `gorm:"column:IdxNo;default:0" json:"IdxNo"`
+	Label      string    `gorm:"column:Label;type:varchar(255)" json:"Label"`
+	Icon       string    `gorm:"column:Icon;type:varchar(100)" json:"Icon"`
+	Link       string    `gorm:"column:Link;type:varchar(255)" json:"Link"`
+	Utilities  bool      `gorm:"column:Utilities;default:true" json:"Utilities"`
+	View       bool      `gorm:"column:View;default:true" json:"View"`
+	Create     bool      `gorm:"column:Create;default:true" json:"Create"`
+	Edit       bool      `gorm:"column:Edit;default:true" json:"Edit"`
+	Delete     bool      `gorm:"column:Delete;default:true" json:"Delete"`
+	Import     bool      `gorm:"column:Import;default:true" json:"Import"`
+	Export     bool      `gorm:"column:Export;default:true" json:"Export"`
+	CreatedBy  string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
+	CreatedAt  time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
+	UpdatedBy  string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`
+	UpdatedAt  time.Time `gorm:"column:UpdatedAt" json:"UpdatedAt"`
+	RowVersion int64     `gorm:"column:RowVersion;default:1" json:"RowVersion"`
+	Rowversion int64     `gorm:"-" json:"Rowversion,omitempty"`
 }
 
 func (ERPRootMenu) TableName() string {
@@ -109,26 +121,80 @@ type ERPMenu struct {
 	Label         string    `gorm:"column:Label;type:varchar(255)" json:"Label"`
 	Link          string    `gorm:"column:Link;type:varchar(255)" json:"Link"`
 	Type          string    `gorm:"column:Type;type:varchar(50);default:'menu'" json:"Type"`
+	Icon          string    `gorm:"column:Icon;type:varchar(100)" json:"Icon"`
 	OrderSeq      int       `gorm:"column:OrderSeq;default:0" json:"OrderSeq"`
 	DictSeq       int       `gorm:"column:DictSeq;default:0" json:"DictSeq"`
 	IdxNo         int       `gorm:"column:IdxNo;default:0" json:"IdxNo"`
+	View          bool      `gorm:"column:View;default:true" json:"View"`
+	Create        bool      `gorm:"column:Create;default:true" json:"Create"`
+	Edit          bool      `gorm:"column:Edit;default:true" json:"Edit"`
+	Delete        bool      `gorm:"column:Delete;default:true" json:"Delete"`
+	Import        bool      `gorm:"column:Import;default:true" json:"Import"`
+	Export        bool      `gorm:"column:Export;default:true" json:"Export"`
 	CreatedBy     string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
 	CreatedAt     time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
 	UpdatedBy     string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`
 	UpdatedAt     time.Time `gorm:"column:UpdatedAt" json:"UpdatedAt"`
+	RowVersion    int64     `gorm:"column:RowVersion;default:1" json:"RowVersion"`
+	Rowversion    int64     `gorm:"-" json:"Rowversion,omitempty"`
 }
 
 func (ERPMenu) TableName() string {
 	return "_ERPMenus"
 }
 
-// ERPGroup represents role groups (_ERPGroups)
+// ERPRole represents role groups / roles (_ERPRoles)
+type ERPRole struct {
+	Id            int64     `gorm:"primaryKey;autoIncrement;column:Id" json:"Id"`
+	Name          string    `gorm:"column:Name;type:varchar(255);not null" json:"Name"`
+	Comment       string    `gorm:"column:Comment;type:text" json:"Comment"`
+	CreatedByName string    `gorm:"column:CreatedByName;type:varchar(255)" json:"CreatedByName"`
+	IdxNo         int       `gorm:"column:IdxNo;default:1" json:"IdxNo"`
+	Status        string    `gorm:"column:Status;type:varchar(50);default:'ACTIVE'" json:"Status"`
+	CreatedBy     string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
+	CreatedAt     time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
+	UpdatedBy     string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`
+	UpdatedAt     time.Time `gorm:"column:UpdatedAt" json:"UpdatedAt"`
+	RowVersion    int64     `gorm:"column:RowVersion;default:1" json:"RowVersion"`
+	Rowversion    int64     `gorm:"-" json:"Rowversion,omitempty"`
+}
+
+func (ERPRole) TableName() string {
+	return "_ERPRoles"
+}
+
+// ERPRoleMenu represents the menu permission matrix for roles (_ERPRoleMenus)
+type ERPRoleMenu struct {
+	Id         int64     `gorm:"primaryKey;autoIncrement;column:Id" json:"Id"`
+	RoleID     int64     `gorm:"column:RoleID;not null;index" json:"RoleID"`
+	MenuID     int64     `gorm:"column:MenuID;not null;index" json:"MenuID"`
+	View       bool      `gorm:"column:View;default:true" json:"View"`
+	CanCreate  bool      `gorm:"column:CanCreate;default:true" json:"CanCreate"`
+	CanEdit    bool      `gorm:"column:CanEdit;default:true" json:"CanEdit"`
+	CanDelete  bool      `gorm:"column:CanDelete;default:true" json:"CanDelete"`
+	CanExport  bool      `gorm:"column:CanExport;default:true" json:"CanExport"`
+	CanPrint   bool      `gorm:"column:CanPrint;default:true" json:"CanPrint"`
+	DataScope  string    `gorm:"column:DataScope;type:varchar(50);default:'ALL'" json:"DataScope"`
+	CreatedBy  string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
+	CreatedAt  time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
+	UpdatedBy  string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`
+	UpdatedAt  time.Time `gorm:"column:UpdatedAt" json:"UpdatedAt"`
+	RowVersion int64     `gorm:"column:RowVersion;default:1" json:"RowVersion"`
+	Rowversion int64     `gorm:"-" json:"Rowversion,omitempty"`
+}
+
+func (ERPRoleMenu) TableName() string {
+	return "_ERPRoleMenus"
+}
+
+// ERPGroup represents legacy role groups (_ERPGroups)
 type ERPGroup struct {
 	Id         int64     `gorm:"primaryKey;autoIncrement;column:Id" json:"Id"`
 	Name       string    `gorm:"column:Name;type:varchar(255);not null" json:"Name"`
 	Comment    string    `gorm:"column:Comment;type:text" json:"Comment"`
 	IdxNo      int       `gorm:"column:IdxNo;default:0" json:"IdxNo"`
 	RowVersion int64     `gorm:"column:RowVersion;default:1" json:"RowVersion"`
+	Rowversion int64     `gorm:"-" json:"Rowversion,omitempty"`
 	CreatedBy  string    `gorm:"column:CreatedBy;type:varchar(100)" json:"CreatedBy"`
 	CreatedAt  time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
 	UpdatedBy  string    `gorm:"column:UpdatedBy;type:varchar(100)" json:"UpdatedBy"`

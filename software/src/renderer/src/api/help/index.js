@@ -1,5 +1,4 @@
-import { apiPost, request } from '../../services/apiClient'
-import { HOST_API_SERVER_9 } from '../../services'
+import { apiPost } from '../../services/apiClient'
 
 export * from './dictVersionQ'
 export * from './postLangDictH'
@@ -7,58 +6,48 @@ export * from './checkLanguageVersion'
 
 // ── Help Query APIs ────────────────────────────────────────
 export const getHelpMenu = (data = {}, options = {}) =>
-  apiPost('/mssql/help-query/help-menu', data, options)
+  apiPost('/help/MenuH', { result: data }, options)
 
 export const getHelpRoleRootMenu = (data = {}, options = {}) =>
-  apiPost('/mssql/help-query/help-root-menu', data, options)
+  apiPost('/help/RootMenuH', { result: data }, options)
 
 export const getHelpUsers = (data = {}, options = {}) =>
-  apiPost('/mssql/help-query/help-users', data, options)
+  apiPost('/help/UsersH', { result: data }, options)
 
-export const PostLangH = (result = {}, options = {}) => apiPost('/help/LangH', { result }, options)
+export const PostLangH = (result = {}, options = {}) =>
+  apiPost('/help/LangH', { result }, options)
 
 export const PostMenuH = (result, options = {}) =>
-  request({ method: 'POST', url: `${HOST_API_SERVER_9}/help/MenuH`, data: { result }, ...options })
+  apiPost('/help/MenuH', { result }, options)
 
 export const PostRootMenuH = (result, options = {}) =>
-  request({
-    method: 'POST',
-    url: `${HOST_API_SERVER_9}/help/RootMenuH`,
-    data: { result },
-    ...options
-  })
+  apiPost('/help/RootMenuH', { result }, options)
 
 export const PostSubMenuH = (result, options = {}) =>
-  request({
-    method: 'POST',
-    url: `${HOST_API_SERVER_9}/help/SubMenuH`,
-    data: { result },
-    ...options
-  })
+  apiPost('/help/SubMenuH', { result }, options)
 
-export const PostCodeHelpQ = (result, options = {}) =>
-  request({
-    method: 'POST',
-    url: `${HOST_API_SERVER_9}/help/CodeHelpQ`,
-    data: { result },
-    ...options
-  })
+export const CodeHelpQ = (result, options = {}) =>
+  apiPost('/help/CodeHelpQ', { result }, options)
+
+// CodeHelpCmnQ: Đầu API CodeHelp dùng chung (Common CodeHelp Engine)
+// Truyền CodeHelpName hoặc TableName ('PERM_FIELDS', 'PERM_ACTIONS', 'PERM_SCOPES', 'SUBMENU', 'USERS', ...)
+export const CodeHelpCmnQ = (result, options = {}) =>
+  apiPost('/help/CodeHelpCmnQ', { result }, options)
+
+export const PostCodeHelpQ = CodeHelpQ
+export const PostCodeHelpCmnQ = CodeHelpCmnQ
 
 export const PostSysAttrGroupH = (result, options = {}) =>
-  request({
-    method: 'POST',
-    url: `${HOST_API_SERVER_9}/help/SysAttrGroupH`,
-    data: { result },
-    ...options
-  })
+  apiPost('/help/SysAttrGroupH', { result }, options)
 
 export const PostPermActionsH = (result, options = {}) =>
-  request({
-    method: 'POST',
-    url: `${HOST_API_SERVER_9}/help/PermActionsH`,
-    data: { result },
-    ...options
-  })
+  apiPost('/help/PermActionsH', { result }, options)
+
+export const PostPermFieldsH = (result, options = {}) =>
+  apiPost('/help/PermFieldsH', { result }, options)
+
+export const PostPermScopesH = (result, options = {}) =>
+  apiPost('/help/PermScopesH', { result }, options)
 
 export const PostUsersH = (result, options = {}) =>
-  request({ method: 'POST', url: `${HOST_API_SERVER_9}/help/UsersH`, data: { result }, ...options })
+  apiPost('/help/UsersH', { result }, options)

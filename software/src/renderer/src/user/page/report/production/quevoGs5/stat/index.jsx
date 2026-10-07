@@ -219,17 +219,43 @@ function mapDBRowToStatItem(item, idx, masterInfo) {
   const rawEndDate = item.EndDate || item.endDate || item.StatDate || item.statDate || ''
 
   // Tính toán durationMinutes và runtimeHours chính xác theo phút (hỗ trợ thông ngày)
-  const finalDurationMinutes = parseDurationToMinutes(
+  const rawDurationMinutes = parseDurationToMinutes(
     item.DurationMinutes ||
       item.durationMinutes ||
       item.ActualRunTime ||
-      item.ActualProdTime ||
-      item.BreakdownMinutes,
+      item.ActualProdTime,
     rawStart,
     rawEnd,
     rawStartDate,
     rawEndDate
   )
+
+  const rawWaste =
+    item.TotalWasteMinutes ??
+    item.totalWasteMinutes ??
+    item.TotalDowntimeMinutes ??
+    item.totalDowntimeMinutes
+  let wasteMin = 0
+  if (rawWaste !== undefined && rawWaste !== null && rawWaste !== '') {
+    wasteMin = parseFloat(String(rawWaste).replace(',', '.')) || 0
+  } else {
+    const bd =
+      parseFloat(String(item.BreakdownMinutes ?? item.breakdownMinutes ?? 0).replace(',', '.')) || 0
+    const wm =
+      parseFloat(
+        String(item.WaitingMaterialMinutes ?? item.waitingMaterialMinutes ?? 0).replace(',', '.')
+      ) || 0
+    const st =
+      parseFloat(String(item.SetupMinutes ?? item.setupMinutes ?? 0).replace(',', '.')) || 0
+    const rp =
+      parseFloat(String(item.RepairMinutes ?? item.repairMinutes ?? 0).replace(',', '.')) || 0
+    wasteMin = bd + wm + st + rp
+  }
+
+  const finalDurationMinutes =
+    wasteMin > 0 && rawDurationMinutes > 0
+      ? Math.max(0, Number((rawDurationMinutes - wasteMin).toFixed(1)))
+      : rawDurationMinutes
 
   const runtimeHours = Number((finalDurationMinutes / 60).toFixed(2))
 

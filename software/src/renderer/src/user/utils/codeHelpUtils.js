@@ -1,3 +1,5 @@
+import { CodeHelpCmnQ } from '@renderer/api/help'
+
 /**
  * codeHelpUtils.js
  * Chuẩn hóa tham số và luồng gọi CodeHelp trên toàn bộ Frontend ERP.
@@ -39,17 +41,23 @@ export function buildCodeHelpParams(
       colUpper === 'KEY' ||
       colUpper === 'CODE' ||
       colUpper === 'USERID' ||
-      colUpper === 'EMPCODE'
+      colUpper === 'EMPCODE' ||
+      colUpper === 'FIELDCODE' ||
+      colUpper === 'ACTIONCODE' ||
+      colUpper === 'SCOPECODE'
     ) {
       params.KeyItem1 = cleanKeyword
     } else if (
       colUpper === 'LABEL' ||
       colUpper === 'NAME' ||
       colUpper === 'USERNAME' ||
-      colUpper === 'EMPNAME'
+      colUpper === 'EMPNAME' ||
+      colUpper === 'FIELDNAME' ||
+      colUpper === 'ACTIONNAME' ||
+      colUpper === 'SCOPENAME'
     ) {
       params.KeyItem2 = cleanKeyword
-    } else if (colUpper === 'ID' || colUpper === 'IDSEQ' || colUpper === 'MENUROOTID') {
+    } else if (!params.KeyItem3 && (colUpper === 'ID' || colUpper === 'IDSEQ' || colUpper === 'MENUROOTID')) {
       params.KeyItem3 = cleanKeyword
     } else {
       params[cleanColumn] = cleanKeyword
@@ -65,10 +73,10 @@ export function buildCodeHelpParams(
 export function createCodeHelpFetcher(apiFn, getExtraParams = null) {
   return async (searchText = '', page = 1, limit = 50, searchColumn = 'ALL', currentRow = null) => {
     try {
-      const extraParams = typeof getExtraParams === 'function' ? getExtraParams(currentRow) : {}
+      const extraParams = typeof getExtraParams === 'function' ? getExtraParams(currentRow) : getExtraParams || {}
       const params = buildCodeHelpParams(searchText, searchColumn, page, limit, extraParams)
       const res = await apiFn(params)
-      return res?.data || res?.Data || res?.result || (Array.isArray(res) ? res : [])
+      return res?.data?.data || res?.data || res?.Data || res?.result || (Array.isArray(res) ? res : [])
     } catch (err) {
       console.error('CodeHelp fetch error:', err)
       return []
@@ -76,7 +84,7 @@ export function createCodeHelpFetcher(apiFn, getExtraParams = null) {
   }
 }
 
-export async function fetchBatchCodeHelp(apiFn, textListOrSet, maxItems = 200) {
+export async function fetchBatchCodeHelp(apiFn, textListOrSet, maxItems = 200, extraParams = {}) {
   const items = Array.isArray(textListOrSet)
     ? textListOrSet
     : textListOrSet instanceof Set
@@ -93,7 +101,8 @@ export async function fetchBatchCodeHelp(apiFn, textListOrSet, maxItems = 200) {
     const res = await apiFn({
       KeyItem1: JSON.stringify(limitedItems),
       Keywords: limitedItems,
-      Keyword: limitedItems.join(',')
+      Keyword: limitedItems.join(','),
+      ...extraParams
     })
     return res?.data || res?.Data || []
   } catch (err) {
@@ -101,3 +110,19 @@ export async function fetchBatchCodeHelp(apiFn, textListOrSet, maxItems = 200) {
     return []
   }
 }
+
+/**
+ * createCmnCodeHelpFetcher: Helper gọi CodeHelpCmnQ dùng chung nhanh chóng cho FE
+ * @param {string} codeHelpName - Mã định danh ('PERM_FIELDS' | 'PERM_ACTIONS' | 'PERM_SCOPES' | 'SUBMENU' | 'USERS' | ...)
+ * @param {Function|Object} getExtraParams - Tham số bổ sung
+ */
+export function createCmnCodeHelpFetcher(codeHelpName, getExtraParams = null) {
+  return createCodeHelpFetcher((params) => {
+    return CodeHelpCmnQ({
+      CodeHelpName: codeHelpName,
+      TableName: codeHelpName,
+      ...params
+    })
+  }, getExtraParams)
+}
+

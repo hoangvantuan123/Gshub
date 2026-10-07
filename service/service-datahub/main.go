@@ -13,14 +13,21 @@ import (
 	"service-datahub/database"
 	"service-datahub/grpcserver"
 	"service-datahub/handlers"
+	"service-datahub/handlers/system"
 	"service-datahub/routes"
 	"service-datahub/services"
+	"service-datahub/services/help"
 	"service-datahub/services/report/plan_detail"
 	"service-datahub/services/report/plan_master"
 	"service-datahub/services/report/plan_report"
 	"service-datahub/services/report/prod_stats_detail"
 	"service-datahub/services/report/summary_plan_report"
 	"service-datahub/services/report/summary_stat_report"
+	"service-datahub/services/system/menu"
+	"service-datahub/services/system/role_group"
+	"service-datahub/services/system/role_perm"
+	"service-datahub/services/system/root_menu"
+	"service-datahub/services/system/user_auth"
 
 	"go.uber.org/zap"
 )
@@ -53,14 +60,26 @@ func main() {
 	if err != nil {
 		logger.Fatal("Database initialization failed", zap.Error(err))
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		logger.Fatal("Failed to get underlying SQL DB", zap.Error(err))
+	}
 
-	// 4. Initialize Services
+	// 4. Initialize Services (Tách biệt từng thư mục nhóm nghiệp vụ A/U/D/Q)
 	authService := services.NewAuthService(db, cfg, logger)
 	configService := services.NewConfigService(cfg, db, logger)
 	loginService := services.NewLoginService(db, configService, logger)
 	workProcessService := services.NewWorkProcessService(cfg, db, configService, loginService, logger)
 	orderSettlementService := services.NewOrderSettlementService(cfg, configService, loginService, workProcessService, logger)
 	factoryService := services.NewFactoryService(cfg, db, configService, loginService, logger)
+	helpService := help.NewCodeHelpService(db, logger)
+
+	// Phân hệ Quản Trị Hệ Thống (Services tách biệt)
+	userAuthService := user_auth.NewUserAuthService(sqlDB, logger)
+	roleGroupService := role_group.NewRoleGroupService(sqlDB, logger)
+	rolePermService := role_perm.NewRolePermService(sqlDB, logger)
+	rootMenuService := root_menu.NewRootMenuService(sqlDB, logger)
+	menuService := menu.NewMenuService(sqlDB, logger)
 
 	// Báo cáo Master & Detail Services (KHSX & TKSX tách biệt từng thư mục A/U/D/Q)
 	planMasterService := plan_master.NewPlanMasterService(db, logger)
@@ -70,13 +89,20 @@ func main() {
 	summaryPlanReportService := summary_plan_report.NewSummaryPlanReportService(db, logger)
 	summaryStatReportService := summary_stat_report.NewSummaryStatReportService(db, logger)
 
-	// 5. Initialize Handlers for REST
+	// 5. Initialize Handlers for REST (Tách biệt từng Handler nhóm)
 	authHandler := handlers.NewAuthHandler(authService, logger)
+	userAuthHandler := system.NewUserAuthHandler(userAuthService, logger)
+	roleGroupHandler := system.NewRoleGroupHandler(roleGroupService, logger)
+	rolePermHandler := system.NewRolePermHandler(rolePermService, logger)
+	rootMenuHandler := system.NewRootMenuHandler(rootMenuService, logger)
+	menuHandler := system.NewMenuHandler(menuService, logger)
+
 	loginHandler := handlers.NewLoginHandler(loginService, logger)
 	configHandler := handlers.NewConfigHandler(configService, logger)
 	workProcessHandler := handlers.NewWorkProcessHandler(workProcessService, logger)
 	orderSettlementHandler := handlers.NewOrderSettlementHandler(orderSettlementService, logger)
 	factoryHandler := handlers.NewFactoryHandler(factoryService, logger)
+	helpHandler := handlers.NewHelpHandler(helpService, logger)
 
 	planMasterHandler := handlers.NewPlanMasterHandler(planMasterService, planDetailService, prodStatsDetailService, db, logger)
 	planDetailHandler := handlers.NewPlanDetailHandler(planDetailService, logger)
@@ -90,6 +116,11 @@ func main() {
 	router := routes.SetupRouter(
 		cfg,
 		authHandler,
+		userAuthHandler,
+		roleGroupHandler,
+		rolePermHandler,
+		rootMenuHandler,
+		menuHandler,
 		loginHandler,
 		configHandler,
 		workProcessHandler,
@@ -101,6 +132,7 @@ func main() {
 		planReportHandler,
 		summaryPlanReportHandler,
 		summaryStatReportHandler,
+		helpHandler,
 		healthHandler,
 		logger,
 	)

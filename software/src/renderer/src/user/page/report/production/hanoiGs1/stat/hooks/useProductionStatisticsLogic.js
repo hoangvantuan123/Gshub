@@ -183,7 +183,7 @@ export function parseFullDateTimeTimestamp(dVal, tVal) {
   if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
     const parts = dStr.slice(0, 10).split('-').map(Number)
     y = parts[0]
-    if (parts[2] === 10 && parts[1] <= 31) {
+    if (parts[1] > 12 && parts[2] <= 12) {
       d = parts[1]
       m = parts[2]
     } else {
@@ -192,9 +192,26 @@ export function parseFullDateTimeTimestamp(dVal, tVal) {
     }
   } else if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(dStr)) {
     const parts = dStr.split(' ')[0].split('/').map(Number)
-    d = parts[0]
-    m = parts[1]
-    y = parts[2] < 100 ? 2000 + parts[2] : parts[2]
+    const p0 = parts[0]
+    const p1 = parts[1]
+    const p2 = parts[2] < 100 ? 2000 + parts[2] : parts[2]
+    if (p0 > 1000) {
+      y = p0
+      m = p1
+      d = p2
+    } else {
+      y = p2
+      if (p0 > 12 && p1 <= 12) {
+        d = p0
+        m = p1
+      } else if (p1 > 12 && p0 <= 12) {
+        m = p0
+        d = p1
+      } else {
+        d = p0
+        m = p1
+      }
+    }
   }
   let hh = 0
   let mm = 0
@@ -407,9 +424,16 @@ export const useProductionStatisticsLogic = ({
           if (diff >= 0) {
             durMinutes = Number(diff.toFixed(1))
           } else {
-            const sDateClean = String(rawStartDate || '').trim().slice(0, 10)
-            const eDateClean = String(rawEndDate || '').trim().slice(0, 10)
-            if ((sDateClean && eDateClean && sDateClean === eDateClean) || (!sDateClean && !eDateClean)) {
+            const sDateClean = String(rawStartDate || '')
+              .trim()
+              .slice(0, 10)
+            const eDateClean = String(rawEndDate || '')
+              .trim()
+              .slice(0, 10)
+            if (
+              (sDateClean && eDateClean && sDateClean === eDateClean) ||
+              (!sDateClean && !eDateClean)
+            ) {
               isTimeReversed = true
               durMinutes = parseRawActualRunTime()
             } else {
@@ -425,13 +449,61 @@ export const useProductionStatisticsLogic = ({
         durMinutes = parseRawActualRunTime()
       }
 
-      if (durMinutes === undefined && (item.runtimeHours !== undefined || item.RuntimeHours !== undefined)) {
+      if (
+        durMinutes === undefined &&
+        (item.runtimeHours !== undefined || item.RuntimeHours !== undefined)
+      ) {
         const rh = Number(item.runtimeHours ?? item.RuntimeHours) || 0
         durMinutes = Number((rh * 60).toFixed(1))
       }
 
       if (durMinutes === undefined) {
         durMinutes = 0
+      }
+
+      // Trừ đi Tổng thời gian hao phí (Breakdown + Waiting + Setup + Repair) để ra số phút & giờ thực tế sản xuất
+      const rawWaste =
+        item.TotalWasteMinutes ??
+        item.totalWasteMinutes ??
+        item.TotalDowntimeMinutes ??
+        item.totalDowntimeMinutes
+      let wasteMin = 0
+      if (rawWaste !== undefined && rawWaste !== null && rawWaste !== '') {
+        wasteMin = parseFloat(String(rawWaste).replace(',', '.')) || 0
+      } else {
+        const bd =
+          parseFloat(
+            String(
+              item.BreakdownMinutes ?? item.breakdownMinutes ?? item.DowntimeBreakdownMinutes ?? 0
+            ).replace(',', '.')
+          ) || 0
+        const wm =
+          parseFloat(
+            String(
+              item.WaitingMaterialMinutes ??
+                item.waitingMaterialMinutes ??
+                item.DowntimeWaitingMaterialMinutes ??
+                0
+            ).replace(',', '.')
+          ) || 0
+        const st =
+          parseFloat(
+            String(item.SetupMinutes ?? item.setupMinutes ?? item.DowntimeSetupMinutes ?? 0).replace(
+              ',',
+              '.'
+            )
+          ) || 0
+        const rp =
+          parseFloat(
+            String(
+              item.RepairMinutes ?? item.repairMinutes ?? item.DowntimeFixingMinutes ?? 0
+            ).replace(',', '.')
+          ) || 0
+        wasteMin = bd + wm + st + rp
+      }
+
+      if (wasteMin > 0 && durMinutes > 0) {
+        durMinutes = Math.max(0, Number((durMinutes - wasteMin).toFixed(1)))
       }
 
       let rt = Number((durMinutes / 60).toFixed(2))
@@ -581,6 +653,56 @@ export const useProductionStatisticsLogic = ({
         StatStaff: rawStatStaff,
         SalesStaff: rawSalesStaff,
         BreakdownReason: item.BreakdownReason || item.breakdownReason || '',
+        BreakdownMinutes:
+          item.BreakdownMinutes ??
+          item.breakdownMinutes ??
+          item.DowntimeBreakdownMinutes ??
+          '',
+        WaitingMaterialMinutes:
+          item.WaitingMaterialMinutes ??
+          item.waitingMaterialMinutes ??
+          item.DowntimeWaitingMaterialMinutes ??
+          '',
+        SetupMinutes:
+          item.SetupMinutes ??
+          item.setupMinutes ??
+          item.DowntimeSetupMinutes ??
+          '',
+        RepairMinutes:
+          item.RepairMinutes ??
+          item.repairMinutes ??
+          item.DowntimeFixingMinutes ??
+          '',
+        TotalWasteMinutes:
+          item.TotalWasteMinutes ??
+          item.totalWasteMinutes ??
+          item.TotalDowntimeMinutes ??
+          (wasteMin > 0 ? wasteMin : ''),
+        breakdownMinutes:
+          item.BreakdownMinutes ??
+          item.breakdownMinutes ??
+          item.DowntimeBreakdownMinutes ??
+          '',
+        waitingMaterialMinutes:
+          item.WaitingMaterialMinutes ??
+          item.waitingMaterialMinutes ??
+          item.DowntimeWaitingMaterialMinutes ??
+          '',
+        setupMinutes:
+          item.SetupMinutes ??
+          item.setupMinutes ??
+          item.DowntimeSetupMinutes ??
+          '',
+        repairMinutes:
+          item.RepairMinutes ??
+          item.repairMinutes ??
+          item.DowntimeFixingMinutes ??
+          '',
+        totalWasteMinutes:
+          item.TotalWasteMinutes ??
+          item.totalWasteMinutes ??
+          item.TotalDowntimeMinutes ??
+          (wasteMin > 0 ? wasteMin : ''),
 
         // Aliases & backwards compatibility
         teamName: finalTeam,
@@ -1947,7 +2069,30 @@ export const useProductionStatisticsLogic = ({
         return { kind: GridCellKind.Text, data: '', displayData: '', allowOverlay: false }
       }
 
-      const val = item[colId] ?? item[colId.charAt(0).toLowerCase() + colId.slice(1)] ?? ''
+      let val = item[colId] ?? item[colId.charAt(0).toLowerCase() + colId.slice(1)] ?? ''
+
+      if (
+        colId === 'TotalWasteMinutes' &&
+        (val === '' || val === null || val === undefined || val === 0 || val === '0')
+      ) {
+        const bd =
+          parseFloat(
+            String(item.BreakdownMinutes ?? item.breakdownMinutes ?? 0).replace(',', '.')
+          ) || 0
+        const wm =
+          parseFloat(
+            String(item.WaitingMaterialMinutes ?? item.waitingMaterialMinutes ?? 0).replace(
+              ',',
+              '.'
+            )
+          ) || 0
+        const st =
+          parseFloat(String(item.SetupMinutes ?? item.setupMinutes ?? 0).replace(',', '.')) || 0
+        const rp =
+          parseFloat(String(item.RepairMinutes ?? item.repairMinutes ?? 0).replace(',', '.')) || 0
+        const sum = bd + wm + st + rp
+        if (sum > 0) val = sum
+      }
 
       if (colObj.kind === 'Boolean') {
         const boolVal =

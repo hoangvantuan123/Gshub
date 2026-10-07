@@ -68,7 +68,12 @@ export const RuntimeAuditDetailModal = ({
       const machineName =
         item.MachineName || item.machineName || item.WorkCenter || item.workCenter || machineCode
       const teamName =
-        item.TeamName || item.teamName || item.OpTypeName || item.opTypeName || item.SectionName || ''
+        item.TeamName ||
+        item.teamName ||
+        item.OpTypeName ||
+        item.opTypeName ||
+        item.SectionName ||
+        ''
 
       const startDate =
         item.StartDate ||
@@ -96,18 +101,23 @@ export const RuntimeAuditDetailModal = ({
       const pass = Number(item.PassQty || item.passQty || item.passQuantity || actual)
       const passRate = actual > 0 ? Number(((pass / actual) * 100).toFixed(1)) : 100
       const operator =
-        item.MainWorker || item.mainWorker || item.operator || item.StatStaff || item.statStaff || ''
+        item.MainWorker ||
+        item.mainWorker ||
+        item.operator ||
+        item.StatStaff ||
+        item.statStaff ||
+        ''
 
       const isReversed = Boolean(
         item.isTimeReversed ||
-          item.auditCategory === 'INVALID_TIME' ||
-          item.timeError === 'REVERSED_TIME' ||
-          (startDate &&
-            endDate &&
-            String(startDate).slice(0, 10) === String(endDate).slice(0, 10) &&
-            startTime &&
-            endTime &&
-            String(endTime) < String(startTime))
+        item.auditCategory === 'INVALID_TIME' ||
+        item.timeError === 'REVERSED_TIME' ||
+        (startDate &&
+          endDate &&
+          String(startDate).slice(0, 10) === String(endDate).slice(0, 10) &&
+          startTime &&
+          endTime &&
+          String(endTime) < String(startTime))
       )
 
       let category = 'NORMAL'
@@ -588,28 +598,185 @@ export const RuntimeAuditDetailModal = ({
               }}
             >
               <tr>
-                <th style={{ padding: '6px 6px', textAlign: 'center', width: 40, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>STT</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 120, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Mã phiếu</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 110, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Lệnh SX</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 80, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Mã máy</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 140, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Tên máy</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 90, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Tổ SX</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', minWidth: 90, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Ngày BĐ</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', minWidth: 80, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Giờ BĐ</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', minWidth: 90, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Ngày KT</th>
-                <th style={{ padding: '6px 8px', textAlign: 'center', minWidth: 80, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Giờ KT</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', minWidth: 80, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Giờ chạy</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', minWidth: 85, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>SL SX</th>
-                <th style={{ padding: '6px 8px', textAlign: 'right', minWidth: 85, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>SL Đạt</th>
-                <th style={{ padding: '6px 6px', textAlign: 'right', minWidth: 65, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Tỷ lệ</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 160, borderRight: '1px solid #e2e8f0', fontWeight: 600 }}>Cảnh báo</th>
-                <th style={{ padding: '6px 8px', textAlign: 'left', minWidth: 110, fontWeight: 600 }}>Người làm</th>
+                <th
+                  style={{
+                    padding: '6px 6px',
+                    textAlign: 'center',
+                    width: 40,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  STT
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'left',
+                    minWidth: 120,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Mã phiếu
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'left',
+                    minWidth: 110,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Lệnh SX
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'left',
+                    minWidth: 80,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Mã máy
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'left',
+                    minWidth: 140,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Tên máy
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'left',
+                    minWidth: 90,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Tổ SX
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'center',
+                    minWidth: 90,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Ngày BĐ
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'center',
+                    minWidth: 80,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Giờ BĐ
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'center',
+                    minWidth: 90,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Ngày KT
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'center',
+                    minWidth: 80,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Giờ KT
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'right',
+                    minWidth: 80,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Giờ chạy
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'right',
+                    minWidth: 85,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  SL SX
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'right',
+                    minWidth: 85,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  SL Đạt
+                </th>
+                <th
+                  style={{
+                    padding: '6px 6px',
+                    textAlign: 'right',
+                    minWidth: 65,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Tỷ lệ
+                </th>
+                <th
+                  style={{
+                    padding: '6px 8px',
+                    textAlign: 'left',
+                    minWidth: 160,
+                    borderRight: '1px solid #e2e8f0',
+                    fontWeight: 600
+                  }}
+                >
+                  Cảnh báo
+                </th>
+                <th
+                  style={{ padding: '6px 8px', textAlign: 'left', minWidth: 110, fontWeight: 600 }}
+                >
+                  Người làm
+                </th>
               </tr>
             </thead>
             <tbody>
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={16} style={{ textAlign: 'center', padding: '32px 16px', color: '#94a3b8' }}>
+                  <td
+                    colSpan={16}
+                    style={{ textAlign: 'center', padding: '32px 16px', color: '#94a3b8' }}
+                  >
                     Không có phiếu nào phù hợp.
                   </td>
                 </tr>
@@ -630,49 +797,165 @@ export const RuntimeAuditDetailModal = ({
                         e.currentTarget.style.backgroundColor = '#ffffff'
                       }}
                     >
-                      <td style={{ padding: '5px 6px', textAlign: 'center', color: '#94a3b8', borderRight: '1px solid #f1f5f9' }}>
+                      <td
+                        style={{
+                          padding: '5px 6px',
+                          textAlign: 'center',
+                          color: '#94a3b8',
+                          borderRight: '1px solid #f1f5f9'
+                        }}
+                      >
                         {idx + 1}
                       </td>
-                      <td style={{ padding: '5px 8px', fontWeight: 500, color: '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          fontWeight: 500,
+                          color: '#0f172a',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.ticketNo}
                       </td>
-                      <td style={{ padding: '5px 8px', color: '#475569', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          color: '#475569',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.orderNo || '-'}
                       </td>
-                      <td style={{ padding: '5px 8px', color: '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          color: '#0f172a',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.machineCode || '-'}
                       </td>
-                      <td style={{ padding: '5px 8px', color: '#334155', borderRight: '1px solid #f1f5f9' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          color: '#334155',
+                          borderRight: '1px solid #f1f5f9'
+                        }}
+                      >
                         {maskText(item.machineName, 5)}
                       </td>
-                      <td style={{ padding: '5px 8px', color: '#475569', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          color: '#475569',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.teamName || '-'}
                       </td>
-                      <td style={{ padding: '5px 8px', textAlign: 'center', color: '#334155', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          textAlign: 'center',
+                          color: '#334155',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.startDate || '-'}
                       </td>
-                      <td style={{ padding: '5px 8px', textAlign: 'center', color: isErr ? '#dc2626' : '#0f172a', fontWeight: isErr ? 600 : 400, borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          textAlign: 'center',
+                          color: isErr ? '#dc2626' : '#0f172a',
+                          fontWeight: isErr ? 600 : 400,
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.startTime || '-'}
                       </td>
-                      <td style={{ padding: '5px 8px', textAlign: 'center', color: '#334155', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          textAlign: 'center',
+                          color: '#334155',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.endDate || '-'}
                       </td>
-                      <td style={{ padding: '5px 8px', textAlign: 'center', color: isErr ? '#dc2626' : '#0f172a', fontWeight: isErr ? 600 : 400, borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          textAlign: 'center',
+                          color: isErr ? '#dc2626' : '#0f172a',
+                          fontWeight: isErr ? 600 : 400,
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.endTime || '-'}
                       </td>
-                      <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 500, color: isErr ? '#dc2626' : '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          textAlign: 'right',
+                          fontWeight: 500,
+                          color: isErr ? '#dc2626' : '#0f172a',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.runtimeH.toFixed(2)}h
                       </td>
-                      <td style={{ padding: '5px 8px', textAlign: 'right', color: '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          textAlign: 'right',
+                          color: '#0f172a',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.actual.toLocaleString('vi-VN')}
                       </td>
-                      <td style={{ padding: '5px 8px', textAlign: 'right', color: '#0f172a', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          textAlign: 'right',
+                          color: '#0f172a',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.pass.toLocaleString('vi-VN')}
                       </td>
-                      <td style={{ padding: '5px 6px', textAlign: 'right', color: '#334155', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 6px',
+                          textAlign: 'right',
+                          color: '#334155',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.passRate}%
                       </td>
-                      <td style={{ padding: '5px 8px', color: isErr ? '#dc2626' : '#64748b', borderRight: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                      <td
+                        style={{
+                          padding: '5px 8px',
+                          color: isErr ? '#dc2626' : '#64748b',
+                          borderRight: '1px solid #f1f5f9',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
                         {item.auditText}
                       </td>
                       <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>
@@ -698,7 +981,15 @@ export const RuntimeAuditDetailModal = ({
             flexShrink: 0
           }}
         >
-          <PureButton onClick={onClose} style={{ padding: '4px 16px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155' }}>
+          <PureButton
+            onClick={onClose}
+            style={{
+              padding: '4px 16px',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              color: '#334155'
+            }}
+          >
             Đóng
           </PureButton>
         </div>

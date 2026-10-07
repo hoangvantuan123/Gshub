@@ -1,6 +1,8 @@
 /* eslint-disable react/prop-types */
+import { useEffect } from 'react'
 import TopLoadingBar from 'react-top-loading-bar'
 import { useTranslation } from 'react-i18next'
+import { forceUnlockPageInteraction } from '../../../utils/togglePageInteraction'
 
 export default function DataPageContainer({
   loadingBarRef,
@@ -13,6 +15,13 @@ export default function DataPageContainer({
   className = ''
 }) {
   const { t } = useTranslation()
+
+  useEffect(() => {
+    return () => {
+      forceUnlockPageInteraction()
+      loadingBarRef?.current?.complete?.()
+    }
+  }, [loadingBarRef])
 
   if (children) {
     return (

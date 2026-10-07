@@ -85,7 +85,7 @@ func parseFullDateTime(dStr, tStr string) (time.Time, bool) {
 			y, _ = strconv.Atoi(parts[0])
 			p1, _ := strconv.Atoi(parts[1])
 			p2, _ := strconv.Atoi(parts[2])
-			if p2 == 10 && p1 <= 31 {
+			if p1 > 12 && p2 <= 12 {
 				d = p1
 				m = p2
 			} else {
@@ -96,11 +96,28 @@ func parseFullDateTime(dStr, tStr string) (time.Time, bool) {
 	} else if strings.Contains(dStr, "/") {
 		parts := strings.Split(strings.Split(dStr, " ")[0], "/")
 		if len(parts) == 3 {
-			d, _ = strconv.Atoi(parts[0])
-			m, _ = strconv.Atoi(parts[1])
-			y, _ = strconv.Atoi(parts[2])
-			if y < 100 {
-				y += 2000
+			p0, _ := strconv.Atoi(parts[0])
+			p1, _ := strconv.Atoi(parts[1])
+			p2, _ := strconv.Atoi(parts[2])
+			if p2 < 100 {
+				p2 += 2000
+			}
+			if p0 > 1000 {
+				y = p0
+				m = p1
+				d = p2
+			} else {
+				y = p2
+				if p0 > 12 && p1 <= 12 {
+					d = p0
+					m = p1
+				} else if p1 > 12 && p0 <= 12 {
+					m = p0
+					d = p1
+				} else {
+					d = p0
+					m = p1
+				}
 			}
 		}
 	}
@@ -664,6 +681,26 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		}
 
 		durMin := calcDurationMinutes(row.ActualRunTime, row.StartTime, row.EndTime, row.StartDate, row.EndDate)
+
+		// Trừ đi Tổng thời gian hao phí (Breakdown + Waiting Material + Setup + Repair)
+		bdVal := parseNumber(row.BreakdownMinutes, 0)
+		wmVal := parseNumber(row.WaitingMaterialMinutes, 0)
+		stVal := parseNumber(row.SetupMinutes, 0)
+		rpVal := parseNumber(row.RepairMinutes, 0)
+		calcWasteSum := bdVal + wmVal + stVal + rpVal
+
+		wasteMin := parseNumber(row.TotalWasteMinutes, 0)
+		if wasteMin == 0 && calcWasteSum > 0 {
+			wasteMin = calcWasteSum
+		}
+		if (row.TotalWasteMinutes == nil || strings.TrimSpace(*row.TotalWasteMinutes) == "" || *row.TotalWasteMinutes == "0") && wasteMin > 0 {
+			wStr := fmt.Sprintf("%.1f", wasteMin)
+			wStr = strings.TrimSuffix(wStr, ".0")
+			row.TotalWasteMinutes = &wStr
+		}
+		if wasteMin > 0 && durMin > 0 {
+			durMin = math.Max(0, math.Round((durMin-wasteMin)*10)/10)
+		}
 		rtHours := math.Round((durMin/60.0)*100) / 100
 
 		auditCat := "5MIN_12H"
@@ -783,7 +820,7 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		}
 
 		isUnder5Min := durMin < 5
-		isOver12hCheck := durMin > 720 && actualQty < 50000
+		isOver12hCheck := durMin > 720
 
 		ticketNo := row.IdSeq
 		if row.StatTicketNo != nil && strings.TrimSpace(*row.StatTicketNo) != "" {

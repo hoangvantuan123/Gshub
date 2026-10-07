@@ -2973,8 +2973,9 @@ export default function ProductionStatisticsReport(props) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <AlertTriangle size={18} className="text-rose-600 shrink-0" />
                 <div style={{ fontSize: 12.5, color: '#9f1239', lineHeight: 1.4 }}>
-                  <b>Phát hiện {invalidTimeCount} phiếu bị sai mốc thời gian / nhập ngược giờ</b> (Giờ bắt đầu &gt; Giờ kết thúc trong cùng ngày).
-                  Hệ thống đã tự động hiệu chỉnh giờ chạy thực tế để tránh sai lệch KPI.
+                  <b>Phát hiện {invalidTimeCount} phiếu bị sai mốc thời gian / nhập ngược giờ</b>{' '}
+                  (Giờ bắt đầu &gt; Giờ kết thúc trong cùng ngày). Hệ thống đã tự động hiệu chỉnh
+                  giờ chạy thực tế để tránh sai lệch KPI.
                 </div>
               </div>
               <Button
@@ -3047,7 +3048,10 @@ export default function ProductionStatisticsReport(props) {
               }`}
               title="Mở bảng đối soát kỷ luật thời gian chạy máy & cảnh báo phiếu lỗi"
             >
-              <Clock size={13} className={invalidTimeCount > 0 ? 'text-rose-600' : 'text-blue-500'} />
+              <Clock
+                size={13}
+                className={invalidTimeCount > 0 ? 'text-rose-600' : 'text-blue-500'}
+              />
               <span>ĐỐI SOÁT THỜI GIAN</span>
               {invalidTimeCount > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 text-[9.5px] font-mono font-bold bg-rose-600 text-white rounded-none leading-none shadow-xs">
@@ -3162,7 +3166,9 @@ export default function ProductionStatisticsReport(props) {
         onClose={() => setShowAuditModal(false)}
         initialCategory={auditModalCategory}
         data={rawData || filteredData}
-        plantName={plantName || (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội')}
+        plantName={
+          plantName || (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội')
+        }
       />
     </div>
   )

@@ -2,9 +2,12 @@ import { lazy } from 'react'
 
 export const pageLoaders = {
   SettingPrivate: () => import('../../page/private/setting'),
-  SystemUserPage: () => import('../../page/system/users'),
-  SystemMenuPage: () => import('../../page/system/menus'),
-  SystemPermissionPage: () => import('../../page/system/permissions'),
+  UserManagement: () => import('../../page/system/userManagement'),
+  RoleManagement: () => import('../../page/system/roleManagement'),
+  RoleGroupPage: () => import('../../page/system/roleGroup'),
+  MenuTechnique: () => import('../../page/system/menuTechnique'),
+  RootMenuTechnique: () => import('../../page/system/rootMenuTechnique'),
+  UserDetailPage: () => import('../../page/system/userDetailForm'),
   HanoiGs1StatPage: () => import('../../page/report/production/hanoiGs1/stat'),
   HanoiGs1PlanPage: () => import('../../page/report/production/hanoiGs1/plan'),
   QuevoGs5StatPage: () => import('../../page/report/production/quevoGs5/stat'),
@@ -28,9 +31,12 @@ export const pageLoaders = {
 }
 
 const SettingPrivate = lazy(pageLoaders.SettingPrivate)
-const SystemUserPage = lazy(pageLoaders.SystemUserPage)
-const SystemMenuPage = lazy(pageLoaders.SystemMenuPage)
-const SystemPermissionPage = lazy(pageLoaders.SystemPermissionPage)
+const UserManagement = lazy(pageLoaders.UserManagement)
+const RoleManagement = lazy(pageLoaders.RoleManagement)
+const RoleGroupPage = lazy(pageLoaders.RoleGroupPage)
+const MenuTechnique = lazy(pageLoaders.MenuTechnique)
+const RootMenuTechnique = lazy(pageLoaders.RootMenuTechnique)
+const UserDetailPage = lazy(pageLoaders.UserDetailPage)
 const HanoiGs1StatPage = lazy(pageLoaders.HanoiGs1StatPage)
 const HanoiGs1PlanPage = lazy(pageLoaders.HanoiGs1PlanPage)
 const QuevoGs5StatPage = lazy(pageLoaders.QuevoGs5StatPage)
@@ -50,9 +56,18 @@ const CalcProductionDetailPage = lazy(pageLoaders.CalcProductionDetailPage)
 
 export const routeToLoaderMap = {
   '/erp/u/setting': pageLoaders.SettingPrivate,
-  '/erp/u/system/users': pageLoaders.SystemUserPage,
-  '/erp/u/system/menus': pageLoaders.SystemMenuPage,
-  '/erp/u/system/permissions': pageLoaders.SystemPermissionPage,
+  '/erp/u/system/users': pageLoaders.UserManagement,
+  '/erp/u/system-settings/users/user-management': pageLoaders.UserManagement,
+  '/erp/u/system/user-detail': pageLoaders.UserDetailPage,
+  '/erp/u/system/menus': pageLoaders.MenuTechnique,
+  '/erp/u/system-settings/structure/menus': pageLoaders.MenuTechnique,
+  '/erp/u/system/modules': pageLoaders.RootMenuTechnique,
+  '/erp/u/system-settings/structure/modules': pageLoaders.RootMenuTechnique,
+  '/erp/u/system/permissions': pageLoaders.RoleManagement,
+  '/erp/u/system/role-management': pageLoaders.RoleManagement,
+  '/erp/u/system-settings/roles/permission-assignment': pageLoaders.RoleManagement,
+  '/erp/u/system/role-groups': pageLoaders.RoleGroupPage,
+  '/erp/u/system-settings/roles/role-management': pageLoaders.RoleGroupPage,
   '/erp/u/report/production/hanoi-gs1/statistics': pageLoaders.HanoiGs1StatPage,
   '/erp/u/report/production/hanoi-gs1/plan': pageLoaders.HanoiGs1PlanPage,
   '/erp/u/report/production/quevo-gs5/statistics': pageLoaders.QuevoGs5StatPage,
@@ -135,40 +150,101 @@ export const systemsRoutes = [
   // =========================================================================
   // 2. MODULE QUẢN TRỊ HỆ THỐNG (ROOT_SYSTEM)
   // =========================================================================
+  // 2.1 Quản trị người dùng (user_mgmt)
   {
     path: '/erp/u/system/users',
-    element: SystemUserPage,
-    permission: 'system_users',
+    element: UserManagement,
+    permission: 'user_mgmt',
     public: true
   },
   {
     path: '/erp/u/system/users/*',
-    element: SystemUserPage,
-    permission: 'system_users',
+    element: UserManagement,
+    permission: 'user_mgmt',
     public: true
   },
   {
+    path: '/erp/u/system-settings/users/user-management',
+    element: UserManagement,
+    permission: 'user_mgmt',
+    public: true
+  },
+  {
+    path: '/erp/u/system/user-detail',
+    element: UserDetailPage,
+    permission: 'user_mgmt',
+    public: true
+  },
+
+  // 2.2 Đăng ký menu hệ thống (system_menus / menuTechnique)
+  {
     path: '/erp/u/system/menus',
-    element: SystemMenuPage,
+    element: MenuTechnique,
     permission: 'system_menus',
     public: true
   },
   {
     path: '/erp/u/system/menus/*',
-    element: SystemMenuPage,
+    element: MenuTechnique,
     permission: 'system_menus',
     public: true
   },
   {
+    path: '/erp/u/system-settings/structure/menus',
+    element: MenuTechnique,
+    permission: 'system_menus',
+    public: true
+  },
+
+  // 2.3 Đăng ký module gốc (rootMenuTechnique)
+  {
+    path: '/erp/u/system/modules',
+    element: RootMenuTechnique,
+    permission: 'system_modules',
+    public: true
+  },
+  {
+    path: '/erp/u/system-settings/structure/modules',
+    element: RootMenuTechnique,
+    permission: 'system_modules',
+    public: true
+  },
+
+  // 2.4 Quản lý vai trò & Phân quyền (roleManagement & roleGroup)
+  {
     path: '/erp/u/system/permissions',
-    element: SystemPermissionPage,
+    element: RoleManagement,
     permission: 'system_permissions',
     public: true
   },
   {
     path: '/erp/u/system/permissions/*',
-    element: SystemPermissionPage,
+    element: RoleManagement,
     permission: 'system_permissions',
+    public: true
+  },
+  {
+    path: '/erp/u/system/role-management',
+    element: RoleManagement,
+    permission: 'perm_assign',
+    public: true
+  },
+  {
+    path: '/erp/u/system-settings/roles/permission-assignment',
+    element: RoleManagement,
+    permission: 'perm_assign',
+    public: true
+  },
+  {
+    path: '/erp/u/system/role-groups',
+    element: RoleGroupPage,
+    permission: 'role_group',
+    public: true
+  },
+  {
+    path: '/erp/u/system-settings/roles/role-management',
+    element: RoleGroupPage,
+    permission: 'role_mgmt',
     public: true
   },
 

@@ -299,10 +299,35 @@ export function useSummaryStatisticsLogic() {
 
         const rawStart = row.startTime || row.StartTime || ''
         const rawEnd = row.endTime || row.EndTime || ''
-        const durationMinutes = parseCleanNumber(
+        const rawDurationMinutes = parseCleanNumber(
           row.durationMinutes ?? row.DurationMinutes,
           parseDurationToMinutes(row.ActualRunTime || row.ActualProdTime, rawStart, rawEnd)
         )
+        const rawWaste =
+          row.TotalWasteMinutes ??
+          row.totalWasteMinutes ??
+          row.TotalDowntimeMinutes ??
+          row.totalDowntimeMinutes
+        let wasteMin = 0
+        if (rawWaste !== undefined && rawWaste !== null && rawWaste !== '') {
+          wasteMin = parseFloat(String(rawWaste).replace(',', '.')) || 0
+        } else {
+          const bd =
+            parseFloat(String(row.BreakdownMinutes ?? row.breakdownMinutes ?? 0).replace(',', '.')) || 0
+          const wm =
+            parseFloat(
+              String(row.WaitingMaterialMinutes ?? row.waitingMaterialMinutes ?? 0).replace(',', '.')
+            ) || 0
+          const st =
+            parseFloat(String(row.SetupMinutes ?? row.setupMinutes ?? 0).replace(',', '.')) || 0
+          const rp =
+            parseFloat(String(row.RepairMinutes ?? row.repairMinutes ?? 0).replace(',', '.')) || 0
+          wasteMin = bd + wm + st + rp
+        }
+        const durationMinutes =
+          wasteMin > 0 && rawDurationMinutes > 0
+            ? Math.max(0, Number((rawDurationMinutes - wasteMin).toFixed(1)))
+            : rawDurationMinutes
         const runtimeHours = Number((durationMinutes / 60).toFixed(2))
 
         const regDateRaw =

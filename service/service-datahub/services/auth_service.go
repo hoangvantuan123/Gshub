@@ -420,35 +420,48 @@ func (s *AuthService) UpdatePasswords(ctx context.Context, userId, newPassword s
 func (s *AuthService) GetUserRolesAndMenus(ctx context.Context, userId string) ([]map[string]interface{}, error) {
 	var results []map[string]interface{}
 
-	// Fetch directly from _ERPRolesUsers or join with menus
+	// Query roles and menu permissions based on User's assigned GroupId or direct user assignment
 	rows, err := s.db.WithContext(ctx).Raw(`
+		WITH user_group AS (
+			SELECT "GroupId" 
+			FROM "_ERPRolesUsers" 
+			WHERE "Type" = 'user' AND LOWER("UserId") = LOWER(?)
+			LIMIT 1
+		)
 		SELECT 
 			r."Id" AS "Id",
-			r."View" AS "View",
-			r."Edit" AS "Edit",
-			r."Create" AS "Create",
-			r."Delete" AS "Delete",
+			COALESCE(r."View", false) AS "View",
+			COALESCE(r."Edit", false) AS "Edit",
+			COALESCE(r."Create", false) AS "Create",
+			COALESCE(r."Delete", false) AS "Delete",
+			COALESCE(r."Import", false) AS "Import",
+			COALESCE(r."Export", false) AS "Export",
 			r."MenuId" AS "MenuId",
 			r."GroupId" AS "GroupId",
-			r."UserId" AS "UserId",
+			COALESCE(r."UserId", ?) AS "UserId",
 			r."RootMenuId" AS "RootMenuId",
 			r."Type" AS "Type",
-			r."Name" AS "Name",
-			m."Key" AS "MenuKey",
-			m."Label" AS "MenuLabel",
-			m."Link" AS "MenuLink",
-			m."Type" AS "MenuType",
-			rm."Key" AS "RootMenuKey",
-			rm."Label" AS "RootMenuLabel",
-			rm."Icon" AS "RootMenuIcon",
-			rm."Link" AS "RootMenuLink"
+			COALESCE(r."Name", m."Label", '') AS "Name",
+			COALESCE(m."Key", '') AS "MenuKey",
+			COALESCE(m."Label", '') AS "MenuLabel",
+			COALESCE(m."Link", '') AS "MenuLink",
+			COALESCE(m."Type", '') AS "MenuType",
+			COALESCE(rm."Key", '') AS "RootMenuKey",
+			COALESCE(rm."Label", '') AS "RootMenuLabel",
+			COALESCE(rm."Icon", 'AppWindow') AS "RootMenuIcon",
+			COALESCE(rm."Link", '') AS "RootMenuLink"
 		FROM "_ERPRolesUsers" r
 		LEFT JOIN "_ERPMenus" m ON r."MenuId" = m."Id"
-		LEFT JOIN "_ERPRootMenus" rm ON r."RootMenuId" = rm."Id"
-		WHERE LOWER(r."UserId") = LOWER(?)
-	`, userId).Rows()
+		LEFT JOIN "_ERPRootMenus" rm ON COALESCE(r."RootMenuId", m."MenuRootId") = rm."Id"
+		WHERE (
+			(r."Type" = 'menu' AND r."GroupId" IN (SELECT "GroupId" FROM user_group))
+			OR (LOWER(r."UserId") = LOWER(?))
+		)
+		ORDER BY rm."IdxNo" ASC, m."OrderSeq" ASC, r."Id" ASC
+	`, userId, userId, userId).Rows()
 
 	if err != nil {
+		s.logger.Error("GetUserRolesAndMenus query error", zap.Error(err))
 		return []map[string]interface{}{}, nil
 	}
 	defer rows.Close()
@@ -469,16 +482,61 @@ func (s *AuthService) MenuQ(ctx context.Context) ([]models.ERPMenu, error) {
 	return menus, err
 }
 
+func (s *AuthService) MenuA(ctx context.Context, item models.ERPMenu) error {
+	item.CreatedAt = time.Now()
+	item.UpdatedAt = time.Now()
+	return s.db.WithContext(ctx).Create(&item).Error
+}
+
+func (s *AuthService) MenuU(ctx context.Context, item models.ERPMenu) error {
+	item.UpdatedAt = time.Now()
+	return s.db.WithContext(ctx).Model(&models.ERPMenu{}).Where("\"Id\" = ?", item.Id).Updates(item).Error
+}
+
+func (s *AuthService) MenuD(ctx context.Context, id int64) error {
+	return s.db.WithContext(ctx).Delete(&models.ERPMenu{}, id).Error
+}
+
 func (s *AuthService) RootMenuQ(ctx context.Context) ([]models.ERPRootMenu, error) {
 	var rootMenus []models.ERPRootMenu
 	err := s.db.WithContext(ctx).Order("\"IdxNo\" ASC, \"Id\" ASC").Find(&rootMenus).Error
 	return rootMenus, err
 }
 
+func (s *AuthService) RootMenuA(ctx context.Context, item models.ERPRootMenu) error {
+	item.CreatedAt = time.Now()
+	item.UpdatedAt = time.Now()
+	return s.db.WithContext(ctx).Create(&item).Error
+}
+
+func (s *AuthService) RootMenuU(ctx context.Context, item models.ERPRootMenu) error {
+	item.UpdatedAt = time.Now()
+	return s.db.WithContext(ctx).Model(&models.ERPRootMenu{}).Where("\"Id\" = ?", item.Id).Updates(item).Error
+}
+
+func (s *AuthService) RootMenuD(ctx context.Context, id int64) error {
+	return s.db.WithContext(ctx).Delete(&models.ERPRootMenu{}, id).Error
+}
+
 func (s *AuthService) RoleQ(ctx context.Context) ([]models.ERPGroup, error) {
 	var groups []models.ERPGroup
 	err := s.db.WithContext(ctx).Order("\"IdxNo\" ASC, \"Id\" ASC").Find(&groups).Error
 	return groups, err
+}
+
+func (s *AuthService) RoleGroupA(ctx context.Context, group models.ERPGroup) error {
+	group.CreatedAt = time.Now()
+	group.UpdatedAt = time.Now()
+	return s.db.WithContext(ctx).Create(&group).Error
+}
+
+func (s *AuthService) RoleGroupU(ctx context.Context, group models.ERPGroup) error {
+	group.UpdatedAt = time.Now()
+	return s.db.WithContext(ctx).Model(&models.ERPGroup{}).Where("\"Id\" = ?", group.Id).Updates(group).Error
+}
+
+func (s *AuthService) RoleGroupD(ctx context.Context, id int64) error {
+	return s.db.WithContext(ctx).Delete(&models.ERPGroup{}, id).Error
 }
 
 func (s *AuthService) RoleUserQ(ctx context.Context, userId string) ([]models.ERPRolesUser, error) {

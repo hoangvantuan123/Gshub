@@ -266,6 +266,29 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 					details[i].CreatedAt = &now
 					details[i].UpdatedAt = &now
 					details[i].IsActive = true
+
+					// Làm sạch và tự động tính tổng hao phí nếu trống
+					details[i].ProdQty = cleanNumberStrPtr(details[i].ProdQty)
+					details[i].PassQty = cleanNumberStrPtr(details[i].PassQty)
+					details[i].DefectQty = cleanNumberStrPtr(details[i].DefectQty)
+					details[i].BreakdownMinutes = cleanNumberStrPtr(details[i].BreakdownMinutes)
+					details[i].WaitingMaterialMinutes = cleanNumberStrPtr(details[i].WaitingMaterialMinutes)
+					details[i].SetupMinutes = cleanNumberStrPtr(details[i].SetupMinutes)
+					details[i].RepairMinutes = cleanNumberStrPtr(details[i].RepairMinutes)
+					details[i].TotalWasteMinutes = cleanNumberStrPtr(details[i].TotalWasteMinutes)
+
+					if details[i].TotalWasteMinutes == nil || strings.TrimSpace(*details[i].TotalWasteMinutes) == "" || *details[i].TotalWasteMinutes == "0" {
+						bd := parseNumberHelper(details[i].BreakdownMinutes)
+						wm := parseNumberHelper(details[i].WaitingMaterialMinutes)
+						st := parseNumberHelper(details[i].SetupMinutes)
+						rp := parseNumberHelper(details[i].RepairMinutes)
+						sum := bd + wm + st + rp
+						if sum > 0 {
+							sumStr := fmt.Sprintf("%.1f", sum)
+							sumStr = strings.TrimSuffix(sumStr, ".0")
+							details[i].TotalWasteMinutes = &sumStr
+						}
+					}
 				}
 				if err := tx.CreateInBatches(details, 500).Error; err != nil {
 					return fmt.Errorf("lỗi khi lưu %d dòng chi tiết TKSX: %w", len(details), err)
@@ -362,4 +385,58 @@ func (h *PlanMasterHandler) PlanMasterD(c *gin.Context) {
 		"success": true,
 		"message": "Đã xóa thành công đợt đăng ký!",
 	})
+}
+
+func cleanNumberStrPtr(ptr *string) *string {
+	if ptr == nil {
+		return nil
+	}
+	s := strings.TrimSpace(*ptr)
+	if s == "" {
+		return ptr
+	}
+	s = strings.ReplaceAll(s, " ", "")
+	if strings.Contains(s, ".") && strings.Contains(s, ",") {
+		lastDot := strings.LastIndex(s, ".")
+		lastComma := strings.LastIndex(s, ",")
+		if lastComma > lastDot {
+			s = strings.ReplaceAll(s, ".", "")
+			s = strings.ReplaceAll(s, ",", ".")
+		} else {
+			s = strings.ReplaceAll(s, ",", "")
+		}
+	} else if strings.Contains(s, ".") {
+		parts := strings.Split(s, ".")
+		if len(parts) > 2 {
+			s = strings.Join(parts, "")
+		} else if len(parts) == 2 && len(parts[1]) == 3 && len(parts[0]) >= 1 {
+			s = parts[0] + parts[1]
+		}
+	} else if strings.Contains(s, ",") {
+		parts := strings.Split(s, ",")
+		if len(parts) > 2 {
+			s = strings.Join(parts, "")
+		} else if len(parts) == 2 {
+			if len(parts[1]) == 3 && len(parts[0]) >= 1 {
+				s = parts[0] + parts[1]
+			} else {
+				s = parts[0] + "." + parts[1]
+			}
+		}
+	}
+	return &s
+}
+
+func parseNumberHelper(ptr *string) float64 {
+	if ptr == nil || strings.TrimSpace(*ptr) == "" {
+		return 0
+	}
+	s := strings.TrimSpace(*ptr)
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, ",", ".")
+	val, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0
+	}
+	return val
 }

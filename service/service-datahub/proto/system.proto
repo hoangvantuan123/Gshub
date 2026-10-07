@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package datahub;
+
+option go_package = "service-datahub/pb/datahub";
+
+// =============================================================================
+// 1. USER & ACCOUNT MANAGEMENT PROTO (A, U, D, Q)
+// =============================================================================
+
+message UserProto {
+  string user_seq = 1;
+  int32 company_seq = 2;
+  int32 idx_no = 3;
+  string emp_id = 4;
+  string emp_code = 5;
+  string emp_name = 6;
+  string dept_name = 7;
+  string manager_name = 8;
+  string user_id = 9;
+  int32 user_type = 10;
+  string user_name = 11;
+  string email = 12;
+  bool check_pass1 = 13;
+  bool status_acc = 14;
+  string status = 15;
+  bool active = 16;
+  int32 language_seq = 17;
+  string created_by = 18;
+  string created_at = 19;
+  string updated_by = 20;
+  string updated_at = 21;
+}
+
+message UserQueryRequest {
+  string user_id = 1;
+  string user_name = 2;
+  string status_acc = 3;
+  string active = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message UserListResponse {
+  bool success = 1;
+  string message = 2;
+  repeated UserProto data = 3;
+  int64 total = 4;
+  int64 total_all = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message UserMutateRequest {
+  repeated UserProto users = 1;
+}
+
+message UserMutateResponse {
+  bool success = 1;
+  string message = 2;
+  repeated UserProto data = 3;
+}
+
+// =============================================================================
+// 2. ROLE GROUP PROTO (A, U, D, Q)
+// =============================================================================
+
+message RoleGroupProto {
+  string id = 1;
+  string name = 2;
+  string comment = 3;
+  string created_by_name = 4;
+  int32 idx_no = 5;
+  string status = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message RoleGroupQueryRequest {
+  string keyword = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message RoleGroupListResponse {
+  bool success = 1;
+  string message = 2;
+  repeated RoleGroupProto data = 3;
+  int64 total = 4;
+}
+
+message RoleGroupMutateRequest {
+  repeated RoleGroupProto groups = 1;
+}
+
+message RoleGroupMutateResponse {
+  bool success = 1;
+  string message = 2;
+  repeated RoleGroupProto data = 3;
+}
+
+// =============================================================================
+// 3. ROLE PERMISSION PROTO (A, U, D, Q)
+// =============================================================================
+
+message UserRoleProto {
+  string id = 1;
+  string user_id = 2;
+  string user_name = 3;
+  string group_id = 4;
+  string group_name = 5;
+  string created_at = 6;
+}
+
+message MenuRoleProto {
+  string id = 1;
+  string group_id = 2;
+  string root_menu_id = 3;
+  string menu_id = 4;
+  string menu_key = 5;
+  string menu_label = 6;
+  bool can_view = 7;
+  bool can_create = 8;
+  bool can_edit = 9;
+  bool can_delete = 10;
+  bool can_export = 11;
+  bool can_print = 12;
+  string data_scope = 13;
+}
+
+message RolePermQueryRequest {
+  string group_id = 1;
+  string root_menu_id = 2;
+}
+
+message RolePermResponse {
+  bool success = 1;
+  string message = 2;
+  repeated UserRoleProto users = 3;
+  repeated MenuRoleProto menus = 4;
+}
+
+// =============================================================================
+// 4. ROOT MODULE & MENU PROTO (A, U, D, Q)
+// =============================================================================
+
+message RootMenuProto {
+  string id = 1;
+  string root_menu_id = 2;
+  string root_menu_key = 3;
+  string root_menu_label = 4;
+  string icon = 5;
+  int32 order_seq = 6;
+  bool view = 7;
+}
+
+message MenuProto {
+  string id = 1;
+  string menu_key = 2;
+  string menu_sub_root_id = 3;
+  string menu_root_id = 4;
+  string menu_label = 5;
+  string menu_link = 6;
+  string menu_type = 7; // 'submenu' | 'menu'
+  string icon = 8;
+  int32 order_seq = 9;
+  bool view = 10;
+}
+
+message StructureQueryRequest {
+  string root_menu_id = 1;
+}
+
+message StructureResponse {
+  bool success = 1;
+  string message = 2;
+  repeated RootMenuProto root_menus = 3;
+  repeated MenuProto menus = 4;
+}
+
+// =============================================================================
+// 5. GRPC SYSTEM SERVICES
+// =============================================================================
+
+service SystemDataService {
+  // User Accounts
+  rpc QueryUsers (UserQueryRequest) returns (UserListResponse);
+  rpc AddUsers (UserMutateRequest) returns (UserMutateResponse);
+  rpc UpdateUsers (UserMutateRequest) returns (UserMutateResponse);
+  rpc DeleteUsers (UserMutateRequest) returns (UserMutateResponse);
+
+  // Role Groups
+  rpc QueryRoleGroups (RoleGroupQueryRequest) returns (RoleGroupListResponse);
+  rpc AddRoleGroups (RoleGroupMutateRequest) returns (RoleGroupMutateResponse);
+  rpc UpdateRoleGroups (RoleGroupMutateRequest) returns (RoleGroupMutateResponse);
+  rpc DeleteRoleGroups (RoleGroupMutateRequest) returns (RoleGroupMutateResponse);
+
+  // Role Permissions
+  rpc QueryRolePermissions (RolePermQueryRequest) returns (RolePermResponse);
+  rpc SaveRolePermissions (RolePermResponse) returns (RolePermResponse);
+
+  // System Structure (Root Modules & Menus)
+  rpc QuerySystemStructure (StructureQueryRequest) returns (StructureResponse);
+}

@@ -10,12 +10,12 @@ export function HeroKpiCards({ kpiMetrics = {} }) {
   const over12hRate = totalTickets > 0 ? ((runtimeOver12h / totalTickets) * 100).toFixed(1) : '0.0'
 
   const runtimeUnder5Min = m.runtimeUnder5Min ?? m.under5MinCount ?? 0
-  const under5MinRate = totalTickets > 0 ? ((runtimeUnder5Min / totalTickets) * 100).toFixed(1) : '0.0'
+  const under5MinRate =
+    totalTickets > 0 ? ((runtimeUnder5Min / totalTickets) * 100).toFixed(1) : '0.0'
 
   const autoExportRate = m.autoExportRate ?? 0
   const autoExportCount = m.autoExportCount ?? 0
   const noAutoExportCount = m.noAutoExportCount ?? 0
-
 
   return (
     <div

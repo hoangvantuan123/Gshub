@@ -549,3 +549,186 @@ func (h *AuthHandler) UserRoleD(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: gin.H{"deleted": true}})
 }
+
+// ─── ROLE GROUP HANDLERS (A, U, D, Q) ───
+func (h *AuthHandler) RoleGroupQ(c *gin.Context) {
+	groups, err := h.authService.RoleQ(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: groups})
+}
+
+func (h *AuthHandler) RoleGroupA(c *gin.Context) {
+	var group models.ERPGroup
+	var body struct {
+		Result models.ERPGroup `json:"result"`
+	}
+	if err := c.ShouldBindJSON(&body); err == nil && body.Result.Name != "" {
+		group = body.Result
+	} else {
+		_ = c.ShouldBindJSON(&group)
+	}
+	if err := h.authService.RoleGroupA(c.Request.Context(), group); err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: group})
+}
+
+func (h *AuthHandler) RoleGroupU(c *gin.Context) {
+	var group models.ERPGroup
+	var body struct {
+		Result models.ERPGroup `json:"result"`
+	}
+	if err := c.ShouldBindJSON(&body); err == nil && body.Result.Id != 0 {
+		group = body.Result
+	} else {
+		_ = c.ShouldBindJSON(&group)
+	}
+	if err := h.authService.RoleGroupU(c.Request.Context(), group); err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: group})
+}
+
+func (h *AuthHandler) RoleGroupD(c *gin.Context) {
+	var req struct {
+		Id     int64 `json:"Id"`
+		Result struct {
+			Id int64 `json:"Id"`
+		} `json:"result"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	id := req.Result.Id
+	if id == 0 {
+		id = req.Id
+	}
+	if err := h.authService.RoleGroupD(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: gin.H{"deleted": true}})
+}
+
+// ─── ROLE MATRIX & ASSIGNMENT (A, U, D, Q) ───
+func (h *AuthHandler) RoleA(c *gin.Context) {
+	h.RoleGroupA(c)
+}
+func (h *AuthHandler) RoleU(c *gin.Context) {
+	h.RoleGroupU(c)
+}
+func (h *AuthHandler) RoleD(c *gin.Context) {
+	h.RoleGroupD(c)
+}
+
+// ─── ROOT MENU (A, U, D) ───
+func (h *AuthHandler) RootMenuA(c *gin.Context) {
+	var item models.ERPRootMenu
+	var body struct {
+		Result models.ERPRootMenu `json:"result"`
+	}
+	if err := c.ShouldBindJSON(&body); err == nil && body.Result.Key != "" {
+		item = body.Result
+	} else {
+		_ = c.ShouldBindJSON(&item)
+	}
+	if err := h.authService.RootMenuA(c.Request.Context(), item); err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: item})
+}
+
+func (h *AuthHandler) RootMenuU(c *gin.Context) {
+	var item models.ERPRootMenu
+	var body struct {
+		Result models.ERPRootMenu `json:"result"`
+	}
+	if err := c.ShouldBindJSON(&body); err == nil && body.Result.Id != 0 {
+		item = body.Result
+	} else {
+		_ = c.ShouldBindJSON(&item)
+	}
+	if err := h.authService.RootMenuU(c.Request.Context(), item); err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: item})
+}
+
+func (h *AuthHandler) RootMenuD(c *gin.Context) {
+	var req struct {
+		Id     int64 `json:"Id"`
+		Result struct {
+			Id int64 `json:"Id"`
+		} `json:"result"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	id := req.Result.Id
+	if id == 0 {
+		id = req.Id
+	}
+	if err := h.authService.RootMenuD(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: gin.H{"deleted": true}})
+}
+
+// ─── MENU (A, U, D) ───
+func (h *AuthHandler) MenuA(c *gin.Context) {
+	var item models.ERPMenu
+	var body struct {
+		Result models.ERPMenu `json:"result"`
+	}
+	if err := c.ShouldBindJSON(&body); err == nil && body.Result.Key != "" {
+		item = body.Result
+	} else {
+		_ = c.ShouldBindJSON(&item)
+	}
+	if err := h.authService.MenuA(c.Request.Context(), item); err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: item})
+}
+
+func (h *AuthHandler) MenuU(c *gin.Context) {
+	var item models.ERPMenu
+	var body struct {
+		Result models.ERPMenu `json:"result"`
+	}
+	if err := c.ShouldBindJSON(&body); err == nil && body.Result.Id != 0 {
+		item = body.Result
+	} else {
+		_ = c.ShouldBindJSON(&item)
+	}
+	if err := h.authService.MenuU(c.Request.Context(), item); err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: item})
+}
+
+func (h *AuthHandler) MenuD(c *gin.Context) {
+	var req struct {
+		Id     int64 `json:"Id"`
+		Result struct {
+			Id int64 `json:"Id"`
+		} `json:"result"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	id := req.Result.Id
+	if id == 0 {
+		id = req.Id
+	}
+	if err := h.authService.MenuD(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusOK, models.ApiResponse{Success: false, Message: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Message: "2000", Data: gin.H{"deleted": true}})
+}
+

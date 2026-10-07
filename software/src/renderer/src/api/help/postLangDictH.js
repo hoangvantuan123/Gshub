@@ -1,8 +1,4 @@
-/**
- * PostLangDictH - Disabled
- */
-export const PostLangDictH = async () => {
-  return { success: true, data: [] }
-}
+import { apiPost } from '../../services/apiClient'
 
-export default PostLangDictH
+export const PostLangDictH = (searchParams = {}, options = {}) =>
+  apiPost('/help/LangDictH', searchParams, options)

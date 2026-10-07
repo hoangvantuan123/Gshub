@@ -11,6 +11,7 @@ import { useRealtimeContext } from '../../api/realtime/context/RealtimeContext'
 export function useRealtimeTableSync({ eventTypes = [], setStatusMessage, tableName = 'Dữ liệu' }) {
   const { latestEvent } = useRealtimeContext() || {}
   const lastProcessedEventId = useRef(null)
+  const eventTypesKey = Array.isArray(eventTypes) ? eventTypes.join(',') : String(eventTypes || '')
 
   useEffect(() => {
     if (!latestEvent || !latestEvent.payload) return
@@ -32,7 +33,8 @@ export function useRealtimeTableSync({ eventTypes = [], setStatusMessage, tableN
     }
 
     const eventName = eventPayload?.event || eventPayload?.eventType || ''
-    if (!eventTypes.includes(eventName)) {
+    const typesList = eventTypesKey.split(',').filter(Boolean)
+    if (!typesList.includes(eventName)) {
       return
     }
 
@@ -42,5 +44,5 @@ export function useRealtimeTableSync({ eventTypes = [], setStatusMessage, tableN
         text: `[Realtime] ${tableName} vừa có thay đổi trên hệ thống từ người dùng khác.`
       })
     }
-  }, [latestEvent, eventTypes, setStatusMessage, tableName])
+  }, [latestEvent, eventTypesKey, setStatusMessage, tableName])
 }

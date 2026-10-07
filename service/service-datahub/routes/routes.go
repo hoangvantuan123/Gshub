@@ -3,6 +3,7 @@ package routes
 import (
 	"service-datahub/config"
 	"service-datahub/handlers"
+	"service-datahub/handlers/system"
 	"service-datahub/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +13,11 @@ import (
 func SetupRouter(
 	cfg *config.Config,
 	authHandler *handlers.AuthHandler,
+	userAuthHandler *system.UserAuthHandler,
+	roleGroupHandler *system.RoleGroupHandler,
+	rolePermHandler *system.RolePermHandler,
+	rootMenuHandler *system.RootMenuHandler,
+	menuHandler *system.MenuHandler,
 	loginHandler *handlers.LoginHandler,
 	configHandler *handlers.ConfigHandler,
 	workProcessHandler *handlers.WorkProcessHandler,
@@ -23,6 +29,7 @@ func SetupRouter(
 	planReportHandler *handlers.PlanReportHandler,
 	summaryPlanReportHandler *handlers.SummaryPlanReportHandler,
 	summaryStatReportHandler *handlers.SummaryStatReportHandler,
+	helpHandler *handlers.HelpHandler,
 	healthHandler *handlers.HealthHandler,
 	logger *zap.Logger,
 ) *gin.Engine {
@@ -42,6 +49,20 @@ func SetupRouter(
 	r.GET("/", healthHandler.HealthCheck)
 	r.GET("/ping", healthHandler.HealthCheck)
 
+	// Helper đăng ký các route CodeHelp & Danh mục dùng chung
+	regHelp := func(g *gin.RouterGroup) {
+		g.POST("/CodeHelpQ", helpHandler.CodeHelpQ)
+		g.GET("/CodeHelpQ", helpHandler.CodeHelpQ)
+		g.POST("/CodeHelpCmnQ", helpHandler.CodeHelpQ)
+		g.GET("/CodeHelpCmnQ", helpHandler.CodeHelpQ)
+		g.POST("/LangH", helpHandler.LangH)
+		g.GET("/LangH", helpHandler.LangH)
+		g.POST("/UsersH", helpHandler.UsersH)
+		g.POST("/MenuH", helpHandler.MenuH)
+		// g.POST("/RootMenuH", helpHandler.RootMenuH)
+		g.POST("/SubMenuH", helpHandler.SubMenuH)
+	}
+
 	// ====================================================================
 	// API V2 Routes - Electron Desktop & Web Client with AppSecurity + JWT
 	// ====================================================================
@@ -56,10 +77,12 @@ func SetupRouter(
 			acc.POST("/p2/loginApp", authHandler.Login)
 			acc.POST("/p2/change-password", authHandler.ChangePass)
 			acc.POST("/p2/logout", authHandler.Logout)
-			acc.POST("/UsersAuthA", authHandler.UsersAuthA)
-			acc.POST("/UsersAuthU", authHandler.UsersAuthU)
-			acc.POST("/UsersAuthD", authHandler.UsersAuthD)
-			acc.POST("/UsersAuthQ", authHandler.UsersAuthQ)
+
+			// Tách riêng User Auth A/U/D/Q Handler
+			acc.POST("/UsersAuthA", userAuthHandler.UsersAuthA)
+			acc.POST("/UsersAuthU", userAuthHandler.UsersAuthU)
+			acc.POST("/UsersAuthD", userAuthHandler.UsersAuthD)
+			acc.POST("/UsersAuthQ", userAuthHandler.UsersAuthQ)
 			acc.POST("/UsersAuthUStatusAcc", authHandler.UsersAuthUStatusAcc)
 			acc.POST("/UPass2", authHandler.UpdatePasswords)
 		}
@@ -67,22 +90,49 @@ func SetupRouter(
 		// 2. Roles & Permissions (/api/v2/role)
 		role := v2.Group("/role")
 		{
-			role.POST("/RoleQ", authHandler.RoleQ)
-			role.POST("/UserRoleQ", authHandler.UserRoleQ)
-			role.POST("/UserRoleA", authHandler.UserRoleA)
-			role.POST("/UserRoleU", authHandler.UserRoleU)
-			role.POST("/UserRoleD", authHandler.UserRoleD)
+			// Tách riêng Role Group A/U/D/Q Handler
+			role.POST("/RoleGroupQ", roleGroupHandler.RoleGroupQ)
+			role.POST("/RoleGroupA", roleGroupHandler.RoleGroupA)
+			role.POST("/RoleGroupU", roleGroupHandler.RoleGroupU)
+			role.POST("/RoleGroupD", roleGroupHandler.RoleGroupD)
+
+			// Tách riêng Role Perm & Assignment Handler
+			role.POST("/RoleQ", roleGroupHandler.RoleGroupQ)
+			role.POST("/RoleA", roleGroupHandler.RoleGroupA)
+			role.POST("/RoleU", roleGroupHandler.RoleGroupU)
+			role.POST("/RoleD", roleGroupHandler.RoleGroupD)
+
+			role.POST("/UserRoleQ", rolePermHandler.UserRoleQ)
+			role.POST("/UserRoleA", rolePermHandler.UserRoleA)
+			role.POST("/UserRoleU", rolePermHandler.MenuRoleU)
+			role.POST("/UserRoleD", rolePermHandler.UserRoleD)
+
+			role.POST("/MenuRoleQ", rolePermHandler.MenuRoleQ)
+			// role.POST("/RootMenuRoleQ", rolePermHandler.RootMenuRoleQ)
 		}
 
 		// 3. Menus (/api/v2/menu & /api/v2/system-users & /api/v2/mssql/system-users)
 		regMenus := func(g *gin.RouterGroup) {
-			g.POST("/MenuQ", authHandler.MenuQ)
-			g.POST("/RootMenuQ", authHandler.RootMenuQ)
-			g.POST("/root-menu-Q", authHandler.RootMenuQ)
+			// Tách riêng Menu A/U/D/Q Handler
+			g.POST("/MenuQ", menuHandler.MenuQ)
+			g.POST("/MenuA", menuHandler.MenuA)
+			g.POST("/MenuU", menuHandler.MenuU)
+			g.POST("/MenuD", menuHandler.MenuD)
+
+			// Tạm ẩn API RootMenu / Module
+			// g.POST("/RootMenuQ", rootMenuHandler.RootMenuQ)
+			// g.POST("/RootMenuA", rootMenuHandler.RootMenuA)
+			// g.POST("/RootMenuU", rootMenuHandler.RootMenuU)
+			// g.POST("/RootMenuD", rootMenuHandler.RootMenuD)
+			// g.POST("/root-menu-Q", rootMenuHandler.RootMenuQ)
 		}
 		regMenus(v2.Group("/menu"))
 		regMenus(v2.Group("/system-users"))
 		regMenus(v2.Group("/mssql/system-users"))
+
+		// 4. CodeHelp & Common Help Engine (/api/v2/help)
+		regHelp(v2.Group("/help"))
+		regHelp(v2.Group("/mssql/help-query"))
 
 		// 4. Report Registration & Queries (Master, KHSX Detail, TKSX Detail)
 		planV2 := v2.Group("/report/plan")
@@ -255,6 +305,22 @@ func SetupRouter(
 			prodReportsV1.GET("/plan", planReportHandler.GetProductionPlanReport)
 			prodReportsV1.POST("/plan", planReportHandler.GetProductionPlanReport)
 		}
+
+		// 9. Help V1
+		regHelp(v1.Group("/help"))
+	}
+
+	// API V6 (HOST_API_SERVER_9 compatibility)
+	v6 := r.Group("/api/v6")
+	v6.Use(middleware.AppSecurityMiddleware(logger))
+	{
+		regHelp(v6.Group("/help"))
+	}
+
+	// Root Help alias
+	rootHelp := r.Group("/help")
+	{
+		regHelp(rootHelp)
 	}
 
 	return r

@@ -1,8 +1,9 @@
-/**
- * DictVersionQ - Disabled
- */
-export const DictVersionQ = async () => {
-  return { success: true, data: { versionHash: '' } }
-}
+import { apiPost } from '../../services/apiClient'
 
-export default DictVersionQ
+export const DictVersionQ = (langCode, options = {}) => {
+  const isSeq = typeof langCode === 'number'
+  const payload = isSeq
+    ? { KeyItem1: langCode, KeyItem2: String(langCode) }
+    : { KeyItem2: String(langCode || 'vi').toLowerCase() }
+  return apiPost('/help/DictVersionQ', payload, options)
+}

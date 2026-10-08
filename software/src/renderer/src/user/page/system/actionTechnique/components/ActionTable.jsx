@@ -255,7 +255,9 @@ export default function ActionTable({
 
       if (numPastedRows > 3000) {
         if (setStatusMessage) {
-          setStatusMessage(t('msg.pasteLimitExceeded', 'Số lượng dòng dán vượt quá giới hạn 3,000 dòng.'))
+          setStatusMessage(
+            t('msg.pasteLimitExceeded', 'Số lượng dòng dán vượt quá giới hạn 3,000 dòng.')
+          )
         }
         return false
       }
@@ -337,7 +339,16 @@ export default function ActionTable({
 
       return false
     },
-    [cols, canEdit, isReadOnlyColumn, setGridData, setNumRows, setStatusMessage, t, gridData?.length]
+    [
+      cols,
+      canEdit,
+      isReadOnlyColumn,
+      setGridData,
+      setNumRows,
+      setStatusMessage,
+      t,
+      gridData?.length
+    ]
   )
 
   const effectiveRows = numRows ?? gridData?.length ?? 0

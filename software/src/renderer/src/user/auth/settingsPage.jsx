@@ -36,7 +36,7 @@ const settingsTranslations = {
     },
     server: {
       title: 'Máy chủ kết nối',
-      subtitle: 'Lựa chọn môi trường kết nối hệ thống Goldsun Hub ERP MES',
+      subtitle: 'Lựa chọn môi trường kết nối hệ thống',
       envLabel: 'Môi trường kết nối (Environment)',
       official: 'Goldsun PROD (Môi trường Chính thức)',
       dev: 'Goldsun DEV (Môi trường Thử nghiệm)',
@@ -84,7 +84,7 @@ const settingsTranslations = {
     },
     server: {
       title: 'Server Connection',
-      subtitle: 'Select Goldsun Hub ERP MES environment',
+      subtitle: 'Select system environment',
       envLabel: 'Server Environment',
       official: 'Goldsun PROD (Production)',
       dev: 'Goldsun DEV (Testing / UAT)',
@@ -132,7 +132,7 @@ const settingsTranslations = {
     },
     server: {
       title: '服务器与连接',
-      subtitle: '选择 Goldsun Hub ERP MES 系统的运行环境',
+      subtitle: '选择系统的运行环境',
       envLabel: '服务器环境 (Environment)',
       official: 'Goldsun PROD (正式环境 / Production)',
       dev: 'Goldsun DEV (测试环境 / UAT)',

@@ -77,4 +77,3 @@ export const useRoleActionPermColumns = ({ isFieldVisible, isFieldReadOnly } = {
       }))
   }, [t, isFieldVisible, isFieldReadOnly])
 }
-

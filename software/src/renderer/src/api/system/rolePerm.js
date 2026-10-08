@@ -26,7 +26,6 @@ export const PostQRootMenuRole = (result, options = {}) =>
 export const PostURootMenuRole = (result, options = {}) =>
   apiPost('/role/RootMenuRoleU', { result }, options)
 
-
 // Quyền Action / Nút Lệnh theo Menu & Vai trò
 export const PostQActionRole = (result, options = {}) =>
   apiPost('/role/ActionRoleQ', { result }, options)
@@ -36,4 +35,3 @@ export const PostUActionRole = (result, options = {}) =>
 // Ma trận quyền tài nguyên & cây menu
 export const PostQPermResourceTree = (result = {}, options = {}) =>
   apiPost('/role/RoleQ', { result: { Sheet: 'perm_resource_tree', ...result } }, options)
-

@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package users.auth.login;
+
+option go_package = "server-core/proto/users/auth/login";
+
+service LoginService {
+  rpc login (Request) returns (Response);
+  rpc loginApp (RequestApp) returns (Response);
+  rpc ChangePass (ChangePassRequest) returns (Response);
+  rpc logout (Request) returns (Response);
+}
+
+message DeviceInfo {
+  string data = 1;
+  string iv = 2;
+}
+
+message Result {
+  string login = 1;
+  string password = 2;
+
+  DeviceInfo deviceInfoWeb = 3;
+  DeviceInfo deviceInfoSoft = 4;
+  DeviceInfo deviceInfoApp = 5;
+
+  string platformStatus = 6;
+}
+message ResultApp {
+  string employeeId = 1;
+  string password = 2;
+
+  DeviceInfo deviceInfoWeb = 3;
+  DeviceInfo deviceInfoSoft = 4;
+  DeviceInfo deviceInfoApp = 5;
+
+  string platformStatus = 6;
+}
+
+message ChangePassResult {
+  string employeeId = 1;
+  string oldPassword = 2;
+  string newPassword = 3;
+}
+
+message Request {
+  Result result = 1;
+  map<string, string> metadata = 2;
+}
+message   RequestApp {
+  ResultApp result = 1;
+  map<string, string> metadata = 2;
+}
+
+message ChangePassRequest {
+  ChangePassResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message ErrorInfo {
+  string code = 1;
+  string message = 2;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+  string data = 3;
+  ErrorInfo error = 4;
+  string page = 5;
+}

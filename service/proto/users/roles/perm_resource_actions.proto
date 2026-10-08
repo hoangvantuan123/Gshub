@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package users.roles.perm_resource_actions;
+
+option go_package = "server-core/proto/users/roles/perm_resource_actions";
+
+service PermResourceActionsService {
+  rpc PermResourceActionsA (PermResourceActionsARequest) returns (Response);
+  rpc PermResourceActionsU (PermResourceActionsURequest) returns (Response);
+  rpc PermResourceActionsD (PermResourceActionsDRequest) returns (Response);
+  rpc PermResourceActionsQ (PermResourceActionsQRequest) returns (Response);
+}
+
+message PermResourceActionsAResult {
+  int32 IdxNo = 1;
+  string ResourceSeq = 2;
+  string ActionSeq = 3;
+  string CustomActionName = 4;
+  bool IsDefaultAllow = 5;
+  int32 OrderNo = 6;
+  string Comment = 7;
+  int64 RowVersion = 8;
+  string CreatedBy = 9;
+  string UpdatedBy = 10;
+}
+
+message PermResourceActionsUResult {
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string ResourceSeq = 3;
+  string ActionSeq = 4;
+  string CustomActionName = 5;
+  bool IsDefaultAllow = 6;
+  int32 OrderNo = 7;
+  string Comment = 8;
+  int64 RowVersion = 9;
+  string UpdatedBy = 10;
+}
+
+message PermResourceActionsDResult {
+  string IdSeq = 1;
+  int64 RowVersion = 2;
+}
+
+message PermResourceActionsQResult {
+  string ResourceSeq = 1;
+  string ActionSeq = 2;
+  string ActionCode = 3;
+  string ActionName = 4;
+  string LangKey = 5;
+  string IsDefaultAllow = 6;
+  string KeyItem1 = 7;
+  string KeyItem2 = 8;
+  string KeyItem3 = 9;
+}
+
+message PermResourceActionsARequest {
+  repeated PermResourceActionsAResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermResourceActionsURequest {
+  repeated PermResourceActionsUResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermResourceActionsDRequest {
+  repeated PermResourceActionsDResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermResourceActionsQRequest {
+  PermResourceActionsQResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+  string data = 3;
+  string page = 4;
+}

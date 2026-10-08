@@ -10,8 +10,16 @@ import { MachineRuntimeSection } from '../../timelineSummary/components/MachineR
 import { TeamOutputSection } from '../../timelineSummary/components/TeamOutputSection'
 import { SyncLatencySection } from '../../timelineSummary/components/SyncLatencySection'
 import { AutoExportSection } from '../../timelineSummary/components/AutoExportSection'
+import { usePagePermissions } from '@renderer/user/hooks/usePagePermissions'
 
-export default function SummaryStatisticsReportPage() {
+export default function SummaryStatisticsReportPage({ permissions = [] }) {
+  // 1. Phân quyền hệ thống cho module Báo cáo Tổng hợp Thống kê Sản xuất
+  const pagePerms = usePagePermissions({
+    permissions,
+    menuKey: 'report_summary_stat'
+  })
+
+  // 2. Logic phân tích và nạp dữ liệu độc lập cho module Tổng hợp TKSX
   const {
     factoryCode,
     setFactoryCode,
@@ -71,7 +79,7 @@ export default function SummaryStatisticsReportPage() {
     currentPlantName,
     totalDays,
     standardCapacityHours
-  } = useSummaryStatisticsLogic()
+  } = useSummaryStatisticsLogic({ pagePerms })
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-[#f8fafc]">
@@ -120,10 +128,11 @@ export default function SummaryStatisticsReportPage() {
               picOptions={filterOptions?.pics || []}
               loading={loading}
               fetchData={fetchTimelineData}
-              handleExportExcel={handleExportExcel}
+              handleExportExcel={pagePerms?.canExport !== false ? handleExportExcel : undefined}
               setIsHandbookModalOpen={setIsHandbookModalOpen}
               handleCaptureScreenshot={handleCaptureScreenshot}
               isCapturing={isCapturing}
+              permissions={pagePerms}
             />
           </div>
 

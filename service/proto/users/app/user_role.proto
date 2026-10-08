@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package users.app.user_role;
+
+option go_package = "server-core/proto/users/app/user_role";
+
+service AppUserRoleService {
+  rpc AppUserRoleA (AppUserRoleARequest) returns (Response);
+  rpc AppUserRoleU (AppUserRoleURequest) returns (Response);
+  rpc AppUserRoleD (AppUserRoleDRequest) returns (Response);
+  rpc AppUserRoleQ (AppUserRoleQRequest) returns (Response);
+}
+
+message AppUserRoleAResult { 
+  int32 IdxNo = 1;
+
+  bool View = 2;
+  bool Edit = 3;
+  bool Delete = 4;
+  bool Create = 5;
+
+  string TabSeq = 6;
+  string ScreenSeq = 7;
+  string GroupSeq = 8;
+  string UserId = 9;
+  string Type = 10;
+}
+
+message AppUserRoleUResult { 
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  bool View = 3;
+  bool Edit = 4;
+  bool Delete = 5;
+  bool Create = 6;
+
+  string TabSeq = 7;
+  string ScreenSeq = 8;
+  string GroupSeq = 9;
+  string UserId = 10;
+  string Type = 11;
+}
+
+message AppUserRoleDResult { 
+  string IdSeq = 1;
+}
+
+message AppUserRoleQResult { 
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message AppUserRoleARequest {
+  repeated AppUserRoleAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message AppUserRoleURequest {
+  repeated AppUserRoleUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message AppUserRoleDRequest {
+  repeated AppUserRoleDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message AppUserRoleQRequest {
+  AppUserRoleQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

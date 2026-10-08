@@ -68,13 +68,13 @@ export function useRoleManagementMutation({
       View: Boolean(m.View || m.CanView)
     }))
 
-
     const allRootMenuPermissions = (gridDataA || []).map((rm) => {
       const rmId = String(rm.RootMenuId || rm.Id || '')
       const hasCheckedChild = (gridDataB || []).some(
         (m) =>
           (String(m.RootMenuId || m.MenuRootId || '') === rmId ||
-            (rm.RootMenuKey && String(m.RootMenuKey || m.MenuKey || '').startsWith(rm.RootMenuKey))) &&
+            (rm.RootMenuKey &&
+              String(m.RootMenuKey || m.MenuKey || '').startsWith(rm.RootMenuKey))) &&
           Boolean(m.View || m.CanView)
       )
       const canView = Boolean(rm.View || rm.CanView || hasCheckedChild)
@@ -90,9 +90,7 @@ export function useRoleManagementMutation({
       .map((u) => String(u?.UserId || '').trim())
       .filter(Boolean)
 
-    const selectedMenuId = String(
-      selectedMenuInGrid?.MenuId || selectedMenuInGrid?.Id || ''
-    ).trim()
+    const selectedMenuId = String(selectedMenuInGrid?.MenuId || selectedMenuInGrid?.Id || '').trim()
 
     togglePageInteraction(true, t('Đang lưu dữ liệu phân quyền và thành viên nhóm...'))
     loadingBarRef?.current?.continuousStart?.()
@@ -221,7 +219,11 @@ export function useRoleManagementMutation({
       selectedUserRowIndices.add(selectionUsers.current.cell[1])
     }
 
-    if (selectedUserRowIndices.size > 0 && Array.isArray(gridDataUsers) && gridDataUsers.length > 0) {
+    if (
+      selectedUserRowIndices.size > 0 &&
+      Array.isArray(gridDataUsers) &&
+      gridDataUsers.length > 0
+    ) {
       const hasValidRow = Array.from(selectedUserRowIndices).some(
         (idx) => idx < gridDataUsers.length && gridDataUsers[idx]?.UserId
       )
@@ -233,7 +235,9 @@ export function useRoleManagementMutation({
         if (setStatusMessage) {
           setStatusMessage({
             type: 'info',
-            text: t('Đã gỡ người dùng được chọn khỏi bảng. Nhấn LƯU (Ctrl+S) để cập nhật vào hệ thống!')
+            text: t(
+              'Đã gỡ người dùng được chọn khỏi bảng. Nhấn LƯU (Ctrl+S) để cập nhật vào hệ thống!'
+            )
           })
         }
         return
@@ -254,4 +258,3 @@ export function useRoleManagementMutation({
     limitModalProps: { isOpen: false, onClose: () => {} }
   }
 }
-

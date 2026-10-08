@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Card, Input, Button, Radio, Space, Tag, message, Divider, Alert } from 'antd'
+import { Radio, Space, message } from 'antd'
 import {
   Server,
-  ShieldCheck,
-  Zap,
   RefreshCw,
-  Lock,
-  KeyRound,
   CheckCircle2,
   AlertTriangle
 } from 'lucide-react'
@@ -85,145 +81,129 @@ export default function ApiConfigPanel() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto p-4">
-      {/* 1. Thẻ trạng thái bảo mật */}
-      <Card
-        className="border-emerald-500/30 shadow-md bg-gradient-to-r from-slate-900 to-slate-800 text-white"
-        title={
-          <div className="flex items-center gap-2 text-emerald-400 font-semibold text-base">
-            <ShieldCheck className="w-5 h-5" />
-            Trạng Thái Lớp Bảo Mật API (Anti-Theft Active)
-          </div>
-        }
-      >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
-            <div className="flex items-center gap-2 text-slate-300 font-medium mb-1">
-              <Lock className="w-4 h-4 text-indigo-400" />
-              Chữ ký HMAC-SHA256
-            </div>
-            <Tag color="success">ĐANG BẢO VỆ</Tag>
-            <p className="text-xs text-slate-400 mt-1">Ký số hóa toàn bộ payload và tham số URL</p>
-          </div>
+    <div className="space-y-3.5 select-text">
+      {/* 1. Header */}
+      <div className="pb-2 border-b border-slate-200">
+        <h2 className="text-xs font-bold text-slate-900">Máy chủ kết nối</h2>
+        <p className="text-[11px] text-slate-500 mt-0.5">
+          Lựa chọn môi trường kết nối hệ thống
+        </p>
+      </div>
 
-          <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
-            <div className="flex items-center gap-2 text-slate-300 font-medium mb-1">
-              <KeyRound className="w-4 h-4 text-amber-400" />
-              Chống Replay (Timestamp & Nonce)
-            </div>
-            <Tag color="processing">30s TTL</Tag>
-            <p className="text-xs text-slate-400 mt-1">
-              Mỗi request dùng 1 lần, vô hiệu hóa việc sao chép cURL/Postman
-            </p>
-          </div>
+      {/* 2. Lựa chọn Môi trường */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-slate-700 block">
+          Môi trường kết nối (Environment)
+        </label>
+        <Radio.Group
+          value={env}
+          onChange={handleEnvChange}
+          disabled={isCustom}
+          className="w-full space-y-1"
+        >
+          <Space direction="vertical" className="w-full">
+            {SERVER_ENVIRONMENTS.map((item) => (
+              <label
+                key={item.value}
+                className={`flex items-center gap-2.5 p-2 border transition-all cursor-pointer rounded-none text-xs ${
+                  env === item.value && !isCustom
+                    ? 'border-[#163B2B] bg-emerald-50/40 text-slate-900 font-semibold'
+                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                } ${isCustom ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <Radio value={item.value} />
+                <span className="font-semibold text-xs">{item.label}</span>
+                <span className="text-[11px] text-slate-400 ml-auto font-mono">
+                  {item.backendUrl}
+                </span>
+              </label>
+            ))}
+          </Space>
+        </Radio.Group>
+      </div>
 
-          <div className="bg-slate-800/80 p-3 rounded-lg border border-slate-700">
-            <div className="flex items-center gap-2 text-slate-300 font-medium mb-1">
-              <Zap className="w-4 h-4 text-blue-400" />
-              Anti-Scraping / Bot Filter
-            </div>
-            <Tag color="purple">Active</Tag>
-            <p className="text-xs text-slate-400 mt-1">
-              Giới hạn tần suất và chặn công cụ cào dữ liệu
-            </p>
-          </div>
+      {/* 3. Chế độ Tùy chỉnh URL */}
+      <div className="pt-2 border-t border-slate-100 space-y-2">
+        <div className="flex orientation-row items-center justify-between">
+          <label className="text-xs font-bold text-slate-700">
+            Cổng kết nối API Gateway Endpoint
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !isCustom
+              setIsCustom(next)
+              if (!next) {
+                setApiUrl(getDefaultDataHubUrl(env))
+              }
+            }}
+            className="text-[11px] font-semibold text-[#163B2B] hover:underline cursor-pointer"
+          >
+            {isCustom ? '← Quay lại mặc định' : '⚙ Tùy chỉnh URL nâng cao'}
+          </button>
         </div>
-      </Card>
 
-      {/* 2. Cấu hình Môi trường & Đầu API */}
-      <Card
-        title={
-          <div className="flex items-center gap-2 font-semibold">
-            <Server className="w-5 h-5 text-blue-600" />
-            Cấu Hình Đầu Kết Nối API Backend
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Lựa chọn Môi trường:
-            </label>
-            <Radio.Group value={env} onChange={handleEnvChange} disabled={isCustom}>
-              <Space direction="vertical">
-                {SERVER_ENVIRONMENTS.map((item) => (
-                  <Radio key={item.value} value={item.value}>
-                    <span className="font-medium">{item.label}</span>
-                    <span className="text-xs text-gray-400 ml-2">({item.backendUrl})</span>
-                  </Radio>
-                ))}
-              </Space>
-            </Radio.Group>
-          </div>
-
-          <Divider />
-
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700">
-              Chế độ Custom URL máy chủ (Nâng cao):
-            </label>
-            <Button
-              type={isCustom ? 'primary' : 'default'}
-              size="small"
-              onClick={() => {
-                const next = !isCustom
-                setIsCustom(next)
-                if (!next) {
-                  setApiUrl(getDefaultDataHubUrl(env))
-                }
-              }}
-            >
-              {isCustom ? 'Đang bật Custom URL' : 'Bật Custom URL'}
-            </Button>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-              API Base Gateway Endpoint:
-            </label>
-            <Input
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+              <Server className="w-3.5 h-3.5" />
+            </span>
+            <input
+              type="text"
               value={apiUrl}
               disabled={!isCustom}
               onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="http://localhost:9643 hoặc https://gshub.erpsheet.vn"
-              size="large"
-              addonBefore={<Server className="w-4 h-4 text-gray-400" />}
+              placeholder="http://localhost:9643"
+              className={`w-full pl-8 pr-3 py-1.5 text-xs rounded-none border border-slate-300 font-mono transition-colors ${
+                !isCustom ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white text-slate-900 focus:border-[#163B2B] focus:outline-none'
+              }`}
             />
-          </div>
-
-          {pingResult && (
-            <Alert
-              type={pingResult.success ? 'success' : 'error'}
-              showIcon
-              icon={
-                pingResult.success ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 text-red-600" />
-                )
-              }
-              message={
-                pingResult.success
-                  ? `Máy chủ phản hồi tốt (${pingResult.ms}ms)`
-                  : `Kết nối thất bại: ${pingResult.msg}`
-              }
-            />
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              icon={<RefreshCw className={`w-4 h-4 ${testing ? 'animate-spin' : ''}`} />}
-              loading={testing}
-              onClick={handleTestConnection}
-            >
-              Kiểm tra kết nối (Ping Test)
-            </Button>
-            <Button type="primary" onClick={handleSave}>
-              Lưu cấu hình
-            </Button>
           </div>
         </div>
-      </Card>
+      </div>
+
+      {/* 4. Kết quả Ping kiểm tra kết nối */}
+      {pingResult && (
+        <div
+          className={`p-2.5 rounded-none border text-xs flex items-center gap-2 ${
+            pingResult.success
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+              : 'bg-rose-50 border-rose-300 text-rose-800'
+          }`}
+        >
+          {pingResult.success ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+          )}
+          <span className="font-medium">
+            {pingResult.success
+              ? `Máy chủ phản hồi tốt (${pingResult.ms}ms)`
+              : `Kết nối thất bại: ${pingResult.msg}`}
+          </span>
+        </div>
+      )}
+
+      {/* 5. Nút Thao Tác Chuẩn Desktop ERP */}
+      <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+        <button
+          type="button"
+          disabled={testing}
+          onClick={handleTestConnection}
+          className="h-7 px-3 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 border border-slate-300 rounded-none text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-60"
+        >
+          <RefreshCw className={`w-3 h-3 ${testing ? 'animate-spin' : ''}`} />
+          <span>Kiểm tra kết nối</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleSave}
+          className="h-7 px-4 bg-[#163B2B] hover:bg-[#122e22] active:bg-[#0c2017] text-white border border-[#163B2B] rounded-none text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+        >
+          <span>Lưu cấu hình</span>
+        </button>
+      </div>
     </div>
   )
 }

@@ -136,7 +136,6 @@ export default function RoleMenuTable({
     [canEdit, setGridData]
   )
 
-
   const onCellClicked = useCallback(
     (cell, event) => {
       const [colIndex, rowIndex] = cell
@@ -256,9 +255,11 @@ export default function RoleMenuTable({
         val = ''
       }
 
-      const isRootModule = rowData.Level === 0 || rowData.Type === 'Phân hệ' || rowData.MenuType === 'Phân hệ'
+      const isRootModule =
+        rowData.Level === 0 || rowData.Type === 'Phân hệ' || rowData.MenuType === 'Phân hệ'
       const isSubmenu =
-        rowData.Level === 1 && (rowData.Type === 'Submenu' || rowData.MenuType === 'Submenu' || rowData.IsGroup)
+        rowData.Level === 1 &&
+        (rowData.Type === 'Submenu' || rowData.MenuType === 'Submenu' || rowData.IsGroup)
       let customTheme = { ...cellTheme }
       if (isRootModule) {
         customTheme = {
@@ -276,7 +277,6 @@ export default function RoleMenuTable({
         }
       }
 
-
       if (isStatus) {
         const status = String(val)
         return {
@@ -290,7 +290,6 @@ export default function RoleMenuTable({
           themeOverride: meta.cellTheme
         }
       }
-
 
       if (isBoolean) {
         const boolVal =

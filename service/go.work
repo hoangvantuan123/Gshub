@@ -1,3 +1,8 @@
 go 1.25.4
 
-use ./service-datahub
+use (
+	./api-gateway
+	./server-core
+	./service-datahub
+)
+

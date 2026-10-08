@@ -8,8 +8,16 @@ import { PlanHeroKpiCards } from './components/PlanHeroKpiCards'
 import { PlanProductionRhythmChart } from './components/PlanProductionRhythmChart'
 import { PlanPicTimelineSection } from './components/PlanPicTimelineSection'
 import { PlanTimeAndCapaSection } from './components/PlanTimeAndCapaSection'
+import { usePagePermissions } from '@renderer/user/hooks/usePagePermissions'
 
-export default function SummaryPlanReportPage() {
+export default function SummaryPlanReportPage({ permissions = [] }) {
+  // 1. Phân quyền hệ thống cho module Báo cáo Tổng hợp Kế hoạch Sản xuất
+  const pagePerms = usePagePermissions({
+    permissions,
+    menuKey: 'report_summary_plan'
+  })
+
+  // 2. Logic phân tích và nạp dữ liệu độc lập cho module Tổng hợp KHSX
   const {
     factoryCode,
     setFactoryCode,
@@ -52,7 +60,7 @@ export default function SummaryPlanReportPage() {
     handleCaptureScreenshot,
     currentPlantName,
     totalDays
-  } = useSummaryPlanLogic()
+  } = useSummaryPlanLogic({ pagePerms })
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-[#f8fafc]">
@@ -101,10 +109,11 @@ export default function SummaryPlanReportPage() {
               picOptions={filterOptions?.pics || []}
               loading={loading}
               fetchData={fetchTimelineData}
-              handleExportExcel={handleExportExcel}
+              handleExportExcel={pagePerms?.canExport !== false ? handleExportExcel : undefined}
               setIsHandbookModalOpen={setIsHandbookModalOpen}
               handleCaptureScreenshot={handleCaptureScreenshot}
               isCapturing={isCapturing}
+              permissions={pagePerms}
             />
           </div>
 

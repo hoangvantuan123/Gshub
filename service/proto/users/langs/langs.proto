@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package users.langs.langs;
+
+option go_package = "server-core/proto/users/langs/langs";
+
+service LangsService {
+  rpc LangA (LangARequest) returns (Response);
+  rpc LangU (LangURequest) returns (Response);
+  rpc LangD (LangDRequest) returns (Response);
+  rpc LangQ (LangQRequest) returns (Response);
+}
+
+message LangAResult { 
+  int32 IdxNo = 1;
+  string LanguageCode = 2;
+  string LanguageName = 3;
+  string Remark = 4;
+  string CreatedBy = 5;
+}
+
+message LangUResult { 
+  int32 LanguageSeq = 1;
+  int32 IdxNo = 2;
+  string LanguageCode = 3;
+  string LanguageName = 4;
+  string Remark = 5;
+  string UpdatedBy = 6;
+}
+
+message LangDResult { 
+  int32 LanguageSeq = 1;
+}
+
+message LangQResult { 
+  string KeyItem1 = 1;
+}
+
+message LangARequest {
+  repeated LangAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message LangURequest {
+  repeated LangUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message LangDRequest {
+  repeated LangDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message LangQRequest {
+  LangQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

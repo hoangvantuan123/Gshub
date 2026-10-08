@@ -697,7 +697,6 @@ export function flattenMenuTree(tree = [], expandedIds = new Set(), rootMenuId =
   return result
 }
 
-
 export function getFlatMenuList(flatOrTree = [], rootMenuId = null) {
   if (Array.isArray(flatOrTree) && flatOrTree.length > 0 && flatOrTree[0].Type) {
     return flatOrTree

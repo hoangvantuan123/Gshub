@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package users.roles.perm_resource_fields;
+
+option go_package = "server-core/proto/users/roles/perm_resource_fields";
+
+service PermResourceFieldsService {
+  rpc PermResourceFieldsA (PermResourceFieldsARequest) returns (Response);
+  rpc PermResourceFieldsU (PermResourceFieldsURequest) returns (Response);
+  rpc PermResourceFieldsD (PermResourceFieldsDRequest) returns (Response);
+  rpc PermResourceFieldsQ (PermResourceFieldsQRequest) returns (Response);
+}
+
+message PermResourceFieldsAResult {
+  int32 IdxNo = 1;
+  string ResourceSeq = 2;
+  string FieldSeq = 3;
+  string CustomFieldName = 4;
+  bool IsMaskable = 5;
+  bool IsSensitive = 6;
+  int32 OrderNo = 7;
+  string Comment = 8;
+  int64 RowVersion = 9;
+  string CreatedBy = 10;
+  string UpdatedBy = 11;
+}
+
+message PermResourceFieldsUResult {
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string ResourceSeq = 3;
+  string FieldSeq = 4;
+  string CustomFieldName = 5;
+  bool IsMaskable = 6;
+  bool IsSensitive = 7;
+  int32 OrderNo = 8;
+  string Comment = 9;
+  int64 RowVersion = 10;
+  string UpdatedBy = 11;
+}
+
+message PermResourceFieldsDResult {
+  string IdSeq = 1;
+  int64 RowVersion = 2;
+}
+
+message PermResourceFieldsQResult {
+  string ResourceSeq = 1;
+  string FieldSeq = 2;
+  string FieldCode = 3;
+  string FieldName = 4;
+  string LangKey = 5;
+  string IsMaskable = 6;
+  string IsSensitive = 7;
+  string KeyItem1 = 8;
+  string KeyItem2 = 9;
+  string KeyItem3 = 10;
+}
+
+message PermResourceFieldsARequest {
+  repeated PermResourceFieldsAResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermResourceFieldsURequest {
+  repeated PermResourceFieldsUResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermResourceFieldsDRequest {
+  repeated PermResourceFieldsDResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermResourceFieldsQRequest {
+  PermResourceFieldsQResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+  string data = 3;
+  string page = 4;
+}

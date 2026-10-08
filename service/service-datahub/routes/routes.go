@@ -3,7 +3,6 @@ package routes
 import (
 	"service-datahub/config"
 	"service-datahub/handlers"
-	"service-datahub/handlers/system"
 	"service-datahub/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -12,13 +11,6 @@ import (
 
 func SetupRouter(
 	cfg *config.Config,
-	authHandler *handlers.AuthHandler,
-	userAuthHandler *system.UserAuthHandler,
-	roleGroupHandler *system.RoleGroupHandler,
-	rolePermHandler *system.RolePermHandler,
-	rootMenuHandler *system.RootMenuHandler,
-	menuHandler *system.MenuHandler,
-	actionHandler *system.ActionHandler,
 	loginHandler *handlers.LoginHandler,
 	configHandler *handlers.ConfigHandler,
 	workProcessHandler *handlers.WorkProcessHandler,
@@ -67,140 +59,17 @@ func SetupRouter(
 	}
 
 	// ====================================================================
-	// API V2 Routes - Electron Desktop & Web Client with AppSecurity + JWT
+	// API V2 Routes - Tính toán Báo cáo Sản xuất & Kế hoạch
 	// ====================================================================
 	v2 := r.Group("/api/v2")
 	v2.Use(middleware.AppSecurityMiddleware(logger))
 	v2.Use(middleware.OptionalJwtAuthMiddleware(cfg))
 	{
-		// 1. Auth & Accounts (/api/v2/acc, /api/v2/system/acc, /api/v2/system-users)
-		regAcc := func(g *gin.RouterGroup) {
-			g.POST("/p2/login", authHandler.Login)
-			g.POST("/p2/loginApp", authHandler.Login)
-			g.POST("/p2/change-password", authHandler.ChangePass)
-			g.POST("/p2/logout", authHandler.Logout)
-
-			g.POST("/UsersAuthA", userAuthHandler.UsersAuthA)
-			g.POST("/UsersAuthU", userAuthHandler.UsersAuthU)
-			g.POST("/UsersAuthD", userAuthHandler.UsersAuthD)
-			g.POST("/UsersAuthQ", userAuthHandler.UsersAuthQ)
-			g.POST("/UsersAuthUStatusAcc", authHandler.UsersAuthUStatusAcc)
-			g.POST("/UPass2", authHandler.UpdatePasswords)
-		}
-		regAcc(v2.Group("/acc"))
-		regAcc(v2.Group("/system/acc"))
-		regAcc(v2.Group("/system/user"))
-		regAcc(v2.Group("/system/users"))
-		regAcc(v2.Group("/system-users"))
-		regAcc(v2.Group("/mssql/system-users"))
-
-		// 2. Roles & Permissions (/api/v2/role, /api/v2/system/role, /api/v2/system/roles)
-		regRoles := func(g *gin.RouterGroup) {
-			g.POST("/RoleGroupQ", roleGroupHandler.RoleGroupQ)
-			g.POST("/RoleGroupA", roleGroupHandler.RoleGroupA)
-			g.POST("/RoleGroupU", roleGroupHandler.RoleGroupU)
-			g.POST("/RoleGroupD", roleGroupHandler.RoleGroupD)
-
-			g.POST("/RoleQ", roleGroupHandler.RoleGroupQ)
-			g.POST("/RoleA", roleGroupHandler.RoleGroupA)
-			g.POST("/RoleU", roleGroupHandler.RoleGroupU)
-			g.POST("/RoleD", roleGroupHandler.RoleGroupD)
-
-			g.POST("/UserRoleQ", rolePermHandler.UserRoleQ)
-			g.POST("/UserRoleA", rolePermHandler.UserRoleA)
-			g.POST("/UserRoleU", rolePermHandler.MenuRoleU)
-			g.POST("/UserRoleD", rolePermHandler.UserRoleD)
-
-			g.POST("/MenuRoleQ", rolePermHandler.MenuRoleQ)
-			g.POST("/MenuRoleU", rolePermHandler.MenuRoleU)
-			g.POST("/RootMenuRoleQ", rolePermHandler.RootMenuRoleQ)
-			g.POST("/RootMenuRoleU", rolePermHandler.RootMenuRoleU)
-
-			// Action Perms theo Menu & Role Group
-			g.POST("/ActionRoleQ", rolePermHandler.ActionRoleQ)
-			g.POST("/ActionRoleU", rolePermHandler.ActionRoleU)
-			g.POST("/MenuActionRoleQ", rolePermHandler.ActionRoleQ)
-			g.POST("/MenuActionRoleU", rolePermHandler.ActionRoleU)
-
-			// Table Group & Technique Perm Aliases
-			g.POST("/TblGrpQ", roleGroupHandler.RoleGroupQ)
-			g.POST("/TblGrpA", roleGroupHandler.RoleGroupA)
-			g.POST("/TblGrpU", roleGroupHandler.RoleGroupU)
-			g.POST("/TblGrpD", roleGroupHandler.RoleGroupD)
-
-			g.POST("/TblGrpItemQ", rolePermHandler.MenuRoleQ)
-			g.POST("/TblGrpItemA", rolePermHandler.MenuRoleU)
-			g.POST("/TblGrpItemU", rolePermHandler.MenuRoleU)
-			g.POST("/TblGrpItemD", rolePermHandler.MenuRoleU)
-
-			g.POST("/TblGrpPermQ", rolePermHandler.MenuRoleQ)
-			g.POST("/TblGrpPermA", rolePermHandler.MenuRoleU)
-			g.POST("/TblGrpPermU", rolePermHandler.MenuRoleU)
-			g.POST("/TblGrpPermD", rolePermHandler.MenuRoleU)
-
-			g.POST("/TblGrpPermRoleQ", rolePermHandler.MenuRoleQ)
-			g.POST("/TblGrpPermRoleA", rolePermHandler.MenuRoleU)
-			g.POST("/TblGrpPermRoleU", rolePermHandler.MenuRoleU)
-			g.POST("/TblGrpPermRoleD", rolePermHandler.MenuRoleU)
-		}
-		regRoles(v2.Group("/role"))
-		regRoles(v2.Group("/roles"))
-		regRoles(v2.Group("/system/role"))
-		regRoles(v2.Group("/system/roles"))
-
-		// 3. Menus & Actions (/api/v2/menu, /api/v2/action & /api/v2/system/*)
-		regMenus := func(g *gin.RouterGroup) {
-			// Menu CRUD
-			g.POST("/MenuQ", menuHandler.MenuQ)
-			g.POST("/MenuA", menuHandler.MenuA)
-			g.POST("/MenuU", menuHandler.MenuU)
-			g.POST("/MenuD", menuHandler.MenuD)
-
-			// RootMenu CRUD
-			g.POST("/RootMenuQ", rootMenuHandler.RootMenuQ)
-			g.POST("/RootMenuA", rootMenuHandler.RootMenuA)
-			g.POST("/RootMenuU", rootMenuHandler.RootMenuU)
-			g.POST("/RootMenuD", rootMenuHandler.RootMenuD)
-			g.POST("/root-menu-Q", rootMenuHandler.RootMenuQ)
-
-			// Action Registry CRUD
-			g.POST("/ActionQ", actionHandler.ActionQ)
-			g.POST("/ActionA", actionHandler.ActionA)
-			g.POST("/ActionU", actionHandler.ActionU)
-			g.POST("/ActionD", actionHandler.ActionD)
-
-			// Metasys Legacy Endpoints
-			g.POST("/metasys-menu", menuHandler.MenuA)
-			g.POST("/metasys-roles-menus", rolePermHandler.MenuRoleU)
-			g.GET("/menus-not-in-role", menuHandler.MenuQ)
-			g.POST("/search-menus", menuHandler.MenuQ)
-
-			g.POST("/metasys-root-menu", rootMenuHandler.RootMenuA)
-			g.POST("/metasys-roles-root-menus", rolePermHandler.MenuRoleU)
-			g.GET("/metasys-root-menu-all", rootMenuHandler.RootMenuQ)
-			g.GET("/root-menus-not-in-role", rootMenuHandler.RootMenuQ)
-			g.POST("/search-root-menus", rootMenuHandler.RootMenuQ)
-		}
-		regMenus(v2.Group("/menu"))
-		regMenus(v2.Group("/menus"))
-		regMenus(v2.Group("/action"))
-		regMenus(v2.Group("/actions"))
-		regMenus(v2.Group("/system/menu"))
-		regMenus(v2.Group("/system/menus"))
-		regMenus(v2.Group("/system/action"))
-		regMenus(v2.Group("/system/actions"))
-
-		// Tổng hợp trực tiếp trên /api/v2/system
-		sysGroup := v2.Group("/system")
-		regAcc(sysGroup)
-		regRoles(sysGroup)
-		regMenus(sysGroup)
-
-		// 4. CodeHelp & Common Help Engine (/api/v2/help)
+		// 1. CodeHelp & Common Help Engine (/api/v2/help)
 		regHelp(v2.Group("/help"))
 		regHelp(v2.Group("/mssql/help-query"))
 
-		// 4. Report Registration & Queries (Master, KHSX Detail, TKSX Detail)
+		// 2. Report Registration & Queries (Master, KHSX Detail, TKSX Detail)
 		planV2 := v2.Group("/report/plan")
 		{
 			// Master (A/U/D/Q)
@@ -252,7 +121,7 @@ func SetupRouter(
 				quevoV2.GET("/statistics", prodStatsDetailHandler.GetQuevoGs5StatReport)
 			}
 
-			// 3. Báo Cáo Tổng Hợp Toàn Công Ty (Summary) - Dùng Handler riêng biệt, KHÔNG trả mảng items
+			// 3. Báo Cáo Tổng Hợp Toàn Công Ty (Summary)
 			summaryV2 := prodReportsV2.Group("/summary")
 			{
 				summaryV2.POST("/plan", summaryPlanReportHandler.GetSummaryPlanReport)
@@ -270,22 +139,13 @@ func SetupRouter(
 	}
 
 	// ====================================================================
-	// API V1 Routes - High-Performance DataHub APIs with Security & Auth
+	// API V1 Routes - High-Performance DataHub APIs (Lệnh công đoạn, Quyết toán, ERP)
 	// ====================================================================
 	v1 := r.Group("/api/v1")
 	v1.Use(middleware.AppSecurityMiddleware(logger))
 	v1.Use(middleware.OptionalJwtAuthMiddleware(cfg))
 	{
-		// 1. Auth & Login Endpoints (Dual login support)
-		auth := v1.Group("/auth")
-		{
-			auth.POST("/login", authHandler.Login)
-			auth.POST("/logout", authHandler.Logout)
-			auth.POST("/session", loginHandler.GetSession)
-			auth.GET("/session", loginHandler.GetSession)
-		}
-
-		// 2. Dynamic ERP Configurations Management (CRUD)
+		// 1. Dynamic ERP Configurations Management (CRUD)
 		configs := v1.Group("/configs")
 		{
 			configs.GET("", configHandler.GetAllConfigs)
@@ -298,7 +158,7 @@ func SetupRouter(
 			configs.POST("/delete", configHandler.DeleteConfig)
 		}
 
-		// 3. DataHub Proxy & Logs
+		// 2. DataHub Proxy & Logs
 		dataHub := v1.Group("/datahub")
 		{
 			dataHub.POST("/proxy", loginHandler.ProxyForward)
@@ -306,14 +166,14 @@ func SetupRouter(
 			dataHub.POST("/logs", loginHandler.GetLogs)
 		}
 
-		// 4. Danh mục Nhà máy (Factories)
+		// 3. Danh mục Nhà máy (Factories)
 		factories := v1.Group("/factories")
 		{
 			factories.POST("", factoryHandler.GetFactories)
 			factories.GET("", factoryHandler.GetFactories)
 		}
 
-		// 5. Lệnh Công Đoạn (WorkProcess - Master + Detail Aggregated API)
+		// 4. Lệnh Công Đoạn (WorkProcess - Master + Detail Aggregated API)
 		workProcess := v1.Group("/work-process")
 		{
 			workProcess.POST("", workProcessHandler.GetWorkProcess)
@@ -325,7 +185,7 @@ func SetupRouter(
 			workProcess.GET("/:doc_no", workProcessHandler.GetWorkProcessByDocNo)
 		}
 
-		// 6. Quyết Toán Lệnh (Order Settlement - Aggregated Flat Items)
+		// 5. Quyết Toán Lệnh (Order Settlement - Aggregated Flat Items)
 		orderSettlement := v1.Group("/order-settlement")
 		{
 			orderSettlement.POST("", orderSettlementHandler.GetOrderSettlement)
@@ -352,7 +212,7 @@ func SetupRouter(
 			quyetToanLenh.GET("", orderSettlementHandler.GetOrderSettlement)
 		}
 
-		// 7. Báo cáo Kế hoạch Sản xuất & Thống kê sản xuất (Plan & Stats Report)
+		// 6. Báo cáo Kế hoạch Sản xuất & Thống kê sản xuất (Plan & Stats Report)
 		planV1 := v1.Group("/report/plan")
 		{
 			planV1.POST("/query-master", planMasterHandler.PlanMasterQ)
@@ -363,7 +223,7 @@ func SetupRouter(
 			planV1.DELETE("/master/:reg_code", planMasterHandler.PlanMasterD)
 		}
 
-		// 8. Báo cáo Thống kê & Kế hoạch Sản xuất Tổng hợp (Aggregated Production Reports)
+		// 7. Báo cáo Thống kê & Kế hoạch Sản xuất Tổng hợp (Aggregated Production Reports)
 		prodReportsV1 := v1.Group("/report/production")
 		{
 			prodReportsV1.GET("/statistics", prodStatsDetailHandler.GetProductionStatisticsReport)
@@ -372,7 +232,7 @@ func SetupRouter(
 			prodReportsV1.POST("/plan", planReportHandler.GetProductionPlanReport)
 		}
 
-		// 9. Help V1
+		// 8. Help V1
 		regHelp(v1.Group("/help"))
 	}
 

@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package users.auth.users;
+
+option go_package = "server-core/proto/users/auth/users";
+
+service UsersService {
+  rpc updatePasswords (UpdatePasswordsRequest) returns (Response);
+  rpc UsersAuthA (UsersAuthARequest) returns (Response);
+  rpc UsersAuthU (UsersAuthURequest) returns (Response);
+  rpc UsersAuthD (UsersAuthDRequest) returns (Response);
+  rpc UsersAuthQ (UsersAuthQRequest) returns (Response);
+
+  rpc UsersAuthUStatusAcc (UsersAuthUStatusAccRequest) returns (Response);
+}
+
+message UpdatePasswordsResult { 
+  string UserSeq = 1;
+  int32 IdxNo = 2;
+  string UserId = 3;
+  string UpdatedBy = 4;
+  bool CheckPass1 = 5;
+}
+
+message UsersAuthAResult { 
+  int32 IdxNo = 1;
+  string UserId = 2;
+  string UserName = 3;
+  string EmpID = 4;
+  string Email = 5;
+  string CreatedBy = 6;
+  string EmpCode = 7;
+  string EmpName = 8;
+  string DeptName = 9;
+  string ManagerName = 10;
+  string Remark = 11;
+  bool Active = 12;
+}
+
+message UsersAuthUResult { 
+  int32 IdxNo = 1;
+  string UserName = 2;
+  string EmpID = 3;
+  string Email = 4;
+  string UserSeq = 5;
+  string UpdatedBy = 6;
+  string EmpCode = 7;
+  string EmpName = 8;
+  string DeptName = 9;
+  string ManagerName = 10;
+  string Remark = 11;
+  bool Active = 12;
+}
+
+message UsersAuthUStatusAccResult { 
+  int32 IdxNo = 1;
+  string UserSeq = 2;
+  bool StatusAcc = 3;
+}
+
+message UsersAuthDResult { 
+  int32 IdxNo = 1;
+  string UserSeq = 2;
+}
+
+message UpdatePasswordsRequest {
+  repeated UpdatePasswordsResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message UsersAuthARequest {
+  repeated UsersAuthAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message UsersAuthURequest {
+  repeated UsersAuthUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message UsersAuthUStatusAccRequest {
+  repeated UsersAuthUStatusAccResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message UsersAuthDRequest {
+  repeated UsersAuthDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message UsersAuthQRequest {
+  map<string, string> result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message ErrorInfo {
+  string code = 1;
+  string message = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  ErrorInfo error = 4;
+  string page = 5;
+}

@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package users.roles.perm_scopes;
+
+option go_package = "server-core/proto/users/roles/perm_scopes";
+
+service PermScopesService {
+  rpc PermScopesA (PermScopesARequest) returns (Response);
+  rpc PermScopesU (PermScopesURequest) returns (Response);
+  rpc PermScopesD (PermScopesDRequest) returns (Response);
+  rpc PermScopesQ (PermScopesQRequest) returns (Response);
+}
+
+message PermScopesAResult {
+  int32 IdxNo = 1;
+  string ScopeCode = 2;
+  string ScopeName = 3;
+  string LangKey = 4;
+  string PermActionSeq = 5;
+  string ScopeLevelSeq = 6;
+  string RuleConditionSeq = 7;
+  string ConditionSql = 8;
+  string Comment = 9;
+  int64 RowVersion = 10;
+  string CreatedBy = 11;
+  string UpdatedBy = 12;
+}
+
+message PermScopesUResult {
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string ScopeCode = 3;
+  string ScopeName = 4;
+  string LangKey = 5;
+  string PermActionSeq = 6;
+  string ScopeLevelSeq = 7;
+  string RuleConditionSeq = 8;
+  string ConditionSql = 9;
+  string Comment = 10;
+  int64 RowVersion = 11;
+  string UpdatedBy = 12;
+}
+
+message PermScopesDResult {
+  string IdSeq = 1;
+  int64 RowVersion = 2;
+}
+
+message PermScopesQResult {
+  string ScopeCode = 1;
+  string ScopeName = 2;
+  string PermActionSeq = 3;
+  string ScopeLevelSeq = 4;
+  string RuleConditionSeq = 5;
+  string KeyItem1 = 6;
+  string KeyItem2 = 7;
+  string KeyItem3 = 8;
+}
+
+message PermScopesARequest {
+  repeated PermScopesAResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermScopesURequest {
+  repeated PermScopesUResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermScopesDRequest {
+  repeated PermScopesDResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermScopesQRequest {
+  PermScopesQResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+  string data = 3;
+  string page = 4;
+}

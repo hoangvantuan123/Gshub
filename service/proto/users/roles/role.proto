@@ -1,0 +1,228 @@
+syntax = "proto3";
+
+package users.roles.role;
+ 
+option go_package = "server-core/proto/users/roles/role";
+
+service RoleService {
+  // Unified 1 A, 1 U, 1 D, 1 Q for Role Management
+  rpc RoleA (RoleARequest) returns (Response);
+  rpc RoleU (RoleURequest) returns (Response);
+  rpc RoleD (RoleDRequest) returns (Response);
+  rpc RoleQ (RoleQRequest) returns (Response);
+
+  // Granular / Backward-compatible RPCs
+  rpc MenuRoleQ (MenuRoleQRequest) returns (Response);
+  rpc RootMenuRoleQ (RootMenuRoleQRequest) returns (Response);
+  rpc UserRoleQ (UserRoleQRequest) returns (Response);
+
+  rpc UserRoleA (UserRoleARequest) returns (Response);
+  rpc UserRoleU (UserRoleURequest) returns (Response);
+  rpc UserRoleD (UserRoleDRequest) returns (Response);
+
+  rpc RoleGroupA (RoleGroupARequest) returns (Response);
+  rpc RoleGroupU (RoleGroupURequest) returns (Response);
+  rpc RoleGroupD (RoleGroupDRequest) returns (Response);
+  rpc RoleGroupQ (RoleGroupQRequest) returns (Response);
+}
+
+message RoleAItem {
+  string Sheet = 1;
+  string Type = 2;
+  int32 GroupId = 3;
+  string Name = 4;
+  string Comment = 5;
+  int32 IdxNo = 6;
+  string UserId = 7;
+  string UserSeq = 8;
+  int32 MenuId = 9;
+  int32 RootMenuId = 10;
+  bool View = 11;
+  bool Create = 12;
+  bool Edit = 13;
+  bool Delete = 14;
+  string CreatedBy = 15;
+  string UpdatedBy = 16;
+  int64 RowVersion = 17;
+}
+
+message RoleUItem {
+  int64 Id = 1;
+  string Sheet = 2;
+  string Type = 3;
+  int32 GroupId = 4;
+  string Name = 5;
+  string Comment = 6;
+  int32 IdxNo = 7;
+  string UserId = 8;
+  string UserSeq = 9;
+  int32 MenuId = 10;
+  int32 RootMenuId = 11;
+  bool View = 12;
+  bool Create = 13;
+  bool Edit = 14;
+  bool Delete = 15;
+  string UpdatedBy = 16;
+  string UpdatedAt = 17;
+  int64 RowVersion = 18;
+}
+
+message RoleDItem {
+  int64 Id = 1;
+  string Sheet = 2;
+  string Type = 3;
+  int32 IdxNo = 4;
+  int64 RowVersion = 5;
+}
+
+message RoleARequest {
+  repeated RoleAItem result = 1;
+  map<string, string> metadata = 2;
+}
+
+message RoleURequest {
+  repeated RoleUItem result = 1;
+  map<string, string> metadata = 2;
+}
+
+message RoleDRequest {
+  repeated RoleDItem result = 1;
+  map<string, string> metadata = 2;
+}
+
+message RoleQRequest {
+  map<string, string> result = 1;
+  map<string, string> metadata = 2;
+}
+
+message UserRoleAResult { 
+  int32 GroupId = 1;
+  int32 IdxNo = 2;
+  string Type = 3;
+  string UserId = 4;
+  int32 MenuId = 5;
+  bool View = 6;
+  bool Create = 7;
+  bool Edit = 8;
+  bool Delete = 9;
+  int32 RootMenuId = 10;
+  string CreatedBy = 11;
+  string UpdatedBy = 12;
+  string Name = 13;
+  string UserSeq = 14;
+  int64 RowVersion = 15;
+}
+
+message UserRoleUResult { 
+  int32 GroupId = 1;
+  int32 IdxNo = 2;
+  string Type = 3;
+  string UserId = 4;
+  int32 Id = 5;
+  int32 MenuId = 6;
+  bool View = 7;
+  bool Create = 8;
+  bool Edit = 9;
+  bool Delete = 10;
+  int32 RootMenuId = 11;
+  string UpdatedAt = 12;
+  string UpdatedBy = 13;
+  string Name = 14;
+  string UserSeq = 15;
+  int64 RowVersion = 16;
+}
+
+message UserRoleDResult { 
+  int32 Id = 1;
+  int32 IdxNo = 2;
+  int64 RowVersion = 3;
+}
+
+message RoleGroupAResult { 
+  int32 IdxNo = 1;
+  string Name = 2;
+  string Comment = 3;
+  string CreatedBy = 4;
+  string UpdatedBy = 5;
+  int64 RowVersion = 6;
+}
+
+message RoleGroupUResult { 
+  int32 IdxNo = 1;
+  string Name = 2;
+  int32 Id = 3;
+  string Comment = 4;
+  string UpdatedAt = 5;
+  string UpdatedBy = 6;
+  int64 RowVersion = 7;
+}
+
+message RoleGroupDResult { 
+  int32 Id = 1;
+  int32 IdxNo = 2;
+  string Name = 3;
+  int64 RowVersion = 4;
+}
+
+message MenuRoleQRequest {
+  map<string, string> result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message RootMenuRoleQRequest {
+  map<string, string> result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message UserRoleQRequest {
+  map<string, string> result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message UserRoleARequest {
+  repeated UserRoleAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message UserRoleURequest {
+  repeated UserRoleUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message UserRoleDRequest {
+  repeated UserRoleDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message RoleGroupARequest {
+  repeated RoleGroupAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message RoleGroupURequest {
+  repeated RoleGroupUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message RoleGroupDRequest {
+  repeated RoleGroupDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message RoleGroupQRequest {
+  map<string, string> result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message ErrorInfo {
+  string code = 1;
+  string message = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  ErrorInfo error = 4;
+  string page = 5;
+}

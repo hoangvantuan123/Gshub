@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package lookup.system.help_codehelp;
+
+option go_package = "service-lookup/proto/lookup/system/help_codehelp;help_codehelp";
+
+service LookupCodeHelpService {
+  rpc CodeHelpQ (Empty) returns (Response);
+  rpc CodeHelpCmnQ (Empty) returns (Response);
+  rpc SysAttrGroupH (Empty) returns (Response);
+  rpc PermActionsH (Empty) returns (Response);
+  rpc PermFieldsH (Empty) returns (Response);
+  rpc PermScopesH (Empty) returns (Response);
+}
+
+message EmptyResult {
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+  string KeyItem4 = 4;
+  string KeyItem5 = 5;
+  string KeyItemSearch = 6;
+  string search = 7;
+  string page = 8;
+  string limit = 9;
+  string KeyType = 10;
+  string KeyValue = 11;
+  string CodeHelpSeq = 12;
+  string Keyword = 13;
+  repeated string Keywords = 14;
+  string CodeHelpName = 15;
+  string TableName = 16;
+  string ExtraParam = 17;
+}
+
+message Empty {
+  EmptyResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool   success = 1;
+  string message = 2;
+  string data    = 3;
+  string errors  = 4;
+  string page    = 5;
+  string pagination = 6;
+}

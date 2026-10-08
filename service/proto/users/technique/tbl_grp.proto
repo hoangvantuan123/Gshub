@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package users.technique.tbl_grp;
+
+option go_package = "server-core/proto/users/technique/tbl_grp";
+
+service TblGrpService {
+  rpc TblGrpA (TblGrpARequest) returns (Response);
+  rpc TblGrpU (TblGrpURequest) returns (Response);
+  rpc TblGrpD (TblGrpDRequest) returns (Response);
+  rpc TblGrpQ (TblGrpQRequest) returns (Response);
+}
+
+message TblGrpAResult { 
+  int32 IdxNo = 1;
+  string CreatedBy = 2;
+  string UpdatedBy = 3;
+
+  string KeyCode = 4;
+  string TableName = 5;
+}
+
+message TblGrpUResult { 
+  int32 IdxNo = 1;
+  string UpdatedBy = 2;
+
+  string KeyCode = 3;
+  string TableName = 4;
+  string IdSeq = 5;
+}
+
+message TblGrpDResult { 
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+}
+
+message TblGrpQResult { 
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message TblGrpARequest {
+  repeated TblGrpAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpURequest {
+  repeated TblGrpUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpDRequest {
+  repeated TblGrpDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpQRequest {
+  TblGrpQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

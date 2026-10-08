@@ -1,0 +1,10 @@
+version: v2
+plugins:
+  - local: C:\Users\it06\go\bin\protoc-gen-go.exe
+    out: .
+    opt:
+      - module=server-core
+  - local: C:\Users\it06\go\bin\protoc-gen-go-grpc.exe
+    out: .
+    opt:
+      - module=server-core

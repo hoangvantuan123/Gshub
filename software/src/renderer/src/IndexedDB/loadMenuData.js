@@ -127,12 +127,9 @@ export async function saveEncryptedMenuFromRolesMenu(rawRolesMenu, userInfo = {}
     const data = decodeJWT(rawRolesMenu)
     if (data && data.data) {
       settingItems = data?.data?.find((x) => x.menu)?.menu || data?.data[0]?.menu || []
-      rootMenuItems =
-        data?.data?.find((x) => x.rootMenu)?.rootMenu || data?.data[1]?.rootMenu || []
-      menuItemList =
-        data?.data?.find((x) => x.menuItem)?.menuItem || data?.data[2]?.menuItem || []
-      roleTable =
-        data?.data?.find((x) => x.roleTable)?.roleTable || data?.data[3]?.roleTable || []
+      rootMenuItems = data?.data?.find((x) => x.rootMenu)?.rootMenu || data?.data[1]?.rootMenu || []
+      menuItemList = data?.data?.find((x) => x.menuItem)?.menuItem || data?.data[2]?.menuItem || []
+      roleTable = data?.data?.find((x) => x.roleTable)?.roleTable || data?.data[3]?.roleTable || []
     }
 
     const merged = mergeWithDefaultMenuConfig(settingItems, rootMenuItems, menuItemList)

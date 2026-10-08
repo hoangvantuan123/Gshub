@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package users.app.screens;
+
+option go_package = "server-core/proto/users/app/screens";
+
+service ScreensService {
+  rpc ScreensA (ScreensARequest) returns (Response);
+  rpc ScreensU (ScreensURequest) returns (Response);
+  rpc ScreensD (ScreensDRequest) returns (Response);
+  rpc ScreensQ (ScreensQRequest) returns (Response);
+}
+
+message ScreensAResult { 
+  int32 IdxNo = 1;
+  string CreatedBy = 2;
+  string UpdatedBy = 3;
+
+  string TabSeq = 4;
+  string ScreenKey = 5;
+  string Path = 7;
+  int32 LangSeq = 8;
+  string ScreenName = 9;
+  int32 Order = 10;
+}
+
+message ScreensUResult { 
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string UpdatedBy = 3;
+
+  string TabSeq = 4;
+  string ScreenKey = 5;
+  string Path = 7;
+  int32 LangSeq = 8;
+  string ScreenName = 9;
+  int32 Order = 10;
+}
+
+message ScreensDResult { 
+  string IdSeq = 1;
+}
+
+message ScreensQResult { 
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message ScreensARequest {
+  repeated ScreensAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message ScreensURequest {
+  repeated ScreensUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message ScreensDRequest {
+  repeated ScreensDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message ScreensQRequest {
+  ScreensQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

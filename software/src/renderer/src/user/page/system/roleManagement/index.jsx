@@ -24,7 +24,6 @@ import RoleGroupUsersTable from './components/RoleGroupUsersTable'
 import RoleGroupMembersModal from './components/RoleGroupMembersModal'
 import { useRoleManagement } from './hooks/useRoleManagement'
 
-
 export default function RoleManagementPage({
   permissions,
   canCreate,
@@ -150,7 +149,6 @@ export default function RoleManagementPage({
     handleSave,
     handleDelete,
     limitModalProps
-
   } = useRoleManagement({
     canCreate: pagePerms.canCreate,
     canEdit: pagePerms.canEdit,
@@ -213,7 +211,7 @@ export default function RoleManagementPage({
       setIsDraggingGroup(false)
       try {
         localStorage.setItem('erp_role_group_col_width', String(groupColWidth))
-      } catch { }
+      } catch {}
     }
 
     window.addEventListener('mousemove', handleMouseMove)
@@ -262,7 +260,7 @@ export default function RoleManagementPage({
       setIsDraggingRootY(false)
       try {
         localStorage.setItem('erp_role_root_top_height', String(rootTopHeight))
-      } catch { }
+      } catch {}
     }
 
     window.addEventListener('mousemove', handleMouseMove)
@@ -320,8 +318,9 @@ export default function RoleManagementPage({
         table={
           <div
             ref={containerRef}
-            className={`flex h-full w-full overflow-hidden bg-white ${isDraggingGroup || isDraggingRootY ? 'select-none' : ''
-              }`}
+            className={`flex h-full w-full overflow-hidden bg-white ${
+              isDraggingGroup || isDraggingRootY ? 'select-none' : ''
+            }`}
           >
             {/* CỘT 1: BẢNG TẬP TRUNG TẤT CẢ NHÓM QUYỀN HỆ THỐNG */}
             <div
@@ -350,8 +349,9 @@ export default function RoleManagementPage({
             {/* THANH KÉO SPLITTER 1 (DỌC TRÁI/PHẢI) */}
             <div
               onMouseDown={handleMouseDownGroup}
-              className={`w-1.5 h-full bg-slate-200 hover:bg-blue-500 cursor-col-resize transition-colors duration-150 flex items-center justify-center select-none ${isDraggingGroup ? 'bg-blue-600' : ''
-                }`}
+              className={`w-1.5 h-full bg-slate-200 hover:bg-blue-500 cursor-col-resize transition-colors duration-150 flex items-center justify-center select-none ${
+                isDraggingGroup ? 'bg-blue-600' : ''
+              }`}
               title={t('common.resize', 'Kéo để thay đổi độ rộng')}
             >
               <div className="w-0.5 h-8 bg-slate-400 rounded-full" />
@@ -389,7 +389,6 @@ export default function RoleManagementPage({
                   </button>
                 </div>
               </div>
-
 
               {/* NỘI DUNG TAB 1: PHÂN QUYỀN CHỨC NĂNG & MENU + ACTION PERMS ĐỘNG */}
               {activeTab === 'permissions' && (
@@ -458,7 +457,6 @@ export default function RoleManagementPage({
                   />
                 </div>
               )}
-
 
               {/* NỘI DUNG TAB 2: THÀNH VIÊN TRONG NHÓM (FULL SHEET VỚI CODE HELP F2) */}
               {activeTab === 'members' && (

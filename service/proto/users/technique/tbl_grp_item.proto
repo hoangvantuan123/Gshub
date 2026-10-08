@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package users.technique.tbl_grp_item;
+
+option go_package = "server-core/proto/users/technique/tbl_grp_item";
+
+service TblGrpItemService {
+  rpc TblGrpItemA (TblGrpItemARequest) returns (Response);
+  rpc TblGrpItemU (TblGrpItemURequest) returns (Response);
+  rpc TblGrpItemD (TblGrpItemDRequest) returns (Response);
+  rpc TblGrpItemQ (TblGrpItemQRequest) returns (Response);
+}
+
+message TblGrpItemAResult { 
+  int32 IdxNo = 1;
+  string CreatedBy = 2;
+  string UpdatedBy = 3;
+
+  string KeyCode = 4;
+  string TblGrpSeq = 5;
+}
+
+message TblGrpItemUResult { 
+  int32 IdxNo = 1;
+  string UpdatedBy = 2;
+  string KeyCode = 3;
+  string IdSeq = 4;
+}
+
+message TblGrpItemDResult { 
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+}
+
+message TblGrpItemQResult { 
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message TblGrpItemARequest {
+  repeated TblGrpItemAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpItemURequest {
+  repeated TblGrpItemUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpItemDRequest {
+  repeated TblGrpItemDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpItemQRequest {
+  TblGrpItemQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

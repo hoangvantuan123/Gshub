@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package users.system.sys_attr_groups;
+
+option go_package = "server-core/proto/users/system/sys_attr_groups";
+
+service SysAttrGroupsService {
+  rpc SysAttrGroupsA (SysAttrGroupsARequest) returns (Response);
+  rpc SysAttrGroupsU (SysAttrGroupsURequest) returns (Response);
+  rpc SysAttrGroupsD (SysAttrGroupsDRequest) returns (Response);
+  rpc SysAttrGroupsQ (SysAttrGroupsQRequest) returns (Response);
+}
+
+message SysAttrGroupsAResult {
+  int32 IdxNo = 1;
+  string GroupCode = 2;
+  string GroupName = 3;
+  int64 CodeHelp = 4;
+  string LangKey = 5;
+  string Comment = 6;
+  int64 RowVersion = 7;
+  string CreatedBy = 8;
+  string UpdatedBy = 9;
+}
+
+message SysAttrGroupsUResult {
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string GroupCode = 3;
+  string GroupName = 4;
+  int64 CodeHelp = 5;
+  string LangKey = 6;
+  string Comment = 7;
+  int64 RowVersion = 8;
+  string UpdatedBy = 9;
+}
+
+message SysAttrGroupsDResult {
+  string IdSeq = 1;
+  int64 RowVersion = 2;
+}
+
+message SysAttrGroupsQResult {
+  string GroupCode = 1;
+  string GroupName = 2;
+  string KeyItem1 = 3;
+  string KeyItem2 = 4;
+  string KeyItem3 = 5;
+}
+
+message SysAttrGroupsARequest {
+  repeated SysAttrGroupsAResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message SysAttrGroupsURequest {
+  repeated SysAttrGroupsUResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message SysAttrGroupsDRequest {
+  repeated SysAttrGroupsDResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message SysAttrGroupsQRequest {
+  SysAttrGroupsQResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+  string data = 3;
+  string page = 4;
+}

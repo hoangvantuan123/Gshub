@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package users.roles.perm_resource_scopes;
+
+option go_package = "server-core/proto/users/roles/perm_resource_scopes";
+
+service PermResourceScopesService {
+  rpc PermResourceScopesA (PermResourceScopesARequest) returns (Response);
+  rpc PermResourceScopesU (PermResourceScopesURequest) returns (Response);
+  rpc PermResourceScopesD (PermResourceScopesDRequest) returns (Response);
+  rpc PermResourceScopesQ (PermResourceScopesQRequest) returns (Response);
+}
+
+message PermResourceScopesAResult {
+  int32 IdxNo = 1;
+  string ResourceSeq = 2;
+  string ScopeSeq = 3;
+  string CustomScopeName = 4;
+  int32 OrderNo = 5;
+  string Comment = 6;
+  int64 RowVersion = 7;
+  string CreatedBy = 8;
+  string UpdatedBy = 9;
+}
+
+message PermResourceScopesUResult {
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string ResourceSeq = 3;
+  string ScopeSeq = 4;
+  string CustomScopeName = 5;
+  int32 OrderNo = 6;
+  string Comment = 7;
+  int64 RowVersion = 8;
+  string UpdatedBy = 9;
+}
+
+message PermResourceScopesDResult {
+  string IdSeq = 1;
+  int64 RowVersion = 2;
+}
+
+message PermResourceScopesQResult {
+  string ResourceSeq = 1;
+  string ScopeSeq = 2;
+  string ScopeCode = 3;
+  string ScopeName = 4;
+  string LangKey = 5;
+  string KeyItem1 = 6;
+  string KeyItem2 = 7;
+  string KeyItem3 = 8;
+}
+
+message PermResourceScopesARequest {
+  repeated PermResourceScopesAResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermResourceScopesURequest {
+  repeated PermResourceScopesUResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermResourceScopesDRequest {
+  repeated PermResourceScopesDResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermResourceScopesQRequest {
+  PermResourceScopesQResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+  string data = 3;
+  string page = 4;
+}

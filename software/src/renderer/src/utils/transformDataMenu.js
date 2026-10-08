@@ -4,9 +4,15 @@ function matchRootMenu(rootList, rootIdOrKey) {
   return (
     rootList.find((r) => {
       if (!r) return false
-      const rId = String(r.Id !== undefined ? r.Id : '').trim().toLowerCase()
-      const rRootId = String(r.RootMenuId !== undefined ? r.RootMenuId : '').trim().toLowerCase()
-      const rKey = String(r.RootMenuKey || r.Key || '').trim().toLowerCase()
+      const rId = String(r.Id !== undefined ? r.Id : '')
+        .trim()
+        .toLowerCase()
+      const rRootId = String(r.RootMenuId !== undefined ? r.RootMenuId : '')
+        .trim()
+        .toLowerCase()
+      const rKey = String(r.RootMenuKey || r.Key || '')
+        .trim()
+        .toLowerCase()
 
       if (rId === target || rRootId === target || rKey === target) return true
 
@@ -44,7 +50,8 @@ export function transformDataMenu(data = [], rootMenu = [], menuItemList = []) {
   for (let i = 0; i < data.length; i++) {
     const item = data[i]
     if (item && item.MenuType === 'submenu') {
-      const rootItem = matchRootMenu(rootMenu, item.MenuRootId) || matchRootMenu(rootMenu, item.MenuKey)
+      const rootItem =
+        matchRootMenu(rootMenu, item.MenuRootId) || matchRootMenu(rootMenu, item.MenuKey)
       const rootMenuKey = rootItem ? rootItem.RootMenuKey : item.MenuKey
 
       const subMenuObj = {

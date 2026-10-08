@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package users.langs.dicts;
+
+option go_package = "server-core/proto/users/langs/dicts";
+
+service DictsService {
+  rpc DictA (DictARequest) returns (Response);
+  rpc DictU (DictURequest) returns (Response);
+  rpc DictD (DictDRequest) returns (Response);
+  rpc DictQ (DictQRequest) returns (Response);
+  rpc DictVersionQ (DictQRequest) returns (Response);
+}
+
+
+message DictAResult { 
+  int32 IdxNo = 1;
+  int32 LanguageSeq = 2;
+  string Word = 3;
+  string CreatedBy = 4;
+  int32 WordSeq = 5;
+}
+
+message DictUResult { 
+  string IdSeq = 1;
+  int32 IdxNo = 2;
+  int32 LanguageSeq = 3;
+  string Word = 4;
+  string UpdatedBy = 5;
+  int32 WordSeq = 6;
+}
+
+message DictDResult { 
+  string IdSeq = 1;
+}
+
+message DictQResult { 
+  int32 KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message DictARequest {
+  repeated DictAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message DictURequest {
+  repeated DictUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message DictDRequest {
+  repeated DictDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message DictQRequest {
+  DictQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

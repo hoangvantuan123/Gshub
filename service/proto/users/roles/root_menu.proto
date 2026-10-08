@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package roles.root_menu;
+ 
+option go_package = "server-core/proto/users/roles/root_menu";
+
+service RootMenuService {
+  rpc RootMenuA (RootMenuARequest) returns (Response);
+  rpc RootMenuU (RootMenuURequest) returns (Response);
+  rpc RootMenuD (RootMenuDRequest) returns (Response);
+  rpc RootMenuQ (RootMenuQRequest) returns (Response);
+}
+
+message RootMenuAResult { 
+  int32 IdxNo = 1;
+  string Key = 2;
+  string Label = 3;
+  string Link = 4;
+  string Icon = 5;
+  bool Utilities = 6;
+  string CreatedBy = 7;
+  string UpdatedBy = 8;
+  int64 RowVersion = 9;
+}
+
+message RootMenuUResult { 
+  int32 IdxNo = 1;
+  string Key = 2;
+  string Label = 3;
+  string Link = 4;
+  string Icon = 5;
+  int32 Id = 6;
+  bool Utilities = 7;
+  string UpdatedAt = 8;
+  string UpdatedBy = 9;
+  int64 RowVersion = 10;
+}
+
+message RootMenuDResult { 
+  int32 Id = 1;
+  int64 RowVersion = 2;
+}
+
+message RootMenuARequest {
+  repeated RootMenuAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message RootMenuURequest {
+  repeated RootMenuUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message RootMenuDRequest {
+  repeated RootMenuDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message RootMenuQRequest {
+  map<string, string> result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message ErrorInfo {
+  string code = 1;
+  string message = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  ErrorInfo error = 4;
+  string page = 5;
+}

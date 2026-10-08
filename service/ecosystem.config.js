@@ -2,9 +2,106 @@ const path = require('path')
 
 module.exports = {
   apps: [
+    // =========================================================================
+    // 1. GSHUB API-GATEWAY (REST Entrypoint & Security Middlewares :9643)
+    // =========================================================================
     {
-      name: 'gshub-service', // Tên tiến trình PM2 (chuyển từ service-datahub sang gshub-service)
-      script: process.platform === 'win32' ? './service-datahub.exe' : './service-datahub',
+      name: 'gshub-gateway',
+      script: process.platform === 'win32' ? './main.exe' : './main',
+      cwd: path.join(__dirname, 'api-gateway'),
+      exec_interpreter: 'none',
+      exec_mode: 'fork',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
+      restart_delay: 2000,
+      env: {
+        APP_ENV: 'production',
+        NODE_ENV: 'production',
+        PORT: 9643,
+        HOST_GRPC_USER: '127.0.0.1:5051',
+        HOST_GRPC_DATAHUB: '127.0.0.1:5052',
+        HOST_GRPC_BASIC: '127.0.0.1:5051',
+        HOST_GRPC_LOOKUP: '127.0.0.1:5051',
+        PROTO_DIR: path.join(__dirname, 'proto'),
+        JWT_SECRET: 'syscore_gshub_super_secret_jwt_key_2026',
+        APP_SIGNATURE_SECRET: 'ERP_ELECTRON_SECURE_KEY_2026_@ANTIGRAVITY#X'
+      },
+      env_development: {
+        APP_ENV: 'development',
+        NODE_ENV: 'dev',
+        PORT: 9643,
+        HOST_GRPC_USER: '127.0.0.1:5051',
+        HOST_GRPC_DATAHUB: '127.0.0.1:5052',
+        HOST_GRPC_BASIC: '127.0.0.1:5051',
+        HOST_GRPC_LOOKUP: '127.0.0.1:5051',
+        PROTO_DIR: path.join(__dirname, 'proto'),
+        JWT_SECRET: 'syscore_gshub_dev_jwt_key_2026',
+        APP_SIGNATURE_SECRET: 'ERP_ELECTRON_SECURE_KEY_2026_@ANTIGRAVITY#X'
+      },
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      error_file: '../logs/pm2-gateway-error.log',
+      out_file: '../logs/pm2-gateway-out.log',
+      merge_logs: true,
+      time: true
+    },
+
+    // =========================================================================
+    // 2. GSHUB SERVER-CORE (Pure gRPC Engine & System/Auth/Role :5051)
+    // =========================================================================
+    {
+      name: 'gshub-core',
+      script: process.platform === 'win32' ? './main.exe' : './main',
+      cwd: path.join(__dirname, 'server-core', 'cmd', 'server'),
+      exec_interpreter: 'none',
+      exec_mode: 'fork',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '2G',
+      restart_delay: 2000,
+      env: {
+        APP_ENV: 'production',
+        PORT_GRPC: 5051,
+        POSTGRES_HOST: '127.0.0.1',
+        POSTGRES_PORT: '5432',
+        POSTGRES_USER: 'postgres',
+        POSTGRES_PASSWORD: 'AdminErp#',
+        POSTGRES_DB: 'GsHub',
+        POSTGRES_DB_LOGS: 'GsHub',
+        POSTGRES_MAX_CONNS: '0',
+        POSTGRES_MIN_CONNS: '0',
+        JWT_SECRET: 'syscore_gshub_super_secret_jwt_key_2026',
+        LOG_STORAGE: '../grafana-logs/logs'
+      },
+      env_development: {
+        APP_ENV: 'development',
+        PORT_GRPC: 5051,
+        POSTGRES_HOST: '127.0.0.1',
+        POSTGRES_PORT: '5432',
+        POSTGRES_USER: 'postgres',
+        POSTGRES_PASSWORD: 'AdminErp#',
+        POSTGRES_DB: 'GsHub',
+        POSTGRES_DB_LOGS: 'GsHub',
+        POSTGRES_MAX_CONNS: '0',
+        POSTGRES_MIN_CONNS: '0',
+        JWT_SECRET: 'syscore_gshub_dev_jwt_key_2026',
+        LOG_STORAGE: '../grafana-logs/logs'
+      },
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      error_file: '../logs/pm2-core-error.log',
+      out_file: '../logs/pm2-core-out.log',
+      merge_logs: true,
+      time: true
+    },
+
+    // =========================================================================
+    // 3. GSHUB SERVICE-DATAHUB (Bravo ERP & Production Reports Engine :5052)
+    // =========================================================================
+    {
+      name: 'gshub-datahub',
+      script: process.platform === 'win32' ? './main.exe' : './main',
       cwd: path.join(__dirname, 'service-datahub'),
       exec_interpreter: 'none',
       exec_mode: 'fork',
@@ -12,32 +109,24 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '2G',
-      restart_delay: 3000,
-
-      // =========================================================================
-      // CẤU HÌNH BIẾN MÔI TRƯỜNG KẾT NỐI (PRODUCTION)
-      // Chuyển kết nối CSDL từ DATAHUB sang GSHUB
-      // =========================================================================
+      restart_delay: 2000,
       env: {
         APP_ENV: 'production',
-        PORT: 9643,
-        GRPC_PORT: 9644,
-
+        PORT: 9645,
+        GRPC_PORT: 5052,
         DB_HOST: '127.0.0.1',
         DB_PORT: '5432',
         DB_USER: 'postgres',
         DB_PASSWORD: 'AdminErp#',
-        DB_NAME: 'GsHub', // Đã chuyển kết nối CSDL từ DATAHUB sang GsHub
+        DB_NAME: 'GsHub',
         DB_SSLMODE: 'disable',
-        DB_MAX_OPEN_CONNS: '50',
-        DB_MAX_IDLE_CONNS: '10',
+        DB_MAX_OPEN_CONNS: '60',
+        DB_MAX_IDLE_CONNS: '15',
         DB_CONN_MAX_LIFETIME_MINUTES: '30',
-
-        // 2. Cấu hình bảo mật JWT
         JWT_SECRET: 'syscore_gshub_super_secret_jwt_key_2026',
         JWT_EXPIRE_HOURS: '72',
 
-        // 3. Cấu hình kết nối Bravo ERP
+        // Bravo ERP Integration
         BRAVO_AUTH_URL: 'https://bravo.goldsunpackaging.vn:5051/fa837234b0b27bc02365a940995bdc24',
         BRAVO_BASE_API_URL: 'https://bravo.goldsunpackaging.vn:5051',
         BRAVO_REFERER: 'https://bravo.goldsunpackaging.vn:5052/',
@@ -51,26 +140,19 @@ module.exports = {
         BRAVO_DEFAULT_PASSWORD: 'Tuan3112@',
         BRAVO_INSECURE_SKIP_VERIFY: 'true'
       },
-
-      // =========================================================================
-      // CẤU HÌNH MÔI TRƯỜNG DEVELOPMENT (Chạy với: pm2 start ecosystem.config.js --env development)
-      // =========================================================================
       env_development: {
         APP_ENV: 'development',
-        PORT: 9643,
-        GRPC_PORT: 9644,
-
-        // CSDL Development
+        PORT: 9645,
+        GRPC_PORT: 5052,
         DB_HOST: '127.0.0.1',
         DB_PORT: '5432',
         DB_USER: 'postgres',
         DB_PASSWORD: 'AdminErp#',
-        DB_NAME: 'GsHub', // CSDL Gshub
+        DB_NAME: 'GsHub',
         DB_SSLMODE: 'disable',
-        DB_MAX_OPEN_CONNS: '20',
-        DB_MAX_IDLE_CONNS: '5',
+        DB_MAX_OPEN_CONNS: '25',
+        DB_MAX_IDLE_CONNS: '10',
         DB_CONN_MAX_LIFETIME_MINUTES: '30',
-
         JWT_SECRET: 'syscore_gshub_dev_jwt_key_2026',
         JWT_EXPIRE_HOURS: '72',
 
@@ -87,13 +169,11 @@ module.exports = {
         BRAVO_DEFAULT_PASSWORD: 'Tuan3112@',
         BRAVO_INSECURE_SKIP_VERIFY: 'true'
       },
-
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      error_file: './logs/pm2-error.log',
-      out_file: './logs/pm2-out.log',
+      error_file: '../logs/pm2-datahub-error.log',
+      out_file: '../logs/pm2-datahub-out.log',
       merge_logs: true,
       time: true
     }
   ]
 }
-

@@ -106,10 +106,43 @@ export function getAutoExportType(item) {
 }
 
 export const parseSyncDelayToSeconds = (val, item = null) => {
+  if (val !== null && val !== undefined && val !== '') {
+    if (typeof val === 'number') {
+      if (!isNaN(val) && val >= 0) return val
+    } else {
+      const str = String(val).trim().toLowerCase()
+      if (str && str !== 'null' && str !== 'undefined' && str !== 'nan' && str !== '-') {
+        // 1. Time format HH:mm:ss or mm:ss
+        if (str.includes(':')) {
+          const parts = str.split(':').map((p) => Number(p.trim()))
+          if (parts.length === 3) {
+            return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0)
+          } else if (parts.length === 2) {
+            return (parts[0] || 0) * 60 + (parts[1] || 0)
+          }
+        }
+
+        // 2. Chứa đơn vị chữ: 'phút' / 'min' / 'giây' / 'sec' / 's' / 'm'
+        if (str.includes('phút') || str.includes('min') || str.endsWith('m') || str.endsWith('p')) {
+          const num = parseFloat(str.replace(/[^0-9.]/g, ''))
+          if (!isNaN(num) && num >= 0) return num * 60
+        }
+        if (str.includes('giây') || str.includes('sec') || str.endsWith('s') || str.endsWith('g')) {
+          const num = parseFloat(str.replace(/[^0-9.]/g, ''))
+          if (!isNaN(num) && num >= 0) return num
+        }
+
+        const num = parseFloat(str)
+        if (!isNaN(num) && num >= 0) return num
+      }
+    }
+  }
+
+  // Fallback: chỉ tính khoảng cách thời gian nếu không có cột delay trực tiếp và cả 2 trường ngày đều có giờ (chứa :)
   if (item) {
     const tCre = item.TicketCreatedDate || item.ticketCreatedDate
     const tMes = item.MesApprovalTime || item.mesApprovalTime
-    if (tCre && tMes) {
+    if (tCre && tMes && (String(tCre).includes(':') || String(tMes).includes(':'))) {
       const dCre = new Date(tCre).getTime()
       const dMes = new Date(tMes).getTime()
       if (!isNaN(dCre) && !isNaN(dMes) && dMes >= dCre) {
@@ -119,41 +152,7 @@ export const parseSyncDelayToSeconds = (val, item = null) => {
     }
   }
 
-  if (val === null || val === undefined || val === '') {
-    return null
-  }
-
-  if (typeof val === 'number') {
-    if (isNaN(val) || val < 0) return null
-    return val
-  }
-
-  const str = String(val).trim().toLowerCase()
-  if (!str || str === 'null' || str === 'undefined' || str === 'nan' || str === '-') return null
-
-  // 1. Time format HH:mm:ss or mm:ss
-  if (str.includes(':')) {
-    const parts = str.split(':').map((p) => Number(p.trim()))
-    if (parts.length === 3) {
-      return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0)
-    } else if (parts.length === 2) {
-      return (parts[0] || 0) * 60 + (parts[1] || 0)
-    }
-  }
-
-  // 2. Chứa đơn vị chữ: 'phút' / 'min' / 'giây' / 'sec' / 's' / 'm'
-  if (str.includes('phút') || str.includes('min') || str.endsWith('m') || str.endsWith('p')) {
-    const num = parseFloat(str.replace(/[^0-9.]/g, ''))
-    return isNaN(num) ? null : num * 60
-  }
-  if (str.includes('giây') || str.includes('sec') || str.endsWith('s') || str.endsWith('g')) {
-    const num = parseFloat(str.replace(/[^0-9.]/g, ''))
-    return isNaN(num) ? null : num
-  }
-
-  const num = parseFloat(str)
-  if (isNaN(num) || num < 0) return null
-  return num
+  return null
 }
 
 // Helper format seconds to HH:mm:ss
@@ -388,80 +387,9 @@ export const useProductionStatisticsLogic = ({
       }
 
       let isTimeReversed = false
-      let durMinutes = undefined
+      let durMinutes = parseRawActualRunTime()
 
-      // 1. Kiểm tra mốc Ngày + Giờ đầy đủ
-      const startTs = parseFullDateTimeTimestamp(rawStartDate, rawStart)
-      const endTs = parseFullDateTimeTimestamp(rawEndDate, rawEnd)
-
-      if (startTs !== null && endTs !== null) {
-        if (endTs >= startTs) {
-          const diffMin = (endTs - startTs) / (1000 * 60)
-          durMinutes = Number(diffMin.toFixed(1))
-        } else {
-          // Bị ngược thời gian (endTs < startTs): Lấy theo cột thời gian chạy thực tế (ActualRunTime) từ BE
-          isTimeReversed = true
-          durMinutes = parseRawActualRunTime()
-        }
-      } else if (rawStart && rawEnd) {
-        const sStr = String(rawStart).trim()
-        const eStr = String(rawEnd).trim()
-
-        if (sStr.includes(':') && eStr.includes(':')) {
-          const sParts = sStr
-            .split(' ')
-            .pop()
-            .split(':')
-            .map((v) => parseFloat(v) || 0)
-          const eParts = eStr
-            .split(' ')
-            .pop()
-            .split(':')
-            .map((v) => parseFloat(v) || 0)
-          const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
-          const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
-          let diff = eMin - sMin
-          if (diff >= 0) {
-            durMinutes = Number(diff.toFixed(1))
-          } else {
-            const sDateClean = String(rawStartDate || '')
-              .trim()
-              .slice(0, 10)
-            const eDateClean = String(rawEndDate || '')
-              .trim()
-              .slice(0, 10)
-            if (
-              (sDateClean && eDateClean && sDateClean === eDateClean) ||
-              (!sDateClean && !eDateClean)
-            ) {
-              isTimeReversed = true
-              durMinutes = parseRawActualRunTime()
-            } else {
-              diff += 1440 // Chạy xuyên đêm qua ngày hôm sau
-              durMinutes = Number(diff.toFixed(1))
-            }
-          }
-        }
-      }
-
-      // 2. Nếu không có đủ 2 mốc hoặc bị lỗi ngược giờ, đọc trực tiếp từ BE (ActualRunTime / DurationMinutes / RuntimeHours)
-      if (durMinutes === undefined) {
-        durMinutes = parseRawActualRunTime()
-      }
-
-      if (
-        durMinutes === undefined &&
-        (item.runtimeHours !== undefined || item.RuntimeHours !== undefined)
-      ) {
-        const rh = Number(item.runtimeHours ?? item.RuntimeHours) || 0
-        durMinutes = Number((rh * 60).toFixed(1))
-      }
-
-      if (durMinutes === undefined) {
-        durMinutes = 0
-      }
-
-      // Trừ đi Tổng thời gian hao phí (Breakdown + Waiting + Setup + Repair) để ra số phút & giờ thực tế sản xuất
+      // Tính Tổng thời gian hao phí (Breakdown + Waiting + Setup + Repair)
       const rawWaste =
         item.TotalWasteMinutes ??
         item.totalWasteMinutes ??
@@ -501,8 +429,47 @@ export const useProductionStatisticsLogic = ({
         wasteMin = bd + wm + st + rp
       }
 
-      if (wasteMin > 0 && durMinutes > 0) {
-        durMinutes = Math.max(0, Number((durMinutes - wasteMin).toFixed(1)))
+      // Nếu không có ActualRunTime hoặc ActualRunTime = 0, tính từ StartTime và EndTime rồi trừ hao phí
+      if ((durMinutes === undefined || durMinutes === 0) && rawStart && rawEnd) {
+        const sStr = String(rawStart).trim()
+        const eStr = String(rawEnd).trim()
+
+        if (sStr.includes(':') && eStr.includes(':')) {
+          const sParts = sStr
+            .split(' ')
+            .pop()
+            .split(':')
+            .map((v) => parseFloat(v) || 0)
+          const eParts = eStr
+            .split(' ')
+            .pop()
+            .split(':')
+            .map((v) => parseFloat(v) || 0)
+          const sMin = (sParts[0] || 0) * 60 + (sParts[1] || 0) + (sParts[2] || 0) / 60
+          const eMin = (eParts[0] || 0) * 60 + (eParts[1] || 0) + (eParts[2] || 0) / 60
+          let diff = eMin - sMin
+          if (diff < 0) diff += 1440 // Ca làm việc qua đêm
+          if (wasteMin > 0) diff = Math.max(0, diff - wasteMin)
+          if (diff >= 0 && diff <= 1440) {
+            durMinutes = Number(diff.toFixed(1))
+          }
+        }
+      }
+
+      if (durMinutes === undefined) {
+        durMinutes = 0
+      }
+
+      if (
+        durMinutes === 0 &&
+        (item.runtimeHours !== undefined || item.RuntimeHours !== undefined)
+      ) {
+        const rh = Number(item.runtimeHours ?? item.RuntimeHours) || 0
+        durMinutes = Number((rh * 60).toFixed(1))
+      }
+
+      if (durMinutes === undefined) {
+        durMinutes = 0
       }
 
       let rt = Number((durMinutes / 60).toFixed(2))
@@ -611,14 +578,14 @@ export const useProductionStatisticsLogic = ({
           ? 'INVALID_TIME'
           : durMinutes < 5
             ? 'UNDER_5MIN'
-            : durMinutes > 720
+            : durMinutes > 720 && a < 50000
               ? 'OVER_12H'
               : 'NORMAL',
         auditText: isTimeReversed
           ? 'Ngược giờ (Bắt đầu > Kết thúc)'
           : durMinutes < 5
             ? '< 5p Nhập nhanh (Cảnh báo)'
-            : durMinutes > 720
+            : durMinutes > 720 && a < 50000
               ? '> 12h Cần kiểm tra (Cảnh báo)'
               : 'Chuẩn tiến độ (5p - 12h)',
         // ── Khung đăng ký chuẩn Thống kê sản xuất (statisticsImportColumns.js) ──
@@ -933,10 +900,12 @@ export const useProductionStatisticsLogic = ({
       const durMinutes = Number(item.durationMinutes ?? rt * 60) || 0
       if (durMinutes < 5) {
         rUnder5++
-      } else if (durMinutes >= 5 && durMinutes <= 720) {
-        rNormal++
       } else if (durMinutes > 720) {
-        rOver12Check++
+        if (a < 50000) {
+          rOver12Check++
+        } else {
+          rOver12Valid++
+        }
       } else {
         rNormal++
       }

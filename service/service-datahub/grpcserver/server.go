@@ -6,11 +6,19 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	"service-datahub/models"
+	reportmodels "service-datahub/models/report"
 	pb "service-datahub/pb/datahub"
 	"service-datahub/services"
+	"service-datahub/services/help"
+	"service-datahub/services/report/plan_detail"
+	"service-datahub/services/report/plan_master"
+	"service-datahub/services/report/plan_report"
+	"service-datahub/services/report/prod_stats_detail"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -23,13 +31,18 @@ import (
 
 type Server struct {
 	pb.UnimplementedDataHubServiceServer
-	db                 *gorm.DB
-	loginService       *services.LoginService
-	configService      *services.ConfigService
-	workProcessService *services.WorkProcessService
-	factoryService     *services.FactoryService
-	logger             *zap.Logger
-	startTime          time.Time
+	db                     *gorm.DB
+	loginService           *services.LoginService
+	configService          *services.ConfigService
+	workProcessService     *services.WorkProcessService
+	factoryService         *services.FactoryService
+	planMasterService      *plan_master.PlanMasterService
+	planDetailService      *plan_detail.PlanDetailService
+	prodStatsDetailService *prod_stats_detail.ProdStatsDetailService
+	planReportService      *plan_report.PlanReportService
+	helpService            *help.CodeHelpService
+	logger                 *zap.Logger
+	startTime              time.Time
 }
 
 func NewServer(
@@ -38,16 +51,26 @@ func NewServer(
 	configService *services.ConfigService,
 	workProcessService *services.WorkProcessService,
 	factoryService *services.FactoryService,
+	planMasterService *plan_master.PlanMasterService,
+	planDetailService *plan_detail.PlanDetailService,
+	prodStatsDetailService *prod_stats_detail.ProdStatsDetailService,
+	planReportService *plan_report.PlanReportService,
+	helpService *help.CodeHelpService,
 	logger *zap.Logger,
 ) *Server {
 	return &Server{
-		db:                 db,
-		loginService:       loginService,
-		configService:      configService,
-		workProcessService: workProcessService,
-		factoryService:     factoryService,
-		logger:             logger,
-		startTime:          time.Now(),
+		db:                     db,
+		loginService:           loginService,
+		configService:          configService,
+		workProcessService:     workProcessService,
+		factoryService:         factoryService,
+		planMasterService:      planMasterService,
+		planDetailService:      planDetailService,
+		prodStatsDetailService: prodStatsDetailService,
+		planReportService:      planReportService,
+		helpService:            helpService,
+		logger:                 logger,
+		startTime:              time.Now(),
 	}
 }
 
@@ -96,15 +119,15 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginProtoRequest) (*pb.Logi
 	}
 
 	return &pb.LoginProtoResponse{
-		Success:      true,
-		ConfigKey:    resp.ConfigKey,
-		Username:     resp.Username,
-		AccessToken:  resp.AccessToken,
-		TokenType:    resp.TokenType,
-		ExpiresIn:    resp.ExpiresIn,
-		ExpiresAt:    resp.ExpiresAt,
-		Scope:        resp.Scope,
-		Session:      sessionProto,
+		Success:     true,
+		ConfigKey:   resp.ConfigKey,
+		Username:    resp.Username,
+		AccessToken: resp.AccessToken,
+		TokenType:   resp.TokenType,
+		ExpiresIn:   resp.ExpiresIn,
+		ExpiresAt:   resp.ExpiresAt,
+		Scope:       resp.Scope,
+		Session:     sessionProto,
 	}, nil
 }
 
@@ -321,7 +344,6 @@ func (s *Server) StreamProxy(stream pb.DataHubService_StreamProxyServer) error {
 			return status.Errorf(codes.Unknown, "stream read error: %v", err)
 		}
 
-		// Handle request in goroutine or synchronously per frame
 		resp, err := s.ProxyForward(stream.Context(), req)
 		if err != nil {
 			resp = &pb.ProxyProtoResponse{
@@ -585,6 +607,1587 @@ func (s *Server) SaveEndpoint(ctx context.Context, req *pb.SaveEndpointProtoRequ
 	}, nil
 }
 
+// =========================================================================
+// 14. QueryPlanMaster (KHSX / TKSX Master Records)
+// =========================================================================
+func (s *Server) QueryPlanMaster(ctx context.Context, req *pb.PlanMasterProtoRequest) (*pb.PlanMasterProtoResponse, error) {
+	filters := make(map[string]string)
+	if req.FiltersJson != "" {
+		var rawMap map[string]interface{}
+		if err := json.Unmarshal([]byte(req.FiltersJson), &rawMap); err == nil {
+			for k, v := range rawMap {
+				if v != nil && fmt.Sprintf("%v", v) != "" {
+					filters[k] = fmt.Sprintf("%v", v)
+				}
+			}
+		}
+	}
+	if req.RegCode != "" {
+		filters["RegCode"] = req.RegCode
+	}
+	if req.ReportType != "" {
+		filters["ReportType"] = req.ReportType
+	}
+	if req.FactoryName != "" {
+		filters["FactoryName"] = req.FactoryName
+	}
+	if req.ApplyDate != "" {
+		filters["ApplyDate"] = req.ApplyDate
+	}
+	if req.ApplyDateFrom != "" {
+		filters["ApplyDateFrom"] = req.ApplyDateFrom
+	}
+	if req.ApplyDateTo != "" {
+		filters["ApplyDateTo"] = req.ApplyDateTo
+	}
+	if req.Status != "" {
+		filters["Status"] = req.Status
+	}
+	if req.IsActive != "" {
+		filters["IsActive"] = req.IsActive
+	}
+	if req.Page > 0 {
+		filters["page"] = strconv.Itoa(int(req.Page))
+	}
+	if req.PageSize > 0 {
+		filters["pageSize"] = strconv.Itoa(int(req.PageSize))
+	}
+	if req.SortField != "" {
+		filters["sortField"] = req.SortField
+	}
+	if req.SortOrder != "" {
+		filters["sortOrder"] = req.SortOrder
+	}
+
+	masters, pageInfo, err := s.planMasterService.PlanMasterQ(ctx, filters)
+	if err != nil {
+		return &pb.PlanMasterProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var protoList []*pb.PlanMasterProtoItem
+	for i := range masters {
+		protoList = append(protoList, mapPlanMasterToProto(&masters[i]))
+	}
+
+	var totalRecords, totalAll int64
+	var totalPages, page, pageSize int32
+	if pageInfo != nil {
+		totalRecords = pageInfo.Total
+		totalAll = pageInfo.TotalAll
+		totalPages = int32(pageInfo.TotalPages)
+		page = int32(pageInfo.Page)
+		pageSize = int32(pageInfo.PageSize)
+	}
+
+	dataBytes, _ := json.Marshal(masters)
+
+	return &pb.PlanMasterProtoResponse{
+		Success:      true,
+		Message:      "Query Plan Master success",
+		Data:         protoList,
+		DataJson:     string(dataBytes),
+		TotalRecords: totalRecords,
+		TotalAll:     totalAll,
+		TotalPages:   totalPages,
+		Page:         page,
+		PageSize:     pageSize,
+	}, nil
+}
+
+// =========================================================================
+// 15. QueryPlanDetail (24-Column KHSX Plan Detail)
+// =========================================================================
+func (s *Server) QueryPlanDetail(ctx context.Context, req *pb.PlanDetailProtoRequest) (*pb.PlanDetailProtoResponse, error) {
+	filters := make(map[string]string)
+	if req.FiltersJson != "" {
+		var rawMap map[string]interface{}
+		if err := json.Unmarshal([]byte(req.FiltersJson), &rawMap); err == nil {
+			for k, v := range rawMap {
+				if v != nil && fmt.Sprintf("%v", v) != "" {
+					filters[k] = fmt.Sprintf("%v", v)
+				}
+			}
+		}
+	}
+	if req.MasterSeq != "" {
+		filters["MasterSeq"] = req.MasterSeq
+	}
+	if req.RegCode != "" {
+		filters["RegCode"] = req.RegCode
+	}
+	if req.ItemCode != "" {
+		filters["ItemCode"] = req.ItemCode
+	}
+	if req.OperationNo != "" {
+		filters["OperationNo"] = req.OperationNo
+	}
+	if req.RoutingDocNo != "" {
+		filters["RoutingDocNo"] = req.RoutingDocNo
+	}
+	if req.OpDate != "" {
+		filters["OpDate"] = req.OpDate
+	}
+	if req.MachineName != "" {
+		filters["MachineName"] = req.MachineName
+	}
+	if req.Page > 0 {
+		filters["page"] = strconv.Itoa(int(req.Page))
+	}
+	if req.PageSize > 0 {
+		filters["pageSize"] = strconv.Itoa(int(req.PageSize))
+	}
+	if req.SortField != "" {
+		filters["sortField"] = req.SortField
+	}
+	if req.SortOrder != "" {
+		filters["sortOrder"] = req.SortOrder
+	}
+
+	details, pageInfo, err := s.planDetailService.PlanDetailQ(ctx, filters)
+	if err != nil {
+		return &pb.PlanDetailProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var protoList []*pb.PlanDetailProtoItem
+	for i := range details {
+		protoList = append(protoList, mapPlanDetailToProto(&details[i]))
+	}
+
+	var totalRecords, totalAll int64
+	var totalPages, page, pageSize int32
+	if pageInfo != nil {
+		totalRecords = pageInfo.Total
+		totalAll = pageInfo.TotalAll
+		totalPages = int32(pageInfo.TotalPages)
+		page = int32(pageInfo.Page)
+		pageSize = int32(pageInfo.PageSize)
+	}
+
+	dataBytes, _ := json.Marshal(details)
+
+	return &pb.PlanDetailProtoResponse{
+		Success:      true,
+		Message:      "Query Plan Detail success",
+		Data:         protoList,
+		DataJson:     string(dataBytes),
+		TotalRecords: totalRecords,
+		TotalAll:     totalAll,
+		TotalPages:   totalPages,
+		Page:         page,
+		PageSize:     pageSize,
+	}, nil
+}
+
+// =========================================================================
+// 16. QueryProdStatsDetail (TKSX Production Stats Detail)
+// =========================================================================
+func (s *Server) QueryProdStatsDetail(ctx context.Context, req *pb.ProdStatsDetailProtoRequest) (*pb.ProdStatsDetailProtoResponse, error) {
+	filters := make(map[string]string)
+	if req.FiltersJson != "" {
+		var rawMap map[string]interface{}
+		if err := json.Unmarshal([]byte(req.FiltersJson), &rawMap); err == nil {
+			for k, v := range rawMap {
+				if v != nil && fmt.Sprintf("%v", v) != "" {
+					filters[k] = fmt.Sprintf("%v", v)
+				}
+			}
+		}
+	}
+	if req.MasterSeq != "" {
+		filters["MasterSeq"] = req.MasterSeq
+	}
+	if req.RegCode != "" {
+		filters["RegCode"] = req.RegCode
+	}
+	if req.ItemCode != "" {
+		filters["ItemCode"] = req.ItemCode
+	}
+	if req.OperationNo != "" {
+		filters["OperationNo"] = req.OperationNo
+	}
+	if req.StatTicketNo != "" {
+		filters["StatTicketNo"] = req.StatTicketNo
+	}
+	if req.StatDate != "" {
+		filters["StatDate"] = req.StatDate
+	}
+	if req.Customer != "" {
+		filters["Customer"] = req.Customer
+	}
+	if req.OrderNo != "" {
+		filters["OrderNo"] = req.OrderNo
+	}
+	if req.Page > 0 {
+		filters["page"] = strconv.Itoa(int(req.Page))
+	}
+	if req.PageSize > 0 {
+		filters["pageSize"] = strconv.Itoa(int(req.PageSize))
+	}
+	if req.SortField != "" {
+		filters["sortField"] = req.SortField
+	}
+	if req.SortOrder != "" {
+		filters["sortOrder"] = req.SortOrder
+	}
+
+	details, pageInfo, err := s.prodStatsDetailService.ProdStatsDetailQ(ctx, filters)
+	if err != nil {
+		return &pb.ProdStatsDetailProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var protoList []*pb.ProdStatsDetailProtoItem
+	for i := range details {
+		protoList = append(protoList, mapProdStatsDetailToProto(&details[i]))
+	}
+
+	var totalRecords, totalAll int64
+	var totalPages, page, pageSize int32
+	if pageInfo != nil {
+		totalRecords = pageInfo.Total
+		totalAll = pageInfo.TotalAll
+		totalPages = int32(pageInfo.TotalPages)
+		page = int32(pageInfo.Page)
+		pageSize = int32(pageInfo.PageSize)
+	}
+
+	dataBytes, _ := json.Marshal(details)
+
+	return &pb.ProdStatsDetailProtoResponse{
+		Success:      true,
+		Message:      "Query ProdStats Detail success",
+		Data:         protoList,
+		DataJson:     string(dataBytes),
+		TotalRecords: totalRecords,
+		TotalAll:     totalAll,
+		TotalPages:   totalPages,
+		Page:         page,
+		PageSize:     pageSize,
+	}, nil
+}
+
+// =========================================================================
+// 17. SavePlanRegistration (Master + Detail Batch Registration)
+// =========================================================================
+func (s *Server) SavePlanRegistration(ctx context.Context, req *pb.PlanRegistrationSaveProtoRequest) (*pb.PlanRegistrationSaveProtoResponse, error) {
+	reportType := strings.ToLower(strings.TrimSpace(req.ReportType))
+	if reportType == "" {
+		reportType = "plan"
+	}
+	factoryName := strings.TrimSpace(req.FactoryName)
+	factoryCode := "GS1"
+	if strings.EqualFold(strings.TrimSpace(req.FactoryCode), "GS5") || strings.Contains(strings.ToUpper(factoryName), "GS5") || strings.Contains(strings.ToLower(factoryName), "quáº¿ vÃµ") {
+		factoryCode = "GS5"
+		if factoryName == "" {
+			factoryName = "GS5 Quáº¿ VÃµ 1B"
+		}
+	} else {
+		if factoryName == "" {
+			factoryName = "GS1 HÃ  Ná»™i"
+		}
+	}
+
+	applyDate := strings.TrimSpace(req.ApplyDate)
+	if applyDate == "" {
+		applyDate = time.Now().Format("2006-01-02")
+	}
+
+	statusStr := strings.TrimSpace(req.Status)
+	if statusStr == "" {
+		if req.IsDraft {
+			statusStr = "draft"
+		} else {
+			statusStr = "published"
+		}
+	}
+
+	remark := strings.TrimSpace(req.Remark)
+	regCode := strings.TrimSpace(req.RegCode)
+	if regCode == "" {
+		prefix := "KHSX"
+		if reportType == "statistics" || reportType == "tksx" {
+			prefix = "TKSX"
+		}
+		datePart := strings.ReplaceAll(applyDate, "-", "")
+		regCode = fmt.Sprintf("%s_%s_%04d", prefix, datePart, time.Now().UnixNano()%10000)
+	}
+
+	isStat := reportType == "statistics" || reportType == "tksx"
+
+	// Láº¥y máº£ng dÃ²ng chi tiáº¿t tá»« body gá»‘c (planData / statsData / sheetData / data) hoáº·c data_json
+	rowsJSON, rowsErr := extractRegistrationRowsJSON(req, isStat)
+	if rowsErr != nil {
+		return &pb.PlanRegistrationSaveProtoResponse{
+			Success:      false,
+			ErrorMessage: rowsErr.Error(),
+		}, nil
+	}
+
+	userId := strings.TrimSpace(req.CreatedBy)
+	if userId == "" {
+		userId = "SystemAdmin"
+	}
+	userName := strings.TrimSpace(req.CreatedByName)
+	if userName == "" {
+		userName = userId
+	}
+
+	var insertedCount int64
+	var createdMaster reportmodels.ERPPlanMaster
+
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Kiá»ƒm tra tÃ­nh duy nháº¥t
+		var existingCount int64
+		if reportType == "statistics" || reportType == "tksx" {
+			tx.Model(&reportmodels.ERPPlanMaster{}).
+				Where(`"FactoryCode" = ? AND ("ReportType" = 'statistics' OR "ReportType" = 'tksx') AND "ApplyDate" = ?`, factoryCode, applyDate).
+				Count(&existingCount)
+		} else {
+			tx.Model(&reportmodels.ERPPlanMaster{}).
+				Where(`"FactoryCode" = ? AND ("ReportType" = 'plan' OR "ReportType" = 'khsx') AND "ApplyDate" = ?`, factoryCode, applyDate).
+				Count(&existingCount)
+		}
+		if existingCount > 0 {
+			repTypeName := "Káº¿ hoáº¡ch sáº£n xuáº¥t"
+			if reportType == "statistics" || reportType == "tksx" {
+				repTypeName = "Thá»‘ng kÃª sáº£n xuáº¥t"
+			}
+			return fmt.Errorf("nhÃ  mÃ¡y %s Ä‘Ã£ cÃ³ Ä‘á»£t Ä‘Äƒng kÃ½ %s cho ngÃ y %s (má»—i nhÃ  mÃ¡y chá»‰ Ä‘Æ°á»£c Ä‘Äƒng kÃ½ tá»‘i Ä‘a 1 Ä‘á»£t trong 1 ngÃ y)", factoryName, repTypeName, applyDate)
+		}
+
+		now := time.Now()
+		masterIdSeq := services.GenerateUUIDv7()
+
+		createdMaster = reportmodels.ERPPlanMaster{
+			IdSeq:         masterIdSeq,
+			RegCode:       regCode,
+			ReportType:    reportType,
+			FactoryCode:   &factoryCode,
+			FactoryName:   &factoryName,
+			ApplyDate:     &applyDate,
+			Remark:        &remark,
+			Status:        &statusStr,
+			RowVersion:    1,
+			IsActive:      true,
+			CreatedBy:     &userId,
+			CreatedByName: &userName,
+			CreatedAt:     &now,
+			UpdatedBy:     &userId,
+			UpdatedByName: &userName,
+			UpdatedAt:     &now,
+		}
+
+		if len(rowsJSON) > 0 {
+			if isStat {
+				var statsList []reportmodels.ERPProdStatsDetail
+				if err := json.Unmarshal(rowsJSON, &statsList); err != nil {
+					return fmt.Errorf("dá»¯ liá»‡u chi tiáº¿t TKSX khÃ´ng há»£p lá»‡: %w", err)
+				}
+				if len(statsList) > 0 {
+					for i := range statsList {
+						if statsList[i].IdSeq == "" {
+							statsList[i].IdSeq = services.GenerateUUIDv7()
+						}
+						statsList[i].MasterSeq = masterIdSeq
+						statsList[i].RegCode = regCode
+						statsList[i].RowSeq = i + 1
+						statsList[i].WorkingTag = "A"
+						statsList[i].RowVersion = 1
+						statsList[i].CreatedBy = &userId
+						statsList[i].CreatedByName = &userName
+						statsList[i].CreatedAt = &now
+						statsList[i].UpdatedBy = &userId
+						statsList[i].UpdatedAt = &now
+						statsList[i].IsActive = true
+						prod_stats_detail.NormalizeStatsItem(&statsList[i])
+					}
+					if err := tx.CreateInBatches(statsList, 500).Error; err != nil {
+						return fmt.Errorf("lá»—i khi lÆ°u dÃ²ng chi tiáº¿t TKSX: %w", err)
+					}
+					insertedCount = int64(len(statsList))
+					createdMaster.TotalRows = len(statsList)
+				}
+			} else {
+				var planList []reportmodels.ERPPlanDetail
+				if err := json.Unmarshal(rowsJSON, &planList); err != nil {
+					return fmt.Errorf("dá»¯ liá»‡u chi tiáº¿t KHSX khÃ´ng há»£p lá»‡: %w", err)
+				}
+				if len(planList) > 0 {
+					for i := range planList {
+						if planList[i].IdSeq == "" {
+							planList[i].IdSeq = services.GenerateUUIDv7()
+						}
+						planList[i].MasterSeq = masterIdSeq
+						planList[i].RegCode = regCode
+						planList[i].RowSeq = i + 1
+						planList[i].WorkingTag = "A"
+						planList[i].RowVersion = 1
+						planList[i].CreatedBy = &userId
+						planList[i].CreatedByName = &userName
+						planList[i].CreatedAt = &now
+						planList[i].UpdatedBy = &userId
+						planList[i].UpdatedAt = &now
+						planList[i].IsActive = true
+					}
+					if err := tx.CreateInBatches(planList, 500).Error; err != nil {
+						return fmt.Errorf("lá»—i khi lÆ°u dÃ²ng chi tiáº¿t KHSX: %w", err)
+					}
+					insertedCount = int64(len(planList))
+					createdMaster.TotalRows = len(planList)
+				}
+			}
+		}
+
+		// Khi frontend chia chunk (>1000 dÃ²ng), TotalRows lÃ  tá»•ng toÃ n bá»™ Ä‘á»£t chá»© khÃ´ng chá»‰ chunk Ä‘áº§u
+		if int(req.TotalRows) > createdMaster.TotalRows {
+			createdMaster.TotalRows = int(req.TotalRows)
+		}
+
+		if err := tx.Create(&createdMaster).Error; err != nil {
+			return fmt.Errorf("lá»—i khi táº¡o báº£n ghi Master: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return &pb.PlanRegistrationSaveProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	dataBytes, _ := json.Marshal(createdMaster)
+
+	return &pb.PlanRegistrationSaveProtoResponse{
+		Success:      true,
+		Message:      "LÆ°u Ä‘Äƒng kÃ½ bÃ¡o cÃ¡o thÃ nh cÃ´ng",
+		Master:       mapPlanMasterToProto(&createdMaster),
+		DataJson:     string(dataBytes),
+		InsertedRows: insertedCount,
+	}, nil
+}
+
+// =========================================================================
+// 17.1. DeletePlanMaster (Cascade Master + Details Deletion)
+// =========================================================================
+func (s *Server) DeletePlanMaster(ctx context.Context, req *pb.DeletePlanMasterProtoRequest) (*pb.DeletePlanMasterProtoResponse, error) {
+	var masterSeqs []string
+	if len(req.MasterSeqs) > 0 {
+		masterSeqs = append(masterSeqs, req.MasterSeqs...)
+	}
+	if req.RegCode != "" {
+		masterSeqs = append(masterSeqs, req.RegCode)
+	}
+	if req.DataJson != "" {
+		var seqsFromJson []string
+		if err := json.Unmarshal([]byte(req.DataJson), &seqsFromJson); err == nil && len(seqsFromJson) > 0 {
+			masterSeqs = append(masterSeqs, seqsFromJson...)
+		} else {
+			var objMap map[string]interface{}
+			if err := json.Unmarshal([]byte(req.DataJson), &objMap); err == nil {
+				if ms, ok := objMap["masterSeqs"].([]interface{}); ok {
+					for _, item := range ms {
+						if str, ok := item.(string); ok && str != "" {
+							masterSeqs = append(masterSeqs, str)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	userId := req.UserId
+	if userId == "" {
+		userId = "SystemAdmin"
+	}
+
+	if len(masterSeqs) == 0 {
+		return &pb.DeletePlanMasterProtoResponse{
+			Success:      false,
+			ErrorMessage: "Danh sÃ¡ch mÃ£ hoáº·c IdSeq Ä‘á»£t Ä‘Äƒng kÃ½ cáº§n xÃ³a rá»—ng",
+		}, nil
+	}
+
+	err := s.planMasterService.PlanMasterD(ctx, masterSeqs, userId)
+	if err != nil {
+		return &pb.DeletePlanMasterProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &pb.DeletePlanMasterProtoResponse{
+		Success:     true,
+		Message:     "XÃ³a Ä‘á»£t Ä‘Äƒng kÃ½ bÃ¡o cÃ¡o vÃ  chi tiáº¿t thÃ nh cÃ´ng",
+		DeletedRows: int64(len(masterSeqs)),
+	}, nil
+}
+
+// =========================================================================
+// 17.2. AddPlanDetail (KHSX Detail Rows Batch Creation)
+// =========================================================================
+func (s *Server) AddPlanDetail(ctx context.Context, req *pb.AddPlanDetailProtoRequest) (*pb.AddPlanDetailProtoResponse, error) {
+	var items []reportmodels.ERPPlanDetail
+	if req.DataJson != "" {
+		if err := json.Unmarshal(normalizeDataJSON(req.DataJson, false), &items); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "dữ liệu chi tiết không hợp lệ: %v", err)
+		}
+	}
+	if len(items) == 0 && len(req.Items) > 0 {
+		for _, protoItem := range req.Items {
+			items = append(items, protoToPlanDetailModel(protoItem))
+		}
+	}
+
+	userId := req.UserId
+	if userId == "" {
+		userId = "SystemAdmin"
+	}
+
+	saved, err := s.planDetailService.PlanDetailA(ctx, items, userId)
+	if err != nil {
+		return &pb.AddPlanDetailProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var protoList []*pb.PlanDetailProtoItem
+	for i := range saved {
+		protoList = append(protoList, mapPlanDetailToProto(&saved[i]))
+	}
+
+	dataBytes, _ := json.Marshal(saved)
+
+	return &pb.AddPlanDetailProtoResponse{
+		Success:  true,
+		Message:  "ThÃªm má»›i chi tiáº¿t KHSX thÃ nh cÃ´ng",
+		Data:     protoList,
+		DataJson: string(dataBytes),
+	}, nil
+}
+
+// =========================================================================
+// 17.3. UpdatePlanDetail (KHSX Detail Rows Update)
+// =========================================================================
+func (s *Server) UpdatePlanDetail(ctx context.Context, req *pb.UpdatePlanDetailProtoRequest) (*pb.UpdatePlanDetailProtoResponse, error) {
+	var items []reportmodels.ERPPlanDetail
+	if req.DataJson != "" {
+		if err := json.Unmarshal(normalizeDataJSON(req.DataJson, false), &items); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "dữ liệu chi tiết không hợp lệ: %v", err)
+		}
+	}
+	if len(items) == 0 && len(req.Items) > 0 {
+		for _, protoItem := range req.Items {
+			items = append(items, protoToPlanDetailModel(protoItem))
+		}
+	}
+
+	userId := req.UserId
+	if userId == "" {
+		userId = "SystemAdmin"
+	}
+
+	updated, err := s.planDetailService.PlanDetailU(ctx, items, userId)
+	if err != nil {
+		return &pb.UpdatePlanDetailProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var protoList []*pb.PlanDetailProtoItem
+	for i := range updated {
+		protoList = append(protoList, mapPlanDetailToProto(&updated[i]))
+	}
+
+	dataBytes, _ := json.Marshal(updated)
+
+	return &pb.UpdatePlanDetailProtoResponse{
+		Success:  true,
+		Message:  "Cáº­p nháº­t chi tiáº¿t KHSX thÃ nh cÃ´ng",
+		Data:     protoList,
+		DataJson: string(dataBytes),
+	}, nil
+}
+
+// =========================================================================
+// 17.4. DeletePlanDetail (KHSX Detail Rows Deletion)
+// =========================================================================
+func (s *Server) DeletePlanDetail(ctx context.Context, req *pb.DeletePlanDetailProtoRequest) (*pb.DeletePlanDetailProtoResponse, error) {
+	var detailSeqs []string
+	if len(req.DetailSeqs) > 0 {
+		detailSeqs = append(detailSeqs, req.DetailSeqs...)
+	}
+	if req.DataJson != "" {
+		var seqsFromJson []string
+		if err := json.Unmarshal([]byte(req.DataJson), &seqsFromJson); err == nil && len(seqsFromJson) > 0 {
+			detailSeqs = append(detailSeqs, seqsFromJson...)
+		}
+	}
+
+	userId := req.UserId
+	if userId == "" {
+		userId = "SystemAdmin"
+	}
+
+	err := s.planDetailService.PlanDetailD(ctx, detailSeqs, userId)
+	if err != nil {
+		return &pb.DeletePlanDetailProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &pb.DeletePlanDetailProtoResponse{
+		Success:     true,
+		Message:     "XÃ³a chi tiáº¿t KHSX thÃ nh cÃ´ng",
+		DeletedRows: int64(len(detailSeqs)),
+	}, nil
+}
+
+// =========================================================================
+// 17.5. AddProdStatsDetail (TKSX Detail Rows Batch Creation)
+// =========================================================================
+func (s *Server) AddProdStatsDetail(ctx context.Context, req *pb.AddProdStatsDetailProtoRequest) (*pb.AddProdStatsDetailProtoResponse, error) {
+	var items []reportmodels.ERPProdStatsDetail
+	if req.DataJson != "" {
+		if err := json.Unmarshal(normalizeDataJSON(req.DataJson, false), &items); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "dữ liệu chi tiết không hợp lệ: %v", err)
+		}
+	}
+	if len(items) == 0 && len(req.Items) > 0 {
+		for _, protoItem := range req.Items {
+			items = append(items, protoToProdStatsDetailModel(protoItem))
+		}
+	}
+
+	userId := req.UserId
+	if userId == "" {
+		userId = "SystemAdmin"
+	}
+
+	saved, err := s.prodStatsDetailService.ProdStatsDetailA(ctx, items, userId)
+	if err != nil {
+		return &pb.AddProdStatsDetailProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var protoList []*pb.ProdStatsDetailProtoItem
+	for i := range saved {
+		protoList = append(protoList, mapProdStatsDetailToProto(&saved[i]))
+	}
+
+	dataBytes, _ := json.Marshal(saved)
+
+	return &pb.AddProdStatsDetailProtoResponse{
+		Success:  true,
+		Message:  "ThÃªm má»›i chi tiáº¿t TKSX thÃ nh cÃ´ng",
+		Data:     protoList,
+		DataJson: string(dataBytes),
+	}, nil
+}
+
+// =========================================================================
+// 17.6. UpdateProdStatsDetail (TKSX Detail Rows Update)
+// =========================================================================
+func (s *Server) UpdateProdStatsDetail(ctx context.Context, req *pb.UpdateProdStatsDetailProtoRequest) (*pb.UpdateProdStatsDetailProtoResponse, error) {
+	var items []reportmodels.ERPProdStatsDetail
+	if req.DataJson != "" {
+		if err := json.Unmarshal(normalizeDataJSON(req.DataJson, false), &items); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "dữ liệu chi tiết không hợp lệ: %v", err)
+		}
+	}
+	if len(items) == 0 && len(req.Items) > 0 {
+		for _, protoItem := range req.Items {
+			items = append(items, protoToProdStatsDetailModel(protoItem))
+		}
+	}
+
+	userId := req.UserId
+	if userId == "" {
+		userId = "SystemAdmin"
+	}
+
+	updated, err := s.prodStatsDetailService.ProdStatsDetailU(ctx, items, userId)
+	if err != nil {
+		return &pb.UpdateProdStatsDetailProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var protoList []*pb.ProdStatsDetailProtoItem
+	for i := range updated {
+		protoList = append(protoList, mapProdStatsDetailToProto(&updated[i]))
+	}
+
+	dataBytes, _ := json.Marshal(updated)
+
+	return &pb.UpdateProdStatsDetailProtoResponse{
+		Success:  true,
+		Message:  "Cáº­p nháº­t chi tiáº¿t TKSX thÃ nh cÃ´ng",
+		Data:     protoList,
+		DataJson: string(dataBytes),
+	}, nil
+}
+
+// =========================================================================
+// 17.7. DeleteProdStatsDetail (TKSX Detail Rows Deletion)
+// =========================================================================
+func (s *Server) DeleteProdStatsDetail(ctx context.Context, req *pb.DeleteProdStatsDetailProtoRequest) (*pb.DeleteProdStatsDetailProtoResponse, error) {
+	var detailSeqs []string
+	if len(req.DetailSeqs) > 0 {
+		detailSeqs = append(detailSeqs, req.DetailSeqs...)
+	}
+	if req.DataJson != "" {
+		var seqsFromJson []string
+		if err := json.Unmarshal([]byte(req.DataJson), &seqsFromJson); err == nil && len(seqsFromJson) > 0 {
+			detailSeqs = append(detailSeqs, seqsFromJson...)
+		}
+	}
+
+	userId := req.UserId
+	if userId == "" {
+		userId = "SystemAdmin"
+	}
+
+	err := s.prodStatsDetailService.ProdStatsDetailD(ctx, detailSeqs, userId)
+	if err != nil {
+		return &pb.DeleteProdStatsDetailProtoResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &pb.DeleteProdStatsDetailProtoResponse{
+		Success:     true,
+		Message:     "XÃ³a chi tiáº¿t TKSX thÃ nh cÃ´ng",
+		DeletedRows: int64(len(detailSeqs)),
+	}, nil
+}
+
+// =========================================================================
+// 18. GetProductionPlanReport (Aggregated Plan Report)
+// =========================================================================
+func (s *Server) GetProductionPlanReport(ctx context.Context, req *pb.PlanReportProtoRequest) (*pb.PlanReportProtoResponse, error) {
+	filters := make(map[string]string)
+	if req.FiltersJson != "" {
+		var rawMap map[string]interface{}
+		if err := json.Unmarshal([]byte(req.FiltersJson), &rawMap); err == nil {
+			for k, v := range rawMap {
+				if v != nil && fmt.Sprintf("%v", v) != "" {
+					filters[k] = fmt.Sprintf("%v", v)
+				}
+			}
+		}
+	}
+	if req.FactoryCode != "" {
+		filters["factoryCode"] = req.FactoryCode
+	}
+	if req.RegCode != "" {
+		filters["regCode"] = req.RegCode
+	}
+	if req.MasterSeq != "" {
+		filters["masterSeq"] = req.MasterSeq
+	}
+	if req.FromDate != "" {
+		filters["fromDate"] = req.FromDate
+		filters["planDateFrom"] = req.FromDate
+	}
+	if req.ToDate != "" {
+		filters["toDate"] = req.ToDate
+		filters["planDateTo"] = req.ToDate
+	}
+	if req.Pic != "" {
+		filters["pic"] = req.Pic
+	}
+	if req.TeamName != "" {
+		filters["teamName"] = req.TeamName
+	}
+	if req.MachineCode != "" {
+		filters["machineCode"] = req.MachineCode
+	}
+	if req.ItemCode != "" {
+		filters["itemCode"] = req.ItemCode
+	}
+	if req.OrderNo != "" {
+		filters["orderNo"] = req.OrderNo
+	}
+	if req.Status != "" {
+		filters["status"] = req.Status
+	}
+	if req.Page > 0 {
+		filters["page"] = strconv.Itoa(int(req.Page))
+	}
+	if req.PageSize > 0 {
+		filters["pageSize"] = strconv.Itoa(int(req.PageSize))
+	}
+
+	rep, err := s.planReportService.GenerateProductionPlanReport(ctx, filters)
+	if err != nil {
+		return &pb.PlanReportProtoResponse{
+			Success: false,
+			Message: err.Error(),
+		}, nil
+	}
+
+	dataBytes, _ := json.Marshal(rep)
+
+	resp := &pb.PlanReportProtoResponse{
+		Success:  true,
+		Message:  "Generate plan report success",
+		DataJson: string(dataBytes),
+	}
+
+	if rep != nil {
+		resp.Summary = &pb.PlanReportSummaryProto{
+			TotalOrders:     int32(rep.Summary.TotalOrders),
+			TotalTickets:    int32(rep.Summary.TotalTickets),
+			TotalPlanQty:    rep.Summary.TotalPlanQty,
+			TotalActualQty:  rep.Summary.TotalActualQty,
+			TotalPassQty:    rep.Summary.TotalPassQty,
+			OverallProgress: rep.Summary.OverallProgress,
+			AvgPassRate:     rep.Summary.AvgPassRate,
+			TotalItems:      int32(rep.Summary.TotalItems),
+			SxSaiNgayCount:  int32(rep.Summary.SxSaiNgayCount),
+			SxSaiNgayRate:   rep.Summary.SxSaiNgayRate,
+			TruotKhCount:    int32(rep.Summary.TruotKhCount),
+			TruotKhRate:     rep.Summary.TruotKhRate,
+			KhopSlCount:     int32(rep.Summary.KhopSlCount),
+			KhopSlRate:      rep.Summary.KhopSlRate,
+			KhopJobCount:    int32(rep.Summary.KhopJobCount),
+			KhopJobRate:     rep.Summary.KhopJobRate,
+			TotalDays:       int32(rep.Summary.TotalDays),
+			FromDate:        rep.Summary.FromDate,
+			ToDate:          rep.Summary.ToDate,
+		}
+
+		for _, item := range rep.DpStatusBreakdown {
+			resp.DpStatusBreakdown = append(resp.DpStatusBreakdown, &pb.PlanStatusItemProto{
+				Name:  item.Name,
+				Count: int32(item.Count),
+				Rate:  item.Rate,
+				Color: item.Color,
+				Tag:   item.Tag,
+			})
+		}
+		for _, item := range rep.TimeStatusBreakdown {
+			resp.TimeStatusBreakdown = append(resp.TimeStatusBreakdown, &pb.PlanStatusItemProto{
+				Name:  item.Name,
+				Count: int32(item.Count),
+				Rate:  item.Rate,
+				Color: item.Color,
+				Tag:   item.Tag,
+			})
+		}
+		for _, item := range rep.CapaStatusBreakdown {
+			resp.CapaStatusBreakdown = append(resp.CapaStatusBreakdown, &pb.PlanStatusItemProto{
+				Name:  item.Name,
+				Count: int32(item.Count),
+				Rate:  item.Rate,
+				Color: item.Color,
+				Tag:   item.Tag,
+			})
+		}
+		for _, item := range rep.PicBreakdown {
+			resp.PicBreakdown = append(resp.PicBreakdown, &pb.PicPlanAggregateProto{
+				Pic:            item.Pic,
+				TotalOrders:    int32(item.TotalOrders),
+				PlanQty:        item.PlanQty,
+				ActualQty:      item.ActualQty,
+				PassRate:       item.PassRate,
+				SxSaiNgayCount: int32(item.SxSaiNgayCount),
+				TruotKhCount:   int32(item.TruotKhCount),
+				KhopSlCount:    int32(item.KhopSlCount),
+				KhopJobCount:   int32(item.KhopJobCount),
+			})
+		}
+		for _, item := range rep.TeamBreakdown {
+			resp.TeamBreakdown = append(resp.TeamBreakdown, &pb.TeamPlanAggregateProto{
+				TeamName:    item.TeamName,
+				TotalOrders: int32(item.TotalOrders),
+				PlanQty:     item.PlanQty,
+				ActualQty:   item.ActualQty,
+				PassRate:    item.PassRate,
+			})
+		}
+		for _, item := range rep.MachineBreakdown {
+			resp.MachineBreakdown = append(resp.MachineBreakdown, &pb.MachinePlanAggregateProto{
+				MachineCode: item.MachineCode,
+				MachineName: item.MachineName,
+				TeamName:    item.TeamName,
+				TotalOrders: int32(item.TotalOrders),
+				PlanQty:     item.PlanQty,
+				ActualQty:   item.ActualQty,
+				PassRate:    item.PassRate,
+			})
+		}
+		for _, item := range rep.DailyTrendData {
+			resp.DailyTrendData = append(resp.DailyTrendData, &pb.DailyPlanAggregateProto{
+				Date:       item.Date,
+				PlanQty:    item.PlanQty,
+				ActualQty:  item.ActualQty,
+				OrderCount: int32(item.OrderCount),
+				PassRate:   item.PassRate,
+			})
+		}
+
+		resp.FilterOptions = &pb.PlanFilterOptionsProto{
+			Factories: rep.FilterOptions.Factories,
+			Pics:      rep.FilterOptions.Pics,
+			Teams:     rep.FilterOptions.Teams,
+			Machines:  rep.FilterOptions.Machines,
+			Dates:     rep.FilterOptions.Dates,
+		}
+
+		for i := range rep.Items {
+			resp.Items = append(resp.Items, mapPlanDetailToProto(&rep.Items[i].ERPPlanDetail))
+		}
+
+		resp.TotalRecords = rep.Pagination.Total
+		resp.TotalPages = int32(rep.Pagination.TotalPages)
+		resp.Page = int32(rep.Pagination.Page)
+		resp.PageSize = int32(rep.Pagination.PageSize)
+	}
+
+	return resp, nil
+}
+
+// =========================================================================
+// 19. GetProductionStatisticsReport (Aggregated Stats Report)
+// =========================================================================
+func (s *Server) GetProductionStatisticsReport(ctx context.Context, req *pb.ProdStatsReportProtoRequest) (*pb.ProdStatsReportProtoResponse, error) {
+	filters := make(map[string]string)
+	if req.FiltersJson != "" {
+		var rawMap map[string]interface{}
+		if err := json.Unmarshal([]byte(req.FiltersJson), &rawMap); err == nil {
+			for k, v := range rawMap {
+				if v != nil && fmt.Sprintf("%v", v) != "" {
+					filters[k] = fmt.Sprintf("%v", v)
+				}
+			}
+		}
+	}
+	if req.FactoryCode != "" {
+		filters["factoryCode"] = req.FactoryCode
+	}
+	if req.RegCode != "" {
+		filters["regCode"] = req.RegCode
+	}
+	if req.MasterSeq != "" {
+		filters["masterSeq"] = req.MasterSeq
+	}
+	if req.StatDateFrom != "" {
+		filters["fromDate"] = req.StatDateFrom
+		filters["statDateFrom"] = req.StatDateFrom
+	}
+	if req.StatDateTo != "" {
+		filters["toDate"] = req.StatDateTo
+		filters["statDateTo"] = req.StatDateTo
+	}
+	if req.TeamName != "" {
+		filters["teamName"] = req.TeamName
+	}
+	if req.MachineCode != "" {
+		filters["machineCode"] = req.MachineCode
+	}
+	if req.Page > 0 {
+		filters["page"] = strconv.Itoa(int(req.Page))
+	}
+	if req.PageSize > 0 {
+		filters["pageSize"] = strconv.Itoa(int(req.PageSize))
+	}
+
+	rep, err := s.prodStatsDetailService.GenerateProductionStatisticsReport(ctx, filters)
+	if err != nil {
+		return &pb.ProdStatsReportProtoResponse{
+			Success: false,
+			Message: err.Error(),
+		}, nil
+	}
+
+	dataBytes, _ := json.Marshal(rep)
+
+	resp := &pb.ProdStatsReportProtoResponse{
+		Success:  true,
+		Message:  "Generate prod stats report success",
+		DataJson: string(dataBytes),
+	}
+
+	if rep != nil {
+		resp.Summary = &pb.ProdStatsReportSummaryProto{
+			TotalTickets:       int32(rep.Summary.TotalTickets),
+			TotalPlanQty:       rep.Summary.TotalPlanQty,
+			TotalActualQty:     rep.Summary.TotalActualQty,
+			TotalPassQty:       rep.Summary.TotalPassQty,
+			TotalDefectQty:     rep.Summary.TotalDefectQty,
+			AvgPassRate:        rep.Summary.AvgPassRate,
+			TotalRuntimeHours:  rep.Summary.TotalRuntimeHours,
+			CountCompleted:     int32(rep.Summary.CountCompleted),
+			CountRunning:       int32(rep.Summary.CountRunning),
+		}
+
+		for _, item := range rep.ChartByTeam {
+			resp.ChartByTeam = append(resp.ChartByTeam, &pb.TeamStatAggregateProto{
+				TeamName:     item.TeamName,
+				TeamCode:     item.TeamCode,
+				PlanQty:      item.PlanQty,
+				ActualQty:    item.ActualQty,
+				PassQty:      item.PassQty,
+				PassRate:     item.PassRate,
+				RuntimeHours: item.RuntimeHours,
+				TicketCount:  int32(item.TicketCount),
+			})
+		}
+
+		for _, item := range rep.ChartByMachine {
+			resp.ChartByMachine = append(resp.ChartByMachine, &pb.MachineStatAggregateProto{
+				MachineCode:  item.MachineCode,
+				MachineName:  item.MachineName,
+				TeamName:     item.TeamName,
+				ActualQty:    item.ActualQty,
+				PassRate:     item.PassRate,
+				RuntimeHours: item.RuntimeHours,
+				TicketCount:  int32(item.TicketCount),
+			})
+		}
+
+		for _, item := range rep.ChartByDay {
+			resp.ChartByDay = append(resp.ChartByDay, &pb.DailyStatAggregateProto{
+				Date:      item.Date,
+				PlanQty:   item.PlanQty,
+				ActualQty: item.ActualQty,
+				PassQty:   item.PassQty,
+				PassRate:  item.PassRate,
+			})
+		}
+
+		resp.FilterTeams = rep.FilterOptions.Teams
+		resp.FilterMachines = rep.FilterOptions.Machines
+		resp.FilterShifts = rep.FilterOptions.Shifts
+		resp.FilterDates = rep.FilterOptions.Dates
+
+		for i := range rep.Items {
+			resp.Items = append(resp.Items, mapProdStatsDetailToProto(&rep.Items[i].ERPProdStatsDetail))
+		}
+
+		resp.TotalRecords = rep.Pagination.Total
+		resp.TotalPages = int32(rep.Pagination.TotalPages)
+		resp.Page = int32(rep.Pagination.Page)
+		resp.PageSize = int32(rep.Pagination.PageSize)
+	}
+
+	return resp, nil
+}
+
+// =========================================================================
+// Helper mappers
+// =========================================================================
+
+func strVal(ptr *string) string {
+	if ptr == nil {
+		return ""
+	}
+	return *ptr
+}
+
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// CÃ¡c trÆ°á»ng khÃ´ng pháº£i chuá»—i trong model chi tiáº¿t â€” giá»¯ nguyÃªn kiá»ƒu sá»‘/bool
+var detailNonStringKeys = map[string]bool{
+	"rowseq": true, "rowversion": true, "isactive": true,
+}
+
+// normalizeRowsJSON: chuyá»ƒn má»i Ã´ sá»‘/bool (tá»« Excel) thÃ nh chuá»—i Ä‘á»ƒ khá»›p model *string,
+// bá» cÃ¡c trÆ°á»ng UI ná»™i bá»™ (báº¯t Ä‘áº§u báº±ng "_"). dropIdSeq=true sáº½ bá» IdSeq Ä‘á»ƒ server tá»± sinh UUIDv7.
+func normalizeRowsJSON(rows []interface{}, dropIdSeq bool) ([]byte, error) {
+	out := make([]map[string]interface{}, 0, len(rows))
+	for _, r := range rows {
+		m, ok := r.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		clean := make(map[string]interface{}, len(m))
+		for k, v := range m {
+			if strings.HasPrefix(k, "_") || v == nil {
+				continue
+			}
+			lk := strings.ToLower(k)
+			if dropIdSeq && lk == "idseq" {
+				continue
+			}
+			if detailNonStringKeys[lk] {
+				switch tv := v.(type) {
+				case string:
+					if lk == "isactive" {
+						clean[k] = tv == "true" || tv == "1"
+					} else if n, err := strconv.ParseInt(strings.TrimSpace(tv), 10, 64); err == nil {
+						clean[k] = n
+					}
+				default:
+					clean[k] = tv
+				}
+				continue
+			}
+			switch tv := v.(type) {
+			case string:
+				clean[k] = tv
+			case float64:
+				clean[k] = strconv.FormatFloat(tv, 'f', -1, 64)
+			case bool:
+				clean[k] = strconv.FormatBool(tv)
+			case map[string]interface{}, []interface{}:
+				continue
+			default:
+				clean[k] = fmt.Sprintf("%v", tv)
+			}
+		}
+		out = append(out, clean)
+	}
+	return json.Marshal(out)
+}
+
+// normalizeDataJSON: chuáº©n hÃ³a chuá»—i data_json dáº¡ng máº£ng (dÃ¹ng cho Add/Update chi tiáº¿t)
+func normalizeDataJSON(dataJson string, dropIdSeq bool) []byte {
+	var rows []interface{}
+	if err := json.Unmarshal([]byte(dataJson), &rows); err != nil {
+		return []byte(dataJson)
+	}
+	b, err := normalizeRowsJSON(rows, dropIdSeq)
+	if err != nil {
+		return []byte(dataJson)
+	}
+	return b
+}
+
+// extractRegistrationRowsJSON: láº¥y máº£ng dÃ²ng chi tiáº¿t tá»« body gá»‘c (filters_json do gateway náº¡p)
+// theo thá»© tá»± Æ°u tiÃªn statsData/planData -> sheetData -> data, fallback data_json.
+func extractRegistrationRowsJSON(req *pb.PlanRegistrationSaveProtoRequest, isStat bool) ([]byte, error) {
+	var rows []interface{}
+
+	if req.FiltersJson != "" {
+		var body map[string]interface{}
+		if err := json.Unmarshal([]byte(req.FiltersJson), &body); err == nil {
+			keys := []string{"planData", "sheetData", "data", "statsData"}
+			if isStat {
+				keys = []string{"statsData", "sheetData", "data", "planData"}
+			}
+			for _, key := range keys {
+				for bk, bv := range body {
+					if !strings.EqualFold(bk, key) {
+						continue
+					}
+					if arr, ok := bv.([]interface{}); ok && len(arr) > 0 {
+						rows = arr
+					}
+				}
+				if len(rows) > 0 {
+					break
+				}
+			}
+		}
+	}
+
+	if len(rows) == 0 && strings.TrimSpace(req.DataJson) != "" {
+		if err := json.Unmarshal([]byte(req.DataJson), &rows); err != nil {
+			return nil, fmt.Errorf("data_json khÃ´ng pháº£i máº£ng dá»¯ liá»‡u há»£p lá»‡: %w", err)
+		}
+	}
+
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return normalizeRowsJSON(rows, true)
+}
+
+func mapPlanMasterToProto(m *reportmodels.ERPPlanMaster) *pb.PlanMasterProtoItem {
+	if m == nil {
+		return nil
+	}
+	var createdDate, updatedDate string
+	if m.CreatedAt != nil {
+		createdDate = m.CreatedAt.Format(time.RFC3339)
+	}
+	if m.UpdatedAt != nil {
+		updatedDate = m.UpdatedAt.Format(time.RFC3339)
+	}
+
+	return &pb.PlanMasterProtoItem{
+		IdSeq:         m.IdSeq,
+		RegCode:       m.RegCode,
+		ReportType:    m.ReportType,
+		FactoryName:   strVal(m.FactoryName),
+		ApplyDate:     strVal(m.ApplyDate),
+		Remark:        strVal(m.Remark),
+		Status:        strVal(m.Status),
+		TotalRows:     int32(m.TotalRows),
+		RowVersion:    m.RowVersion,
+		IsActive:      m.IsActive,
+		CreatedBy:     strVal(m.CreatedBy),
+		CreatedByName: strVal(m.CreatedByName),
+		CreatedAt:     createdDate,
+		UpdatedBy:     strVal(m.UpdatedBy),
+		UpdatedByName: strVal(m.UpdatedByName),
+		UpdatedAt:     updatedDate,
+	}
+}
+
+func mapPlanDetailToProto(d *reportmodels.ERPPlanDetail) *pb.PlanDetailProtoItem {
+	if d == nil {
+		return nil
+	}
+	return &pb.PlanDetailProtoItem{
+		IdSeq:            d.IdSeq,
+		MasterSeq:        d.MasterSeq,
+		RegCode:          d.RegCode,
+		RowSeq:           int32(d.RowSeq),
+		WorkingTag:       d.WorkingTag,
+		PicDp:            strVal(d.PicDp),
+		OperationNo:      strVal(d.OperationNo),
+		OpDate:           strVal(d.OpDate),
+		RoutingDocNo:     strVal(d.RoutingDocNo),
+		RoutingDocDate:   strVal(d.RoutingDocDate),
+		ItemCode:         strVal(d.ItemCode),
+		ItemName:         strVal(d.ItemName),
+		OperationName:    strVal(d.OperationName),
+		OpTypeName:       strVal(d.OpTypeName),
+		MachineName:      strVal(d.MachineName),
+		Unit:             strVal(d.Unit),
+		TargetPassQty:    strVal(d.TargetPassQty),
+		TargetProdQty:    strVal(d.TargetProdQty),
+		StatPassQty:      strVal(d.StatPassQty),
+		StartTime:        strVal(d.StartTime),
+		EndTime:          strVal(d.EndTime),
+		StandardProdTime: strVal(d.StandardProdTime),
+		ActualProdTime:   strVal(d.ActualProdTime),
+		StandardCapa:     strVal(d.StandardCapa),
+		ActualCapa:       strVal(d.ActualCapa),
+		StatusDpSx:       strVal(d.StatusDpSx),
+		TimeStatus:       strVal(d.TimeStatus),
+		CapaStatus:       strVal(d.CapaStatus),
+		UserMemo:         strVal(d.UserMemo),
+		RowVersion:       d.RowVersion,
+		IsActive:         d.IsActive,
+	}
+}
+
+func protoToPlanDetailModel(p *pb.PlanDetailProtoItem) reportmodels.ERPPlanDetail {
+	if p == nil {
+		return reportmodels.ERPPlanDetail{}
+	}
+	return reportmodels.ERPPlanDetail{
+		IdSeq:            p.IdSeq,
+		MasterSeq:        p.MasterSeq,
+		RegCode:          p.RegCode,
+		RowSeq:           int(p.RowSeq),
+		WorkingTag:       p.WorkingTag,
+		PicDp:            strPtr(p.PicDp),
+		OperationNo:      strPtr(p.OperationNo),
+		OpDate:           strPtr(p.OpDate),
+		RoutingDocNo:     strPtr(p.RoutingDocNo),
+		RoutingDocDate:   strPtr(p.RoutingDocDate),
+		ItemCode:         strPtr(p.ItemCode),
+		ItemName:         strPtr(p.ItemName),
+		OperationName:    strPtr(p.OperationName),
+		OpTypeName:       strPtr(p.OpTypeName),
+		MachineName:      strPtr(p.MachineName),
+		Unit:             strPtr(p.Unit),
+		TargetPassQty:    strPtr(p.TargetPassQty),
+		TargetProdQty:    strPtr(p.TargetProdQty),
+		StatPassQty:      strPtr(p.StatPassQty),
+		StartTime:        strPtr(p.StartTime),
+		EndTime:          strPtr(p.EndTime),
+		StandardProdTime: strPtr(p.StandardProdTime),
+		ActualProdTime:   strPtr(p.ActualProdTime),
+		StandardCapa:     strPtr(p.StandardCapa),
+		ActualCapa:       strPtr(p.ActualCapa),
+		StatusDpSx:       strPtr(p.StatusDpSx),
+		TimeStatus:       strPtr(p.TimeStatus),
+		CapaStatus:       strPtr(p.CapaStatus),
+		UserMemo:         strPtr(p.UserMemo),
+		RowVersion:       p.RowVersion,
+		IsActive:         p.IsActive,
+	}
+}
+
+func mapProdStatsDetailToProto(d *reportmodels.ERPProdStatsDetail) *pb.ProdStatsDetailProtoItem {
+	if d == nil {
+		return nil
+	}
+	return &pb.ProdStatsDetailProtoItem{
+		IdSeq:                  d.IdSeq,
+		MasterSeq:              d.MasterSeq,
+		RegCode:                d.RegCode,
+		RowSeq:                 int32(d.RowSeq),
+		WorkingTag:             d.WorkingTag,
+		ItemCode:               strVal(d.ItemCode),
+		ItemName:               strVal(d.ItemName),
+		Version:                strVal(d.Version),
+		Model:                  strVal(d.Model),
+		DefectMarginWeight:     strVal(d.DefectMarginWeight),
+		TechMarginWeight:       strVal(d.TechMarginWeight),
+		OperationNo:            strVal(d.OperationNo),
+		MainWorker:             strVal(d.MainWorker),
+		SubWorker1:             strVal(d.SubWorker1),
+		SubWorker2:             strVal(d.SubWorker2),
+		BreakdownReason:        strVal(d.BreakdownReason),
+		MachineCode:            strVal(d.MachineCode),
+		MachineName:            strVal(d.MachineName),
+		OpTypeCode:             strVal(d.OpTypeCode),
+		OpTypeName:             strVal(d.OpTypeName),
+		UvPlate:                strVal(d.UvPlate),
+		MoldSetQty1:            strVal(d.MoldSetQty1),
+		MoldSetQty2:            strVal(d.MoldSetQty2),
+		MoldSetQty3:            strVal(d.MoldSetQty3),
+		ProdQty:                strVal(d.ProdQty),
+		PassQty:                strVal(d.PassQty),
+		ActualMeters:           strVal(d.ActualMeters),
+		StandardMeters:         strVal(d.StandardMeters),
+		TeamName:               strVal(d.TeamName),
+		Shift:                  strVal(d.Shift),
+		StartDate:              strVal(d.StartDate),
+		StartTime:              strVal(d.StartTime),
+		EndDate:                strVal(d.EndDate),
+		EndTime:                strVal(d.EndTime),
+		StatDate:               strVal(d.StatDate),
+		StatTicketNo:           strVal(d.StatTicketNo),
+		StatStaff:              strVal(d.StatStaff),
+		Customer:               strVal(d.Customer),
+		SalesStaff:             strVal(d.SalesStaff),
+		OrderNo:                strVal(d.OrderNo),
+		ProcessName:            strVal(d.ProcessName),
+		Unit:                   strVal(d.Unit),
+		ConvUnit:               strVal(d.ConvUnit),
+		ProcessSpec:            strVal(d.ProcessSpec),
+		PartNo:                 strVal(d.PartNo),
+		CorrugatedPartNo:       strVal(d.CorrugatedPartNo),
+		TrimPartNo:             strVal(d.TrimPartNo),
+		ColorQty:               strVal(d.ColorQty),
+		OutPlateType:           strVal(d.OutPlateType),
+		FrontColors:            strVal(d.FrontColors),
+		BackColors:             strVal(d.BackColors),
+		JobNumber:              strVal(d.JobNumber),
+		Width:                  strVal(d.Width),
+		Length:                 strVal(d.Length),
+		Height:                 strVal(d.Height),
+		ProductLine:            strVal(d.ProductLine),
+		RawWidth:               strVal(d.RawWidth),
+		RawLength:              strVal(d.RawLength),
+		RawLineCode:            strVal(d.RawLineCode),
+		RawLineName:            strVal(d.RawLineName),
+		FlipType:               strVal(d.FlipType),
+		BomPlates:              strVal(d.BomPlates),
+		Coating:                strVal(d.Coating),
+		SlitterBlades:          strVal(d.SlitterBlades),
+		CodePositions:          strVal(d.CodePositions),
+		PunchHoles:             strVal(d.PunchHoles),
+		StructureCode:          strVal(d.StructureCode),
+		StructureName:          strVal(d.StructureName),
+		RoutingDocNo:           strVal(d.RoutingDocNo),
+		RoutingDate:            strVal(d.RoutingDate),
+		ReleaseDate:            strVal(d.ReleaseDate),
+		TargetPassQty:          strVal(d.TargetPassQty),
+		TargetProdQty:          strVal(d.TargetProdQty),
+		RoutingUnit:            strVal(d.RoutingUnit),
+		BreakdownMinutes:       strVal(d.BreakdownMinutes),
+		WaitingMaterialMinutes: strVal(d.WaitingMaterialMinutes),
+		SetupMinutes:           strVal(d.SetupMinutes),
+		RepairMinutes:          strVal(d.RepairMinutes),
+		TotalWasteMinutes:      strVal(d.TotalWasteMinutes),
+		RigidBoxGlue:           strVal(d.RigidBoxGlue),
+		Outsourcing:            strVal(d.Outsourcing),
+		DefectQty:              strVal(d.DefectQty),
+		DefectRate:             strVal(d.DefectRate),
+		DefectUnit:             strVal(d.DefectUnit),
+		Status:                 strVal(d.Status),
+		AutoExport:             strVal(d.AutoExport),
+		AutoImport:             strVal(d.AutoImport),
+		ExportDocNo:            strVal(d.ExportDocNo),
+		ImportDocNo:            strVal(d.ImportDocNo),
+		WrongOpCode:            strVal(d.WrongOpCode),
+		IsAdditionalStat:       strVal(d.IsAdditionalStat),
+		TicketCreatedDate:      strVal(d.TicketCreatedDate),
+		ActualRunTime:          strVal(d.ActualRunTime),
+		ActualCapa:             strVal(d.ActualCapa),
+		CheckPlanStatus:        strVal(d.CheckPlanStatus),
+		MesApprovalTime:        strVal(d.MesApprovalTime),
+		SyncDelayMinutes:       strVal(d.SyncDelayMinutes),
+		IsDuplicateTicket:      strVal(d.IsDuplicateTicket),
+		TicketCreationLocation: strVal(d.TicketCreationLocation),
+		AutoIoStatus:           strVal(d.AutoIoStatus),
+		UserMemo:               strVal(d.UserMemo),
+		RowVersion:             d.RowVersion,
+		IsActive:               d.IsActive,
+	}
+}
+
+func protoToProdStatsDetailModel(d *pb.ProdStatsDetailProtoItem) reportmodels.ERPProdStatsDetail {
+	if d == nil {
+		return reportmodels.ERPProdStatsDetail{}
+	}
+	return reportmodels.ERPProdStatsDetail{
+		IdSeq:                  d.IdSeq,
+		MasterSeq:              d.MasterSeq,
+		RegCode:                d.RegCode,
+		RowSeq:                 int(d.RowSeq),
+		WorkingTag:             d.WorkingTag,
+		ItemCode:               strPtr(d.ItemCode),
+		ItemName:               strPtr(d.ItemName),
+		Version:                strPtr(d.Version),
+		Model:                  strPtr(d.Model),
+		DefectMarginWeight:     strPtr(d.DefectMarginWeight),
+		TechMarginWeight:       strPtr(d.TechMarginWeight),
+		OperationNo:            strPtr(d.OperationNo),
+		MainWorker:             strPtr(d.MainWorker),
+		SubWorker1:             strPtr(d.SubWorker1),
+		SubWorker2:             strPtr(d.SubWorker2),
+		BreakdownReason:        strPtr(d.BreakdownReason),
+		MachineCode:            strPtr(d.MachineCode),
+		MachineName:            strPtr(d.MachineName),
+		OpTypeCode:             strPtr(d.OpTypeCode),
+		OpTypeName:             strPtr(d.OpTypeName),
+		UvPlate:                strPtr(d.UvPlate),
+		MoldSetQty1:            strPtr(d.MoldSetQty1),
+		MoldSetQty2:            strPtr(d.MoldSetQty2),
+		MoldSetQty3:            strPtr(d.MoldSetQty3),
+		ProdQty:                strPtr(d.ProdQty),
+		PassQty:                strPtr(d.PassQty),
+		ActualMeters:           strPtr(d.ActualMeters),
+		StandardMeters:         strPtr(d.StandardMeters),
+		TeamName:               strPtr(d.TeamName),
+		Shift:                  strPtr(d.Shift),
+		StartDate:              strPtr(d.StartDate),
+		StartTime:              strPtr(d.StartTime),
+		EndDate:                strPtr(d.EndDate),
+		EndTime:                strPtr(d.EndTime),
+		StatDate:               strPtr(d.StatDate),
+		StatTicketNo:           strPtr(d.StatTicketNo),
+		StatStaff:              strPtr(d.StatStaff),
+		Customer:               strPtr(d.Customer),
+		SalesStaff:             strPtr(d.SalesStaff),
+		OrderNo:                strPtr(d.OrderNo),
+		ProcessName:            strPtr(d.ProcessName),
+		Unit:                   strPtr(d.Unit),
+		ConvUnit:               strPtr(d.ConvUnit),
+		ProcessSpec:            strPtr(d.ProcessSpec),
+		PartNo:                 strPtr(d.PartNo),
+		CorrugatedPartNo:       strPtr(d.CorrugatedPartNo),
+		TrimPartNo:             strPtr(d.TrimPartNo),
+		ColorQty:               strPtr(d.ColorQty),
+		OutPlateType:           strPtr(d.OutPlateType),
+		FrontColors:            strPtr(d.FrontColors),
+		BackColors:             strPtr(d.BackColors),
+		JobNumber:              strPtr(d.JobNumber),
+		Width:                  strPtr(d.Width),
+		Length:                 strPtr(d.Length),
+		Height:                 strPtr(d.Height),
+		ProductLine:            strPtr(d.ProductLine),
+		RawWidth:               strPtr(d.RawWidth),
+		RawLength:              strPtr(d.RawLength),
+		RawLineCode:            strPtr(d.RawLineCode),
+		RawLineName:            strPtr(d.RawLineName),
+		FlipType:               strPtr(d.FlipType),
+		BomPlates:              strPtr(d.BomPlates),
+		Coating:                strPtr(d.Coating),
+		SlitterBlades:          strPtr(d.SlitterBlades),
+		CodePositions:          strPtr(d.CodePositions),
+		PunchHoles:             strPtr(d.PunchHoles),
+		StructureCode:          strPtr(d.StructureCode),
+		StructureName:          strPtr(d.StructureName),
+		RoutingDocNo:           strPtr(d.RoutingDocNo),
+		RoutingDate:            strPtr(d.RoutingDate),
+		ReleaseDate:            strPtr(d.ReleaseDate),
+		TargetPassQty:          strPtr(d.TargetPassQty),
+		TargetProdQty:          strPtr(d.TargetProdQty),
+		RoutingUnit:            strPtr(d.RoutingUnit),
+		BreakdownMinutes:       strPtr(d.BreakdownMinutes),
+		WaitingMaterialMinutes: strPtr(d.WaitingMaterialMinutes),
+		SetupMinutes:           strPtr(d.SetupMinutes),
+		RepairMinutes:          strPtr(d.RepairMinutes),
+		TotalWasteMinutes:      strPtr(d.TotalWasteMinutes),
+		RigidBoxGlue:           strPtr(d.RigidBoxGlue),
+		Outsourcing:            strPtr(d.Outsourcing),
+		DefectQty:              strPtr(d.DefectQty),
+		DefectRate:             strPtr(d.DefectRate),
+		DefectUnit:             strPtr(d.DefectUnit),
+		Status:                 strPtr(d.Status),
+		AutoExport:             strPtr(d.AutoExport),
+		AutoImport:             strPtr(d.AutoImport),
+		ExportDocNo:            strPtr(d.ExportDocNo),
+		ImportDocNo:            strPtr(d.ImportDocNo),
+		WrongOpCode:            strPtr(d.WrongOpCode),
+		IsAdditionalStat:       strPtr(d.IsAdditionalStat),
+		TicketCreatedDate:      strPtr(d.TicketCreatedDate),
+		ActualRunTime:          strPtr(d.ActualRunTime),
+		ActualCapa:             strPtr(d.ActualCapa),
+		CheckPlanStatus:        strPtr(d.CheckPlanStatus),
+		MesApprovalTime:        strPtr(d.MesApprovalTime),
+		SyncDelayMinutes:       strPtr(d.SyncDelayMinutes),
+		IsDuplicateTicket:      strPtr(d.IsDuplicateTicket),
+		TicketCreationLocation: strPtr(d.TicketCreationLocation),
+		AutoIoStatus:           strPtr(d.AutoIoStatus),
+		RowVersion:             d.RowVersion,
+		IsActive:               d.IsActive,
+	}
+}
+
+// 13. QueryCodeHelp (Dynamic lookup for Users, Menus, Roles, etc.)
+func (s *Server) QueryCodeHelp(ctx context.Context, req *pb.CodeHelpProtoRequest) (*pb.CodeHelpProtoResponse, error) {
+	if s.helpService == nil {
+		return &pb.CodeHelpProtoResponse{
+			Success:  false,
+			Message:  "CodeHelp service not initialized",
+			DataJson: "[]",
+		}, nil
+	}
+
+	params := help.CodeHelpParams{
+		CodeHelpName: req.CodeHelpName,
+		TableName:    req.TableName,
+		KeyType:      req.KeyType,
+		KeyValue:     req.KeyValue,
+		Search:       req.Search,
+		KeyItem1:     req.KeyItem1,
+		KeyItem2:     req.KeyItem2,
+		KeyItem3:     req.KeyItem3,
+		Page:         req.Page,
+		Limit:        req.Limit,
+	}
+
+	rows, err := s.helpService.QueryCodeHelp(ctx, params)
+	if err != nil {
+		return &pb.CodeHelpProtoResponse{
+			Success:  false,
+			Message:  err.Error(),
+			DataJson: "[]",
+		}, nil
+	}
+
+	dataBytes, _ := json.Marshal(rows)
+	return &pb.CodeHelpProtoResponse{
+		Success:  true,
+		Message:  "2000",
+		DataJson: string(dataBytes),
+	}, nil
+}
+
 // RunGRPCServer launches the gRPC server listening on the specified port
 func RunGRPCServer(
 	port string,
@@ -593,6 +2196,11 @@ func RunGRPCServer(
 	configService *services.ConfigService,
 	workProcessService *services.WorkProcessService,
 	factoryService *services.FactoryService,
+	planMasterService *plan_master.PlanMasterService,
+	planDetailService *plan_detail.PlanDetailService,
+	prodStatsDetailService *prod_stats_detail.ProdStatsDetailService,
+	planReportService *plan_report.PlanReportService,
+	helpService *help.CodeHelpService,
 	logger *zap.Logger,
 ) (*grpc.Server, net.Listener, error) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
@@ -617,9 +2225,20 @@ func RunGRPCServer(
 	}
 
 	grpcServer := grpc.NewServer(opts...)
-	datahubServer := NewServer(db, loginService, configService, workProcessService, factoryService, logger)
+	datahubServer := NewServer(
+		db,
+		loginService,
+		configService,
+		workProcessService,
+		factoryService,
+		planMasterService,
+		planDetailService,
+		prodStatsDetailService,
+		planReportService,
+		helpService,
+		logger,
+	)
 	pb.RegisterDataHubServiceServer(grpcServer, datahubServer)
 
 	return grpcServer, lis, nil
 }
-

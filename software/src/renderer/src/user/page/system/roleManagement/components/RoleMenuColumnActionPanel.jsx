@@ -156,11 +156,14 @@ export default function RoleMenuColumnActionPanel({
           <span className="w-2 h-4 bg-blue-700 rounded-xs" />
           <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
             <AppstoreOutlined className="text-blue-700 text-sm" />
-            <span>{t('system.menuHierarchyTitle', 'Cây Phân Quyền Chức Năng (Phân Hệ ➔ Submenu ➔ Chức Năng)')}</span>
+            <span>
+              {t(
+                'system.menuHierarchyTitle',
+                'Cây Phân Quyền Chức Năng (Phân Hệ ➔ Submenu ➔ Chức Năng)'
+              )}
+            </span>
           </span>
-          <span className="text-[11px] text-slate-500 font-normal">
-            ({numRowsB} mục)
-          </span>
+          <span className="text-[11px] text-slate-500 font-normal">({numRowsB} mục)</span>
         </div>
 
         <div className="flex items-center gap-2 text-slate-600 shrink-0">
@@ -170,9 +173,6 @@ export default function RoleMenuColumnActionPanel({
           </span>
         </div>
       </div>
-
-
-
 
       {/* 2. NỬA TRÊN: SHEET BẢNG DANH SÁCH MENU CHI TIẾT */}
       <div
@@ -229,9 +229,7 @@ export default function RoleMenuColumnActionPanel({
               {t('system.actionInViewTab', 'Quyền Action & Nút Lệnh Chức Năng')}
             </span>
             {currentMenuName && (
-              <span className="text-xs text-blue-600 font-medium">
-                ({currentMenuName})
-              </span>
+              <span className="text-xs text-blue-600 font-medium">({currentMenuName})</span>
             )}
           </div>
         </div>

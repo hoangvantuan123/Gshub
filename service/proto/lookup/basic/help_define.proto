@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package lookup.basic.help_define;
+
+option go_package = "service-lookup/proto/lookup/basic/help_define;help_define";
+
+service HelpDefineService {
+  rpc OrgDefineH (Empty) returns (Response);
+  rpc OrgDefineItemH (Empty) returns (Response);
+  rpc OrgCodeHelpDefineItemH (Empty) returns (Response);
+  rpc HelpDefineItemAppH (HelpDefineItemAppRequest) returns (HelpDefineItemAppResponse);
+}
+
+message EmptyResult {
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message HelpDefineItemAppResult {
+  string KeyItem1      = 1;
+  string KeyItem2      = 2;
+  string KeyItem3      = 3;
+  string KeyItemSearch = 4;
+  string search        = 5;
+  string page          = 6;
+  string limit         = 7;
+}
+
+message Empty {
+  EmptyResult result = 1;
+  map<string, string> metadata = 2;
+}
+message HelpDefineItemAppRequest {
+  HelpDefineItemAppResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool   success = 1;
+  string message = 2;
+  string data    = 3;
+  string errors  = 4;
+  string page = 5;
+}
+
+message HelpDefineItemAppResponse {
+  bool   success    = 1;
+  string message    = 2;
+  string data       = 3;
+  string pagination = 4;
+  string errors     = 5;
+}

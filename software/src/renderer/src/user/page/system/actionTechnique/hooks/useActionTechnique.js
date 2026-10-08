@@ -37,12 +37,20 @@ export function useActionTechnique({
         {
           key: columnKey,
           label: colTitle || columnKey,
-          type: activeCol?.kind === 'Boolean' ? 'select' : activeCol?.kind === 'Number' ? 'number' : 'text',
-          options: activeCol?.kind === 'Boolean' ? [
-            { value: '', label: 'Tất cả' },
-            { value: '1', label: 'Có' },
-            { value: '0', label: 'Không' }
-          ] : undefined
+          type:
+            activeCol?.kind === 'Boolean'
+              ? 'select'
+              : activeCol?.kind === 'Number'
+                ? 'number'
+                : 'text',
+          options:
+            activeCol?.kind === 'Boolean'
+              ? [
+                  { value: '', label: 'Tất cả' },
+                  { value: '1', label: 'Có' },
+                  { value: '0', label: 'Không' }
+                ]
+              : undefined
         }
       ]
     })
@@ -91,7 +99,7 @@ export function useActionTechnique({
             totalPages: res.totalPages || 1,
             totalAll: res.totalAll ?? res.totalRows ?? res.data.length,
             loadedCount: res.loadedCount ?? res.data.length,
-            totalColumns: res.totalColumns || (defaultCols?.length || 11)
+            totalColumns: res.totalColumns || defaultCols?.length || 11
           }
           setPageData?.(pageInfo)
 
@@ -132,7 +140,18 @@ export function useActionTechnique({
         loadingBarRef?.current?.complete?.()
       }
     },
-    [actionName, actionKey, searchValues, loadingBarRef, setGridData, setNumRows, setPageData, setStatusMessage, defaultCols, t]
+    [
+      actionName,
+      actionKey,
+      searchValues,
+      loadingBarRef,
+      setGridData,
+      setNumRows,
+      setPageData,
+      setStatusMessage,
+      defaultCols,
+      t
+    ]
   )
 
   const handleSearchData = useCallback(() => {

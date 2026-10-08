@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package realtime.realtime;
+
+option go_package = "service-realtime/proto/realtime;realtime";
+
+// Request để Subscribe nhận luồng sự kiện Realtime từ Kafka
+message SubscribeRequest {
+  string channel = 1;
+  string topic = 2;
+  string user_id = 3;
+}
+
+// Response sự kiện Realtime gửi tới Client qua gRPC Stream
+message RealtimeEventResponse {
+  string event_id = 1;
+  string topic = 2;
+  int32 partition = 3;
+  int64 offset = 4;
+  string payload = 5;
+  int64 timestamp = 6;
+}
+
+// Request để Client gửi sự kiện Publish lên Kafka Event Bus
+message PublishRequest {
+  string topic = 1;
+  string key = 2;
+  string payload = 3;
+  string user_id = 4;
+}
+
+// Response kết quả Publish
+message PublishResponse {
+  bool success = 1;
+  string message = 2;
+  int64 timestamp = 3;
+}
+
+// Service gRPC Realtime chính thức
+service RealtimeService {
+  // Server-Streaming: Duy trì stream đẩy dữ liệu liên tục về Client
+  rpc SubscribeEvents (SubscribeRequest) returns (stream RealtimeEventResponse);
+  
+  // Unary: Client gửi sự kiện đẩy ngược lại Kafka Event Bus
+  rpc PublishEvent (PublishRequest) returns (PublishResponse);
+}

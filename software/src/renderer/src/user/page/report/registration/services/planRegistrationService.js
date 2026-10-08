@@ -249,22 +249,22 @@ export const queryQuevoGs5StatReport = async (filters = {}, signal = null) => {
   })
 }
 
-// 10. Truy vấn Báo Cáo KHSX Tổng Hợp Toàn Công Ty (Summary - Không cần lấy items chi tiết)
+// 10. Truy vấn Báo Cáo KHSX Tổng Hợp Toàn Công Ty (Summary)
 export const querySummaryPlanReport = async (filters = {}, signal = null) => {
   return request({
     url: '/report/production/summary/plan',
     method: 'POST',
-    data: { withoutItems: 'true', ...filters },
+    data: filters,
     signal
   })
 }
 
-// 11. Truy vấn Báo Cáo TKSX Tổng Hợp Toàn Công Ty (Summary - Không cần lấy items chi tiết)
+// 11. Truy vấn Báo Cáo TKSX Tổng Hợp Toàn Công Ty (Summary)
 export const querySummaryStatReport = async (filters = {}, signal = null) => {
   return request({
     url: '/report/production/summary/statistics',
     method: 'POST',
-    data: { withoutItems: 'true', ...filters },
+    data: filters,
     signal
   })
 }

@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package users.roles.perm_fields;
+
+option go_package = "server-core/proto/users/roles/perm_fields";
+
+service PermFieldsService {
+  rpc PermFieldsA (PermFieldsARequest) returns (Response);
+  rpc PermFieldsU (PermFieldsURequest) returns (Response);
+  rpc PermFieldsD (PermFieldsDRequest) returns (Response);
+  rpc PermFieldsQ (PermFieldsQRequest) returns (Response);
+}
+
+message PermFieldsAResult {
+  int32 IdxNo = 1;
+  string ResourceSeq = 2;
+  string ResourceCode = 3;
+  string FieldCode = 4;
+  string FieldName = 5;
+  int64 DictSeq = 6;
+  string LangKey = 7;
+  bool IsMaskable = 8;
+  bool IsSensitive = 9;
+  int32 OrderNo = 10;
+  string Comment = 11;
+  int64 RowVersion = 12;
+  string CreatedBy = 13;
+  string UpdatedBy = 14;
+}
+
+message PermFieldsUResult {
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string ResourceSeq = 3;
+  string ResourceCode = 4;
+  string FieldCode = 5;
+  string FieldName = 6;
+  int64 DictSeq = 7;
+  string LangKey = 8;
+  bool IsMaskable = 9;
+  bool IsSensitive = 10;
+  int32 OrderNo = 11;
+  string Comment = 12;
+  int64 RowVersion = 13;
+  string UpdatedBy = 14;
+}
+
+message PermFieldsDResult {
+  string IdSeq = 1;
+  int64 RowVersion = 2;
+}
+
+message PermFieldsQResult {
+  string ResourceSeq = 1;
+  string ResourceCode = 2;
+  string FieldCode = 3;
+  string FieldName = 4;
+  string LangKey = 5;
+  string IsMaskable = 6;
+  string IsSensitive = 7;
+  string KeyItem1 = 8;
+  string KeyItem2 = 9;
+  string KeyItem3 = 10;
+}
+
+message PermFieldsARequest {
+  repeated PermFieldsAResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermFieldsURequest {
+  repeated PermFieldsUResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermFieldsDRequest {
+  repeated PermFieldsDResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message PermFieldsQRequest {
+  PermFieldsQResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+  string data = 3;
+  string page = 4;
+}

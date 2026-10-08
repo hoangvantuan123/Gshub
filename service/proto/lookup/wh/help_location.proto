@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package lookup.wh.help_location;
+
+option go_package = "service-lookup/proto/lookup/wh/help_location;help_location";
+
+service HelpLocationService {
+  rpc LocationH (LocationHRequest) returns (Response);
+}
+
+message LocationHResult {
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+message LocationHRequest {
+  LocationHResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool   success = 1;
+  string message = 2;
+  string data    = 3;
+  string errors  = 4;
+  string page = 5;
+}

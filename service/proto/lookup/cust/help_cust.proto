@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package lookup.cust.help_cust;
+
+option go_package = "service-lookup/proto/lookup/cust/help_cust;help_cust";
+
+service HelpCustService {
+  rpc CustTypeH (Empty) returns (Response);
+  rpc CustH (Empty) returns (Response);
+  rpc PortH (Empty) returns (Response);
+  rpc HelpCustH (HelpCustHAppRequest) returns (HelpCustHAppResponse);
+}
+
+message EmptyResult {
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message HelpCustHAppResult {
+  string KeyItem1      = 1;
+  string KeyItem2      = 2;
+  string KeyItem3      = 3;
+  string KeyItemSearch = 4;
+  string search        = 5;
+  string page          = 6;
+  string limit         = 7;
+}
+message HelpCustHAppRequest {
+  HelpCustHAppResult result = 1;
+  map<string, string> metadata = 2;
+}
+message Empty {
+  EmptyResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool   success = 1;
+  string message = 2;
+  string data    = 3;
+  string errors  = 4;
+  string page = 5;
+}
+
+message HelpCustHAppResponse {
+  bool   success    = 1;
+  string message    = 2;
+  string data       = 3;
+  string pagination = 4;
+  string errors     = 5;
+}

@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package lookup.basic.help_org;
+
+option go_package = "service-lookup/proto/lookup/basic/help_org;help_org";
+
+service HelpOrgService {
+  rpc OrgDeptH (Empty) returns (Response);
+  rpc OrgProdLocationH (Empty) returns (Response);
+  rpc OrgProdLocationPH (Empty) returns (Response);
+  rpc OrgProDeptH (Empty) returns (Response);
+  rpc OrgEnterpriseH (Empty) returns (Response);
+  rpc OrgWorkCenterH (Empty) returns (Response);
+
+  rpc HelpDeptH (HelpDeptHAppRequest) returns (HelpDeptHAppResponse);
+}
+
+message EmptyResult {
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+message Empty {
+  EmptyResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message HelpDeptHAppResult {
+  string KeyItem1      = 1;
+  string KeyItem2      = 2;
+  string KeyItem3      = 3;
+  string KeyItemSearch = 4;
+  string search        = 5;
+  string page          = 6;
+  string limit         = 7;
+}
+message HelpDeptHAppRequest {
+  HelpDeptHAppResult result = 1;
+  map<string, string> metadata = 2;
+}
+message HelpDeptHAppResponse {
+  bool   success    = 1;
+  string message    = 2;
+  string data       = 3;
+  string pagination = 4;
+  string errors     = 5;
+}
+message Response {
+  bool   success = 1;
+  string message = 2;
+  string data    = 3;
+  string errors  = 4;
+  string page = 5;
+}

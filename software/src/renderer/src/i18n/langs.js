@@ -67,6 +67,18 @@ export const languages = {
     1006: 'Tài khoản chưa khởi tạo mật khẩu.',
     1007: 'Mật khẩu cũ không chính xác.',
     1008: 'Quá nhiều yêu cầu đăng nhập. Vui lòng thử lại sau 1 phút.',
+    2000: 'Thao tác thành công.',
+    2001: 'Đã thêm mới bản ghi thành công.',
+    2002: 'Đã cập nhật bản ghi thành công.',
+    2003: 'Đã xóa bản ghi thành công.',
+    4001: 'Dữ liệu yêu cầu không hợp lệ hoặc thiếu thông tin.',
+    4004: 'Không tìm thấy dữ liệu yêu cầu.',
+    4009: 'Không thể xóa bản ghi do có ràng buộc dữ liệu liên quan.',
+    4010: 'Phiên làm việc đã hết hạn hoặc không có quyền truy cập. Vui lòng đăng nhập lại.',
+    4030: 'Bạn không có quyền thực hiện thao tác này.',
+    4090: 'Dữ liệu đã tồn tại trong hệ thống.',
+    5000: 'Lỗi kết nối máy chủ hoặc hệ thống đang bận. Vui lòng thử lại sau.',
+    5001: 'Lỗi thao tác cơ sở dữ liệu. Vui lòng liên hệ quản trị viên.',
     footer:
       '© 2024 - {{year}} GsHub System ERP – Tối ưu hóa hoạt động kinh doanh của bạn. Mọi quyền được bảo lưu.'
   },
@@ -139,6 +151,18 @@ export const languages = {
     1006: 'Account password has not been initialized.',
     1007: 'Old password is incorrect.',
     1008: 'Too many login attempts. Please try again in 1 minute.',
+    2000: 'Operation completed successfully.',
+    2001: 'Record created successfully.',
+    2002: 'Record updated successfully.',
+    2003: 'Record deleted successfully.',
+    4001: 'Invalid request data or missing parameters.',
+    4004: 'Requested data was not found.',
+    4009: 'Cannot delete record due to existing data dependencies.',
+    4010: 'Session expired or unauthorized. Please log in again.',
+    4030: 'You do not have permission to perform this action.',
+    4090: 'Data already exists in the system.',
+    5000: 'Server connection error or system is busy. Please try again later.',
+    5001: 'Database operation error. Please contact administrator.',
     footer:
       '© 2024 - {{year}} GsHub System ERP – Optimizing your business operations. All rights reserved.'
   },
@@ -208,8 +232,30 @@ export const languages = {
     1006: '账户密码尚未初始化。',
     1007: '旧密码不正确。',
     1008: '登录请求过多。请在 1 分钟后再试。',
+    2000: '操作成功完成。',
+    2001: '记录已成功创建。',
+    2002: '记录已成功更新。',
+    2003: '记录已成功删除。',
+    4001: '请求数据无效或缺少必要参数。',
+    4004: '未找到所请求的数据。',
+    4009: '存在关联数据约束，无法删除该记录。',
+    4010: '登录会话已过期或无权访问，请重新登录。',
+    4030: '您没有权限执行此操作。',
+    4090: '数据在系统中已存在。',
+    5000: '服务器连接错误或系统繁忙，请稍后重试。',
+    5001: '数据库操作错误，请联系系统管理员。',
     footer: '© 2024 - {{year}} GsHub 系统 – 优化您的业务操作。版权所有。'
   }
 }
 
 languages.vi = languages.vn
+
+/**
+ * Universal helper to translate error code / WordSeq into localized string
+ */
+export function translateResponseCode(codeOrMsg, lang = 'vn') {
+  if (!codeOrMsg) return ''
+  const currentLang = languages[lang] || languages.vn
+  return currentLang[codeOrMsg] || codeOrMsg
+}
+

@@ -376,7 +376,6 @@ export function useRoleManagement({
     }
   }, [groupId, fetchGroupRoles])
 
-
   // Tự động nạp Action & Setup Cột & Scope của riêng Menu khi chọn dòng menu trong Bảng B
   useEffect(() => {
     if (selectedMenuInGrid && (selectedMenuInGrid.MenuId || selectedMenuInGrid.Id)) {

@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package users.auth.log_login;
+
+option go_package = "server-core/proto/users/auth/log_login";
+
+service LogLoginService {
+  rpc LogLoginD (LogLoginDRequest) returns (Response);
+  rpc LogLoginQ (LogLoginQRequest) returns (Response);
+
+}
+
+
+
+
+
+message LogLoginDResult { 
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+}
+
+message LogLoginQResult { 
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+  string KeyItem4 = 4;
+}
+
+
+
+message LogLoginDRequest {
+  repeated  LogLoginDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+message LogLoginQRequest {
+  LogLoginQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

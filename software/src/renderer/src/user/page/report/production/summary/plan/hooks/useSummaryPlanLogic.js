@@ -172,10 +172,12 @@ export function useSummaryPlanLogic() {
         const dateA = getMasterEffectiveDate(a)
         const dateB = getMasterEffectiveDate(b)
         if (dateB !== dateA) return dateB - dateA
-        const createA = new Date(a.CreatedAt || 0).getTime()
-        const createB = new Date(b.CreatedAt || 0).getTime()
+        const createA = new Date(a.CreatedAt || a.createdAt || 0).getTime()
+        const createB = new Date(b.CreatedAt || b.createdAt || 0).getTime()
         if (createB !== createA) return createB - createA
-        return (b.IdSeq || b.MasterSeq || 0) - (a.IdSeq || a.MasterSeq || 0)
+        return String(b.IdSeq || b.idSeq || b.RegCode || b.regCode || '').localeCompare(
+          String(a.IdSeq || a.idSeq || a.RegCode || a.regCode || '')
+        )
       })
       setMasterList(mList)
 

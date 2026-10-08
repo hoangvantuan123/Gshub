@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package users.system.sys_attr_items;
+
+option go_package = "server-core/proto/users/system/sys_attr_items";
+
+service SysAttrItemsService {
+  rpc SysAttrItemsA (SysAttrItemsARequest) returns (Response);
+  rpc SysAttrItemsU (SysAttrItemsURequest) returns (Response);
+  rpc SysAttrItemsD (SysAttrItemsDRequest) returns (Response);
+  rpc SysAttrItemsQ (SysAttrItemsQRequest) returns (Response);
+}
+
+message SysAttrItemsAResult {
+  int32 IdxNo = 1;
+  string AttrGroupSeq = 2;
+  string AttrValueCode = 3;
+  string AttrValueName = 4;
+  string LangKey = 5;
+  string ExtraValue = 6;
+  string Comment = 7;
+  bool IsActive = 8;
+  int64 RowVersion = 9;
+  string CreatedBy = 10;
+  string UpdatedBy = 11;
+}
+
+message SysAttrItemsUResult {
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string AttrGroupSeq = 3;
+  string AttrValueCode = 4;
+  string AttrValueName = 5;
+  string LangKey = 6;
+  string ExtraValue = 7;
+  string Comment = 8;
+  bool IsActive = 9;
+  int64 RowVersion = 10;
+  string UpdatedBy = 11;
+}
+
+message SysAttrItemsDResult {
+  string IdSeq = 1;
+  int64 RowVersion = 2;
+}
+
+message SysAttrItemsQResult {
+  string AttrGroupSeq = 1;
+  string AttrValueCode = 2;
+  string AttrValueName = 3;
+  string KeyItem1 = 4;
+  string KeyItem2 = 5;
+  string KeyItem3 = 6;
+}
+
+message SysAttrItemsARequest {
+  repeated SysAttrItemsAResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message SysAttrItemsURequest {
+  repeated SysAttrItemsUResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message SysAttrItemsDRequest {
+  repeated SysAttrItemsDResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message SysAttrItemsQRequest {
+  SysAttrItemsQResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+  string data = 3;
+  string page = 4;
+}

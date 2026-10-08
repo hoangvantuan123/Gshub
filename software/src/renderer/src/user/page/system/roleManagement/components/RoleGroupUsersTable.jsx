@@ -99,7 +99,8 @@ export default function RoleGroupUsersTable({
             // Gán danh sách nhiều tài khoản
             selectedList.forEach((u) => {
               const existingIdx = next.findIndex(
-                (item) => String(item?.UserId || '').toLowerCase() === String(u?.UserId || '').toLowerCase()
+                (item) =>
+                  String(item?.UserId || '').toLowerCase() === String(u?.UserId || '').toLowerCase()
               )
               if (existingIdx >= 0) {
                 if (next[existingIdx].WorkingTag === 'D') {
@@ -174,7 +175,6 @@ export default function RoleGroupUsersTable({
     onAddQueryField
   })
 
-
   const onClose = () => setOpen(false)
 
   // 1. Pre-compute Metadata cho các cột
@@ -238,7 +238,6 @@ export default function RoleGroupUsersTable({
           themeOverride: meta.cellTheme
         }
       }
-
 
       if (meta.isCodeHelp) {
         const strVal = String(value)
@@ -401,7 +400,9 @@ export default function RoleGroupUsersTable({
       return updateIndexNo(next)
     })
 
-    message.info(t('Đã gỡ thành viên khỏi bảng. Nhấn LƯU (Ctrl+S) để cập nhật thay đổi vào hệ thống!'))
+    message.info(
+      t('Đã gỡ thành viên khỏi bảng. Nhấn LƯU (Ctrl+S) để cập nhật thay đổi vào hệ thống!')
+    )
   }, [selection, setGridData, t])
 
   // Số lượng dòng thực tế hiển thị

@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package users.app.tabs;
+
+option go_package = "server-core/proto/users/app/tabs";
+
+service TabsService {
+  rpc TabsA (TabsARequest) returns (Response);
+  rpc TabsU (TabsURequest) returns (Response);
+  rpc TabsD (TabsDRequest) returns (Response);
+  rpc TabsQ (TabsQRequest) returns (Response);
+}
+
+message TabsAResult { 
+  int32 IdxNo = 1;
+  string CreatedBy = 2;
+  string UpdatedBy = 3;
+
+  string Key = 4;
+  string Path = 5;
+  int32 Order = 7;
+  int32 LangSeq = 8;
+  string TabName = 9;
+}
+
+message TabsUResult { 
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string UpdatedBy = 3;
+
+  string Key = 4;
+  string Path = 5;
+  int32 Order = 7;
+  int32 LangSeq = 8;
+  string TabName = 9;
+}
+
+message TabsDResult { 
+  string IdSeq = 1;
+}
+
+message TabsQResult { 
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message TabsARequest {
+  repeated TabsAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TabsURequest {
+  repeated TabsUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TabsDRequest {
+  repeated TabsDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TabsQRequest {
+  TabsQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

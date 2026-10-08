@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package lookup.basic.help_scan;
+
+option go_package = "service-lookup/proto/lookup/basic/help_scan;help_scan";
+
+service HelpScanService {
+  rpc ScanGroupH (Empty) returns (Response);
+  rpc ScanUserH (Empty) returns (Response);
+}
+
+message EmptyResult {
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+message Empty {
+  EmptyResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool   success = 1;
+  string message = 2;
+  string data    = 3;
+  string errors  = 4;
+  string page = 5;
+}

@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package users.app.group_role;
+
+option go_package = "server-core/proto/users/app/group_role";
+
+
+service AppGroupRoleService {
+  rpc AppGroupRoleA (AppGroupRoleARequest) returns (Response);
+  rpc AppGroupRoleU (AppGroupRoleURequest) returns (Response);
+  rpc AppGroupRoleD (AppGroupRoleDRequest) returns (Response);
+  rpc AppGroupRoleQ (AppGroupRoleQRequest) returns (Response);
+}
+
+message AppGroupRoleAResult { 
+  int32 IdxNo = 1;
+
+  string  Name = 2;
+  string Comment = 3;
+
+
+
+
+}
+message AppGroupRoleUResult { 
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+  string  Name = 3;
+  string Comment = 4;
+
+}
+message AppGroupRoleDResult { 
+  string IdSeq = 1;
+}
+
+message AppGroupRoleQResult { 
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+
+
+message AppGroupRoleARequest {
+  repeated AppGroupRoleAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+message AppGroupRoleURequest {
+  repeated  AppGroupRoleUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+message AppGroupRoleDRequest {
+  repeated  AppGroupRoleDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+message AppGroupRoleQRequest {
+  AppGroupRoleQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package lookup.auth.help_auth;
+
+option go_package = "service-lookup/proto/lookup/auth/help_auth;help_auth";
+
+service LookupAuthService {
+  rpc MenuH (Empty) returns (Response);
+  rpc SubMenuH (Empty) returns (Response);
+  rpc RootMenuH (Empty) returns (Response);
+  rpc UsersH (Empty) returns (Response);
+}
+
+message EmptyResult {
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+  string KeyItem4 = 4;
+  string KeyItem5 = 5;
+  string KeyItemSearch = 6;
+  string search = 7;
+  string page = 8;
+  string limit = 9;
+  string KeyType = 10;
+  string KeyValue = 11;
+}
+message Empty {
+  EmptyResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool   success = 1;
+  string message = 2;
+  string data    = 3;
+  string errors  = 4;
+  string page = 5;
+  string pagination = 6;
+}

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package users.technique.tbl_grp_perm_role;
+
+option go_package = "server-core/proto/users/technique/tbl_grp_perm_role";
+
+service TblGrpPermRoleService {
+  rpc TblGrpPermRoleA (TblGrpPermRoleARequest) returns (Response);
+  rpc TblGrpPermRoleU (TblGrpPermRoleURequest) returns (Response);
+  rpc TblGrpPermRoleD (TblGrpPermRoleDRequest) returns (Response);
+  rpc TblGrpPermRoleQ (TblGrpPermRoleQRequest) returns (Response);
+}
+
+message TblGrpPermRoleAResult { 
+  int32 IdxNo = 1;
+  string CreatedBy = 2;
+  string UpdatedBy = 3;
+
+  string TblGrpPermSeq = 4;
+  string TblGrpSeq = 5;
+  string TblGrpItemSeq = 6;
+  string UserSeq = 7;
+  string TypeRole = 8;
+  bool View = 9;
+  bool Edit = 10;
+}
+
+message TblGrpPermRoleUResult { 
+  int32 IdxNo = 1;
+  string UpdatedBy = 2;
+
+  string TblGrpPermSeq = 3;
+  string TblGrpSeq = 4;
+  string TblGrpItemSeq = 5;
+  string UserSeq = 6;
+  string TypeRole = 7;
+  bool View = 8;
+  bool Edit = 9;
+  string IdSeq = 10;
+}
+
+message TblGrpPermRoleDResult { 
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+}
+
+message TblGrpPermRoleQResult { 
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message TblGrpPermRoleARequest {
+  repeated TblGrpPermRoleAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpPermRoleURequest {
+  repeated TblGrpPermRoleUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpPermRoleDRequest {
+  repeated TblGrpPermRoleDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpPermRoleQRequest {
+  TblGrpPermRoleQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

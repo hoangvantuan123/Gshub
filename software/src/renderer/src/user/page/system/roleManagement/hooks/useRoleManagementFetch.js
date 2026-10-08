@@ -16,7 +16,6 @@ import {
   getAllGroupIds
 } from '../mock/mockRoleData'
 
-
 export function useRoleManagementFetch({
   setGroupId,
   setGroupName,
@@ -269,7 +268,6 @@ export function useRoleManagementFetch({
 
           finalB = updateIndexNo(groupedData.length > 0 ? groupedData : flatRows)
         }
-
 
         setGridDataA(finalA)
         setNumRowsA(finalA.length)

@@ -87,4 +87,3 @@ export const useRoleMenuColumns = ({ isFieldVisible, isFieldReadOnly } = {}) => 
       }))
   }, [t, isFieldVisible, isFieldReadOnly])
 }
-

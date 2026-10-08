@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package lookup.qc.help_regi_qc;
+
+option go_package = "service-lookup/proto/lookup/qc/help_regi_qc;help_regi_qc";
+
+service HelpRegiQcService {
+  rpc QcObjectsH (Empty) returns (Response);
+  rpc QcCategoryGroupsH (Empty) returns (Response);
+}
+
+message EmptyResult {
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+message Empty {
+  EmptyResult result = 1;
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool   success = 1;
+  string message = 2;
+  string data    = 3;
+  string errors  = 4;
+  string page = 5;
+}

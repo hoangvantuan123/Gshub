@@ -8,9 +8,7 @@ import (
 	"service-datahub/models"
 	reportModels "service-datahub/models/report"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -109,13 +107,6 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		&models.TokenSession{},
 		&models.AuditLog{},
 		&models.ErpEndpoint{},
-		&models.ERPUser{},
-		&models.ERPRolesUser{},
-		&models.ERPRolePermLog{},
-		&models.ERPMenu{},
-		&models.ERPRootMenu{},
-		&models.ERPGroup{},
-		&models.ERPLoginLog{},
 		&reportModels.ERPPlanMaster{},
 		&reportModels.ERPPlanDetail{},
 		&reportModels.ERPProdStatsDetail{},
@@ -284,52 +275,6 @@ func SeedDefaults(db *gorm.DB, cfg *config.Config, log *zap.Logger) error {
 		if epCount == 0 {
 			if err := db.Create(&ep).Error; err != nil {
 				log.Warn("Failed to seed ERP endpoint", zap.String("key", ep.EndpointKey), zap.Error(err))
-			}
-		}
-	}
-
-	// Seed Default System Admin Users
-	seedUsers := []struct {
-		UserId   string
-		UserName string
-		Password string
-		DeptName string
-	}{
-		{UserId: "superadmin", UserName: "Super Administrator", Password: "Admin@123", DeptName: "Ban Điều Hành"},
-		{UserId: "admin", UserName: "Quản trị viên", Password: "Admin@123", DeptName: "Ban Giám Đốc"},
-		{UserId: "IT_TUANHV", UserName: "Hoàng Văn Tuấn", Password: "Tuan3112@", DeptName: "Phòng IT"},
-	}
-
-	for _, su := range seedUsers {
-		var uCount int64
-		_ = db.Model(&models.ERPUser{}).Where("LOWER(\"UserId\") = LOWER(?)", su.UserId).Count(&uCount).Error
-		if uCount == 0 {
-			hashed, _ := bcrypt.GenerateFromPassword([]byte(su.Password), bcrypt.DefaultCost)
-			hashStr := string(hashed)
-			uSeq, _ := uuid.NewV7()
-			user := models.ERPUser{
-				UserSeq:     uSeq.String(),
-				CompanySeq:  1,
-				IdxNo:       1,
-				EmpID:       su.UserId,
-				EmpCode:     su.UserId,
-				EmpName:     su.UserName,
-				DeptName:    su.DeptName,
-				UserId:      su.UserId,
-				UserType:    1,
-				UserName:    su.UserName,
-				EmpSeq:      1,
-				Password2:   &hashStr,
-				CheckPass1:  true,
-				StatusAcc:   false,
-				Active:      true,
-				LanguageSeq: 6,
-				CreatedAt:   time.Now(),
-				UpdatedAt:   time.Now(),
-				CreatedBy:   "SYSTEM_SEED",
-			}
-			if err := db.Create(&user).Error; err == nil {
-				log.Info("Default ERP Admin User seeded successfully", zap.String("user_id", su.UserId))
 			}
 		}
 	}

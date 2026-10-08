@@ -1259,10 +1259,10 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                       </h2>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         {lang === 'zh'
-                          ? '选择 Goldsun Hub ERP MES 系统的运行环境'
+                          ? '选择系统的运行环境'
                           : lang === 'en'
-                            ? 'Select Goldsun Hub ERP MES system environment'
-                            : 'Lựa chọn môi trường kết nối hệ thống Goldsun Hub ERP MES'}
+                            ? 'Select system environment'
+                            : 'Lựa chọn môi trường kết nối hệ thống'}
                       </p>
                     </div>
 

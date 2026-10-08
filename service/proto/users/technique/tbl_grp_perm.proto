@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package users.technique.tbl_grp_perm;
+
+option go_package = "server-core/proto/users/technique/tbl_grp_perm";
+
+service TblGrpPermService {
+  rpc TblGrpPermA (TblGrpPermARequest) returns (Response);
+  rpc TblGrpPermU (TblGrpPermURequest) returns (Response);
+  rpc TblGrpPermD (TblGrpPermDRequest) returns (Response);
+  rpc TblGrpPermQ (TblGrpPermQRequest) returns (Response);
+}
+
+message TblGrpPermAResult { 
+  int32 IdxNo = 1;
+  string CreatedBy = 2;
+  string UpdatedBy = 3;
+
+  string TblGrpPermName = 4;
+}
+
+message TblGrpPermUResult { 
+  int32 IdxNo = 1;
+  string UpdatedBy = 2;
+
+  string TblGrpPermName = 3;
+  string IdSeq = 5;
+}
+
+message TblGrpPermDResult { 
+  int32 IdxNo = 1;
+  string IdSeq = 2;
+}
+
+message TblGrpPermQResult { 
+  string KeyItem1 = 1;
+  string KeyItem2 = 2;
+  string KeyItem3 = 3;
+}
+
+message TblGrpPermARequest {
+  repeated TblGrpPermAResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpPermURequest {
+  repeated TblGrpPermUResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpPermDRequest {
+  repeated TblGrpPermDResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message TblGrpPermQRequest {
+  TblGrpPermQResult result = 1;  
+  map<string, string> metadata = 2;
+}
+
+message Response {
+  bool success = 1;  
+  string message = 2;      
+  string data = 3; 
+  string page = 4;
+}

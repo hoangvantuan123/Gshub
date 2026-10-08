@@ -81,33 +81,7 @@ func (s *ProdStatsDetailService) ProdStatsDetailA(
 		items[i].UpdatedAt = &now
 		items[i].IsActive = true
 
-		// Làm sạch chuẩn hóa các trường số lượng và thời gian trước khi lưu DB
-		items[i].ProdQty = cleanNumberStr(items[i].ProdQty)
-		items[i].PassQty = cleanNumberStr(items[i].PassQty)
-		items[i].DefectQty = cleanNumberStr(items[i].DefectQty)
-		items[i].ActualMeters = cleanNumberStr(items[i].ActualMeters)
-		items[i].StandardMeters = cleanNumberStr(items[i].StandardMeters)
-		items[i].TargetProdQty = cleanNumberStr(items[i].TargetProdQty)
-		items[i].TargetPassQty = cleanNumberStr(items[i].TargetPassQty)
-
-		items[i].BreakdownMinutes = cleanNumberStr(items[i].BreakdownMinutes)
-		items[i].WaitingMaterialMinutes = cleanNumberStr(items[i].WaitingMaterialMinutes)
-		items[i].SetupMinutes = cleanNumberStr(items[i].SetupMinutes)
-		items[i].RepairMinutes = cleanNumberStr(items[i].RepairMinutes)
-		items[i].TotalWasteMinutes = cleanNumberStr(items[i].TotalWasteMinutes)
-
-		if items[i].TotalWasteMinutes == nil || strings.TrimSpace(*items[i].TotalWasteMinutes) == "" || *items[i].TotalWasteMinutes == "0" {
-			bd := parseNumber(items[i].BreakdownMinutes, 0)
-			wm := parseNumber(items[i].WaitingMaterialMinutes, 0)
-			st := parseNumber(items[i].SetupMinutes, 0)
-			rp := parseNumber(items[i].RepairMinutes, 0)
-			sum := bd + wm + st + rp
-			if sum > 0 {
-				sumStr := fmt.Sprintf("%.1f", sum)
-				sumStr = strings.TrimSuffix(sumStr, ".0")
-				items[i].TotalWasteMinutes = &sumStr
-			}
-		}
+		NormalizeStatsItem(&items[i])
 	}
 
 	if err := s.db.WithContext(ctx).CreateInBatches(items, 500).Error; err != nil {
@@ -116,5 +90,38 @@ func (s *ProdStatsDetailService) ProdStatsDetailA(
 
 	s.totalAllCount.Add(int64(len(items)))
 	return items, nil
+}
+
+// NormalizeStatsItem chuẩn hóa các trường số liệu của một dòng TKSX
+func NormalizeStatsItem(item *models.ERPProdStatsDetail) {
+	if item == nil {
+		return
+	}
+	item.ProdQty = cleanNumberStr(item.ProdQty)
+	item.PassQty = cleanNumberStr(item.PassQty)
+	item.DefectQty = cleanNumberStr(item.DefectQty)
+	item.ActualMeters = cleanNumberStr(item.ActualMeters)
+	item.StandardMeters = cleanNumberStr(item.StandardMeters)
+	item.TargetProdQty = cleanNumberStr(item.TargetProdQty)
+	item.TargetPassQty = cleanNumberStr(item.TargetPassQty)
+
+	item.BreakdownMinutes = cleanNumberStr(item.BreakdownMinutes)
+	item.WaitingMaterialMinutes = cleanNumberStr(item.WaitingMaterialMinutes)
+	item.SetupMinutes = cleanNumberStr(item.SetupMinutes)
+	item.RepairMinutes = cleanNumberStr(item.RepairMinutes)
+	item.TotalWasteMinutes = cleanNumberStr(item.TotalWasteMinutes)
+
+	if item.TotalWasteMinutes == nil || strings.TrimSpace(*item.TotalWasteMinutes) == "" || *item.TotalWasteMinutes == "0" {
+		bd := parseNumber(item.BreakdownMinutes, 0)
+		wm := parseNumber(item.WaitingMaterialMinutes, 0)
+		st := parseNumber(item.SetupMinutes, 0)
+		rp := parseNumber(item.RepairMinutes, 0)
+		sum := bd + wm + st + rp
+		if sum > 0 {
+			sumStr := fmt.Sprintf("%.1f", sum)
+			sumStr = strings.TrimSuffix(sumStr, ".0")
+			item.TotalWasteMinutes = &sumStr
+		}
+	}
 }
 

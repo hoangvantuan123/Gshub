@@ -93,9 +93,70 @@ export default function CalcDataGridTable({
 
   const getData = useCallback(
     ([col, row]) => {
-      const item = gridData[row]
-      const meta = colMetadata[col]
-      if (!meta || !item) {
+      try {
+        const item = gridData[row]
+        const meta = colMetadata[col]
+        if (!meta || !item) {
+          return {
+            kind: GridCellKind.Text,
+            data: '',
+            displayData: '',
+            readonly: true,
+            allowOverlay: false
+          }
+        }
+
+        const rawCol = cols[col]
+        let value = item[meta.columnKey]
+        if (value === undefined || value === null || value === '') {
+          if (rawCol?.title && item[rawCol.title] !== undefined && item[rawCol.title] !== null) {
+            value = item[rawCol.title]
+          } else if (rawCol?.id && item[rawCol.id] !== undefined && item[rawCol.id] !== null) {
+            value = item[rawCol.id]
+          } else {
+            value = ''
+          }
+        }
+
+        if (meta.isNum) {
+          if (value === '' || value === null || value === undefined) {
+            return {
+              kind: GridCellKind.Text,
+              data: '',
+              displayData: '',
+              readonly: true,
+              allowOverlay: false,
+              hasMenu: meta.hasMenu,
+              themeOverride: meta.cellTheme
+            }
+          }
+          const numVal =
+            typeof value === 'number' ? value : parseFloat(String(value).replace(/,/g, ''))
+          if (!isNaN(numVal)) {
+            return {
+              kind: GridCellKind.Number,
+              data: numVal,
+              displayData: numVal.toLocaleString('vi-VN'),
+              readonly: true,
+              allowOverlay: false,
+              hasMenu: meta.hasMenu,
+              themeOverride: meta.cellTheme
+            }
+          }
+        }
+
+        const strVal = value !== null && value !== undefined ? String(value) : ''
+        return {
+          kind: GridCellKind.Text,
+          data: strVal,
+          displayData: strVal,
+          readonly: true,
+          allowOverlay: false,
+          hasMenu: meta.hasMenu,
+          themeOverride: meta.cellTheme
+        }
+      } catch (err) {
+        console.warn('Lỗi đọc ô bảng tính:', err)
         return {
           kind: GridCellKind.Text,
           data: '',
@@ -104,45 +165,8 @@ export default function CalcDataGridTable({
           allowOverlay: false
         }
       }
-
-      const rawCol = cols[col]
-      let value = item[meta.columnKey]
-      if (value === undefined || value === null || value === '') {
-        if (rawCol?.title && item[rawCol.title] !== undefined && item[rawCol.title] !== null) {
-          value = item[rawCol.title]
-        } else if (rawCol?.id && item[rawCol.id] !== undefined && item[rawCol.id] !== null) {
-          value = item[rawCol.id]
-        } else {
-          value = ''
-        }
-      }
-
-      if (meta.isNum || typeof value === 'number') {
-        const numVal =
-          typeof value === 'number' ? value : parseFloat(String(value).replace(/,/g, '')) || 0
-        return {
-          kind: GridCellKind.Number,
-          data: numVal,
-          displayData: numVal.toLocaleString('vi-VN'),
-          readonly: true,
-          allowOverlay: false,
-          hasMenu: meta.hasMenu,
-          themeOverride: meta.cellTheme
-        }
-      }
-
-      const strVal = String(value)
-      return {
-        kind: GridCellKind.Text,
-        data: strVal,
-        displayData: strVal,
-        readonly: true,
-        allowOverlay: false,
-        hasMenu: meta.hasMenu,
-        themeOverride: meta.cellTheme
-      }
     },
-    [gridData, colMetadata]
+    [gridData, colMetadata, cols]
   )
 
   const effectiveRows = numRows ?? gridData?.length ?? 0

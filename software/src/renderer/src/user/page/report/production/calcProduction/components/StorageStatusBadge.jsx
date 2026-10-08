@@ -20,13 +20,13 @@ export function StorageStatusBadge({ mode = 'indexeddb' }) {
       }}
       title={
         isSqlite
-          ? 'Đang lưu trữ cục bộ qua cơ sở dữ liệu SQLite trên Electron Desktop App'
-          : 'Đang lưu trữ và cache cục bộ qua IndexedDB trên Web Browser'
+          ? 'Dữ liệu được lưu trữ an toàn trên hệ thống máy trạm GsHub'
+          : 'Dữ liệu được lưu trữ và đồng bộ trên trình duyệt'
       }
     >
       {isSqlite ? <Database size={14} /> : <Globe size={14} />}
       <span>
-        Kho lưu trữ: <b>{isSqlite ? 'SQLite (Desktop)' : 'IndexedDB (Web Cache)'}</b>
+        Lưu trữ: <b>{isSqlite ? 'Hệ thống GsHub' : 'Bộ nhớ trình duyệt'}</b>
       </span>
     </div>
   )

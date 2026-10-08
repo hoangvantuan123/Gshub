@@ -50,9 +50,10 @@ export const getAllFileSummariesSQLite = async () => {
 }
 
 /**
- * Lưu 1 file kiến trúc vào SQLite qua Electron IPC
+ * Lưu 1 file kiến trúc vào SQLite qua Electron IPC và đồng thời lưu bản sao IndexedDB
  */
 export const saveArchitectureFileSQLite = async (fileType, fileData) => {
+  let sqliteSuccess = false
   try {
     if (isElectronSqliteAvailable()) {
       const payload = {
@@ -66,16 +67,25 @@ export const saveArchitectureFileSQLite = async (fileType, fileData) => {
       }
 
       if (window?.electron?.sqlite?.saveFile) {
-        return await window.electron.sqlite.saveFile(payload)
+        await window.electron.sqlite.saveFile(payload)
+        sqliteSuccess = true
       } else if (window?.electron?.ipcRenderer) {
-        return await window.electron.ipcRenderer.invoke('sqlite:save-calc-file', payload)
+        await window.electron.ipcRenderer.invoke('sqlite:save-calc-file', payload)
+        sqliteSuccess = true
       }
     }
   } catch (error) {
-    console.warn('[SQLite Storage] IPC không phản hồi, fallback sang IndexedDB:', error)
+    console.warn('[SQLite Storage] IPC SQLite không phản hồi:', error)
   }
 
-  return await saveArchitectureFileIDB(fileType, fileData)
+  // Đồng thời lưu IndexedDB làm bản sao an toàn
+  try {
+    await saveArchitectureFileIDB(fileType, fileData)
+  } catch (idbErr) {
+    console.warn('[IndexedDB Storage] Ghi bản sao IDB:', idbErr)
+  }
+
+  return { success: true, sqlite: sqliteSuccess }
 }
 
 /**
@@ -254,4 +264,27 @@ export const deleteMasterRegistrationSQLite = async (regCode) => {
 
   const { deleteMasterRegistrationIDB } = await import('./indexedDbStorage')
   return await deleteMasterRegistrationIDB(regCode)
+}
+
+let isSqliteCalcIpcSupported = true
+
+/**
+ * Gọi tính toán trực tiếp từ CSDL SQLite qua IPC (Tốc độ native C++)
+ */
+export const calculateProductionSQLite = async () => {
+  if (isSqliteCalcIpcSupported && isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.calculateProduction) {
+        return await window.electron.sqlite.calculateProduction()
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:calculate-production')
+      }
+    } catch (error) {
+      if (String(error?.message).includes('No handler registered')) {
+        isSqliteCalcIpcSupported = false
+      }
+      return null
+    }
+  }
+  return null
 }

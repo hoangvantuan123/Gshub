@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import dayjs from 'dayjs'
+import * as XLSX from 'xlsx'
 import { CompactSelection } from '@glideapps/glide-data-grid'
 
 import DataPageContainer from '@renderer/user/components/layout/DataPageContainer'
@@ -12,6 +14,8 @@ import { openChildWindow } from '@renderer/utils/openChildWindow'
 import CalcDataGridTable from './components/CalcDataGridTable'
 import CalcProductionActions from './components/CalcProductionActions'
 import CalcProductionQuery from './components/CalcProductionQuery'
+import ImportLoadingOverlay from './components/ImportLoadingOverlay'
+import ExcelMappingModal from './components/ExcelMappingModal'
 
 export default function CalcProductionPage({
   permissions,
@@ -41,6 +45,11 @@ export default function CalcProductionPage({
     calcResults,
     storageMode,
     fileStatusSummary,
+    importProgress,
+    mappingModalState,
+    setMappingModalState,
+    openMappingModalForCurrentTab,
+    handleConfirmMapping,
     handleUploadFileForTab,
     handleDeleteTabFile,
     handleRunCalculation,
@@ -120,7 +129,7 @@ export default function CalcProductionPage({
     if (typeof setStatusMessage === 'function') {
       setStatusMessage({
         type: 'info',
-        text: t('Tab: {{name}} • Đã nạp {{count}} dòng vào CSDL', {
+        text: t('Tab: {{name}} • Đã nạp {{count}} dòng vào hệ thống', {
           name: currentTabDef.title,
           count: rows.length.toLocaleString('vi-VN')
         })
@@ -182,63 +191,175 @@ export default function CalcProductionPage({
     const code = masterInfo.regCode || 'CURRENT'
     openChildWindow({
       path: `/sub/report/calc-production-query/detail/${encodeURIComponent(code)}`,
-      title: `Chi tiết 4 bảng KHSX & TKSX - [${code}]`,
+      title: `Chi tiết các bảng KHSX & TKSX - [${code}]`,
       width: 1400,
       height: 850,
       id: `calc_detail_${code}`
     })
   }
 
+  const handleExportExcel = () => {
+    if (!gridData || gridData.length === 0) {
+      if (typeof setStatusMessage === 'function') {
+        setStatusMessage({ type: 'warning', text: t('Không có dữ liệu để xuất Excel') })
+      }
+      return
+    }
+
+    try {
+      const hasGroup = cols.some((c) => Boolean(c.group))
+      const headerRow0 = hasGroup
+        ? cols.map((c) => c.group || '')
+        : cols.map((c) => c.title || c.id)
+      const headerRow1 = hasGroup ? cols.map((c) => c.title || c.id) : []
+
+      const matrix = []
+      if (hasGroup) {
+        matrix.push(headerRow0)
+        matrix.push(headerRow1)
+      } else {
+        matrix.push(headerRow0)
+      }
+
+      gridData.forEach((row) => {
+        const rowArr = cols.map((col) => {
+          const val = row[col.id] !== undefined ? row[col.id] : row[col.title]
+          return val !== undefined && val !== null ? val : ''
+        })
+        matrix.push(rowArr)
+      })
+
+      const ws = XLSX.utils.aoa_to_sheet(matrix)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, currentTabDef.shortTitle || 'Sheet1')
+
+      const safeCode = masterInfo.regCode || 'EXPORT'
+      const tabKey = activeTab === 'result_tksx' ? 'TKSX_KetQua_98Cot' : currentTabDef.id
+      const fileName = `${tabKey}_${safeCode}_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`
+
+      XLSX.writeFile(wb, fileName)
+      if (typeof setStatusMessage === 'function') {
+        setStatusMessage({
+          type: 'success',
+          text: t(`Đã xuất thành công tệp Excel: ${fileName}`)
+        })
+      }
+    } catch (err) {
+      console.error('Lỗi xuất Excel:', err)
+      if (typeof setStatusMessage === 'function') {
+        setStatusMessage({ type: 'error', text: t(`Xuất Excel thất bại: ${err.message}`) })
+      }
+    }
+  }
+
   return (
-    <DataPageContainer
-      loadingBarRef={loadingBarRef}
-      actions={
-        <CalcProductionActions
-          activeTabDef={currentTabDef}
-          activeFileData={activeTabFileData}
-          isParsing={isParsing}
-          isCalculating={isCalculating}
-          isRegistering={isRegistering}
-          storageMode={storageMode}
-          fileStatusSummary={fileStatusSummary}
-          onUploadFile={handleUploadFileForTab}
-          onDeleteTabFile={handleDeleteTabFile}
-          onClearAll={clearAllFiles}
-          onRunCalculation={handleRunCalculation}
-          onRegisterMaster={handleRegisterMaster}
-          onRefresh={refreshFiles}
-          onOpenSearch={() => setShowSearch(true)}
-          onOpenInNewWindow={handleOpenInNewWindow}
+    <>
+      <DataPageContainer
+        loadingBarRef={loadingBarRef}
+        actions={
+          <CalcProductionActions
+            activeTabDef={currentTabDef}
+            activeFileData={activeTabFileData}
+            isParsing={isParsing}
+            isCalculating={isCalculating}
+            isRegistering={isRegistering}
+            storageMode={storageMode}
+            fileStatusSummary={fileStatusSummary}
+            onUploadFile={handleUploadFileForTab}
+            onOpenCustomMapping={openMappingModalForCurrentTab}
+            onDeleteTabFile={handleDeleteTabFile}
+            onClearAll={clearAllFiles}
+            onRunCalculation={handleRunCalculation}
+            onRegisterMaster={handleRegisterMaster}
+            onExportExcel={handleExportExcel}
+            onRefresh={refreshFiles}
+            onOpenSearch={() => setShowSearch(true)}
+            onOpenInNewWindow={handleOpenInNewWindow}
+          />
+        }
+        query={
+          <CalcProductionQuery
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+            masterInfo={masterInfo}
+            onChangeMasterInfo={handleChangeMasterInfo}
+            onGenerateRegCode={handleGenerateNewRegCode}
+            fileStatusSummary={fileStatusSummary}
+            calcResults={calcResults}
+          />
+        }
+        queryTitle={t('Danh sách 4 Tab Kiến Trúc Dữ Liệu & Chỉ Số Tổng Hợp')}
+        defaultOpenQuery={true}
+        table={
+          <CalcDataGridTable
+            tableTitle={`${currentTabDef.title} (${(gridData.length || 0).toLocaleString('vi-VN')} dòng)`}
+            cols={cols}
+            setCols={setCols}
+            defaultCols={defaultCols}
+            gridData={gridData}
+            setGridData={setGridData}
+            numRows={gridData.length}
+            selection={selection}
+            setSelection={setSelection}
+            showSearch={showSearch}
+            setShowSearch={setShowSearch}
+          />
+        }
+      />
+
+      {/* Khóa màn hình & chuột kèm thông số thời gian chạy, số cột, tổng dòng nạp chuyên nghiệp */}
+      <ImportLoadingOverlay
+        isLoading={isParsing}
+        progressInfo={importProgress}
+        title={t('TIẾN TRÌNH NẠP DỮ LIỆU BÁO CÁO')}
+        message={t('Đang đọc và phân tích cấu trúc file Excel...')}
+        subMessage={t(
+          'Thao tác chuột và bàn phím đang được tạm khóa để bảo vệ toàn vẹn dữ liệu. Vui lòng không tắt hoặc rời khỏi trang.'
+        )}
+      />
+
+      {/* Modal Cấu hình Dòng Tiêu đề và Ánh xạ Cột khi phát hiện file bất thường hoặc người dùng chủ động chỉnh */}
+      {mappingModalState.isOpen && (
+        <ExcelMappingModal
+          isOpen={mappingModalState.isOpen}
+          onClose={() => setMappingModalState((prev) => ({ ...prev, isOpen: false }))}
+          targetTabId={mappingModalState.fileType || mappingModalState.tabId}
+          file={mappingModalState.rawFile || mappingModalState.file}
+          tabTitle={mappingModalState.inspectData?.tabTitle || currentTabDef.title}
+          matrixPreview={
+            mappingModalState.inspectData?.rawMatrix || mappingModalState.matrixPreview || []
+          }
+          rawMatrix={mappingModalState.inspectData?.rawMatrix || mappingModalState.rawMatrix || []}
+          detectedHeaderRow={
+            mappingModalState.inspectData?.detectedHeaderRow ??
+            mappingModalState.initialHeaderRow ??
+            0
+          }
+          initialHeaderRow={
+            mappingModalState.inspectData?.detectedHeaderRow ??
+            mappingModalState.initialHeaderRow ??
+            0
+          }
+          detectedDataStartRow={
+            mappingModalState.inspectData?.detectedDataStartRow ??
+            mappingModalState.initialDataStartRow ??
+            1
+          }
+          initialDataStartRow={
+            mappingModalState.inspectData?.detectedDataStartRow ??
+            mappingModalState.initialDataStartRow ??
+            1
+          }
+          availableSchema={
+            mappingModalState.inspectData?.availableSchema ||
+            mappingModalState.availableSchema ||
+            currentTabDef?.columnsSchema ||
+            []
+          }
+          initialMapping={mappingModalState.initialMapping || {}}
+          onConfirm={handleConfirmMapping}
         />
-      }
-      query={
-        <CalcProductionQuery
-          activeTab={activeTab}
-          onSelectTab={setActiveTab}
-          masterInfo={masterInfo}
-          onChangeMasterInfo={handleChangeMasterInfo}
-          onGenerateRegCode={handleGenerateNewRegCode}
-          fileStatusSummary={fileStatusSummary}
-          calcResults={calcResults}
-        />
-      }
-      queryTitle={t('Danh sách 4 Tab Kiến Trúc Dữ Liệu & Chỉ Số Tổng Hợp')}
-      defaultOpenQuery={true}
-      table={
-        <CalcDataGridTable
-          tableTitle={`${currentTabDef.title} (${(gridData.length || 0).toLocaleString('vi-VN')} dòng)`}
-          cols={cols}
-          setCols={setCols}
-          defaultCols={defaultCols}
-          gridData={gridData}
-          setGridData={setGridData}
-          numRows={gridData.length}
-          selection={selection}
-          setSelection={setSelection}
-          showSearch={showSearch}
-          setShowSearch={setShowSearch}
-        />
-      }
-    />
+      )}
+    </>
   )
 }

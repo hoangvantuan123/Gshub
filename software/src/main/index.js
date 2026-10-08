@@ -44,8 +44,8 @@ const execAsync = promisify(exec)
 
 const BASE_URL = 'http://localhost:5173'
 
-// Tối ưu hóa GPU & giới hạn RAM thông minh cho máy cấu hình thấp (Low-spec / POS / Office PC)
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512')
+// Cấu hình bộ nhớ V8 và tăng tốc GPU (Hỗ trợ nạp và tính toán file Excel dữ liệu lớn 50k+ dòng)
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
 app.commandLine.appendSwitch('renderer-process-limit', '4')
 app.commandLine.appendSwitch('ignore-gpu-blocklist')
 app.commandLine.appendSwitch('enable-gpu-rasterization')

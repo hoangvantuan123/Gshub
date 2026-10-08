@@ -5,8 +5,13 @@
  */
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import dayjs from 'dayjs'
-import { TAB_DEFINITIONS, STORAGE_KEYS } from '../constants/calcConstants'
-import { parseUploadedFile } from '../engine/fileParsers'
+import {
+  TAB_DEFINITIONS,
+  STORAGE_KEYS,
+  STAT_REPORT_COLUMN_SCHEMA,
+  ARCHITECTURE_FILE_TYPES
+} from '../constants/calcConstants'
+import { parseUploadedFile, inspectUploadedFile } from '../engine/fileParsers'
 import { runProductionCalculations } from '../engine'
 import storageAdapter from '../storage'
 import { useArchitectureStorage } from './useArchitectureStorage'
@@ -23,6 +28,14 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
   const [isParsing, setIsParsing] = useState(false)
   const [isRegistering, setIsRegistering] = useState(false)
   const [calcResults, setCalcResults] = useState(null)
+
+  // State Modal Cấu hình & Ánh xạ Cột Excel
+  const [mappingModalState, setMappingModalState] = useState({
+    isOpen: false,
+    rawFile: null,
+    fileType: null,
+    inspectData: null
+  })
 
   // Thông tin Master Đăng Ký Báo Cáo - Tự động tạo mã hệ thống duy nhất cho đợt đăng ký mới
   const [masterInfo, setMasterInfo] = useState({
@@ -71,8 +84,19 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
   } = useArchitectureStorage({ autoLoad: false })
 
   const activeTabFileData = useMemo(() => {
+    if (activeTab === 'result_tksx') {
+      const rows = calcResults?.stat?.calculatedRows || []
+      return {
+        columns: STAT_REPORT_COLUMN_SCHEMA,
+        data: rows,
+        rowCount: rows.length,
+        fileName: 'TKSX_KetQua_98Cot.xlsx',
+        uploadedAt: calcResults?.calculatedAt || new Date().toISOString(),
+        isResult: true
+      }
+    }
     return filesDataMap[activeTab] || null
-  }, [filesDataMap, activeTab])
+  }, [filesDataMap, activeTab, calcResults])
 
   // Đảm bảo mỗi lần vào menu Đăng ký mới sẽ làm mới hoàn toàn dữ liệu
   useEffect(() => {
@@ -87,23 +111,177 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [isRegistered, setIsRegistered] = useState(false)
+  const [importProgress, setImportProgress] = useState({
+    fileName: '',
+    fileSize: 0,
+    tabTitle: '',
+    detectedColumns: 0,
+    totalRows: 0,
+    percent: 0,
+    step: '',
+    message: '',
+    startTime: null
+  })
+
+  // Mở modal kiểm tra & ánh xạ cột thủ công
+  const openMappingModalForCurrentTab = useCallback(
+    async (fileType, rawFile) => {
+      const targetType = fileType || activeTab
+      if (!rawFile) {
+        notify('warning', 'Vui lòng chọn file Excel để cấu hình cột')
+        return
+      }
+      const tabTitle = TAB_DEFINITIONS.find((t) => t.id === targetType)?.title || targetType
+      setImportProgress({
+        fileName: rawFile.name,
+        fileSize: rawFile.size,
+        tabTitle,
+        detectedColumns: 0,
+        totalRows: 0,
+        percent: 20,
+        step: 'INSPECT',
+        message: 'Đang đọc ma trận xem trước file Excel...',
+        startTime: Date.now()
+      })
+      setIsParsing(true)
+      try {
+        const inspectData = await inspectUploadedFile(rawFile, targetType)
+        setMappingModalState({
+          isOpen: true,
+          rawFile,
+          fileType: targetType,
+          inspectData
+        })
+      } catch (err) {
+        notify('error', `Không thể phân tích cấu trúc file: ${err.message}`)
+      } finally {
+        setIsParsing(false)
+      }
+    },
+    [activeTab, notify]
+  )
+
+  // Xử lý xác nhận ánh xạ cột từ Modal
+  const handleConfirmMapping = useCallback(
+    async ({ headerRowIndex, dataStartRowIndex, columnMappings }) => {
+      const { rawFile, fileType } = mappingModalState
+      if (!rawFile || !fileType) return
+
+      const tabTitle = TAB_DEFINITIONS.find((t) => t.id === fileType)?.title || fileType
+      setMappingModalState((prev) => ({ ...prev, isOpen: false }))
+      setImportProgress({
+        fileName: rawFile.name,
+        fileSize: rawFile.size,
+        tabTitle,
+        detectedColumns: 0,
+        totalRows: 0,
+        percent: 10,
+        step: 'PARSE_CUSTOM',
+        message: 'Đang xử lý nạp file theo cấu hình ánh xạ...',
+        startTime: Date.now()
+      })
+      setIsParsing(true)
+      try {
+        const parsed = await parseUploadedFile(
+          rawFile,
+          fileType,
+          {
+            headerRowIndex,
+            dataStartRowIndex,
+            columnMappings,
+            isManual: true
+          },
+          (p) => {
+            setImportProgress((prev) => ({
+              ...prev,
+              ...p,
+              detectedColumns: p.detectedColumns || prev.detectedColumns,
+              totalRows: p.totalRows || prev.totalRows,
+              percent: p.percent || prev.percent,
+              message: p.message || prev.message
+            }))
+          }
+        )
+
+        setImportProgress((prev) => ({
+          ...prev,
+          percent: 92,
+          message: `Đang lưu ${parsed.rowCount.toLocaleString('vi-VN')} dòng vào hệ thống...`
+        }))
+
+        await saveFile(fileType, parsed)
+        setIsRegistered(false)
+        notify(
+          'success',
+          `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng theo cấu hình tùy chỉnh cho ${tabTitle}`
+        )
+      } catch (err) {
+        notify('error', `Lỗi nạp file theo cấu hình: ${err.message}`)
+      } finally {
+        setIsParsing(false)
+      }
+    },
+    [mappingModalState, saveFile, notify]
+  )
 
   // Xử lý upload file cho 1 Tab cụ thể
   const handleUploadFileForTab = useCallback(
     async (fileType, rawFile) => {
       if (!rawFile) return
+      const tabTitle = TAB_DEFINITIONS.find((t) => t.id === fileType)?.title || fileType
+      setImportProgress({
+        fileName: rawFile.name,
+        fileSize: rawFile.size,
+        tabTitle,
+        detectedColumns: 0,
+        totalRows: 0,
+        percent: 10,
+        step: 'START',
+        message: 'Đang bắt đầu đọc tệp Excel...',
+        startTime: Date.now()
+      })
       setIsParsing(true)
       try {
-        const parsed = await parseUploadedFile(rawFile, fileType)
+        const parsed = await parseUploadedFile(rawFile, fileType, {}, (p) => {
+          setImportProgress((prev) => ({
+            ...prev,
+            ...p,
+            detectedColumns: p.detectedColumns || prev.detectedColumns,
+            totalRows: p.totalRows || prev.totalRows,
+            percent: p.percent || prev.percent,
+            message: p.message || prev.message
+          }))
+        })
+
+        setImportProgress((prev) => ({
+          ...prev,
+          percent: 92,
+          message: `Đang lưu ${parsed.rowCount.toLocaleString('vi-VN')} dòng vào hệ thống...`
+        }))
+
         await saveFile(fileType, parsed)
         setIsRegistered(false)
-        const tabTitle = TAB_DEFINITIONS.find((t) => t.id === fileType)?.title || fileType
         notify(
           'success',
           `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng cho ${tabTitle}`
         )
       } catch (err) {
-        notify('error', `Lỗi nạp file: ${err.message}`)
+        console.warn('Lỗi nạp tự động, tự động kích hoạt Modal ánh xạ cột:', err)
+        try {
+          const inspectData = await inspectUploadedFile(rawFile, fileType)
+          setMappingModalState({
+            isOpen: true,
+            rawFile,
+            fileType,
+            inspectData
+          })
+          notify(
+            'warning',
+            `Phát hiện cột đặc biệt: Vui lòng xác nhận dòng tiêu đề và ánh xạ cột trong Modal.`
+          )
+        } catch (inspectErr) {
+          notify('error', `Lỗi nạp file: ${err.message}`)
+        }
       } finally {
         setIsParsing(false)
       }
@@ -160,9 +338,10 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
 
       await storageAdapter.saveMasterRegistration(masterRecord)
 
-      // Fallback lưu localStorage
+      // Fallback lưu localStorage & đồng bộ
       if (typeof window !== 'undefined') {
         localStorage.setItem(`S_MASTER_REG_${masterInfo.regCode}`, JSON.stringify(masterRecord))
+        window.dispatchEvent(new Event('storage'))
       }
 
       setIsRegistered(true)
@@ -189,7 +368,12 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       const allFiles = await loadAllFilesForCalculation()
       const results = await runProductionCalculations(allFiles)
       setCalcResults(results)
-      notify('success', 'Đã hoàn thành tính toán KHSX và TKSX!')
+      // Tự động chuyển ngay sang Tab Kết Quả TKSX
+      setActiveTab('result_tksx')
+      notify(
+        'success',
+        `Đã hoàn thành tính toán! Đã xuất ${(results?.stat?.calculatedRows?.length || 0).toLocaleString('vi-VN')} dòng kết quả TKSX.`
+      )
     } catch (err) {
       console.error('Lỗi tính toán:', err)
       notify('error', `Tính toán thất bại: ${err.message}`)
@@ -198,20 +382,31 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     }
   }, [fileSummaries, activeTabFileData, loadAllFilesForCalculation, notify])
 
-  // Thống kê trạng thái 4 file từ fileSummaries
+  // Thống kê trạng thái các tab từ fileSummaries & calcResults
   const fileStatusSummary = useMemo(() => {
     const summary = {}
     TAB_DEFINITIONS.forEach((tab) => {
-      const summaryItem = fileSummaries[tab.id]
-      summary[tab.id] = {
-        isUploaded: Boolean(summaryItem && summaryItem.rowCount > 0),
-        fileName: summaryItem?.fileName || '',
-        rowCount: summaryItem?.rowCount || 0,
-        uploadedAt: summaryItem?.uploadedAt || null
+      if (tab.id === 'result_tksx') {
+        const rows = calcResults?.stat?.calculatedRows || []
+        summary[tab.id] = {
+          isUploaded: rows.length > 0,
+          fileName: 'TKSX_KetQua_98Cot.xlsx',
+          rowCount: rows.length,
+          uploadedAt: calcResults?.calculatedAt || null,
+          isResult: true
+        }
+      } else {
+        const summaryItem = fileSummaries[tab.id]
+        summary[tab.id] = {
+          isUploaded: Boolean(summaryItem && summaryItem.rowCount > 0),
+          fileName: summaryItem?.fileName || '',
+          rowCount: summaryItem?.rowCount || 0,
+          uploadedAt: summaryItem?.uploadedAt || null
+        }
       }
     })
     return summary
-  }, [fileSummaries])
+  }, [fileSummaries, calcResults])
 
   return {
     activeTab,
@@ -229,6 +424,11 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     calcResults,
     storageMode,
     fileStatusSummary,
+    importProgress,
+    mappingModalState,
+    setMappingModalState,
+    openMappingModalForCurrentTab,
+    handleConfirmMapping,
     handleUploadFileForTab,
     handleDeleteTabFile,
     handleRunCalculation,

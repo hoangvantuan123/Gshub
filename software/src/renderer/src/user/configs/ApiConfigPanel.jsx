@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Radio, Space, message } from 'antd'
-import {
-  Server,
-  RefreshCw,
-  CheckCircle2,
-  AlertTriangle
-} from 'lucide-react'
+import { Server, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react'
 import axios from 'axios'
 import {
   getDefaultDataHubUrl,
@@ -85,9 +80,7 @@ export default function ApiConfigPanel() {
       {/* 1. Header */}
       <div className="pb-2 border-b border-slate-200">
         <h2 className="text-xs font-bold text-slate-900">Máy chủ kết nối</h2>
-        <p className="text-[11px] text-slate-500 mt-0.5">
-          Lựa chọn môi trường kết nối hệ thống
-        </p>
+        <p className="text-[11px] text-slate-500 mt-0.5">Lựa chọn môi trường kết nối hệ thống</p>
       </div>
 
       {/* 2. Lựa chọn Môi trường */}
@@ -155,7 +148,9 @@ export default function ApiConfigPanel() {
               onChange={(e) => setApiUrl(e.target.value)}
               placeholder="http://localhost:9643"
               className={`w-full pl-8 pr-3 py-1.5 text-xs rounded-none border border-slate-300 font-mono transition-colors ${
-                !isCustom ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white text-slate-900 focus:border-[#163B2B] focus:outline-none'
+                !isCustom
+                  ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
+                  : 'bg-white text-slate-900 focus:border-[#163B2B] focus:outline-none'
               }`}
             />
           </div>

@@ -266,60 +266,28 @@ export const MOCK_FLAT_MENUS_SQL = [
     Link: '/erp/u/report/stat-query',
     View: true
   },
-
-  // --- 1.5 SUBMENU: TÍNH TOÁN SẢN XUẤT (Id: 500) ---
   {
-    Id: 500,
-    ParentId: 0,
-    Level: 0,
-    OrderNo: 5,
-    RootMenuId: 1,
-    RootMenuName: 'Báo Cáo Sản Xuất',
-    SubmenuKey: 'report_calc_grp',
-    SubmenuName: 'Tính toán sản xuất',
-    Type: 'submenu',
-    Key: 'report_calc_grp',
-    Label: 'Tính toán sản xuất',
-    Link: '',
-    View: true
-  },
-  {
-    Id: 501,
-    ParentId: 500,
+    Id: 404,
+    ParentId: 400,
     Level: 1,
-    OrderNo: 1,
+    OrderNo: 4,
     RootMenuId: 1,
     RootMenuName: 'Báo Cáo Sản Xuất',
-    SubmenuKey: 'report_calc_grp',
-    SubmenuName: 'Tính toán sản xuất',
-    Type: 'menu',
-    Key: 'report_calc_prod',
-    Label: 'Tính KHSX / TKSX',
-    Link: '/erp/u/report/calc-production',
-    View: true
-  },
-  {
-    Id: 502,
-    ParentId: 500,
-    Level: 1,
-    OrderNo: 2,
-    RootMenuId: 1,
-    RootMenuName: 'Báo Cáo Sản Xuất',
-    SubmenuKey: 'report_calc_grp',
-    SubmenuName: 'Tính toán sản xuất',
+    SubmenuKey: 'report_registration_grp',
+    SubmenuName: 'Đăng ký báo cáo',
     Type: 'menu',
     Key: 'report_calc_prod_query',
-    Label: 'Truy vấn tính KHSX / TKSX',
+    Label: 'Truy vấn tính KHSX & TKSX',
     Link: '/erp/u/report/calc-production-query',
     View: true
   },
 
-  // --- 1.6 SUBMENU: CẨM NANG (Id: 600) ---
+  // --- 1.5 SUBMENU: CẨM NANG (Id: 600) ---
   {
     Id: 600,
     ParentId: 0,
     Level: 0,
-    OrderNo: 6,
+    OrderNo: 5,
     RootMenuId: 1,
     RootMenuName: 'Báo Cáo Sản Xuất',
     SubmenuKey: 'report_handbook_grp',

@@ -258,4 +258,3 @@ export function translateResponseCode(codeOrMsg, lang = 'vn') {
   const currentLang = languages[lang] || languages.vn
   return currentLang[codeOrMsg] || codeOrMsg
 }
-

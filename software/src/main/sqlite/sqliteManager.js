@@ -201,6 +201,397 @@ export function setupSqliteIpc() {
     }
   })
 
+  // Tính toán trực tiếp KHSX & TKSX từ CSDL SQLite
+  ipcMain.handle('sqlite:calculate-production', async () => {
+    if (!db) {
+      return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    }
+    try {
+      const stmt = db.prepare('SELECT file_type, data FROM calc_architecture_files')
+      const rows = stmt.all()
+      const files = {}
+      for (const r of rows) {
+        if (r.file_type) {
+          files[r.file_type] = {
+            data: typeof r.data === 'string' ? JSON.parse(r.data || '[]') : r.data
+          }
+        }
+      }
+
+      const statReportData = files.stat_report?.data || []
+      const summaryOpData = files.summary_op?.data || []
+      const unfinishedOpData = files.unfinished_op?.data || []
+      const mesApprovalData = files.mes_approval?.data || []
+
+      // Tạo từ điển tra cứu KHSX Lệnh thao tác
+      const opOrderPlanMap = new Map()
+      const normalize = (v) => (v ? String(v).trim().toUpperCase() : '')
+
+      summaryOpData.forEach((row) => {
+        const code = normalize(
+          row.OperationOrderNo ?? row['Lệnh thao tác'] ?? row['Số lệnh thao tác'] ?? ''
+        )
+        if (code) {
+          opOrderPlanMap.set(code, 'KHSX')
+        }
+      })
+
+      unfinishedOpData.forEach((row) => {
+        const code = normalize(
+          row.OperationOrderNo ?? row['Số lệnh thao tác'] ?? row['Lệnh thao tác'] ?? ''
+        )
+        if (code && !opOrderPlanMap.has(code)) {
+          opOrderPlanMap.set(code, 'KHSX')
+        }
+      })
+
+      // Tạo từ điển tra cứu MES
+      const mesApprovalMap = new Map()
+      mesApprovalData.forEach((row) => {
+        const slipNo = normalize(
+          row.ApprovalSlipNo ??
+            row['Số phiếu duyệt'] ??
+            row['Số phiếu'] ??
+            row['Số phiếu thống kê'] ??
+            row.StatSlipNo ??
+            ''
+        )
+        const approvedTime =
+          row.ApprovedTime ??
+          row['Thời gian duyệt'] ??
+          row['Thời gian duyệt phiếu'] ??
+          row['Thời gian duyệt phiếu ở MES'] ??
+          row.ApprovalTime ??
+          ''
+        if (slipNo && approvedTime) {
+          mesApprovalMap.set(slipNo, String(approvedTime).trim())
+        }
+      })
+
+      // Đếm phiếu trùng
+      const slipCountMap = new Map()
+      statReportData.forEach((row) => {
+        const slipNo = normalize(row.StatSlipNo ?? row['Số phiếu thống kê'] ?? '')
+        if (slipNo) {
+          slipCountMap.set(slipNo, (slipCountMap.get(slipNo) || 0) + 1)
+        }
+      })
+
+      // Tính toán 98 cột chuẩn TKSX
+      let totalProducedQty = 0
+      let totalQualifiedQty = 0
+      let totalDefectQty = 0
+      let totalDowntimeMinutes = 0
+      let totalSyncDelaySec = 0
+      let syncCount = 0
+      let insidePlanCount = 0
+      let outsidePlanCount = 0
+      let mesUserCount = 0
+      let bravoUserCount = 0
+      let duplicateSlipCount = 0
+
+      const statByMachine = {}
+      const statByTeam = {}
+      const statByTechnician = {}
+
+      const calculatedRows = statReportData.map((row) => {
+        const rowObj = { ...row }
+        const produced =
+          parseFloat(
+            String(
+              row.ProducedQty ?? row['Số lượng sản xuất'] ?? row['Số lượng thực hiện'] ?? 0
+            ).replace(/,/g, '')
+          ) || 0
+        const qualified =
+          parseFloat(String(row.QualifiedQty ?? row['Số lượng đạt'] ?? 0).replace(/,/g, '')) || 0
+        const defect =
+          parseFloat(String(row.DefectQty ?? row['Số lượng lỗi'] ?? 0).replace(/,/g, '')) || 0
+        const downtime =
+          parseFloat(
+            String(
+              row.TotalDowntimeMinutes ??
+                row['Tổng tg hao phí\r\n(5)=1+2+3+4'] ??
+                row['Tổng tg hao phí\n(5)=1+2+3+4'] ??
+                row['Tổng tg hao phí (5)=1+2+3+4'] ??
+                row['Tổng tg hao phí'] ??
+                0
+            ).replace(/,/g, '')
+          ) || 0
+
+        // Parse giờ phút
+        const startVal = row.StartTime ?? row['Bắt đầu'] ?? row['Thời gian bắt đầu'] ?? ''
+        const endVal = row.EndTime ?? row['Kết thúc'] ?? row['Thời gian kết thúc'] ?? ''
+
+        const parseMinutes = (val) => {
+          if (val === undefined || val === null || val === '') return null
+          if (typeof val === 'number') {
+            if (val >= 0 && val <= 1) return val * 1440
+            if (val > 1) return (val - Math.floor(val)) * 1440
+            return val
+          }
+          const str = String(val).trim()
+          if (!str) return null
+          if (/^\d+(\.\d+)?$/.test(str)) {
+            const num = parseFloat(str)
+            if (!isNaN(num)) {
+              if (num >= 0 && num <= 1) return num * 1440
+              if (num > 1) return (num - Math.floor(num)) * 1440
+            }
+          }
+          const m = str.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+          if (m) {
+            const h = parseInt(m[1], 10)
+            const mi = parseInt(m[2], 10)
+            const s = m[3] ? parseInt(m[3], 10) : 0
+            return h * 60 + mi + s / 60
+          }
+          return null
+        }
+
+        const sMin = parseMinutes(startVal)
+        const eMin = parseMinutes(endVal)
+        let actualRunTime = ''
+        if (sMin !== null && eMin !== null) {
+          let diffMin = eMin - sMin
+          if (diffMin < 0) diffMin += 1440
+          actualRunTime = Math.max(0, Math.round(diffMin) - downtime)
+        } else if (row.ActualRunTime !== undefined && row.ActualRunTime !== '') {
+          actualRunTime = parseFloat(String(row.ActualRunTime).replace(/,/g, '')) || 0
+        }
+
+        // Col 92: capa
+        let actualCapa = ''
+        if (typeof actualRunTime === 'number') {
+          actualCapa = actualRunTime > 0 ? Number(((produced * 60) / actualRunTime).toFixed(2)) : 0
+        } else if (row.ActualCapa !== undefined && row.ActualCapa !== '') {
+          actualCapa = parseFloat(String(row.ActualCapa).replace(/,/g, '')) || 0
+        }
+
+        // Col 93: check khsx
+        const opOrderNo = normalize(
+          row.OperationOrderNo ?? row['Số lệnh thao tác'] ?? row['Lệnh thao tác'] ?? ''
+        )
+        let checkKhsx = 'Khác KHSX'
+        if (opOrderNo && opOrderPlanMap.has(opOrderNo)) {
+          checkKhsx = 'KHSX'
+          insidePlanCount++
+        } else {
+          outsidePlanCount++
+        }
+
+        // Col 94: thời gian duyệt MES
+        const statSlipNo = normalize(row.StatSlipNo ?? row['Số phiếu thống kê'] ?? '')
+        let mesApprovedTime = ''
+        if (statSlipNo && mesApprovalMap.has(statSlipNo)) {
+          mesApprovedTime = mesApprovalMap.get(statSlipNo)
+        } else if (row.MesApprovedTime || row['Thời gian duyệt phiếu ở MES']) {
+          mesApprovedTime = row.MesApprovedTime || row['Thời gian duyệt phiếu ở MES']
+        }
+
+        // Col 95: độ trễ đồng bộ
+        const slipCreatedDate = String(row.SlipCreatedDate ?? row['Ngày tạo phiếu'] ?? '').trim()
+        let syncLatencySeconds = ''
+        if (slipCreatedDate && mesApprovedTime) {
+          const parseTs = (dtStr) => {
+            const m = dtStr.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?/i)
+            if (m) {
+              const day = parseInt(m[1], 10)
+              const month = parseInt(m[2], 10)
+              let year = parseInt(m[3], 10)
+              if (year < 100) year += 2000
+              let hours = m[4] ? parseInt(m[4], 10) : 0
+              const mins = m[5] ? parseInt(m[5], 10) : 0
+              const secs = m[6] ? parseInt(m[6], 10) : 0
+              const ampm = m[7] ? m[7].toUpperCase() : ''
+              if (ampm === 'PM' && hours < 12) hours += 12
+              if (ampm === 'AM' && hours === 12) hours = 0
+              return new Date(year, month - 1, day, hours, mins, secs).getTime()
+            }
+            return null
+          }
+          const cTs = parseTs(slipCreatedDate)
+          const aTs = parseTs(mesApprovedTime)
+          if (cTs && aTs) {
+            const diffSec = Math.round((aTs - cTs) / 1000)
+            const isNeg = diffSec < 0
+            const absSec = Math.abs(diffSec)
+            const pad = (n) => String(n).padStart(2, '0')
+            const h = Math.floor(absSec / 3600)
+            const mi = Math.floor((absSec % 3600) / 60)
+            const s = absSec % 60
+            syncLatencySeconds = `${isNeg ? '-' : ''}${pad(h)}:${pad(mi)}:${pad(s)}`
+            if (diffSec >= 0) {
+              totalSyncDelaySec += diffSec
+              syncCount++
+            }
+          }
+        }
+
+        // Col 96: phiếu trùng
+        let isDuplicateSlip = 0
+        if (statSlipNo && (slipCountMap.get(statSlipNo) || 0) > 1) {
+          isDuplicateSlip = 1
+          duplicateSlipCount++
+        }
+
+        // Col 97: vị trí tạo phiếu tk
+        const statEmp = String(row.StatEmployee ?? row['Nhân viên thống kê'] ?? '').trim()
+        let createdLocation = statEmp.toUpperCase().includes('MES') ? 'MES' : 'Bravo'
+        if (createdLocation === 'MES') mesUserCount++
+        else bravoUserCount++
+
+        // Col 98: sinh phiếu xuất nhập
+        const autoExport = parseInt(row.AutoExport ?? row['Xuất tự động'] ?? 0, 10) || 0
+        const autoImport = parseInt(row.AutoImport ?? row['Nhập tự động'] ?? 0, 10) || 0
+        const exportSlipNo = String(row.ExportSlipNo ?? row['Số phiếu xuất'] ?? '').trim()
+        const importSlipNo = String(row.ImportSlipNo ?? row['Số phiếu nhập'] ?? '').trim()
+
+        let autoExportImportGenerated = 'Không sử dụng NVL'
+        if (autoExport !== 0 || autoImport !== 0) {
+          const parts = []
+          if (autoExport !== 0) parts.push(exportSlipNo ? 'Có XKTĐ' : 'Không có XKTĐ')
+          if (autoImport !== 0) parts.push(importSlipNo ? 'Có NKTĐ' : 'Không NKTĐ')
+          autoExportImportGenerated = parts.join(', ') || 'Không sử dụng NVL'
+        }
+
+        rowObj.ActualRunTime = actualRunTime
+        rowObj['Thời gian chạy thực tế'] = actualRunTime
+        rowObj.ActualCapa = actualCapa
+        rowObj['capa thực tế'] = actualCapa
+        rowObj.CheckKhsx = checkKhsx
+        rowObj['CHECK KHSX'] = checkKhsx
+        rowObj['Cột 93'] = checkKhsx
+        rowObj.MesApprovedTime = mesApprovedTime
+        rowObj['Thời gian duyệt phiếu ở MES'] = mesApprovedTime
+        rowObj.SyncLatencySeconds = syncLatencySeconds
+        rowObj['Độ trễ thời gian đồng bộ 2 hệ thống'] = syncLatencySeconds
+        rowObj.IsDuplicateSlip = isDuplicateSlip
+        rowObj['Phiếu sinh trùng'] = isDuplicateSlip
+        rowObj.CreatedLocation = createdLocation
+        rowObj['Vị trí tạo phiếu tk'] = createdLocation
+        rowObj.AutoExportImportGenerated = autoExportImportGenerated
+        rowObj['Sinh phiếu xuất/nhập tự động'] = autoExportImportGenerated
+
+        totalProducedQty += produced
+        totalQualifiedQty += qualified
+        totalDefectQty += defect
+        totalDowntimeMinutes += downtime
+
+        const machine = String(
+          row.MachineName ?? row['Tên máy sản xuất'] ?? row.MachineCode ?? row['Mã máy sản xuất'] ?? 'Khác'
+        ).trim()
+        const team = String(row.ProductionTeam ?? row['Tổ sản xuất'] ?? 'Khác').trim()
+        const leadTech = String(
+          row.LeadTechnicianName ?? row['Thợ chính'] ?? row['Họ tên thợ chính'] ?? 'Khác'
+        ).trim()
+
+        if (!statByMachine[machine]) {
+          statByMachine[machine] = { machine, producedQty: 0, qualifiedQty: 0, defectQty: 0, ticketCount: 0 }
+        }
+        statByMachine[machine].producedQty += produced
+        statByMachine[machine].qualifiedQty += qualified
+        statByMachine[machine].defectQty += defect
+        statByMachine[machine].ticketCount += 1
+
+        if (!statByTeam[team]) {
+          statByTeam[team] = { team, producedQty: 0, qualifiedQty: 0, defectQty: 0 }
+        }
+        statByTeam[team].producedQty += produced
+        statByTeam[team].qualifiedQty += qualified
+        statByTeam[team].defectQty += defect
+
+        if (leadTech && leadTech !== 'Khác') {
+          if (!statByTechnician[leadTech]) {
+            statByTechnician[leadTech] = { technician: leadTech, producedQty: 0, qualifiedQty: 0, defectQty: 0 }
+          }
+          statByTechnician[leadTech].producedQty += produced
+          statByTechnician[leadTech].qualifiedQty += qualified
+          statByTechnician[leadTech].defectQty += defect
+        }
+
+        return rowObj
+      })
+
+      // Đối soát MES
+      let mesApprovedProducedQty = 0
+      let mesApprovedQualifiedQty = 0
+      let mesApprovedDefectQty = 0
+      mesApprovalData.forEach((row) => {
+        mesApprovedProducedQty += parseFloat(String(row['SL sản xuất'] ?? row.ProducedQty ?? 0).replace(/,/g, '')) || 0
+        mesApprovedQualifiedQty += parseFloat(String(row['SL đạt'] ?? row.QualifiedQty ?? 0).replace(/,/g, '')) || 0
+        mesApprovedDefectQty += parseFloat(String(row['SL lỗi'] ?? row.DefectQty ?? 0).replace(/,/g, '')) || 0
+      })
+
+      const defectRate = totalProducedQty > 0 ? Number(((totalDefectQty / totalProducedQty) * 100).toFixed(2)) : 0
+      const avgSyncDelay = syncCount > 0 ? Number((totalSyncDelaySec / syncCount).toFixed(1)) : 0
+
+      const statResult = {
+        totalProducedQty,
+        totalQualifiedQty,
+        totalDefectQty,
+        defectRate,
+        totalTickets: statReportData.length,
+        totalDowntimeMinutes,
+        avgSyncDelaySeconds: avgSyncDelay,
+        insidePlanCount,
+        outsidePlanCount,
+        mesUserCount,
+        bravoUserCount,
+        duplicateSlipCount,
+        mesApproval: {
+          totalApprovedTickets: mesApprovalData.length,
+          approvedProducedQty: mesApprovedProducedQty,
+          approvedQualifiedQty: mesApprovedQualifiedQty,
+          approvedDefectQty: mesApprovedDefectQty,
+          discrepancyProducedQty: totalProducedQty - mesApprovedProducedQty,
+          discrepancyQualifiedQty: totalQualifiedQty - mesApprovedQualifiedQty
+        },
+        machineBreakdown: Object.values(statByMachine).sort((a, b) => b.producedQty - a.producedQty),
+        teamBreakdown: Object.values(statByTeam).sort((a, b) => b.producedQty - a.producedQty),
+        technicianBreakdown: Object.values(statByTechnician).sort((a, b) => b.producedQty - a.producedQty),
+        calculatedRows
+      }
+
+      // Tính toán KHSX
+      let totalPlannedQty = 0
+      let totalUnfinishedQty = 0
+      summaryOpData.forEach((row) => {
+        totalPlannedQty += parseFloat(String(row['Số lượng \ncần sx \n(1)'] ?? row['Số lượng cần sản xuất'] ?? row.PlannedQty ?? 0).replace(/,/g, '')) || 0
+      })
+      unfinishedOpData.forEach((row) => {
+        totalUnfinishedQty += parseFloat(String(row['Số lượng còn lại'] ?? row.RemainingQty ?? 0).replace(/,/g, '')) || 0
+      })
+
+      const planResult = {
+        totalPlannedQty,
+        totalUnfinishedQty,
+        totalPlannedOrders: summaryOpData.length,
+        totalUnfinishedOrders: unfinishedOpData.length
+      }
+
+      const completionRate = totalPlannedQty > 0 ? Number(((totalProducedQty / totalPlannedQty) * 100).toFixed(2)) : 0
+
+      return {
+        success: true,
+        calculatedAt: new Date().toISOString(),
+        summary: {
+          completionRate,
+          plannedQty: totalPlannedQty,
+          producedQty: totalProducedQty,
+          qualifiedQty: totalQualifiedQty,
+          defectQty: totalDefectQty,
+          defectRate,
+          unfinishedQty: totalUnfinishedQty
+        },
+        plan: planResult,
+        stat: statResult
+      }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi tính toán:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
   // Lưu kết quả tính toán
   ipcMain.handle('sqlite:save-calc-results', async (_, payload) => {
     if (!db) return { success: false }

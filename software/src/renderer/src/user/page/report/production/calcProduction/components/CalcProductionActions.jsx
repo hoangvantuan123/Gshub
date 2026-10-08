@@ -1,18 +1,18 @@
 /* eslint-disable react/prop-types */
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from 'antd'
 import {
-  Upload,
-  Play,
-  Trash2,
-  RotateCcw,
-  Search,
-  Save,
-  CheckCircle2,
-  ExternalLink
-} from 'lucide-react'
-import { Button } from '@renderer/components/ui/button'
-import { StorageStatusBadge } from './StorageStatusBadge'
+  UploadOutlined,
+  PlayCircleOutlined,
+  SaveOutlined,
+  DeleteOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  ControlOutlined,
+  ExportOutlined,
+  ClearOutlined
+} from '@ant-design/icons'
 
 export default function CalcProductionActions({
   activeTabDef,
@@ -23,16 +23,19 @@ export default function CalcProductionActions({
   storageMode,
   fileStatusSummary,
   onUploadFile,
+  onOpenCustomMapping,
   onDeleteTabFile,
   onClearAll,
   onRunCalculation,
   onRegisterMaster,
+  onExportExcel,
   onRefresh,
   onOpenSearch,
   onOpenInNewWindow
 }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
+  const customMappingInputRef = useRef(null)
 
   const uploadedCount = Object.values(fileStatusSummary || {}).filter((s) => s.isUploaded).length
   const hasActiveFileData = Boolean(activeFileData && activeFileData.rowCount > 0)
@@ -47,9 +50,19 @@ export default function CalcProductionActions({
     }
   }
 
+  const handleCustomMappingFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file && typeof onOpenCustomMapping === 'function') {
+      onOpenCustomMapping(activeTabDef.id, file)
+      if (customMappingInputRef.current) {
+        customMappingInputRef.current.value = ''
+      }
+    }
+  }
+
   return (
-    <div className="flex items-center justify-between w-full py-0.5 overflow-x-auto max-w-full">
-      {/* Ẩn input file */}
+    <div className="flex items-center justify-between w-full h-6 min-h-[24px] max-h-[24px] py-0 overflow-x-auto max-w-full select-none">
+      {/* Ẩn input file thường */}
       <input
         ref={fileInputRef}
         type="file"
@@ -58,115 +71,189 @@ export default function CalcProductionActions({
         onChange={handleFileChange}
       />
 
-      {/* Cụm nút tác vụ chuẩn GsHub phong cách ghost uppercase */}
-      <div className="flex items-center gap-1.5">
+      {/* Ẩn input file tùy chỉnh ánh xạ */}
+      <input
+        ref={customMappingInputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        style={{ display: 'none' }}
+        onChange={handleCustomMappingFileChange}
+      />
+
+      {/* Cụm nút tác vụ chuẩn GsHub với Ant Design Button, chiều cao tiêu chuẩn 24px */}
+      <div className="flex items-center gap-1.5 overflow-x-auto max-w-full">
+        {/* 1. Nạp file Excel */}
         <Button
-          variant="ghost"
-          size="sm"
+          key="Upload"
+          icon={<UploadOutlined className="text-emerald-500" style={{ fontSize: '12px' }} />}
+          size="small"
           onClick={() => fileInputRef.current?.click()}
           disabled={isParsing}
-          className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+          className="uppercase text-[10px] whitespace-nowrap font-medium"
+          style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+          color="default"
+          variant="link"
           title="Chọn file Excel/CSV để nạp dữ liệu vào tab hiện tại"
         >
-          <Upload size={13} className="text-emerald-500" />
-          <span>{hasActiveFileData ? t('TẢI LẠI FILE') : t('NẠP FILE EXCEL')}</span>
+          {hasActiveFileData ? t('TẢI LẠI FILE') : t('NẠP FILE EXCEL')}
         </Button>
 
+        {/* 2. Ánh xạ cột */}
         <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRegisterMaster}
-          disabled={isRegistering || uploadedCount === 0}
-          className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
-          title="Đăng ký và lưu thông tin báo cáo master vào CSDL"
+          key="Mapping"
+          icon={<ControlOutlined className="text-indigo-600" style={{ fontSize: '12px' }} />}
+          size="small"
+          onClick={() => customMappingInputRef.current?.click()}
+          disabled={isParsing}
+          className="uppercase text-[10px] whitespace-nowrap font-medium"
+          style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+          color="default"
+          variant="link"
+          title="Tùy chỉnh chọn dòng tiêu đề và cấu hình ánh xạ cột cho file Excel"
         >
-          <Save size={13} className="text-indigo-600" />
-          <span>{isRegistering ? t('ĐANG ĐĂNG KÝ...') : t('ĐĂNG KÝ BÁO CÁO')}</span>
+          {t('ÁNH XẠ CỘT')}
         </Button>
 
+        {/* 3. Tính KHSX & TKSX */}
         <Button
-          variant="ghost"
-          size="sm"
+          key="Calculate"
+          icon={<PlayCircleOutlined className="text-blue-600" style={{ fontSize: '12px' }} />}
+          size="small"
           onClick={onRunCalculation}
           disabled={isCalculating || uploadedCount === 0}
-          className="uppercase text-[11px] font-semibold text-blue-700 hover:text-blue-800"
+          className="uppercase text-[10px] whitespace-nowrap font-medium"
+          style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+          color="default"
+          variant="link"
           title="Chạy tính toán Kế hoạch & Thống kê sản xuất từ các file đã nạp"
         >
-          <Play size={13} className="text-blue-600" />
-          <span>{isCalculating ? t('ĐANG TÍNH...') : t('TÍNH KHSX & TKSX')}</span>
+          {isCalculating ? t('ĐANG TÍNH...') : t('TÍNH KHSX & TKSX')}
         </Button>
 
+        {/* 4. Đăng ký báo cáo */}
+        <Button
+          key="Register"
+          icon={<SaveOutlined className="text-indigo-600" style={{ fontSize: '12px' }} />}
+          size="small"
+          onClick={onRegisterMaster}
+          disabled={isRegistering || uploadedCount === 0}
+          className="uppercase text-[10px] whitespace-nowrap font-medium"
+          style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+          color="default"
+          variant="link"
+          title="Đăng ký và lưu thông tin báo cáo master vào CSDL"
+        >
+          {isRegistering ? t('ĐANG ĐĂNG KÝ...') : t('ĐĂNG KÝ BÁO CÁO')}
+        </Button>
+
+        {/* 4.1. Xuất Excel Kết Quả TKSX */}
+        {typeof onExportExcel === 'function' && (
+          <Button
+            key="ExportExcel"
+            icon={<ExportOutlined className="text-emerald-700" style={{ fontSize: '12px' }} />}
+            size="small"
+            onClick={onExportExcel}
+            disabled={!hasActiveFileData}
+            className="uppercase text-[10px] whitespace-nowrap font-medium text-emerald-800"
+            style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+            color="default"
+            variant="link"
+            title="Xuất bảng dữ liệu hiện tại ra tệp Excel chuẩn"
+          >
+            {activeTabDef.id === 'result_tksx' ? t('XUẤT EXCEL TKSX') : t('XUẤT EXCEL')}
+          </Button>
+        )}
+
+        {/* 5. Cửa sổ mới */}
         {typeof onOpenInNewWindow === 'function' && (
           <Button
-            variant="ghost"
-            size="sm"
+            key="NewWindow"
+            icon={<ExportOutlined className="text-indigo-500" style={{ fontSize: '12px' }} />}
+            size="small"
             onClick={onOpenInNewWindow}
-            className="uppercase text-[11px] font-semibold text-indigo-600 hover:text-indigo-700"
-            title="Mở toàn bộ 4 bảng trong cửa sổ mới độc lập"
+            className="uppercase text-[10px] whitespace-nowrap font-medium"
+            style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+            color="default"
+            variant="link"
+            title="Mở toàn bộ các bảng trong cửa sổ mới độc lập"
           >
-            <ExternalLink size={13} className="text-indigo-500" />
-            <span>{t('CỬA SỔ MỚI')}</span>
+            {t('CỬA SỔ MỚI')}
           </Button>
         )}
 
-        {hasActiveFileData && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onDeleteTabFile(activeTabDef.id)}
-            className="uppercase text-[11px] font-semibold text-rose-600 hover:text-rose-700"
-            title="Xóa dữ liệu file trong tab hiện tại khỏi CSDL"
-          >
-            <Trash2 size={13} className="text-rose-500" />
-            <span>{t('XÓA TAB')}</span>
-          </Button>
-        )}
-
-        {uploadedCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClearAll}
-            className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
-            title="Xóa toàn bộ file khỏi phiên làm việc"
-          >
-            <Trash2 size={13} className="text-slate-500" />
-            <span>{t('XÓA TẤT CẢ')}</span>
-          </Button>
-        )}
-
+        {/* 6. Làm mới */}
         <Button
-          variant="ghost"
-          size="sm"
+          key="Refresh"
+          icon={<ReloadOutlined className="text-slate-500" style={{ fontSize: '12px' }} />}
+          size="small"
           onClick={onRefresh}
-          className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+          className="uppercase text-[10px] whitespace-nowrap font-medium"
+          style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+          color="default"
+          variant="link"
           title="Nạp lại dữ liệu từ CSDL SQLite/IndexedDB"
         >
-          <RotateCcw size={13} className="text-slate-500" />
-          <span>{t('LÀM MỚI')}</span>
+          {t('LÀM MỚI')}
         </Button>
 
+        {/* 7. Tìm kiếm */}
         <Button
-          variant="ghost"
-          size="sm"
+          key="Search"
+          icon={<SearchOutlined className="text-blue-500" style={{ fontSize: '12px' }} />}
+          size="small"
           onClick={onOpenSearch}
-          className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+          className="uppercase text-[10px] whitespace-nowrap font-medium"
+          style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+          color="default"
+          variant="link"
           title="Tìm kiếm trên bảng (Ctrl+F)"
         >
-          <Search size={13} className="text-blue-500" />
-          <span>{t('TÌM KIẾM')}</span>
+          {t('TÌM KIẾM')}
         </Button>
+
+        {/* 8. Xóa tab hiện tại */}
+        {hasActiveFileData && (
+          <Button
+            key="DeleteTab"
+            icon={<DeleteOutlined className="text-rose-500" style={{ fontSize: '12px' }} />}
+            size="small"
+            onClick={() => onDeleteTabFile(activeTabDef.id)}
+            className="uppercase text-[10px] whitespace-nowrap font-medium text-rose-600"
+            style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+            color="default"
+            variant="link"
+            title="Xóa dữ liệu file trong tab hiện tại khỏi hệ thống"
+          >
+            {t('XÓA TAB')}
+          </Button>
+        )}
+
+        {/* 9. Xóa tất cả */}
+        {uploadedCount > 0 && (
+          <Button
+            key="ClearAll"
+            icon={<ClearOutlined className="text-slate-500" style={{ fontSize: '12px' }} />}
+            size="small"
+            onClick={onClearAll}
+            className="uppercase text-[10px] whitespace-nowrap font-medium"
+            style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+            color="default"
+            variant="link"
+            title="Xóa toàn bộ file khỏi phiên làm việc"
+          >
+            {t('XÓA TẤT CẢ')}
+          </Button>
+        )}
       </div>
 
       {/* Cụm thông tin & trạng thái bên phải */}
-      <div className="flex items-center gap-2">
-        <div className="text-[11px] text-slate-500 font-semibold hidden md:flex items-center gap-1 uppercase">
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1 uppercase leading-none">
           <span>TIẾN ĐỘ:</span>
           <b className={uploadedCount === 4 ? 'text-emerald-700' : 'text-amber-600'}>
             {uploadedCount}/4 FILE
           </b>
         </div>
-        <StorageStatusBadge mode={storageMode} />
       </div>
     </div>
   )

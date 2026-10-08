@@ -31,6 +31,7 @@ export default function CalcProductionQueryPage({
     handleResetFilters,
     fetchMasterList,
     handleNavigateToDetail,
+    handleOpenCalcProduction,
     handleDeleteMaster,
     queriedRows,
     selectedRegCode,
@@ -180,6 +181,7 @@ export default function CalcProductionQueryPage({
       actions={
         <CalcMasterQueryActions
           onQuery={fetchMasterList}
+          onOpenCalcProduction={handleOpenCalcProduction}
           onViewDetail={() => handleNavigateToDetail()}
           onDeleteSelected={() => handleDeleteMaster()}
           onResetFilters={handleResetFilters}

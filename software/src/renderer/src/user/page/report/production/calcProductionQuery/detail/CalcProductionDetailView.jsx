@@ -14,7 +14,6 @@ import { TAB_DEFINITIONS } from '../../calcProduction/constants/calcConstants'
 import { getGridColumnsForTab } from '../../calcProduction/columns/calcGridColumns'
 import CalcDataGridTable from '../../calcProduction/components/CalcDataGridTable'
 import CalcProductionQuery from '../../calcProduction/components/CalcProductionQuery'
-import { StorageStatusBadge } from '../../calcProduction/components/StorageStatusBadge'
 import storageAdapter from '../storageAdapterProxy'
 
 export default function CalcProductionDetailView() {
@@ -254,78 +253,92 @@ export default function CalcProductionDetailView() {
     <DataPageContainer
       loadingBarRef={loadingBarRef}
       actions={
-        <div className="flex items-center justify-between w-full py-0.5 overflow-x-auto max-w-full">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between w-full h-6 min-h-[24px] max-h-[24px] py-0 overflow-x-auto max-w-full select-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto max-w-full">
             <Button
-              variant="ghost"
-              size="sm"
+              key="Back"
+              icon={<ArrowLeft size={12} className="text-slate-500" />}
+              size="small"
               onClick={() => navigate(-1)}
-              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+              className="uppercase text-[10px] whitespace-nowrap font-medium"
+              style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+              color="default"
+              variant="link"
               title="Quay lại danh sách truy vấn"
             >
-              <ArrowLeft size={13} className="text-slate-500" />
-              <span>{t('QUAY LẠI')}</span>
+              {t('QUAY LẠI')}
             </Button>
 
             <Button
-              variant="ghost"
-              size="sm"
+              key="Refresh"
+              icon={<RotateCcw size={12} className="text-emerald-500" />}
+              size="small"
               onClick={fetchDetailData}
               disabled={isLoading}
-              className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+              className="uppercase text-[10px] whitespace-nowrap font-medium text-emerald-700"
+              style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+              color="default"
+              variant="link"
               title="Nạp lại dữ liệu chi tiết từ CSDL"
             >
-              <RotateCcw size={13} className="text-emerald-500" />
-              <span>{t('NẠP LẠI')}</span>
+              {t('NẠP LẠI')}
             </Button>
 
             <Button
-              variant="ghost"
-              size="sm"
+              key="ExportTab"
+              icon={<Download size={12} className="text-blue-600" />}
+              size="small"
               onClick={handleExportTabExcel}
               disabled={gridData.length === 0}
-              className="uppercase text-[11px] font-semibold text-blue-700 hover:text-blue-800"
+              className="uppercase text-[10px] whitespace-nowrap font-medium text-blue-700"
+              style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+              color="default"
+              variant="link"
               title="Xuất dữ liệu tab hiện tại ra Excel"
             >
-              <Download size={13} className="text-blue-600" />
-              <span>{t('XUẤT TAB NÀY')}</span>
+              {t('XUẤT TAB NÀY')}
             </Button>
 
             <Button
-              variant="ghost"
-              size="sm"
+              key="ExportAll"
+              icon={<FileSpreadsheet size={12} className="text-indigo-600" />}
+              size="small"
               onClick={handleExportAllTabsExcel}
-              className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
+              className="uppercase text-[10px] whitespace-nowrap font-semibold text-indigo-700"
+              style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+              color="default"
+              variant="link"
               title="Xuất toàn bộ 4 bảng ra 1 file Excel nhiều sheet"
             >
-              <FileSpreadsheet size={13} className="text-indigo-600" />
-              <span>{t('XUẤT CẢ 4 BẢNG')}</span>
+              {t('XUẤT CẢ 4 BẢNG')}
             </Button>
 
             <Button
-              variant="ghost"
-              size="sm"
+              key="Search"
+              icon={<Search size={12} className="text-blue-500" />}
+              size="small"
               onClick={() => setShowSearch(true)}
-              className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+              className="uppercase text-[10px] whitespace-nowrap font-medium"
+              style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
+              color="default"
+              variant="link"
               title="Tìm kiếm trên bảng (Ctrl+F)"
             >
-              <Search size={13} className="text-blue-500" />
-              <span>{t('TÌM KIẾM')}</span>
+              {t('TÌM KIẾM')}
             </Button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="text-[11px] text-slate-500 font-semibold hidden md:flex items-center gap-1 uppercase">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1 uppercase leading-none">
               <span>TIẾN ĐỘ:</span>
               <b className={uploadedCount === 4 ? 'text-emerald-700' : 'text-amber-600'}>
                 {uploadedCount}/4 FILE
               </b>
             </div>
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-              <CheckCircle2 size={12} />
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 leading-none">
+              <CheckCircle2 size={11} />
               <span>{masterRecord?.status || 'REGISTERED'}</span>
             </span>
-            <StorageStatusBadge mode={storageAdapter.getMode()} />
           </div>
         </div>
       }

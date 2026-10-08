@@ -221,14 +221,10 @@ VALUES
     (401, 'report_registration', 1, 400, 'Đăng ký báo cáo KHSX & TKSX', '/erp/u/report/registration', 'menu', 'FileSpreadsheet', 1, true, true, true, true, true, true, 1),
     (402, 'report_plan_query', 1, 400, 'Truy vấn chi tiết KHSX', '/erp/u/report/plan-query', 'menu', 'Calendar', 2, true, true, true, true, true, true, 1),
     (403, 'report_stat_query', 1, 400, 'Truy vấn chi tiết Thống kê SX', '/erp/u/report/stat-query', 'menu', 'BarChart3', 3, true, true, true, true, true, true, 1),
+    (404, 'report_calc_production_query', 1, 400, 'Truy vấn tính KHSX & TKSX', '/erp/u/report/calc-production-query', 'menu', 'Calculator', 4, true, true, true, true, true, true, 1),
 
-    -- Nhóm 5: Tính toán sản xuất
-    (500, 'report_calc_production_group', 1, NULL, 'Tính toán sản xuất', '', 'submenu', 'Calculator', 5, true, true, true, true, true, true, 1),
-    (501, 'report_calc_production', 1, 500, 'Tính KHSX và TKSX', '/erp/u/report/calc-production', 'menu', 'Calculator', 1, true, true, true, true, true, true, 1),
-    (502, 'report_calc_production_query', 1, 500, 'Truy vấn tính KHSX & TKSX', '/erp/u/report/calc-production-query', 'menu', 'Search', 2, true, true, true, true, true, true, 1),
-
-    -- Nhóm 6: Cẩm nang & Tra cứu
-    (600, 'report_handbook_group', 1, NULL, 'Cẩm nang & Tra cứu', '', 'submenu', 'BookOpen', 6, true, true, true, true, true, true, 1),
+    -- Nhóm 5: Cẩm nang & Tra cứu
+    (600, 'report_handbook_group', 1, NULL, 'Cẩm nang & Tra cứu', '', 'submenu', 'BookOpen', 5, true, true, true, true, true, true, 1),
     (601, 'report_handbook_formula', 1, 600, 'Tra cứu công thức & Cột dữ liệu', '/erp/u/report/handbook/formula', 'menu', 'BookOpen', 1, true, true, true, true, true, true, 1),
 
     -- ── 2. PHÂN HỆ QUẢN TRỊ HỆ THỐNG (MenuRootId = 2) ────────────────────────

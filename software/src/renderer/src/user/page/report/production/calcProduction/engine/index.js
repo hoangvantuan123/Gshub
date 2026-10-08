@@ -4,8 +4,22 @@
 
 import { calculateKHSX } from './planCalculator'
 import { calculateTKSX } from './statCalculator'
+import { calculateProductionSQLite, isElectronSqliteAvailable } from '../storage/sqliteStorage'
 
 export const runProductionCalculations = async (files = {}) => {
+  // 1. Nếu chạy trên Electron Desktop: Ưu tiên tính toán trực tiếp từ CSDL SQLite qua IPC (Native C++)
+  if (isElectronSqliteAvailable()) {
+    try {
+      const sqliteResult = await calculateProductionSQLite()
+      if (sqliteResult && sqliteResult.success && sqliteResult.stat?.calculatedRows?.length > 0) {
+        return sqliteResult
+      }
+    } catch (err) {
+      console.warn('[Calc Engine] Chuyển sang động cơ tính toán tối ưu IndexedDB:', err)
+    }
+  }
+
+  // 2. Chạy trên Web hoặc Fallback: Sử dụng động cơ tính toán Map Streaming tối ưu siêu nhẹ cho IndexedDB
   const planResult = calculateKHSX(files)
   const statResult = calculateTKSX(files)
 

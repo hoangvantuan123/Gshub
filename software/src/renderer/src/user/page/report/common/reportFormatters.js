@@ -51,7 +51,13 @@ export function parseCleanNumber(val, defaultVal = 0) {
   return isNaN(num) ? defaultVal : num
 }
 
-export function parseDurationToMinutes(rawTime, startTime, endTime, _startDate = '', _endDate = '') {
+export function parseDurationToMinutes(
+  rawTime,
+  startTime,
+  endTime,
+  _startDate = '',
+  _endDate = ''
+) {
   // 1. Ưu tiên số phút từ ActualRunTime từ MES nếu có giá trị > 0
   if (rawTime !== undefined && rawTime !== null && rawTime !== '') {
     const str = String(rawTime).trim().replace(',', '.')

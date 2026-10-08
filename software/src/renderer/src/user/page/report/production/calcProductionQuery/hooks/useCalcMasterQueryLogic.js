@@ -130,10 +130,20 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
     }
   }, [filters, notify])
 
-  // Chạy truy vấn ban đầu khi mount
+  // Chạy truy vấn ban đầu khi mount và tự động cập nhật khi quay lại cửa sổ
   useEffect(() => {
     fetchMasterList()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleWindowFocus = () => {
+      fetchMasterList()
+    }
+    window.addEventListener('focus', handleWindowFocus)
+    window.addEventListener('storage', handleWindowFocus)
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus)
+      window.removeEventListener('storage', handleWindowFocus)
+    }
+  }, [fetchMasterList])
 
   // Mở cửa sổ mới xem chi tiết 4 bảng (Hỗ trợ cả Electron Desktop và Web Browser)
   const handleNavigateToDetail = useCallback(
@@ -176,12 +186,25 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
     [selectedRegCode, fetchMasterList, notify]
   )
 
+  // Mở cửa sổ mới thực hiện Tính KHSX và TKSX (Hỗ trợ Electron Window & Web New Tab/Window)
+  const handleOpenCalcProduction = useCallback(() => {
+    notify('info', 'Đang mở màn hình Tính KHSX và TKSX...')
+    openChildWindow({
+      path: '/sub/report/calc-production',
+      title: 'Tính KHSX và TKSX',
+      width: 1400,
+      height: 850,
+      id: 'calc_production_window'
+    })
+  }, [notify])
+
   return {
     filters,
     handleFilterChange,
     handleResetFilters,
     fetchMasterList,
     handleNavigateToDetail,
+    handleOpenCalcProduction,
     handleDeleteMaster,
     queriedRows,
     selectedRegCode,

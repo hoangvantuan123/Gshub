@@ -1,0 +1,31 @@
+{
+  "name": "gshub-services",
+  "version": "1.0.0",
+  "description": "GSHUB Backend Microservices Orchestration (Gateway, Core, Datahub)",
+  "scripts": {
+    "dev": "start.bat dev",
+    "dev:ps": "powershell -ExecutionPolicy Bypass -File ./start.ps1 -Mode dev",
+    "build": "build.bat",
+    "build:ps": "powershell -ExecutionPolicy Bypass -File ./build.ps1 -Target all",
+    "build:win": "powershell -ExecutionPolicy Bypass -File ./build.ps1 -Target win",
+    "build:linux": "powershell -ExecutionPolicy Bypass -File ./build.ps1 -Target linux",
+    "start": "start.bat pm2",
+    "stop": "stop.bat",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:logs": "pm2 logs",
+    "pm2:monit": "pm2 monit",
+    "pm2:status": "pm2 status"
+  },
+  "keywords": [
+    "gshub",
+    "microservices",
+    "golang",
+    "grpc",
+    "gateway",
+    "datahub"
+  ],
+  "author": "Goldsun IT",
+  "license": "ISC"
+}

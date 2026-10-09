@@ -79,10 +79,12 @@ export default function CalcDataGridTable({
   const colMetadata = useMemo(() => {
     return (cols || []).map((column) => {
       const columnKey = column.id || ''
+      const columnTitle = column.title || ''
       const isNum = column.kind === GridCellKind.Number
       const cellTheme = getCellTheme(columnKey, column)
       return {
         columnKey,
+        columnTitle,
         isNum,
         kind: column.kind,
         cellTheme,
@@ -91,11 +93,96 @@ export default function CalcDataGridTable({
     })
   }, [cols, getCellTheme])
 
+  // Tính tổng SUM cho từng cột số liệu hiển thị ở hàng cuối cùng (Summary Row)
+  const columnSums = useMemo(() => {
+    if (!gridData || gridData.length === 0 || !cols || cols.length === 0) return {}
+
+    const sums = {}
+    cols.forEach((col) => {
+      const colId = col.id || ''
+      const colTitle = col.title || ''
+      const isNumericKind = col.kind === GridCellKind.Number
+
+      let total = 0
+      let hasValidNumber = false
+
+      for (let i = 0; i < gridData.length; i++) {
+        const item = gridData[i]
+        if (!item) continue
+        const rawVal = item[colId] !== undefined ? item[colId] : item[colTitle]
+        if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+          const num =
+            typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal).replace(/,/g, ''))
+          if (!isNaN(num) && isFinite(num)) {
+            total += num
+            hasValidNumber = true
+          }
+        }
+      }
+
+      if (hasValidNumber && (isNumericKind || total > 0)) {
+        sums[colId] = Number(total.toFixed(2))
+      }
+    })
+
+    return sums
+  }, [gridData, cols])
+
   const getData = useCallback(
     ([col, row]) => {
       try {
-        const item = gridData[row]
         const meta = colMetadata[col]
+        const colKey = meta?.columnKey || ''
+
+        // 1. Nếu là hàng cuối cùng (Pinned SUM / Summary Row)
+        if (row === gridData.length) {
+          const isFirstCol = col === 0
+
+          if (isFirstCol) {
+            return {
+              kind: GridCellKind.Text,
+              data: 'TỔNG CỘNG',
+              displayData: 'TỔNG CỘNG',
+              readonly: true,
+              allowOverlay: false,
+              themeOverride: {
+                bgCell: '#f1f5f9',
+                textDark: '#0f172a',
+                baseFontStyle: '700 11px Inter, sans-serif'
+              }
+            }
+          }
+
+          if (columnSums[colKey] !== undefined) {
+            const sumVal = columnSums[colKey]
+            return {
+              kind: GridCellKind.Number,
+              data: sumVal,
+              displayData: sumVal.toLocaleString('vi-VN'),
+              readonly: true,
+              allowOverlay: false,
+              themeOverride: {
+                bgCell: '#f8fafc',
+                textDark: '#047857',
+                baseFontStyle: '700 11px Inter, sans-serif'
+              }
+            }
+          }
+
+          return {
+            kind: GridCellKind.Text,
+            data: '',
+            displayData: '',
+            readonly: true,
+            allowOverlay: false,
+            themeOverride: {
+              bgCell: '#f8fafc'
+            }
+          }
+        }
+
+        // 2. Dòng dữ liệu thông thường
+        const item = gridData[row]
         if (!meta || !item) {
           return {
             kind: GridCellKind.Text,
@@ -106,13 +193,10 @@ export default function CalcDataGridTable({
           }
         }
 
-        const rawCol = cols[col]
         let value = item[meta.columnKey]
         if (value === undefined || value === null || value === '') {
-          if (rawCol?.title && item[rawCol.title] !== undefined && item[rawCol.title] !== null) {
-            value = item[rawCol.title]
-          } else if (rawCol?.id && item[rawCol.id] !== undefined && item[rawCol.id] !== null) {
-            value = item[rawCol.id]
+          if (meta.columnTitle && item[meta.columnTitle] !== undefined) {
+            value = item[meta.columnTitle]
           } else {
             value = ''
           }
@@ -166,10 +250,11 @@ export default function CalcDataGridTable({
         }
       }
     },
-    [gridData, colMetadata, cols]
+    [gridData, colMetadata, cols, columnSums]
   )
 
-  const effectiveRows = numRows ?? gridData?.length ?? 0
+  const hasData = gridData && gridData.length > 0
+  const effectiveRows = hasData ? gridData.length + 1 : 0
 
   return (
     <div className="w-full h-full flex items-center justify-center">
@@ -206,7 +291,7 @@ export default function CalcDataGridTable({
           overscrollX={50}
           smoothScrollY={true}
           smoothScrollX={true}
-          freezeTrailingRows={0}
+          freezeTrailingRows={hasData ? 1 : 0}
           rowHeight={23}
           fillHandle={true}
           keybindings={keybindings}

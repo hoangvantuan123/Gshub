@@ -144,11 +144,14 @@ const api = {
   // SQLite API for Production Calculation Local Storage
   sqlite: {
     saveFile: (payload) => ipcRenderer.invoke('sqlite:save-calc-file', payload),
+    saveFileChunk: (payload) => ipcRenderer.invoke('sqlite:save-calc-file-chunk', payload),
     getFile: (fileType) => ipcRenderer.invoke('sqlite:get-calc-file', fileType),
     getAllFileSummaries: () => ipcRenderer.invoke('sqlite:get-all-file-summaries'),
     getAllFiles: () => ipcRenderer.invoke('sqlite:get-all-calc-files'),
     deleteFile: (fileType) => ipcRenderer.invoke('sqlite:delete-calc-file', fileType),
+    calculateProduction: () => ipcRenderer.invoke('sqlite:calculate-production'),
     saveCalcResults: (payload) => ipcRenderer.invoke('sqlite:save-calc-results', payload),
+    getCalcResults: (id) => ipcRenderer.invoke('sqlite:get-calc-results', id),
     saveMasterReg: (payload) => ipcRenderer.invoke('sqlite:save-master-reg', payload),
     getMasterReg: (regCode) => ipcRenderer.invoke('sqlite:get-master-reg', regCode),
     getAllMasterRegs: () => ipcRenderer.invoke('sqlite:get-all-master-regs'),

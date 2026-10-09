@@ -83,6 +83,7 @@ export const routeToLoaderMap = {
   '/erp/u/report/production/timeline-summary/plan': pageLoaders.SummaryPlanReportPage,
   '/erp/u/report/calc-production': pageLoaders.CalcProductionPage,
   '/erp/u/report/calc-production-query': pageLoaders.CalcProductionQueryPage,
+  '/erp/u/report/calc-production-query/detail': pageLoaders.CalcProductionDetailPage,
   '/erp/u/report/registration': pageLoaders.RegistrationPage,
   '/erp/u/report/plan-query': pageLoaders.PlanDetailQueryPage,
   '/erp/u/report/stat-query': pageLoaders.StatDetailQueryPage,
@@ -475,7 +476,19 @@ export const systemsRoutes = [
     public: true
   },
   {
+    path: '/erp/u/report/calc-production-query/detail',
+    element: CalcProductionDetailPage,
+    permission: 'report_calc_production_query',
+    public: true
+  },
+  {
     path: '/erp/u/report/calc-production-query/detail/:seq',
+    element: CalcProductionDetailPage,
+    permission: 'report_calc_production_query',
+    public: true
+  },
+  {
+    path: '/erp/u/report/calc-production-query/detail/*',
     element: CalcProductionDetailPage,
     permission: 'report_calc_production_query',
     public: true

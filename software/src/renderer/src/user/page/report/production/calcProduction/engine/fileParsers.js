@@ -391,10 +391,24 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
     colStr.includes('actualendtime') ||
     colStr.includes('approvedtime') ||
     colStr.includes('mesapprovedtime') ||
+    colStr.includes('ticketcreateddate') ||
+    colStr.includes('slipcreateddate') ||
+    colStr.includes('createddate') ||
+    colStr.includes('docdate') ||
+    colStr.includes('tạo phiếu') ||
+    colStr.includes('ngày tạo') ||
+    colStr.includes('thời gian tạo') ||
+    colStr.includes('lập phiếu') ||
+    colStr.includes('ngày lập') ||
+    colStr.includes('thời gian lập') ||
+    colStr.includes('thời gian duyệt') ||
     colStr.includes('(5)') ||
     colStr.includes('(6)') ||
     colStr.includes('(8)') ||
-    colStr.includes('(9)')
+    colStr.includes('(9)') ||
+    colStr.includes('(90)') ||
+    colStr.includes('(94)') ||
+    colStr.includes('(95)')
 
   const isOnlyTimeCol =
     !isDateTimeCol &&
@@ -437,15 +451,16 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
 
   // 1. Xử lý số Serial Excel (Số thực hoặc chuỗi số)
   if (numVal !== null) {
-    // Trường hợp là số thập phân chỉ giờ (ví dụ 0.65625 -> 15:45)
+    // Trường hợp là số thập phân chỉ giờ (ví dụ 0.65625 -> 15:45:00)
     if (numVal > 0 && numVal < 1) {
       const totalSeconds = Math.round(numVal * 86400)
       const hours = pad(Math.floor(totalSeconds / 3600) % 24)
       const minutes = pad(Math.floor((totalSeconds % 3600) / 60))
-      return `${hours}:${minutes}`
+      const seconds = pad(totalSeconds % 60)
+      return seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
     }
 
-    // Trường hợp là số Serial ngày/giờ Excel (VD: 46290 -> 25/09/26 hoặc 46278.70833 -> 13/09/26 17:00)
+    // Trường hợp là số Serial ngày/giờ Excel (VD: 46290 -> 25/09/26 hoặc 46278.70833 -> 13/09/26 17:00:00)
     if (numVal >= 1 && numVal < 90000) {
       const totalDays = Math.floor(numVal)
       const frac = numVal - totalDays
@@ -459,19 +474,21 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       const totalSecs = Math.round(frac * 86400)
       const hours = pad(Math.floor(totalSecs / 3600) % 24)
       const minutes = pad(Math.floor((totalSecs % 3600) / 60))
+      const seconds = pad(totalSecs % 60)
+      const timeStr = seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}:00`
 
       if (isDateTimeCol) {
-        return `${day}/${month}/${yearShort} ${hours}:${minutes}`
+        return `${day}/${month}/${yearShort} ${timeStr}`
       }
       if (isOnlyTimeCol) {
-        return `${hours}:${minutes}`
+        return seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
       }
       if (isOnlyDateCol) {
         return `${day}/${month}/${yearShort}`
       }
-      const hasTime = frac > 0.0001
+      const hasTime = frac > 0.00001
       return hasTime
-        ? `${day}/${month}/${yearShort} ${hours}:${minutes}`
+        ? `${day}/${month}/${yearShort} ${timeStr}`
         : `${day}/${month}/${yearShort}`
     }
   }
@@ -486,19 +503,20 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
     const minutes = pad(val.getUTCMinutes())
     const seconds = pad(val.getUTCSeconds())
     const yearShort = String(year).slice(-2)
+    const timeStr = seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}:00`
 
     if (isDateTimeCol) {
-      return `${day}/${month}/${yearShort} ${hours}:${minutes}`
+      return `${day}/${month}/${yearShort} ${timeStr}`
     }
     if (year < 1910 || isOnlyTimeCol) {
-      return `${hours}:${minutes}`
+      return seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
     }
     if (isOnlyDateCol) {
       return `${day}/${month}/${yearShort}`
     }
     const hasTime = hours !== '00' || minutes !== '00' || seconds !== '00'
     return hasTime
-      ? `${day}/${month}/${yearShort} ${hours}:${minutes}`
+      ? `${day}/${month}/${yearShort} ${timeStr}`
       : `${day}/${month}/${yearShort}`
   }
 
@@ -510,7 +528,10 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
     // Nếu chuỗi là giờ dạng HH:mm hoặc HH:mm:ss
     if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(str)) {
       const parts = str.split(':')
-      return `${pad(parts[0])}:${pad(parts[1])}`
+      const h = pad(parts[0])
+      const m = pad(parts[1])
+      const s = parts[2] ? pad(parts[2]) : ''
+      return s ? `${h}:${m}:${s}` : `${h}:${m}`
     }
 
     // Nếu là chuỗi ISO hoặc YYYY-MM-DD
@@ -521,20 +542,28 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       const day = pad(parts[2])
       const yearShort = String(year).slice(-2)
 
-      if (isDateTimeCol && parts[3]) {
+      let timeFormatted = ''
+      if (parts[3]) {
         const timeParts = parts[3].split(':')
-        return `${day}/${month}/${yearShort} ${pad(timeParts[0])}:${pad(timeParts[1])}`
+        const h = pad(timeParts[0])
+        const m = pad(timeParts[1] || '00')
+        const s = pad(timeParts[2] || '00')
+        timeFormatted = `${h}:${m}:${s}`
+      }
+
+      if (isDateTimeCol) {
+        return timeFormatted
+          ? `${day}/${month}/${yearShort} ${timeFormatted}`
+          : `${day}/${month}/${yearShort} 00:00:00`
       }
       if (isOnlyDateCol) {
         return `${day}/${month}/${yearShort}`
       }
-      if (isOnlyTimeCol && parts[3]) {
-        const timeParts = parts[3].split(':')
-        return `${pad(timeParts[0])}:${pad(timeParts[1])}`
+      if (isOnlyTimeCol && timeFormatted) {
+        return timeFormatted
       }
       if (parts[3]) {
-        const timeParts = parts[3].split(':')
-        return `${day}/${month}/${yearShort} ${pad(timeParts[0])}:${pad(timeParts[1])}`
+        return `${day}/${month}/${yearShort} ${timeFormatted}`
       }
       return `${day}/${month}/${yearShort}`
     }
@@ -556,13 +585,16 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       let timeFormatted = ''
       if (timePart) {
         const timeParts = timePart.split(':')
-        timeFormatted = `${pad(timeParts[0])}:${pad(timeParts[1])}`
+        const h = pad(timeParts[0])
+        const m = pad(timeParts[1] || '00')
+        const s = pad(timeParts[2] || '00')
+        timeFormatted = `${h}:${m}:${s}`
       }
 
       if (isDateTimeCol) {
         return timeFormatted
           ? `${day}/${month}/${year} ${timeFormatted}`
-          : `${day}/${month}/${year}`
+          : `${day}/${month}/${year} 00:00:00`
       }
       if (isOnlyTimeCol && timeFormatted) {
         return timeFormatted
@@ -812,13 +844,188 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
             resolvedKey = 'StatDate'
             resolvedTitle = 'Ngày thống kê'
           } else if (
+            rawVal0Lower.includes('mã lệnh thống kê bravo') ||
+            rawVal1Lower.includes('mã lệnh thống kê bravo') ||
+            rawVal0Lower.includes('lệnh thống kê bravo') ||
+            rawVal1Lower.includes('lệnh thống kê bravo') ||
+            rawVal0Lower.includes('thống kê bravo') ||
+            rawVal1Lower.includes('thống kê bravo') ||
+            rawVal0Lower.includes('mã thống kê bravo') ||
+            rawVal1Lower.includes('mã thống kê bravo') ||
+            rawVal0Lower.includes('mã lệnh thống kê') ||
+            rawVal1Lower.includes('mã lệnh thống kê') ||
+            rawVal0Lower.includes('lệnh thống kê') ||
+            rawVal1Lower.includes('lệnh thống kê')
+          ) {
+            colTitle = 'Mã lệnh thống kê Bravo'
+            colGroup = ''
+            resolvedKey = 'BravoStatCode'
+            resolvedTitle = 'Mã lệnh thống kê Bravo'
+          } else if (
+            rawVal0Lower.includes('mã phiếu') ||
+            rawVal1Lower.includes('mã phiếu') ||
+            rawVal0Lower.includes('mã phiếu duyệt') ||
+            rawVal1Lower.includes('mã phiếu duyệt') ||
+            rawVal0Lower.includes('số phiếu duyệt') ||
+            rawVal1Lower.includes('số phiếu duyệt') ||
+            rawVal0Lower.includes('phiếu duyệt') ||
+            rawVal1Lower.includes('phiếu duyệt')
+          ) {
+            if (fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL) {
+              colTitle = 'Mã phiếu'
+              colGroup = ''
+              resolvedKey = 'SlipNo'
+              resolvedTitle = 'Mã phiếu'
+            } else {
+              colTitle = 'Số phiếu thống kê'
+              colGroup = ''
+              resolvedKey = 'StatSlipNo'
+              resolvedTitle = 'Số phiếu thống kê'
+            }
+          } else if (
+            rawVal0Lower.includes('số phiếu xuất') ||
+            rawVal1Lower.includes('số phiếu xuất') ||
+            rawVal0Lower.includes('phiếu xuất') ||
+            rawVal1Lower.includes('phiếu xuất') ||
+            rawVal0Lower.includes('xktđ') ||
+            rawVal1Lower.includes('xktđ')
+          ) {
+            colTitle = 'Số phiếu xuất'
+            colGroup = 'Tự động hóa & Đồng bộ'
+            resolvedKey = 'ExportSlipNo'
+            resolvedTitle = 'Số phiếu xuất'
+          } else if (
+            rawVal0Lower.includes('số phiếu nhập') ||
+            rawVal1Lower.includes('số phiếu nhập') ||
+            rawVal0Lower.includes('phiếu nhập') ||
+            rawVal1Lower.includes('phiếu nhập') ||
+            rawVal0Lower.includes('nktđ') ||
+            rawVal1Lower.includes('nktđ')
+          ) {
+            colTitle = 'Số phiếu nhập'
+            colGroup = 'Tự động hóa & Đồng bộ'
+            resolvedKey = 'ImportSlipNo'
+            resolvedTitle = 'Số phiếu nhập'
+          } else if (
+            rawVal0Lower.includes('xuất tự động') ||
+            rawVal1Lower.includes('xuất tự động') ||
+            rawVal0Lower === 'xuất tđ' ||
+            rawVal1Lower === 'xuất tđ'
+          ) {
+            colTitle = 'Xuất tự động'
+            colGroup = 'Tự động hóa & Đồng bộ'
+            resolvedKey = 'IsAutoExport'
+            resolvedTitle = 'Xuất tự động'
+          } else if (
+            rawVal0Lower.includes('nhập tự động') ||
+            rawVal1Lower.includes('nhập tự động') ||
+            rawVal0Lower === 'nhập tđ' ||
+            rawVal1Lower === 'nhập tđ'
+          ) {
+            colTitle = 'Nhập tự động'
+            colGroup = 'Tự động hóa & Đồng bộ'
+            resolvedKey = 'IsAutoImport'
+            resolvedTitle = 'Nhập tự động'
+          } else if (
+            rawVal0Lower.includes('sai mã thao tác') ||
+            rawVal1Lower.includes('sai mã thao tác') ||
+            rawVal0Lower.includes('sai mã tt') ||
+            rawVal1Lower.includes('sai mã tt')
+          ) {
+            colTitle = 'Sai mã thao tác'
+            colGroup = 'Tự động hóa & Đồng bộ'
+            resolvedKey = 'IsWrongOpCode'
+            resolvedTitle = 'Sai mã thao tác'
+          } else if (
+            rawVal0Lower.includes('thống kê bổ sung') ||
+            rawVal1Lower.includes('thống kê bổ sung') ||
+            rawVal0Lower.includes('tk bổ sung') ||
+            rawVal1Lower.includes('tk bổ sung')
+          ) {
+            colTitle = 'Thống kê bổ sung'
+            colGroup = 'Tự động hóa & Đồng bộ'
+            resolvedKey = 'IsSupplementaryStat'
+            resolvedTitle = 'Thống kê bổ sung'
+          } else if (
+            rawVal0Lower.includes('ngày tạo phiếu') ||
+            rawVal1Lower.includes('ngày tạo phiếu') ||
+            rawVal0Lower.includes('ngày lập phiếu') ||
+            rawVal1Lower.includes('ngày lập phiếu')
+          ) {
+            colTitle = 'Ngày tạo phiếu'
+            colGroup = 'Tự động hóa & Đồng bộ'
+            resolvedKey = 'SlipCreatedDate'
+            resolvedTitle = 'Ngày tạo phiếu'
+          } else if (
             rawVal0Lower.includes('số phiếu thống kê') ||
-            rawVal1Lower.includes('số phiếu thống kê')
+            rawVal1Lower.includes('số phiếu thống kê') ||
+            rawVal0Lower.includes('phiếu thống kê') ||
+            rawVal1Lower.includes('phiếu thống kê') ||
+            rawVal0Lower.includes('số phiếu tk') ||
+            rawVal1Lower.includes('số phiếu tk') ||
+            rawVal0Lower.includes('phiếu tk') ||
+            rawVal1Lower.includes('phiếu tk') ||
+            rawVal0Lower.includes('mã thống kê') ||
+            rawVal1Lower.includes('mã thống kê') ||
+            rawVal0Lower.includes('số thống kê') ||
+            rawVal1Lower.includes('số thống kê') ||
+            rawVal0Lower.includes('mã tk') ||
+            rawVal1Lower.includes('mã tk') ||
+            rawVal0Lower.includes('số tk') ||
+            rawVal1Lower.includes('số tk') ||
+            rawVal0Lower.includes('mã phiếu tk') ||
+            rawVal1Lower.includes('mã phiếu tk') ||
+            rawVal0Lower.includes('mã phiếu thống kê') ||
+            rawVal1Lower.includes('mã phiếu thống kê') ||
+            rawVal0Lower === 'số phiếu' ||
+            rawVal1Lower === 'số phiếu'
           ) {
             colTitle = 'Số phiếu thống kê'
             colGroup = ''
             resolvedKey = 'StatSlipNo'
             resolvedTitle = 'Số phiếu thống kê'
+          } else if (
+            rawVal0Lower.includes('thời gian duyệt phiếu ở mes') ||
+            rawVal1Lower.includes('thời gian duyệt phiếu ở mes') ||
+            rawVal0Lower.includes('thời gian duyệt ở mes') ||
+            rawVal1Lower.includes('thời gian duyệt ở mes') ||
+            rawVal0Lower.includes('tg duyệt ở mes') ||
+            rawVal1Lower.includes('tg duyệt ở mes') ||
+            rawVal0Lower.includes('thời gian duyệt mes') ||
+            rawVal1Lower.includes('thời gian duyệt mes')
+          ) {
+            colTitle = 'Thời gian duyệt phiếu ở MES'
+            colGroup = 'Tự động hóa & Đồng bộ'
+            resolvedKey = 'MesApprovedTime'
+            resolvedTitle = 'Thời gian duyệt phiếu ở MES'
+          } else if (
+            rawVal0Lower.includes('thời gian duyệt') ||
+            rawVal1Lower.includes('thời gian duyệt') ||
+            rawVal0Lower.includes('tg duyệt') ||
+            rawVal1Lower.includes('tg duyệt') ||
+            rawVal0Lower.includes('giờ duyệt') ||
+            rawVal1Lower.includes('giờ duyệt') ||
+            rawVal0Lower.includes('thời gian phê duyệt') ||
+            rawVal1Lower.includes('thời gian phê duyệt') ||
+            rawVal0Lower.includes('ngày duyệt') ||
+            rawVal1Lower.includes('ngày duyệt') ||
+            rawVal0Lower.includes('ngày phê duyệt') ||
+            rawVal1Lower.includes('ngày phê duyệt')
+          ) {
+            if (
+              fileType === ARCHITECTURE_FILE_TYPES.STAT_REPORT ||
+              fileType === ARCHITECTURE_FILE_TYPES.RESULT_TKSX
+            ) {
+              colTitle = 'Thời gian duyệt phiếu ở MES'
+              colGroup = 'Tự động hóa & Đồng bộ'
+              resolvedKey = 'MesApprovedTime'
+              resolvedTitle = 'Thời gian duyệt phiếu ở MES'
+            } else {
+              colTitle = 'Thời gian duyệt'
+              colGroup = ''
+              resolvedKey = 'ApprovedTime'
+              resolvedTitle = 'Thời gian duyệt'
+            }
           } else if (
             rawVal0Lower.includes('nhân viên thống kê') ||
             rawVal1Lower.includes('nhân viên thống kê')
@@ -902,6 +1109,60 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
           ) {
             resolvedKey = 'DetailQty'
             resolvedTitle = 'Số lượng'
+          } else if (
+            (groupLower.includes('công đoạn') || groupLower.includes('lệnh công đoạn')) &&
+            (titleLower.includes('phát hành') || titleLower.includes('ngày phát hành'))
+          ) {
+            resolvedKey = 'StageOrderReleaseDate'
+            resolvedTitle = 'Ngày phát hành lệnh CĐ'
+          } else if (
+            (groupLower.includes('công đoạn') || groupLower.includes('lệnh công đoạn')) &&
+            (titleLower.includes('cần đạt') || titleLower.includes('sl cần đạt'))
+          ) {
+            resolvedKey = 'StageTargetQty'
+            resolvedTitle = 'SL cần đạt (CĐ)'
+          } else if (
+            (groupLower.includes('công đoạn') || groupLower.includes('lệnh công đoạn')) &&
+            (titleLower.includes('sản xuất') || titleLower.includes('cần sx') || titleLower.includes('sl cần sản xuất'))
+          ) {
+            resolvedKey = 'StagePlannedQty'
+            resolvedTitle = 'SL cần sản xuất (CĐ)'
+          } else if (
+            (groupLower.includes('thao tác') || groupLower.includes('lệnh thao tác')) &&
+            (titleLower.includes('phát hành') || titleLower.includes('ngày phát hành'))
+          ) {
+            resolvedKey = 'OpOrderReleaseDate'
+            resolvedTitle = 'Ngày phát hành lệnh TT'
+          } else if (
+            (groupLower.includes('thao tác') || groupLower.includes('lệnh thao tác')) &&
+            (titleLower.includes('cần đạt') || titleLower.includes('sl cần đạt'))
+          ) {
+            resolvedKey = 'OpTargetQty'
+            resolvedTitle = 'SL cần đạt (TT)'
+          } else if (
+            (groupLower.includes('thao tác') || groupLower.includes('lệnh thao tác')) &&
+            (titleLower.includes('sản xuất') || titleLower.includes('cần sx') || titleLower.includes('sl cần sản xuất'))
+          ) {
+            resolvedKey = 'OpPlannedQty'
+            resolvedTitle = 'SL cần sản xuất (TT)'
+          } else if (
+            (groupLower.includes('thao tác') || groupLower.includes('lệnh thao tác')) &&
+            (titleLower === 'đvt' || titleLower === 'dvt' || titleLower.includes('đơn vị'))
+          ) {
+            resolvedKey = 'OpUnit'
+            resolvedTitle = 'Đvt'
+          } else if (
+            (groupLower.includes('chất lượng') || groupLower.includes('trạng thái')) &&
+            (titleLower === 'đvt' || titleLower === 'dvt' || titleLower.includes('đơn vị'))
+          ) {
+            resolvedKey = 'QualityUnit'
+            resolvedTitle = 'Đvt chất lượng'
+          } else if (
+            groupLower.includes('chung') &&
+            (titleLower === 'đvt' || titleLower === 'dvt' || titleLower.includes('đơn vị quy đổi'))
+          ) {
+            resolvedKey = titleLower.includes('quy đổi') ? 'ConvertUnit' : 'Unit'
+            resolvedTitle = titleLower.includes('quy đổi') ? 'Đơn vị quy đổi' : 'Đvt'
           } else if (!resolvedKey) {
             const clean = (s) =>
               String(s || '')
@@ -993,36 +1254,89 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
 
             if (cell && cell.v !== undefined && cell.v !== null && cell.v !== '') {
               hasRowData = true
+              const rawVal = cell.v
               let val = cell.w !== undefined ? cell.w : cell.v
               if (typeof val === 'string') {
                 val = val.trim()
               }
 
-              const isDateOrTimeCol =
-                title.toLowerCase().includes('ngày') ||
-                title.toLowerCase().includes('thời gian') ||
-                title.toLowerCase().includes('giờ') ||
-                key.toLowerCase().includes('date') ||
-                key.toLowerCase().includes('time') ||
-                key.toLowerCase().includes('created') ||
-                key.toLowerCase().includes('approval') ||
-                key.toLowerCase().includes('perform')
+              const titleLower = title.toLowerCase()
+              const keyLower = key.toLowerCase()
 
-              if (
-                isDateOrTimeCol ||
-                cell.t === 'd' ||
-                (typeof val === 'number' && val > 30000 && val < 70000) ||
-                (typeof val === 'number' && val > 0 && val < 1) ||
-                (typeof val === 'string' && /^\d+(\.\d+)?$/.test(val) && isDateOrTimeCol)
-              ) {
-                val = formatVietnamDateTimeValue(val, `${key}_${title}`)
+              const isNumericOrQtyCol =
+                titleLower.includes('số lượng') ||
+                titleLower.includes('sl ') ||
+                titleLower.startsWith('sl') ||
+                titleLower.includes('mét') ||
+                titleLower.includes('trọng lượng') ||
+                titleLower.includes('đơn giá') ||
+                titleLower.includes('thành tiền') ||
+                titleLower.includes('tỷ lệ') ||
+                titleLower.includes('số dao') ||
+                titleLower.includes('số part') ||
+                titleLower.includes('số lỗ') ||
+                titleLower.includes('rộng') ||
+                titleLower.includes('dài') ||
+                titleLower.includes('cao') ||
+                titleLower.includes('tổng tg hao phí') ||
+                titleLower.includes('hao phí') ||
+                titleLower.includes('chờ nvl') ||
+                titleLower.includes('chuẩn bị') ||
+                titleLower.includes('sửa file') ||
+                keyLower.includes('qty') ||
+                keyLower.includes('count') ||
+                keyLower.includes('weight') ||
+                keyLower.includes('meters') ||
+                keyLower.includes('rate') ||
+                keyLower.includes('width') ||
+                keyLower.includes('length') ||
+                keyLower.includes('height') ||
+                keyLower.includes('minutes')
+
+              const isDateOrTimeCol =
+                !isNumericOrQtyCol &&
+                (titleLower.includes('ngày') ||
+                  titleLower.includes('thời gian') ||
+                  titleLower.includes('bắt đầu') ||
+                  titleLower.includes('kết thúc') ||
+                  titleLower.includes('giờ') ||
+                  keyLower.includes('date') ||
+                  keyLower.includes('time') ||
+                  keyLower.includes('created') ||
+                  keyLower.includes('approval') ||
+                  keyLower.includes('approved') ||
+                  keyLower.includes('perform'))
+
+              if (!isNumericOrQtyCol && (isDateOrTimeCol || cell.t === 'd')) {
+                // Ưu tiên rawVal (cell.v) nếu là number hoặc Date để lấy đủ giờ:phút:giây
+                const valToFormat =
+                  typeof rawVal === 'number' || rawVal instanceof Date ? rawVal : val
+                val = formatVietnamDateTimeValue(valToFormat, `${key}_${title}`)
               }
 
               rowObj[key] = val
+              if (title && title !== key) {
+                rowObj[title] = val
+              }
             }
           }
 
           if (hasRowData) {
+            if (!rowObj.IdSeq) {
+              rowObj.IdSeq =
+                typeof crypto !== 'undefined' && crypto.randomUUID
+                  ? crypto.randomUUID()
+                  : `ROW-${Date.now()}-${r}`
+            }
+            if (rowObj.RowVersion === undefined) {
+              rowObj.RowVersion = 1
+            }
+            if (!rowObj.CreatedAt) {
+              rowObj.CreatedAt = new Date().toISOString()
+            }
+            if (!rowObj.WorkingTag && !rowObj.Status) {
+              rowObj.WorkingTag = 'A'
+            }
             parsedRows.push(rowObj)
           }
 

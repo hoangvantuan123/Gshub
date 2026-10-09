@@ -4,6 +4,13 @@ import TopLoadingBar from 'react-top-loading-bar'
 import { useTranslation } from 'react-i18next'
 import { forceUnlockPageInteraction } from '../../../utils/togglePageInteraction'
 
+const LoadingBar =
+  typeof TopLoadingBar === 'function'
+    ? TopLoadingBar
+    : typeof TopLoadingBar?.default === 'function'
+      ? TopLoadingBar.default
+      : null
+
 export default function DataPageContainer({
   loadingBarRef,
   actions,
@@ -26,7 +33,7 @@ export default function DataPageContainer({
   if (children) {
     return (
       <>
-        {loadingBarRef && <TopLoadingBar color="blue" height={2} ref={loadingBarRef} />}
+        {loadingBarRef && LoadingBar && <LoadingBar color="blue" height={2} ref={loadingBarRef} />}
         <div className={`bg-slate-50 h-full overflow-hidden ${className}`}>{children}</div>
       </>
     )
@@ -34,7 +41,7 @@ export default function DataPageContainer({
 
   return (
     <>
-      {loadingBarRef && <TopLoadingBar color="blue" height={2} ref={loadingBarRef} />}
+      {loadingBarRef && LoadingBar && <LoadingBar color="blue" height={2} ref={loadingBarRef} />}
       <div className={`bg-slate-50 h-full overflow-hidden ${className}`}>
         <div className="flex flex-col h-full">
           <div className="w-full rounded-lg">

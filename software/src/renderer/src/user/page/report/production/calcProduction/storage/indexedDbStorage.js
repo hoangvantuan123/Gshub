@@ -313,6 +313,20 @@ export const saveCalculationResultIDB = async (resultId, data) => {
 }
 
 /**
+ * Lấy kết quả tính toán từ IndexedDB
+ */
+export const getCalculationResultIDB = async (resultId) => {
+  if (!resultId) return null
+  try {
+    const db = await getCalcProductionDB()
+    return await db.get(STORAGE_KEYS.STORE_CALC_RESULTS, resultId)
+  } catch (error) {
+    console.error('[IndexedDB] Lỗi lấy kết quả tính toán:', error)
+    return null
+  }
+}
+
+/**
  * Lưu đăng ký Master vào IndexedDB
  */
 export const saveMasterRegistrationIDB = async (record) => {

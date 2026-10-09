@@ -102,12 +102,11 @@ function parseFullDateTime(val) {
 }
 
 /**
- * Định dạng số giây chênh lệch thành chuỗi "hh:mm:ss" (hoặc "-hh:mm:ss" nếu âm)
+ * Định dạng số giây chênh lệch thành chuỗi "hh:mm:ss" (luôn lấy giá trị dương)
  */
 function formatSecondsToHms(diffSec) {
-  if (diffSec === null || diffSec === undefined || isNaN(diffSec)) return ''
+  if (diffSec === null || diffSec === undefined || isNaN(diffSec) || diffSec === '') return ''
 
-  const isNeg = diffSec < 0
   const absSec = Math.abs(Math.round(diffSec))
 
   const h = Math.floor(absSec / 3600)
@@ -115,16 +114,196 @@ function formatSecondsToHms(diffSec) {
   const s = absSec % 60
 
   const pad = (n) => String(n).padStart(2, '0')
-  const formatted = `${pad(h)}:${pad(m)}:${pad(s)}`
-  return isNeg ? `-${formatted}` : formatted
+  return `${pad(h)}:${pad(m)}:${pad(s)}`
 }
 
 /**
- * Chuẩn hóa số lệnh thao tác để khớp chính xác giữa các sheet
+ * Chuẩn hóa số lệnh thao tác & mã phiếu thống kê để khớp chính xác giữa các sheet
  */
 function normalizeCode(val) {
-  if (!val) return ''
+  if (val === undefined || val === null) return ''
   return String(val).trim().toUpperCase()
+}
+
+/**
+ * Tạo danh sách các khóa tra cứu mở rộng (nguyên bản, bỏ ký tự đặc biệt, bỏ số 0 ở đầu)
+ */
+export function getLookupKeys(code) {
+  if (!code) return []
+  const norm = normalizeCode(code)
+  const clean = norm.replace(/[^A-Z0-9]/g, '')
+  const keys = new Set([norm])
+  if (clean) {
+    keys.add(clean)
+    const noLeadingZero = clean.replace(/^0+/, '')
+    if (noLeadingZero) keys.add(noLeadingZero)
+  }
+  return Array.from(keys)
+}
+
+/**
+ * Trích xuất Số phiếu thống kê / Mã thống kê / Phiếu TK / Số phiếu duyệt từ đối tượng dòng dữ liệu
+ */
+export function extractTicketOrSlipCode(row) {
+  if (!row || typeof row !== 'object') return ''
+
+  // 1. Kiểm tra danh sách các trường thuộc tính phổ biến
+  const directCandidates = [
+    row.BravoStatCode,
+    row.BravoStatSlipNo,
+    row['Mã lệnh thống kê Bravo'],
+    row['Mã lệnh thống kê bravo'],
+    row['Mã lệnh thống kê'],
+    row['Mã thống kê Bravo'],
+    row['Mã thống kê bravo'],
+    row['Mã lệnh TK Bravo'],
+    row['Mã TK Bravo'],
+    row.StatSlipNo,
+    row.ApprovalSlipNo,
+    row.TicketNo,
+    row.StatTicketNo,
+    row.SlipNo,
+    row.StatCode,
+    row.RegCode,
+    row['Phiếu TK'],
+    row['Phiếu tk'],
+    row['phiếu tk'],
+    row['Phiếu Tk'],
+    row['Mã TK'],
+    row['Mã tk'],
+    row['mã tk'],
+    row['Mã Thống kê'],
+    row['Mã Thống Kê'],
+    row['Mã thống kê'],
+    row['mã thống kê'],
+    row['Số phiếu thống kê'],
+    row['Số phiếu TK'],
+    row['Số phiếu tk'],
+    row['Số phiếu'],
+    row['Số thống kê'],
+    row['Số TK'],
+    row['Số tk'],
+    row['Mã phiếu'],
+    row['Mã phiếu TK'],
+    row['Mã phiếu tk'],
+    row['Mã phiếu thống kê'],
+    row['Số phiếu duyệt'],
+    row['Mã phiếu duyệt'],
+    row['Phiếu thống kê'],
+    row['Phiếu duyệt'],
+    row.Phiếu_TK,
+    row.Mã_TK,
+    row.Mã_thống_kê,
+    row.Mã_Thống_kê,
+    row.Số_phiếu_TK,
+    row.Số_phiếu_thống_kê,
+    row.Số_phiếu_duyệt
+  ]
+
+  for (const c of directCandidates) {
+    if (c !== undefined && c !== null && String(c).trim() !== '') {
+      return normalizeCode(c)
+    }
+  }
+
+  // 2. Quét động các thuộc tính nếu cột có tên đặc thù
+  for (const [k, v] of Object.entries(row)) {
+    if (v === undefined || v === null || String(v).trim() === '') continue
+    const cleanKey = k.toLowerCase().replace(/[_\s\-\r\n\t]+/g, '')
+    if (
+      cleanKey.includes('phieutk') ||
+      cleanKey.includes('matk') ||
+      cleanKey.includes('sotk') ||
+      cleanKey.includes('mathongke') ||
+      cleanKey.includes('sothongke') ||
+      cleanKey.includes('phieuthongke') ||
+      cleanKey.includes('phieuduyet') ||
+      cleanKey.includes('statslipno') ||
+      cleanKey.includes('approvalslipno') ||
+      cleanKey.includes('ticketno') ||
+      cleanKey.includes('slipno') ||
+      cleanKey.includes('statcode') ||
+      cleanKey.includes('regcode') ||
+      cleanKey.includes('sophieutk') ||
+      cleanKey.includes('sophieuthongke') ||
+      cleanKey.includes('sophieuduyet') ||
+      cleanKey.includes('maphieutk') ||
+      cleanKey.includes('maphieu') ||
+      (cleanKey.includes('sophieu') && !cleanKey.includes('xuat') && !cleanKey.includes('nhap'))
+    ) {
+      return normalizeCode(v)
+    }
+  }
+
+  return ''
+}
+
+/**
+ * Trích xuất Thời gian duyệt từ đối tượng dòng duyệt MES
+ */
+export function extractMesApprovedTime(row) {
+  if (!row || typeof row !== 'object') return ''
+
+  const directCandidates = [
+    row.ApprovedTime,
+    row.ApprovalTime,
+    row.MesApprovedTime,
+    row.ApprovedDate,
+    row.ApprovalDate,
+    row.ApproveTime,
+    row.TimeApproved,
+    row['Thời gian duyệt'],
+    row['Thời gian duyệt ở MES'],
+    row['Thời gian duyệt phiếu ở MES'],
+    row['Thời gian duyệt phiếu'],
+    row['Thời gian phê duyệt'],
+    row['Thời gian duyệt MES'],
+    row['TG duyệt'],
+    row['TG duyệt ở MES'],
+    row['Ngày duyệt'],
+    row['Ngày phê duyệt'],
+    row['Ngày duyệt phiếu'],
+    row['Ngày duyệt ở MES'],
+    row['Giờ duyệt'],
+    row.Thời_gian_duyệt,
+    row.Thời_gian_duyệt_ở_MES,
+    row.Thời_gian_duyệt_phiếu_ở_MES,
+    row.TG_duyệt,
+    row.TG_duyệt_ở_MES
+  ]
+
+  for (const c of directCandidates) {
+    if (c !== undefined && c !== null && String(c).trim() !== '') {
+      return String(c).trim()
+    }
+  }
+
+  for (const [k, v] of Object.entries(row)) {
+    if (v === undefined || v === null || String(v).trim() === '') continue
+    const cleanKey = k.toLowerCase().replace(/[_\s\-\r\n\t]+/g, '')
+    if (
+      cleanKey.includes('approvedtime') ||
+      cleanKey.includes('approvaltime') ||
+      cleanKey.includes('mesapprovedtime') ||
+      cleanKey.includes('thoigianduyet') ||
+      cleanKey.includes('tgduyet') ||
+      cleanKey.includes('ngayduyet') ||
+      cleanKey.includes('thoigianpheduyet') ||
+      cleanKey.includes('ngaypheduyet') ||
+      cleanKey.includes('gioduyet') ||
+      (cleanKey.includes('duyet') &&
+        (cleanKey.includes('time') ||
+          cleanKey.includes('date') ||
+          cleanKey.includes('thoigian') ||
+          cleanKey.includes('ngay') ||
+          cleanKey.includes('gio') ||
+          cleanKey.includes('tg')))
+    ) {
+      return String(v).trim()
+    }
+  }
+
+  return ''
 }
 
 /**
@@ -137,7 +316,6 @@ export const calculateTKSX = (files = {}) => {
   const mesApprovalData = files.mes_approval?.data || []
 
   // ── 1. TẠO TỪ ĐIỂN TRA CỨU KẾ HOẠCH LỆNH THAO TÁC (TỪ FILE 3 VÀ FILE 2) ──
-  // Mục đích: Phục vụ Cột 93 (CHECK KHSX: 'KHSX' nếu có lệnh trong file, ngược lại 'Khác KHSX')
   const opOrderPlanMap = new Map()
 
   summaryOpData.forEach((row) => {
@@ -149,7 +327,8 @@ export const calculateTKSX = (files = {}) => {
         ''
     )
     if (code) {
-      opOrderPlanMap.set(code, 'KHSX')
+      const keys = getLookupKeys(code)
+      keys.forEach((k) => opOrderPlanMap.set(k, 'KHSX'))
     }
   })
 
@@ -157,40 +336,63 @@ export const calculateTKSX = (files = {}) => {
     const code = normalizeCode(
       row.OperationOrderNo ?? row['Số lệnh thao tác'] ?? row['Lệnh thao tác'] ?? ''
     )
-    if (code && !opOrderPlanMap.has(code)) {
-      opOrderPlanMap.set(code, 'KHSX')
+    if (code) {
+      const keys = getLookupKeys(code)
+      keys.forEach((k) => {
+        if (!opOrderPlanMap.has(k)) opOrderPlanMap.set(k, 'KHSX')
+      })
     }
   })
 
   // ── 2. TẠO TỪ ĐIỂN TRA CỨU THỜI GIAN DUYỆT MES (TỪ FILE 4) ──
-  // Mục đích: Phục vụ Cột 94 (Thời gian duyệt phiếu ở MES) theo Số phiếu thống kê
+  // Mục đích: Phục vụ Cột 94 (Thời gian duyệt phiếu ở MES) theo Phiếu TK / Mã thống kê
   const mesApprovalMap = new Map()
 
   mesApprovalData.forEach((row) => {
-    const slipNo = normalizeCode(
-      row.ApprovalSlipNo ??
-        row['Số phiếu duyệt'] ??
-        row['Số phiếu'] ??
-        row['Số phiếu thống kê'] ??
-        row.StatSlipNo ??
-        ''
-    )
-    const approvedTime =
-      row.ApprovedTime ??
-      row['Thời gian duyệt'] ??
-      row['Thời gian duyệt phiếu'] ??
-      row['Thời gian duyệt phiếu ở MES'] ??
-      row.ApprovalTime ??
+    const approvedTime = extractMesApprovedTime(row)
+    if (!approvedTime) return
+
+    // 1. Khóa chính: Mã lệnh thống kê Bravo (VD: TK2609-453717, TK2609-031222)
+    const bravoCode =
+      row.BravoStatCode ??
+      row.BravoStatSlipNo ??
+      row['Mã lệnh thống kê Bravo'] ??
+      row['Mã lệnh thống kê bravo'] ??
+      row['Mã lệnh thống kê'] ??
+      row['Mã thống kê Bravo'] ??
+      row['Mã thống kê'] ??
       ''
-    if (slipNo && approvedTime) {
-      mesApprovalMap.set(slipNo, String(approvedTime).trim())
+    if (bravoCode) {
+      const keys = getLookupKeys(bravoCode)
+      keys.forEach((k) => mesApprovalMap.set(k, approvedTime))
+    }
+
+    // 2. Khóa phụ: Mã phiếu duyệt MES (VD: SLIP-TH-GS1-260929-049)
+    const slipNo =
+      row.SlipNo ??
+      row.ApprovalSlipNo ??
+      row['Mã phiếu'] ??
+      row['Số phiếu duyệt'] ??
+      extractTicketOrSlipCode(row)
+    if (slipNo) {
+      const keys = getLookupKeys(slipNo)
+      keys.forEach((k) => mesApprovalMap.set(k, approvedTime))
+    }
+
+    // 3. Khóa dự phòng: Mã lệnh thao tác (VD: CD03-0926-0364(234))
+    const opOrderNo = normalizeCode(row.OperationOrderNo ?? row['Mã lệnh thao tác'] ?? '')
+    if (opOrderNo) {
+      const keys = getLookupKeys(opOrderNo)
+      keys.forEach((k) => {
+        if (!mesApprovalMap.has(k)) mesApprovalMap.set(k, approvedTime)
+      })
     }
   })
 
   // ── 3. ĐẾM TẦN SUẤT SỐ PHIẾU THỐNG KÊ ĐỂ TÌM PHIẾU TRÙNG (CỘT 96) ──
   const slipCountMap = new Map()
   statReportData.forEach((row) => {
-    const slipNo = normalizeCode(row.StatSlipNo ?? row['Số phiếu thống kê'] ?? '')
+    const slipNo = extractTicketOrSlipCode(row)
     if (slipNo) {
       slipCountMap.set(slipNo, (slipCountMap.get(slipNo) || 0) + 1)
     }
@@ -208,12 +410,13 @@ export const calculateTKSX = (files = {}) => {
   let mesUserCount = 0
   let bravoUserCount = 0
   let duplicateSlipCount = 0
+  let mesMatchedCount = 0
 
   const statByMachine = {}
   const statByTeam = {}
   const statByTechnician = {}
 
-  const calculatedRows = statReportData.map((row) => {
+  const calculatedRows = statReportData.map((row, index) => {
     const rowObj = { ...row }
 
     // Lấy các trường dữ liệu cơ bản
@@ -247,7 +450,7 @@ export const calculateTKSX = (files = {}) => {
     const endMin = parseTimeToMinutesInDay(endVal)
 
     // ── CỘT 91 (CM): Thời gian chạy thực tế (phút) ──
-    // Công thức Excel: =IF(OR(Z3="", AA3=""), "", ROUND((AA3-Z3)*1440, 0) - BY3)
+    // Giữ chính xác số phút (không làm tròn số nguyên, ví dụ: 0.9 phút, 12.5 phút)
     let actualRunTime = ''
     if (startMin !== null && endMin !== null) {
       let diffMin = endMin - startMin
@@ -255,7 +458,8 @@ export const calculateTKSX = (files = {}) => {
         // Làm việc qua đêm (qua 24h)
         diffMin += 1440
       }
-      actualRunTime = Math.max(0, Math.round(diffMin) - downtime)
+      const rawRunTime = diffMin - downtime
+      actualRunTime = Math.max(0, Number(rawRunTime.toFixed(2)))
     } else if (row.ActualRunTime !== undefined && row.ActualRunTime !== '') {
       actualRunTime = parseFloat(String(row.ActualRunTime).replace(/,/g, '')) || 0
     }
@@ -278,41 +482,60 @@ export const calculateTKSX = (files = {}) => {
       row.OperationOrderNo ?? row['Số lệnh thao tác'] ?? row['Lệnh thao tác'] ?? ''
     )
     let checkKhsx = 'Khác KHSX'
-    if (opOrderNo && opOrderPlanMap.has(opOrderNo)) {
-      checkKhsx = 'KHSX'
-      insidePlanCount++
+    if (opOrderNo) {
+      const keys = getLookupKeys(opOrderNo)
+      const isPlan = keys.some((k) => opOrderPlanMap.has(k))
+      if (isPlan) {
+        checkKhsx = 'KHSX'
+        insidePlanCount++
+      } else {
+        outsidePlanCount++
+      }
     } else {
       outsidePlanCount++
     }
 
     // ── CỘT 94 (CP): Thời gian duyệt phiếu ở MES ──
-    // Công thức Excel: IFERROR(VLOOKUP(AE, '[1]duyet-san-luong'!$T$2:$V, 3, 0), "")
-    const statSlipNo = normalizeCode(row.StatSlipNo ?? row['Số phiếu thống kê'] ?? '')
+    // Đối soát Phiếu TK / Mã thống kê giữa file TKSX và file Duyệt MES
+    const statSlipNo = extractTicketOrSlipCode(row)
     let mesApprovedTime = ''
-    if (statSlipNo && mesApprovalMap.has(statSlipNo)) {
-      mesApprovedTime = mesApprovalMap.get(statSlipNo)
-    } else if (row.MesApprovedTime || row['Thời gian duyệt phiếu ở MES']) {
-      mesApprovedTime = row.MesApprovedTime || row['Thời gian duyệt phiếu ở MES']
+    if (statSlipNo) {
+      const keys = getLookupKeys(statSlipNo)
+      for (const k of keys) {
+        if (mesApprovalMap.has(k)) {
+          mesApprovedTime = mesApprovalMap.get(k)
+          break
+        }
+      }
+    }
+    if (!mesApprovedTime) {
+      mesApprovedTime =
+        extractMesApprovedTime(row) ||
+        row.MesApprovedTime ||
+        row['Thời gian duyệt phiếu ở MES'] ||
+        row['Thời gian duyệt ở MES'] ||
+        row['Thời gian duyệt'] ||
+        ''
+    }
+    if (mesApprovedTime) {
+      mesMatchedCount++
     }
 
     // ── CỘT 95 (CQ): Độ trễ thời gian đồng bộ 2 hệ thống ──
-    // Công thức Excel: +IF(OR(CL="", CP=""), "", IF(CP>=CL,"","-") & TEXT(ABS(CP - CL),"hh:mm:ss"))
+    // Công thức Excel: =+IF(OR(CL3="", CP3=""), "", TEXT(ABS(CP3 - CL3), "hh:mm:ss"))
     const slipCreatedDate = row.SlipCreatedDate ?? row['Ngày tạo phiếu'] ?? ''
     let syncLatencySeconds = ''
     if (slipCreatedDate && mesApprovedTime) {
       const createdTs = parseFullDateTime(slipCreatedDate)
       const approvedTs = parseFullDateTime(mesApprovedTime)
       if (createdTs && approvedTs) {
-        const diffSec = Math.round((approvedTs - createdTs) / 1000)
+        const diffSec = Math.abs(Math.round((approvedTs - createdTs) / 1000))
         syncLatencySeconds = formatSecondsToHms(diffSec)
-
-        if (diffSec >= 0) {
-          totalSyncDelaySec += diffSec
-          syncCount++
-        }
+        totalSyncDelaySec += diffSec
+        syncCount++
       }
     } else if (row.SyncLatencySeconds || row['Độ trễ thời gian đồng bộ 2 hệ thống']) {
-      syncLatencySeconds = row.SyncLatencySeconds || row['Độ trễ thời gian đồng bộ 2 hệ thống']
+      syncLatencySeconds = formatSecondsToHms(row.SyncLatencySeconds || row['Độ trễ thời gian đồng bộ 2 hệ thống'])
     }
 
     // ── CỘT 96 (CR): Phiếu sinh trùng (0: không trùng, 1: trùng) ──
@@ -335,11 +558,27 @@ export const calculateTKSX = (files = {}) => {
     }
 
     // ── CỘT 98 (CT): Sinh phiếu xuất/nhập tự động ──
-    // Công thức Excel: IF(AND(CF=0, CG=0), "Không sử dụng NVL", IF(CF=0,"",IF(CH="","Không có XKTĐ","Có XKTĐ")) & IF(AND(CF<>0,CG<>0),", ","") & IF(CG=0,"",IF(CI="","Không NKTĐ","Có NKTĐ")))
-    const autoExport = parseInt(row.AutoExport ?? row['Xuất tự động'] ?? 0, 10) || 0
-    const autoImport = parseInt(row.AutoImport ?? row['Nhập tự động'] ?? 0, 10) || 0
-    const exportSlipNo = String(row.ExportSlipNo ?? row['Số phiếu xuất'] ?? '').trim()
-    const importSlipNo = String(row.ImportSlipNo ?? row['Số phiếu nhập'] ?? '').trim()
+    // Công thức Excel: =IF(AND(CF3=0,CG3=0),"Không sử dụng NVL",IF(CF3=0,"",IF(CH3="","Không có XKTĐ","Có XKTĐ"))&IF(AND(CF3<>0,CG3<>0),", ","")&IF(CG3=0,"",IF(CI3="","Không NKTĐ","Có NKTĐ")))
+    const autoExport =
+      parseInt(row.IsAutoExport ?? row.AutoExport ?? row['Xuất tự động'] ?? 0, 10) || 0
+    const autoImport =
+      parseInt(row.IsAutoImport ?? row.AutoImport ?? row['Nhập tự động'] ?? 0, 10) || 0
+    const exportSlipNo = String(
+      row.ExportSlipNo ??
+        row['Số phiếu xuất'] ??
+        row['Phiếu xuất'] ??
+        row.ExportDocNo ??
+        row.StatSlipNo_87 ??
+        ''
+    ).trim()
+    const importSlipNo = String(
+      row.ImportSlipNo ??
+        row['Số phiếu nhập'] ??
+        row['Phiếu nhập'] ??
+        row.ImportDocNo ??
+        row.StatSlipNo_88 ??
+        ''
+    ).trim()
 
     let autoExportImportGenerated = 'Không sử dụng NVL'
     if (autoExport === 0 && autoImport === 0) {
@@ -368,6 +607,8 @@ export const calculateTKSX = (files = {}) => {
 
     rowObj.MesApprovedTime = mesApprovedTime
     rowObj['Thời gian duyệt phiếu ở MES'] = mesApprovedTime
+    rowObj['Thời gian duyệt ở MES'] = mesApprovedTime
+    rowObj['Thời gian duyệt'] = mesApprovedTime
 
     rowObj.SyncLatencySeconds = syncLatencySeconds
     rowObj['Độ trễ thời gian đồng bộ 2 hệ thống'] = syncLatencySeconds
@@ -434,6 +675,22 @@ export const calculateTKSX = (files = {}) => {
       statByTechnician[leadTech].defectQty += defect
     }
 
+    if (!rowObj.IdSeq) {
+      rowObj.IdSeq =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `TKSX-${Date.now()}-${index + 1}`
+    }
+    if (rowObj.RowVersion === undefined) {
+      rowObj.RowVersion = 1
+    }
+    if (!rowObj.CreatedAt) {
+      rowObj.CreatedAt = new Date().toISOString()
+    }
+    if (!rowObj.WorkingTag && !rowObj.Status) {
+      rowObj.WorkingTag = 'A'
+    }
+
     return rowObj
   })
 
@@ -470,6 +727,7 @@ export const calculateTKSX = (files = {}) => {
     duplicateSlipCount,
     mesApproval: {
       totalApprovedTickets: mesApprovalData.length,
+      mesMatchedTickets: mesMatchedCount,
       approvedProducedQty: mesApprovedProducedQty,
       approvedQualifiedQty: mesApprovedQualifiedQty,
       approvedDefectQty: mesApprovedDefectQty,

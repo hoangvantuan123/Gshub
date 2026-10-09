@@ -398,3 +398,52 @@ VALUES
 ON CONFLICT ("IdSeq") DO NOTHING;
 
 -- 4. Seed Phạm Vi Dữ Liệu Liên Kết (_ERPPermScopes)
+
+
+-- =============================================================================
+-- BẢNG: CHI TIẾT DUYỆT SẢN LƯỢNG MES (_ERPMesApprovalDetail)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS "_ERPMesApprovalDetail" (
+    "IdSeq"                  VARCHAR(36) PRIMARY KEY, -- UUIDv7 khóa chính hệ thống
+    "MasterSeq"              VARCHAR(36),             -- UUIDv7 liên kết Master đăng ký
+    "RegCode"                TEXT,                    -- Mã đăng ký đợt
+    "RowSeq"                 INTEGER DEFAULT 0,
+    "SlipNo"                 TEXT NOT NULL,           -- Mã phiếu nghiệp vụ MES (VD: SLIP-TH-GS1-260929-049)
+    "StageOrderNo"           TEXT,                    -- Mã lệnh công đoạn
+    "OperationOrderNo"       TEXT,                    -- Mã lệnh thao tác
+    "OperationName"          TEXT,                    -- Thao tác
+    "MachineName"            TEXT,                    -- Máy
+    "ProductCode"            TEXT,                    -- Mã hàng
+    "ProductName"            TEXT,                    -- Tên hàng
+    "Unit"                   TEXT,                    -- ĐVT
+    "ProductionTeam"         TEXT,                    -- Tổ sản xuất
+    "Creator"                TEXT,                    -- Người tạo (Tên)
+    "Approver"               TEXT,                    -- Người duyệt (Tên)
+    "ApprovedTime"           TEXT,                    -- Thời gian duyệt
+    "StartTime"              TEXT,                    -- Bắt đầu
+    "EndTime"                TEXT,                    -- Kết thúc
+    "ProducedQty"            NUMERIC(18, 4) DEFAULT 0, -- SL sản xuất
+    "QualifiedQty"           NUMERIC(18, 4) DEFAULT 0, -- SL đạt
+    "DefectQty"              NUMERIC(18, 4) DEFAULT 0, -- SL lỗi
+    "Classification"         TEXT,                    -- Phân loại
+    "Status"                 TEXT,                    -- Trạng thái
+    "BravoStatCode"          TEXT,                    -- Mã lệnh thống kê Bravo (VD: TK2609-453717)
+    "Factory"                TEXT,                    -- Nhà máy
+    "UserMemo"               TEXT,                    -- Ghi chú người dùng
+    "RowVersion"             BIGINT DEFAULT 1,        -- Phiên bản bản ghi kiểm soát đồng thời
+    "IsActive"               BOOLEAN DEFAULT true,    -- Trạng thái hoạt động
+    "CreatedBy"              VARCHAR(36),             -- Người tạo Seq (UUIDv7)
+    "CreatedByName"          TEXT,                    -- Tên người tạo
+    "CreatedAt"              TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "UpdatedBy"              VARCHAR(36),             -- Người cập nhật Seq (UUIDv7)
+    "UpdatedByName"          TEXT,                    -- Tên người cập nhật
+    "UpdatedAt"              TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS "idx_mesapproval_masterseq" ON "_ERPMesApprovalDetail" ("MasterSeq");
+CREATE INDEX IF NOT EXISTS "idx_mesapproval_regcode" ON "_ERPMesApprovalDetail" ("RegCode");
+CREATE INDEX IF NOT EXISTS "idx_mesapproval_slipno" ON "_ERPMesApprovalDetail" ("SlipNo");
+CREATE INDEX IF NOT EXISTS "idx_mesapproval_bravostatcode" ON "_ERPMesApprovalDetail" ("BravoStatCode");
+CREATE INDEX IF NOT EXISTS "idx_mesapproval_operationorderno" ON "_ERPMesApprovalDetail" ("OperationOrderNo");
+CREATE INDEX IF NOT EXISTS "idx_mesapproval_approvedtime" ON "_ERPMesApprovalDetail" ("ApprovedTime");
+

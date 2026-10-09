@@ -15,6 +15,7 @@ import CalcDataGridTable from './components/CalcDataGridTable'
 import CalcProductionActions from './components/CalcProductionActions'
 import CalcProductionQuery from './components/CalcProductionQuery'
 import ImportLoadingOverlay from './components/ImportLoadingOverlay'
+import CalculationProgressOverlay from './components/CalculationProgressOverlay'
 import ExcelMappingModal from './components/ExcelMappingModal'
 
 export default function CalcProductionPage({
@@ -46,6 +47,7 @@ export default function CalcProductionPage({
     storageMode,
     fileStatusSummary,
     importProgress,
+    calculationProgress,
     mappingModalState,
     setMappingModalState,
     openMappingModalForCurrentTab,
@@ -234,7 +236,12 @@ export default function CalcProductionPage({
       XLSX.utils.book_append_sheet(wb, ws, currentTabDef.shortTitle || 'Sheet1')
 
       const safeCode = masterInfo.regCode || 'EXPORT'
-      const tabKey = activeTab === 'result_tksx' ? 'TKSX_KetQua_98Cot' : currentTabDef.id
+      const tabKey =
+        activeTab === 'result_tksx'
+          ? 'TKSX_KetQua_98Cot'
+          : activeTab === 'result_khsx'
+            ? 'KHSX_KetQua_DoiSoat'
+            : currentTabDef.id
       const fileName = `${tabKey}_${safeCode}_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`
 
       XLSX.writeFile(wb, fileName)
@@ -315,6 +322,16 @@ export default function CalcProductionPage({
         message={t('Đang đọc và phân tích cấu trúc file Excel...')}
         subMessage={t(
           'Thao tác chuột và bàn phím đang được tạm khóa để bảo vệ toàn vẹn dữ liệu. Vui lòng không tắt hoặc rời khỏi trang.'
+        )}
+      />
+
+      {/* Modal Tiến trình Tính Toán KHSX & TKSX từ CSDL */}
+      <CalculationProgressOverlay
+        isCalculating={isCalculating}
+        progressInfo={calculationProgress}
+        title={t('TIẾN TRÌNH TÍNH TOÁN KHSX & TKSX')}
+        subMessage={t(
+          'Thao tác chuột và bàn phím đang được tạm khóa để đảm bảo tính toán đồng bộ và toàn vẹn dữ liệu. Vui lòng không tắt trang.'
         )}
       />
 

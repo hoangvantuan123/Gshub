@@ -9,8 +9,10 @@ import {
   TAB_DEFINITIONS,
   STORAGE_KEYS,
   STAT_REPORT_COLUMN_SCHEMA,
+  RESULT_KHSX_COLUMN_SCHEMA,
   ARCHITECTURE_FILE_TYPES
 } from '../constants/calcConstants'
+import { RESULT_CALC_COLUMNS_SCHEMA } from '../columns/calcGridColumns'
 import { parseUploadedFile, inspectUploadedFile } from '../engine/fileParsers'
 import { runProductionCalculations } from '../engine'
 import storageAdapter from '../storage'
@@ -81,13 +83,32 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     deleteFile,
     clearAllFiles,
     loadAllFilesForCalculation
-  } = useArchitectureStorage({ autoLoad: false })
+  } = useArchitectureStorage({ autoLoad: true })
 
   const activeTabFileData = useMemo(() => {
     if (activeTab === 'result_tksx') {
       const rows = calcResults?.stat?.calculatedRows || []
+      const statCols =
+        calcResults?.stat?.columns ||
+        filesDataMap['stat_report']?.columns ||
+        fileSummaries['stat_report']?.columns ||
+        []
+
+      let mergedColumns = []
+      if (statCols && statCols.length > 0) {
+        const existingKeys = new Set(statCols.map((c) => c.key || c.id || c.title))
+        mergedColumns = [...statCols]
+        RESULT_CALC_COLUMNS_SCHEMA.forEach((cc) => {
+          if (!existingKeys.has(cc.key) && !existingKeys.has(cc.title)) {
+            mergedColumns.push(cc)
+          }
+        })
+      } else {
+        mergedColumns = [...STAT_REPORT_COLUMN_SCHEMA, ...RESULT_CALC_COLUMNS_SCHEMA]
+      }
+
       return {
-        columns: STAT_REPORT_COLUMN_SCHEMA,
+        columns: mergedColumns,
         data: rows,
         rowCount: rows.length,
         fileName: 'TKSX_KetQua_98Cot.xlsx',
@@ -95,20 +116,28 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
         isResult: true
       }
     }
-    return filesDataMap[activeTab] || null
-  }, [filesDataMap, activeTab, calcResults])
 
-  // Đảm bảo mỗi lần vào menu Đăng ký mới sẽ làm mới hoàn toàn dữ liệu
+    if (activeTab === 'result_khsx') {
+      const rows = calcResults?.plan?.calculatedRows || []
+      return {
+        columns: RESULT_KHSX_COLUMN_SCHEMA,
+        data: rows,
+        rowCount: rows.length,
+        fileName: 'KHSX_KetQua_DoiSoat.xlsx',
+        uploadedAt: calcResults?.calculatedAt || new Date().toISOString(),
+        isResult: true
+      }
+    }
+
+    return filesDataMap[activeTab] || null
+  }, [filesDataMap, fileSummaries, activeTab, calcResults])
+
+  // Tự động nạp chi tiết Tab khi chuyển tab hoặc khi vừa nạp xong
   useEffect(() => {
-    clearAllFiles()
-    setCalcResults(null)
-    setMasterInfo({
-      regCode: generateDefaultRegCode(),
-      factoryName: 'GS1 Hà Nội',
-      applyDate: dayjs().format('YYYY-MM-DD'),
-      remark: ''
-    })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (activeTab && activeTab !== 'result_tksx' && activeTab !== 'result_khsx') {
+      loadTabDetail(activeTab)
+    }
+  }, [activeTab, loadTabDetail])
 
   const [isRegistered, setIsRegistered] = useState(false)
   const [importProgress, setImportProgress] = useState({
@@ -360,6 +389,14 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     }
   }, [fileSummaries, activeTabFileData, masterInfo, notify])
 
+  const [calculationProgress, setCalculationProgress] = useState({
+    percent: 0,
+    step: 'INIT',
+    message: '',
+    detail: '',
+    storageMode: ''
+  })
+
   // Bắt đầu tính toán
   const handleRunCalculation = useCallback(async () => {
     const uploadedCount = Object.values(fileSummaries || {}).filter((s) => s.rowCount > 0).length
@@ -368,12 +405,117 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       return
     }
 
+    const currentStorageMode =
+      storageMode === 'sqlite' || storageMode === 'electron_sqlite'
+        ? 'SQLite Native C++'
+        : 'IndexedDB Engine'
     setIsCalculating(true)
+    setCalculationProgress({
+      percent: 15,
+      step: 'READ_DB',
+      message: 'Đang nạp 4 bảng dữ liệu kiến trúc từ CSDL...',
+      detail: `Đọc dữ liệu từ ${currentStorageMode}`,
+      storageMode: currentStorageMode
+    })
     notify('info', 'Đang thực hiện tính toán KHSX và TKSX...')
+
     try {
+      // 1. Tự động lưu đợt đăng ký Master nếu có file tải lên
+      const statRows = fileSummaries?.stat_report?.rowCount || 0
+      const unfinRows = fileSummaries?.unfinished_op?.rowCount || 0
+      const sumRows = fileSummaries?.summary_op?.rowCount || 0
+      const mesRows = fileSummaries?.mes_approval?.rowCount || 0
+      const total = statRows + unfinRows + sumRows + mesRows
+
+      const masterRecord = {
+        regCode: masterInfo.regCode,
+        factoryName: masterInfo.factoryName,
+        applyDate: masterInfo.applyDate,
+        remark: masterInfo.remark,
+        status: 'REGISTERED',
+        statReportRows: statRows,
+        unfinishedOpRows: unfinRows,
+        summaryOpRows: sumRows,
+        mesApprovalRows: mesRows,
+        totalRows: total,
+        registeredAt: new Date().toISOString(),
+        fileSummaries: fileSummaries || {}
+      }
+
+      try {
+        await storageAdapter.saveMasterRegistration(masterRecord)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`S_MASTER_REG_${masterInfo.regCode}`, JSON.stringify(masterRecord))
+          window.dispatchEvent(new Event('storage'))
+        }
+        setIsRegistered(true)
+      } catch (saveMasterErr) {
+        console.warn('Lưu master registration tự động:', saveMasterErr)
+      }
+
+      // 2. Nạp dữ liệu các file
+      setCalculationProgress({
+        percent: 30,
+        step: 'READ_CHUNKS',
+        message: 'Đang tập hợp ma trận dữ liệu từ CSDL...',
+        detail: `Đã nạp ${total.toLocaleString('vi-VN')} dòng dữ liệu`,
+        storageMode: currentStorageMode
+      })
       const allFiles = await loadAllFilesForCalculation()
+
+      // 3. Thực hiện tính toán TKSX & KHSX
+      setCalculationProgress({
+        percent: 55,
+        step: 'CALC_TKSX',
+        message: 'Đang liên kết & tính toán ma trận TKSX (98 cột)...',
+        detail: 'Ghép Báo cáo thống kê, Dở dang, Tổng hợp và Phê duyệt MES',
+        storageMode: currentStorageMode
+      })
+
       const results = await runProductionCalculations(allFiles)
+
+      setCalculationProgress({
+        percent: 85,
+        step: 'CALC_KHSX',
+        message: 'Đang đối soát & tính toán Kế hoạch KHSX (18 chỉ tiêu)...',
+        detail: 'Tính số lượng hoàn thành, tỷ lệ đạt và độ lệch giờ chạy máy',
+        storageMode: currentStorageMode
+      })
+
       setCalcResults(results)
+
+      // 4. Lưu kết quả tính toán vào CSDL SQLite / IndexedDB
+      setCalculationProgress({
+        percent: 95,
+        step: 'SAVE_RESULTS',
+        message: 'Đang lưu kết quả tính toán vào CSDL...',
+        detail: 'Ghi dữ liệu kết quả vào CSDL bảo toàn vĩnh viễn',
+        storageMode: currentStorageMode
+      })
+
+      try {
+        await storageAdapter.saveCalcResults({
+          id: masterInfo?.regCode || 'latest_calculation',
+          summary: results?.summary || {},
+          planData: results?.plan?.calculatedRows || [],
+          statData: results?.stat?.calculatedRows || [],
+          calculatedAt: results?.calculatedAt || new Date().toISOString()
+        })
+      } catch (saveErr) {
+        console.warn('Lỗi lưu kết quả tính toán:', saveErr)
+      }
+
+      setCalculationProgress({
+        percent: 100,
+        step: 'COMPLETED',
+        message: 'Đã hoàn tất tính toán thành công!',
+        detail: `Xuất ${(results?.stat?.calculatedRows?.length || 0).toLocaleString('vi-VN')} dòng TKSX và ${(results?.plan?.calculatedRows?.length || 0).toLocaleString('vi-VN')} dòng KHSX`,
+        storageMode: currentStorageMode
+      })
+
+      // Chờ một chút để người dùng nhìn thấy 100% hoàn thành
+      await new Promise((resolve) => setTimeout(resolve, 350))
+
       // Tự động chuyển ngay sang Tab Kết Quả TKSX
       setActiveTab('result_tksx')
       notify(
@@ -386,7 +528,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     } finally {
       setIsCalculating(false)
     }
-  }, [fileSummaries, activeTabFileData, loadAllFilesForCalculation, notify])
+  }, [fileSummaries, activeTabFileData, storageMode, masterInfo, loadAllFilesForCalculation, notify])
 
   // Thống kê trạng thái các tab từ fileSummaries & calcResults
   const fileStatusSummary = useMemo(() => {
@@ -397,6 +539,15 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
         summary[tab.id] = {
           isUploaded: rows.length > 0,
           fileName: 'TKSX_KetQua_98Cot.xlsx',
+          rowCount: rows.length,
+          uploadedAt: calcResults?.calculatedAt || null,
+          isResult: true
+        }
+      } else if (tab.id === 'result_khsx') {
+        const rows = calcResults?.plan?.calculatedRows || []
+        summary[tab.id] = {
+          isUploaded: rows.length > 0,
+          fileName: 'KHSX_KetQua_DoiSoat.xlsx',
           rowCount: rows.length,
           uploadedAt: calcResults?.calculatedAt || null,
           isResult: true
@@ -431,6 +582,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     storageMode,
     fileStatusSummary,
     importProgress,
+    calculationProgress,
     mappingModalState,
     setMappingModalState,
     openMappingModalForCurrentTab,

@@ -80,6 +80,17 @@ export function initSqliteDatabase() {
         );
       `)
 
+      // 4. Bảng lưu kết quả tính toán KHSX & TKSX
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calc_results (
+          id TEXT PRIMARY KEY,
+          summary TEXT,
+          plan_data TEXT,
+          stat_data TEXT,
+          calculated_at TEXT
+        );
+      `)
+
       console.log('✅ [SQLite] Đã khởi tạo thành công CSDL SQLite tại:', dbPath)
     }
   } catch (error) {
@@ -350,12 +361,152 @@ export function setupSqliteIpc() {
       const opOrderPlanMap = new Map()
       const normalize = (v) => (v ? String(v).trim().toUpperCase() : '')
 
+      const extractTicketCode = (row) => {
+        if (!row || typeof row !== 'object') return ''
+        const direct = [
+          row.BravoStatCode,
+          row.BravoStatSlipNo,
+          row['Mã lệnh thống kê Bravo'],
+          row['Mã lệnh thống kê bravo'],
+          row['Mã lệnh thống kê'],
+          row['Mã thống kê Bravo'],
+          row['Mã thống kê bravo'],
+          row['Mã lệnh TK Bravo'],
+          row['Mã TK Bravo'],
+          row.StatSlipNo,
+          row.ApprovalSlipNo,
+          row.TicketNo,
+          row.StatTicketNo,
+          row.SlipNo,
+          row.StatCode,
+          row.RegCode,
+          row['Phiếu TK'],
+          row['Phiếu tk'],
+          row['phiếu tk'],
+          row['Phiếu Tk'],
+          row['Mã TK'],
+          row['Mã tk'],
+          row['mã tk'],
+          row['Mã Thống kê'],
+          row['Mã Thống Kê'],
+          row['Mã thống kê'],
+          row['mã thống kê'],
+          row['Số phiếu thống kê'],
+          row['Số phiếu TK'],
+          row['Số phiếu tk'],
+          row['Số phiếu'],
+          row['Số thống kê'],
+          row['Số TK'],
+          row['Số tk'],
+          row['Mã phiếu'],
+          row['Mã phiếu TK'],
+          row['Mã phiếu tk'],
+          row['Mã phiếu thống kê'],
+          row['Số phiếu duyệt'],
+          row['Mã phiếu duyệt'],
+          row['Phiếu thống kê'],
+          row['Phiếu duyệt'],
+          row['Số TK']
+        ]
+        for (const c of direct) {
+          if (c !== undefined && c !== null && String(c).trim() !== '') return normalize(c)
+        }
+        for (const [k, v] of Object.entries(row)) {
+          if (v === undefined || v === null || String(v).trim() === '') continue
+          const cleanKey = k.toLowerCase().replace(/[_\s\-\r\n]+/g, '')
+          if (
+            cleanKey.includes('statslipno') ||
+            cleanKey.includes('approvalslipno') ||
+            cleanKey.includes('mathongke') ||
+            cleanKey.includes('sothongke') ||
+            cleanKey.includes('sophieuthongke') ||
+            cleanKey.includes('sophieutk') ||
+            cleanKey.includes('sophieuduyet') ||
+            cleanKey.includes('maphieutk') ||
+            cleanKey.includes('maphieu') ||
+            cleanKey.includes('matk') ||
+            cleanKey.includes('sotk') ||
+            (cleanKey.includes('sophieu') &&
+              !cleanKey.includes('xuat') &&
+              !cleanKey.includes('nhap'))
+          ) {
+            return normalize(v)
+          }
+        }
+        return ''
+      }
+
+      const extractApprovedTime = (row) => {
+        if (!row || typeof row !== 'object') return ''
+        const direct = [
+          row.ApprovedTime,
+          row.ApprovalTime,
+          row.MesApprovedTime,
+          row.ApprovedDate,
+          row.ApprovalDate,
+          row.ApproveTime,
+          row.TimeApproved,
+          row['Thời gian duyệt'],
+          row['Thời gian duyệt ở MES'],
+          row['Thời gian duyệt phiếu ở MES'],
+          row['Thời gian duyệt phiếu'],
+          row['Thời gian phê duyệt'],
+          row['Thời gian duyệt MES'],
+          row['Ngày duyệt'],
+          row['Ngày phê duyệt'],
+          row['Ngày duyệt phiếu'],
+          row['Ngày duyệt ở MES'],
+          row['Giờ duyệt'],
+          row['TG duyệt']
+        ]
+        for (const c of direct) {
+          if (c !== undefined && c !== null && String(c).trim() !== '') return String(c).trim()
+        }
+        for (const [k, v] of Object.entries(row)) {
+          if (v === undefined || v === null || String(v).trim() === '') continue
+          const cleanKey = k.toLowerCase().replace(/[_\s\-\r\n]+/g, '')
+          if (
+            cleanKey.includes('approvedtime') ||
+            cleanKey.includes('approvaltime') ||
+            cleanKey.includes('mesapprovedtime') ||
+            cleanKey.includes('thoigianduyet') ||
+            cleanKey.includes('ngayduyet') ||
+            cleanKey.includes('thoigianpheduyet') ||
+            cleanKey.includes('ngaypheduyet') ||
+            cleanKey.includes('tgduyet') ||
+            cleanKey.includes('gioduyet') ||
+            (cleanKey.includes('duyet') &&
+              (cleanKey.includes('time') ||
+                cleanKey.includes('date') ||
+                cleanKey.includes('thoigian') ||
+                cleanKey.includes('ngay')))
+          ) {
+            return String(v).trim()
+          }
+        }
+        return ''
+      }
+
+      const getLookupKeys = (code) => {
+        if (!code) return []
+        const norm = normalize(code)
+        const clean = norm.replace(/[^A-Z0-9]/g, '')
+        const keys = new Set([norm])
+        if (clean) {
+          keys.add(clean)
+          const noLeadingZero = clean.replace(/^0+/, '')
+          if (noLeadingZero) keys.add(noLeadingZero)
+        }
+        return Array.from(keys)
+      }
+
       summaryOpData.forEach((row) => {
         const code = normalize(
           row.OperationOrderNo ?? row['Lệnh thao tác'] ?? row['Số lệnh thao tác'] ?? ''
         )
         if (code) {
-          opOrderPlanMap.set(code, 'KHSX')
+          const keys = getLookupKeys(code)
+          keys.forEach((k) => opOrderPlanMap.set(k, 'KHSX'))
         }
       })
 
@@ -363,38 +514,65 @@ export function setupSqliteIpc() {
         const code = normalize(
           row.OperationOrderNo ?? row['Số lệnh thao tác'] ?? row['Lệnh thao tác'] ?? ''
         )
-        if (code && !opOrderPlanMap.has(code)) {
-          opOrderPlanMap.set(code, 'KHSX')
+        if (code) {
+          const keys = getLookupKeys(code)
+          keys.forEach((k) => {
+            if (!opOrderPlanMap.has(k)) opOrderPlanMap.set(k, 'KHSX')
+          })
         }
       })
 
       // Tạo từ điển tra cứu MES
       const mesApprovalMap = new Map()
       mesApprovalData.forEach((row) => {
-        const slipNo = normalize(
-          row.ApprovalSlipNo ??
-            row['Số phiếu duyệt'] ??
-            row['Số phiếu'] ??
-            row['Số phiếu thống kê'] ??
-            row.StatSlipNo ??
-            ''
-        )
-        const approvedTime =
-          row.ApprovedTime ??
-          row['Thời gian duyệt'] ??
-          row['Thời gian duyệt phiếu'] ??
-          row['Thời gian duyệt phiếu ở MES'] ??
-          row.ApprovalTime ??
+        const approvedTime = extractApprovedTime(row)
+        if (!approvedTime) return
+
+        // 1. Khóa chính: Mã lệnh thống kê Bravo (VD: TK2609-453717, TK2609-031222)
+        const bravoCode =
+          row.BravoStatCode ??
+          row.BravoStatSlipNo ??
+          row['Mã lệnh thống kê Bravo'] ??
+          row['Mã lệnh thống kê bravo'] ??
+          row['Mã lệnh thống kê'] ??
+          row['Lệnh thống kê Bravo'] ??
+          row['lệnh thống kê Bravo'] ??
+          row['Lệnh thống kê'] ??
+          row['lệnh thống kê'] ??
+          row['Mã thống kê Bravo'] ??
+          row['Mã thống kê'] ??
           ''
-        if (slipNo && approvedTime) {
-          mesApprovalMap.set(slipNo, String(approvedTime).trim())
+        if (bravoCode) {
+          const keys = getLookupKeys(bravoCode)
+          keys.forEach((k) => mesApprovalMap.set(k, approvedTime))
+        }
+
+        // 2. Khóa phụ: Mã phiếu duyệt MES (VD: SLIP-TH-GS1-260929-049)
+        const slipNo =
+          row.SlipNo ??
+          row.ApprovalSlipNo ??
+          row['Mã phiếu'] ??
+          row['Số phiếu duyệt'] ??
+          extractTicketCode(row)
+        if (slipNo) {
+          const keys = getLookupKeys(slipNo)
+          keys.forEach((k) => mesApprovalMap.set(k, approvedTime))
+        }
+
+        // 3. Khóa dự phòng: Mã lệnh thao tác (VD: CD03-0926-0364(234))
+        const opOrderNo = normalize(row.OperationOrderNo ?? row['Mã lệnh thao tác'] ?? '')
+        if (opOrderNo) {
+          const keys = getLookupKeys(opOrderNo)
+          keys.forEach((k) => {
+            if (!mesApprovalMap.has(k)) mesApprovalMap.set(k, approvedTime)
+          })
         }
       })
 
       // Đếm phiếu trùng
       const slipCountMap = new Map()
       statReportData.forEach((row) => {
-        const slipNo = normalize(row.StatSlipNo ?? row['Số phiếu thống kê'] ?? '')
+        const slipNo = extractTicketCode(row)
         if (slipNo) {
           slipCountMap.set(slipNo, (slipCountMap.get(slipNo) || 0) + 1)
         }
@@ -477,7 +655,8 @@ export function setupSqliteIpc() {
         if (sMin !== null && eMin !== null) {
           let diffMin = eMin - sMin
           if (diffMin < 0) diffMin += 1440
-          actualRunTime = Math.max(0, Math.round(diffMin) - downtime)
+          const rawRunTime = diffMin - downtime
+          actualRunTime = Math.max(0, Number(rawRunTime.toFixed(2)))
         } else if (row.ActualRunTime !== undefined && row.ActualRunTime !== '') {
           actualRunTime = parseFloat(String(row.ActualRunTime).replace(/,/g, '')) || 0
         }
@@ -495,23 +674,42 @@ export function setupSqliteIpc() {
           row.OperationOrderNo ?? row['Số lệnh thao tác'] ?? row['Lệnh thao tác'] ?? ''
         )
         let checkKhsx = 'Khác KHSX'
-        if (opOrderNo && opOrderPlanMap.has(opOrderNo)) {
-          checkKhsx = 'KHSX'
-          insidePlanCount++
+        if (opOrderNo) {
+          const keys = getLookupKeys(opOrderNo)
+          const isPlan = keys.some((k) => opOrderPlanMap.has(k))
+          if (isPlan) {
+            checkKhsx = 'KHSX'
+            insidePlanCount++
+          } else {
+            outsidePlanCount++
+          }
         } else {
           outsidePlanCount++
         }
 
         // Col 94: thời gian duyệt MES
-        const statSlipNo = normalize(row.StatSlipNo ?? row['Số phiếu thống kê'] ?? '')
+        const statSlipNo = extractTicketCode(row)
         let mesApprovedTime = ''
-        if (statSlipNo && mesApprovalMap.has(statSlipNo)) {
-          mesApprovedTime = mesApprovalMap.get(statSlipNo)
-        } else if (row.MesApprovedTime || row['Thời gian duyệt phiếu ở MES']) {
-          mesApprovedTime = row.MesApprovedTime || row['Thời gian duyệt phiếu ở MES']
+        if (statSlipNo) {
+          const keys = getLookupKeys(statSlipNo)
+          for (const k of keys) {
+            if (mesApprovalMap.has(k)) {
+              mesApprovedTime = mesApprovalMap.get(k)
+              break
+            }
+          }
+        }
+        if (!mesApprovedTime) {
+          mesApprovedTime =
+            extractApprovedTime(row) ||
+            row.MesApprovedTime ||
+            row['Thời gian duyệt phiếu ở MES'] ||
+            row['Thời gian duyệt ở MES'] ||
+            row['Thời gian duyệt'] ||
+            ''
         }
 
-        // Col 95: độ trễ đồng bộ
+        // Col 95: Độ trễ đồng bộ 2 hệ thống (=+IF(OR(CL3="",CP3=""),"",TEXT(ABS(CP3-CL3),"hh:mm:ss")))
         const slipCreatedDate = String(row.SlipCreatedDate ?? row['Ngày tạo phiếu'] ?? '').trim()
         let syncLatencySeconds = ''
         if (slipCreatedDate && mesApprovedTime) {
@@ -535,18 +733,14 @@ export function setupSqliteIpc() {
           const cTs = parseTs(slipCreatedDate)
           const aTs = parseTs(mesApprovedTime)
           if (cTs && aTs) {
-            const diffSec = Math.round((aTs - cTs) / 1000)
-            const isNeg = diffSec < 0
-            const absSec = Math.abs(diffSec)
+            const diffSec = Math.abs(Math.round((aTs - cTs) / 1000))
             const pad = (n) => String(n).padStart(2, '0')
-            const h = Math.floor(absSec / 3600)
-            const mi = Math.floor((absSec % 3600) / 60)
-            const s = absSec % 60
-            syncLatencySeconds = `${isNeg ? '-' : ''}${pad(h)}:${pad(mi)}:${pad(s)}`
-            if (diffSec >= 0) {
-              totalSyncDelaySec += diffSec
-              syncCount++
-            }
+            const h = Math.floor(diffSec / 3600)
+            const mi = Math.floor((diffSec % 3600) / 60)
+            const s = diffSec % 60
+            syncLatencySeconds = `${pad(h)}:${pad(mi)}:${pad(s)}`
+            totalSyncDelaySec += diffSec
+            syncCount++
           }
         }
 
@@ -563,14 +757,30 @@ export function setupSqliteIpc() {
         if (createdLocation === 'MES') mesUserCount++
         else bravoUserCount++
 
-        // Col 98: sinh phiếu xuất nhập
-        const autoExport = parseInt(row.AutoExport ?? row['Xuất tự động'] ?? 0, 10) || 0
-        const autoImport = parseInt(row.AutoImport ?? row['Nhập tự động'] ?? 0, 10) || 0
-        const exportSlipNo = String(row.ExportSlipNo ?? row['Số phiếu xuất'] ?? '').trim()
-        const importSlipNo = String(row.ImportSlipNo ?? row['Số phiếu nhập'] ?? '').trim()
+        // Col 98: Sinh phiếu xuất/nhập tự động (=IF(AND(CF3=0,CG3=0),"Không sử dụng NVL",IF(CF3=0,"",IF(CH3="","Không có XKTĐ","Có XKTĐ"))&IF(AND(CF3<>0,CG3<>0),", ","")&IF(CG3=0,"",IF(CI3="","Không NKTĐ","Có NKTĐ"))))
+        const autoExport = parseInt(row.IsAutoExport ?? row.AutoExport ?? row['Xuất tự động'] ?? 0, 10) || 0
+        const autoImport = parseInt(row.IsAutoImport ?? row.AutoImport ?? row['Nhập tự động'] ?? 0, 10) || 0
+        const exportSlipNo = String(
+          row.ExportSlipNo ??
+            row['Số phiếu xuất'] ??
+            row['Phiếu xuất'] ??
+            row.ExportDocNo ??
+            row.StatSlipNo_87 ??
+            ''
+        ).trim()
+        const importSlipNo = String(
+          row.ImportSlipNo ??
+            row['Số phiếu nhập'] ??
+            row['Phiếu nhập'] ??
+            row.ImportDocNo ??
+            row.StatSlipNo_88 ??
+            ''
+        ).trim()
 
         let autoExportImportGenerated = 'Không sử dụng NVL'
-        if (autoExport !== 0 || autoImport !== 0) {
+        if (autoExport === 0 && autoImport === 0) {
+          autoExportImportGenerated = 'Không sử dụng NVL'
+        } else {
           const parts = []
           if (autoExport !== 0) parts.push(exportSlipNo ? 'Có XKTĐ' : 'Không có XKTĐ')
           if (autoImport !== 0) parts.push(importSlipNo ? 'Có NKTĐ' : 'Không NKTĐ')
@@ -586,6 +796,8 @@ export function setupSqliteIpc() {
         rowObj['Cột 93'] = checkKhsx
         rowObj.MesApprovedTime = mesApprovedTime
         rowObj['Thời gian duyệt phiếu ở MES'] = mesApprovedTime
+        rowObj['Thời gian duyệt ở MES'] = mesApprovedTime
+        rowObj['Thời gian duyệt'] = mesApprovedTime
         rowObj.SyncLatencySeconds = syncLatencySeconds
         rowObj['Độ trễ thời gian đồng bộ 2 hệ thống'] = syncLatencySeconds
         rowObj.IsDuplicateSlip = isDuplicateSlip
@@ -632,6 +844,19 @@ export function setupSqliteIpc() {
           statByTechnician[leadTech].defectQty += defect
         }
 
+        if (!rowObj.IdSeq) {
+          rowObj.IdSeq = `TKSX-${Date.now()}-${i + 1}`
+        }
+        if (rowObj.RowVersion === undefined) {
+          rowObj.RowVersion = 1
+        }
+        if (!rowObj.CreatedAt) {
+          rowObj.CreatedAt = new Date().toISOString()
+        }
+        if (!rowObj.WorkingTag && !rowObj.Status) {
+          rowObj.WorkingTag = 'A'
+        }
+
         return rowObj
       })
 
@@ -647,6 +872,12 @@ export function setupSqliteIpc() {
 
       const defectRate = totalProducedQty > 0 ? Number(((totalDefectQty / totalProducedQty) * 100).toFixed(2)) : 0
       const avgSyncDelay = syncCount > 0 ? Number((totalSyncDelaySec / syncCount).toFixed(1)) : 0
+
+      const statFile = db.prepare('SELECT columns FROM calc_architecture_files WHERE file_type = ?').get('stat_report')
+      let statCols = []
+      try {
+        statCols = statFile?.columns ? JSON.parse(statFile.columns) : []
+      } catch {}
 
       const statResult = {
         totalProducedQty,
@@ -672,8 +903,64 @@ export function setupSqliteIpc() {
         machineBreakdown: Object.values(statByMachine).sort((a, b) => b.producedQty - a.producedQty),
         teamBreakdown: Object.values(statByTeam).sort((a, b) => b.producedQty - a.producedQty),
         technicianBreakdown: Object.values(statByTechnician).sort((a, b) => b.producedQty - a.producedQty),
+        columns: statCols,
         calculatedRows
       }
+
+      // 1. Tổng hợp thực tế sản xuất theo lệnh
+      const actualByOp = new Map()
+      statReportData.forEach((row) => {
+        const op = normalize(row.OperationOrderNo ?? row['Số lệnh thao tác'] ?? row['Lệnh thao tác'] ?? '')
+        if (!op) return
+        const p = parseFloat(String(row.ProducedQty ?? row['Số lượng sản xuất'] ?? 0).replace(/,/g, '')) || 0
+        const q = parseFloat(String(row.QualifiedQty ?? row['Số lượng đạt'] ?? 0).replace(/,/g, '')) || 0
+        const d = parseFloat(String(row.DefectQty ?? row['Số lượng lỗi'] ?? 0).replace(/,/g, '')) || 0
+        const rt = parseFloat(String(row.ActualRunTime ?? row['Thời gian chạy thực tế'] ?? 0).replace(/,/g, '')) || 0
+        if (!actualByOp.has(op)) {
+          actualByOp.set(op, { p: 0, q: 0, d: 0, rt: 0 })
+        }
+        const cur = actualByOp.get(op)
+        cur.p += p
+        cur.q += q
+        cur.d += d
+        cur.rt += rt
+      })
+
+      const planCalculatedRows = summaryOpData.map((row, idx) => {
+        const op = normalize(row.OperationOrderNo ?? row['Lệnh thao tác'] ?? row['Số lệnh thao tác'] ?? `KHSX-${idx + 1}`)
+        const matCode = String(row.MaterialCode ?? row['Mã vật tư'] ?? row['Mã hàng'] ?? '').trim()
+        const matName = String(row.MaterialName ?? row['Tên vật tư'] ?? row['Tên hàng'] ?? '').trim()
+        const machine = String(row.MachineName ?? row['Tên máy'] ?? row.MachineCode ?? 'Chưa gán').trim()
+        const rawPlanned = parseFloat(String(row['Số lượng \ncần sx \n(1)'] ?? row['Số lượng cần sản xuất'] ?? row.PlannedQty ?? 0).replace(/,/g, '')) || 0
+        const rawTarget = parseFloat(String(row['Số lượng \ncần đạt \n(2)'] ?? row['Số lượng cần đạt'] ?? row.TargetQty ?? 0).replace(/,/g, '')) || 0
+        const rawDuration = parseFloat(String(row['Tổng thời gian kế hoạch (7)'] ?? row.PlannedHours ?? 0).replace(/,/g, '')) || 0
+
+        const act = actualByOp.get(op) || { p: 0, q: 0, d: 0, rt: 0 }
+        const rate = rawPlanned > 0 ? Number(((act.p / rawPlanned) * 100).toFixed(2)) : 0
+        const actRunHours = Number((act.rt / 60).toFixed(2))
+
+        return {
+          IdSeq: `KHSX-${idx + 1}`,
+          OperationOrderNo: op,
+          MaterialCode: matCode,
+          MaterialName: matName,
+          Unit: String(row.Unit ?? row['ĐVT'] ?? 'Cái').trim(),
+          MachineName: machine,
+          OperationName: String(row.OperationName ?? row['Tên thao tác'] ?? '').trim(),
+          PlannedQty: rawPlanned,
+          TargetQty: rawTarget,
+          AllowedDefectQty: parseFloat(String(row['Số lượng \nsai hỏng \ncho phép \n(3)'] ?? 0).replace(/,/g, '')) || 0,
+          ActualProducedQty: act.p,
+          ActualQualifiedQty: act.q,
+          ActualDefectQty: act.d,
+          RemainingQty: Math.max(0, rawPlanned - act.p),
+          CompletionRate: rate,
+          CompletionStatus: rate >= 100 ? (rate > 100 ? 'Vượt KHSX' : 'Đạt KHSX') : 'Chưa hoàn thành',
+          PlannedHours: rawDuration,
+          ActualRunHours: actRunHours,
+          TimeDiffHours: Number((actRunHours - rawDuration).toFixed(2))
+        }
+      })
 
       // Tính toán KHSX
       let totalPlannedQty = 0
@@ -689,12 +976,13 @@ export function setupSqliteIpc() {
         totalPlannedQty,
         totalUnfinishedQty,
         totalPlannedOrders: summaryOpData.length,
-        totalUnfinishedOrders: unfinishedOpData.length
+        totalUnfinishedOrders: unfinishedOpData.length,
+        calculatedRows: planCalculatedRows
       }
 
       const completionRate = totalPlannedQty > 0 ? Number(((totalProducedQty / totalPlannedQty) * 100).toFixed(2)) : 0
 
-      return {
+      const result = {
         success: true,
         calculatedAt: new Date().toISOString(),
         summary: {
@@ -709,21 +997,51 @@ export function setupSqliteIpc() {
         plan: planResult,
         stat: statResult
       }
+
+      // Tự động lưu kết quả vào bảng calc_results trong SQLite
+      try {
+        const insStmt = db.prepare(`
+          INSERT INTO calc_results (id, summary, plan_data, stat_data, calculated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            summary = excluded.summary,
+            plan_data = excluded.plan_data,
+            stat_data = excluded.stat_data,
+            calculated_at = excluded.calculated_at
+        `)
+        insStmt.run(
+          'CURRENT_CALC',
+          JSON.stringify(result.summary || {}),
+          JSON.stringify(result.plan || {}),
+          JSON.stringify(result.stat || {}),
+          result.calculatedAt
+        )
+      } catch (saveErr) {
+        console.warn('[SQLite] Lưu kết quả calc_results:', saveErr)
+      }
+
+      return result
     } catch (err) {
       console.error('[SQLite IPC] Lỗi tính toán:', err)
       return { success: false, error: err.message }
     }
   })
 
-  // Lưu kết quả tính toán
+  // Lưu kết quả tính toán (hỗ trợ cả payload {id, data} và payload trực tiếp)
   ipcMain.handle('sqlite:save-calc-results', async (_, payload) => {
-    if (!db) return { success: false }
+    if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
     try {
+      const targetId = payload?.id || payload?.regCode || 'latest_calculation'
+      const dataObj = payload?.data || payload
+      const summary = dataObj?.summary || {}
+      const plan = dataObj?.planData ? { calculatedRows: dataObj.planData } : dataObj?.plan || {}
+      const stat = dataObj?.statData ? { calculatedRows: dataObj.statData } : dataObj?.stat || {}
+      const calculatedAt = dataObj?.calculatedAt || new Date().toISOString()
+
       const stmt = db.prepare(`
-        INSERT INTO calc_results (id, completion_rate, summary, plan_data, stat_data, calculated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO calc_results (id, summary, plan_data, stat_data, calculated_at)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
-          completion_rate = excluded.completion_rate,
           summary = excluded.summary,
           plan_data = excluded.plan_data,
           stat_data = excluded.stat_data,
@@ -731,17 +1049,43 @@ export function setupSqliteIpc() {
       `)
 
       stmt.run(
-        payload.id || 'latest',
-        payload.summary?.completionRate || 0,
-        JSON.stringify(payload.summary || {}),
-        JSON.stringify(payload.plan || {}),
-        JSON.stringify(payload.stat || {}),
-        payload.calculatedAt || new Date().toISOString()
+        targetId,
+        typeof summary === 'string' ? summary : JSON.stringify(summary),
+        typeof plan === 'string' ? plan : JSON.stringify(plan),
+        typeof stat === 'string' ? stat : JSON.stringify(stat),
+        calculatedAt
       )
       return { success: true }
     } catch (err) {
       console.error('[SQLite IPC] Lỗi lưu kết quả tính:', err)
       return { success: false, error: err.message }
+    }
+  })
+
+  // Lấy kết quả tính toán theo id hoặc bản ghi mới nhất
+  ipcMain.handle('sqlite:get-calc-results', async (_, id) => {
+    if (!db) return null
+    try {
+      let r = null
+      if (id) {
+        const stmt = db.prepare('SELECT * FROM calc_results WHERE id = ?')
+        r = stmt.get(id)
+      }
+      if (!r) {
+        const stmtLatest = db.prepare('SELECT * FROM calc_results ORDER BY calculated_at DESC LIMIT 1')
+        r = stmtLatest.get()
+      }
+      if (!r) return null
+      return {
+        id: r.id,
+        summary: JSON.parse(r.summary || '{}'),
+        plan: JSON.parse(r.plan_data || '{}'),
+        stat: JSON.parse(r.stat_data || '{}'),
+        calculatedAt: r.calculated_at
+      }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi lấy calc results:', err)
+      return null
     }
   })
 

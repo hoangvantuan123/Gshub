@@ -75,7 +75,43 @@ export const storageAdapter = {
   },
 
   saveCalcResult: async (resultId, data) => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { saveCalcResultsSQLite } = await import('./sqliteStorage')
+      return await saveCalcResultsSQLite(resultId, data)
+    }
+    const { saveCalculationResultIDB } = await import('./indexedDbStorage')
     return await saveCalculationResultIDB(resultId, data)
+  },
+
+  saveCalcResults: async (resultId, data) => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { saveCalcResultsSQLite } = await import('./sqliteStorage')
+      return await saveCalcResultsSQLite(resultId, data)
+    }
+    const { saveCalculationResultIDB } = await import('./indexedDbStorage')
+    return await saveCalculationResultIDB(resultId, data)
+  },
+
+  getCalcResult: async (resultId) => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { getCalcResultsSQLite } = await import('./sqliteStorage')
+      return await getCalcResultsSQLite(resultId)
+    }
+    const { getCalculationResultIDB } = await import('./indexedDbStorage')
+    return await getCalculationResultIDB(resultId)
+  },
+
+  getCalcResults: async (resultId) => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { getCalcResultsSQLite } = await import('./sqliteStorage')
+      return await getCalcResultsSQLite(resultId)
+    }
+    const { getCalculationResultIDB } = await import('./indexedDbStorage')
+    return await getCalculationResultIDB(resultId)
   },
 
   saveMasterRegistration: async (record) => {

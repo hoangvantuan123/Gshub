@@ -133,3 +133,5 @@ export const Button = forwardRef(
 )
 
 Button.displayName = 'Button'
+
+export default Button

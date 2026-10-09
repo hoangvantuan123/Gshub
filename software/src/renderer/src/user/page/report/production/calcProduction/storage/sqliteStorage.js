@@ -105,19 +105,20 @@ export const saveArchitectureFileSQLite = async (fileType, fileData, onProgress 
         // Nhả luồng sự kiện cho UI
         await new Promise((res) => setTimeout(res, 0))
       }
+      return { success: true, sqlite: true }
     }
   } catch (error) {
-    console.warn('[SQLite Storage] IPC SQLite lưu chunk không phản hồi:', error)
+    console.warn('[SQLite Storage] IPC SQLite lưu chunk không phản hồi, fallback sang IndexedDB:', error)
   }
 
-  // Đồng thời lưu IndexedDB làm bản sao an toàn (theo chunk)
+  // Fallback sang IndexedDB chỉ khi không chạy Electron hoặc SQLite gặp sự cố
   try {
-    await saveArchitectureFileIDB(fileType, fileData, onProgress)
+    const idbRes = await saveArchitectureFileIDB(fileType, fileData, onProgress)
+    return { success: idbRes?.success !== false, sqlite: false }
   } catch (idbErr) {
-    console.warn('[IndexedDB Storage] Ghi bản sao IDB:', idbErr)
+    console.warn('[IndexedDB Storage] Ghi IDB fallback lỗi:', idbErr)
+    return { success: false, sqlite: false }
   }
-
-  return { success: true, sqlite: sqliteSuccess }
 }
 
 /**
@@ -299,6 +300,44 @@ export const deleteMasterRegistrationSQLite = async (regCode) => {
 }
 
 let isSqliteCalcIpcSupported = true
+
+/**
+ * Lưu kết quả tính toán vào SQLite
+ */
+export const saveCalcResultsSQLite = async (id, data) => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.saveCalcResults) {
+        return await window.electron.sqlite.saveCalcResults(id, data)
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:save-calc-results', { id, data })
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi lưu kết quả tính toán:', error)
+    }
+  }
+  const { saveCalculationResultIDB } = await import('./indexedDbStorage')
+  return await saveCalculationResultIDB(id, data)
+}
+
+/**
+ * Lấy kết quả tính toán từ SQLite
+ */
+export const getCalcResultsSQLite = async (id = null) => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.getCalcResults) {
+        return await window.electron.sqlite.getCalcResults(id)
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:get-calc-results', id)
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi lấy kết quả tính toán:', error)
+    }
+  }
+  const { getCalculationResultIDB } = await import('./indexedDbStorage')
+  return await getCalculationResultIDB(id || 'latest_calculation')
+}
 
 /**
  * Gọi tính toán trực tiếp từ CSDL SQLite qua IPC (Tốc độ native C++)

@@ -6,6 +6,8 @@ import { calculateKHSX } from './planCalculator'
 import { calculateTKSX } from './statCalculator'
 import { calculateProductionSQLite, isElectronSqliteAvailable } from '../storage/sqliteStorage'
 
+import storageAdapter from '../storage'
+
 export const runProductionCalculations = async (files = {}) => {
   // 1. Nếu chạy trên Electron Desktop: Ưu tiên tính toán trực tiếp từ CSDL SQLite qua IPC (Native C++)
   if (isElectronSqliteAvailable()) {
@@ -19,9 +21,18 @@ export const runProductionCalculations = async (files = {}) => {
     }
   }
 
-  // 2. Chạy trên Web hoặc Fallback: Sử dụng động cơ tính toán Map Streaming tối ưu siêu nhẹ cho IndexedDB
-  const planResult = calculateKHSX(files)
-  const statResult = calculateTKSX(files)
+  // 2. Chạy trên Web / Fallback: Đảm bảo chọc trực tiếp vào CSDL IndexedDB đọc toàn bộ 4 bảng thô
+  let allFiles = files
+  if (!allFiles || Object.keys(allFiles).length === 0 || !allFiles.stat_report?.data?.length) {
+    try {
+      allFiles = await storageAdapter.getAllFiles()
+    } catch (e) {
+      console.warn('[Calc Engine] Đọc files từ storage adapter:', e)
+    }
+  }
+
+  const planResult = calculateKHSX(allFiles || {})
+  const statResult = calculateTKSX(allFiles || {})
 
   // Tính tỷ lệ hoàn thành kế hoạch (Thực tế / Kế hoạch)
   const completionRate =
@@ -29,7 +40,7 @@ export const runProductionCalculations = async (files = {}) => {
       ? Number(((statResult.totalProducedQty / planResult.totalPlannedQty) * 100).toFixed(2))
       : 0
 
-  return {
+  const result = {
     success: true,
     calculatedAt: new Date().toISOString(),
     summary: {
@@ -44,6 +55,13 @@ export const runProductionCalculations = async (files = {}) => {
     plan: planResult,
     stat: statResult
   }
+
+  // Tự động lưu kết quả vào CSDL
+  try {
+    await storageAdapter.saveCalcResults('CURRENT_CALC', result)
+  } catch {}
+
+  return result
 }
 
 export default {

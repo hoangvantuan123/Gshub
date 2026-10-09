@@ -48,7 +48,7 @@ func Load() {
 	}
 
 	Cfg = Config{
-		LogStorage:       getEnv("LOG_STORAGE", "/Users/hoangvantuan/Documents/erpsys/service/grafana-logs/logs"),
+		LogStorage:       getEnv("LOG_STORAGE", "../grafana-logs/logs"),
 		Env:              env,
 		ServiceName:      getEnv("SERVICE_NAME", "microservice-user"),
 		PortGrpc:         getEnvAsInt("PORT_GRPC", 5051),

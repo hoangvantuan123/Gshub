@@ -38,7 +38,7 @@ export function initSqliteDatabase() {
       db = new DatabaseClass(dbPath)
       db.pragma('journal_mode = WAL')
 
-      // 1. Bảng lưu 4 file kiến trúc
+      // 1. Bảng lưu 4 file kiến trúc (Metadata)
       db.exec(`
         CREATE TABLE IF NOT EXISTS calc_architecture_files (
           file_type TEXT PRIMARY KEY,
@@ -48,6 +48,17 @@ export function initSqliteDatabase() {
           columns TEXT,
           data TEXT,
           uploaded_at TEXT
+        );
+      `)
+
+      // 2. Bảng lưu các khúc (Chunks) dữ liệu để nạp/lưu theo batch không bao giờ tràn RAM
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calc_architecture_chunks (
+          file_type TEXT,
+          chunk_index INTEGER,
+          row_count INTEGER,
+          data TEXT,
+          PRIMARY KEY (file_type, chunk_index)
         );
       `)
 
@@ -77,12 +88,120 @@ export function initSqliteDatabase() {
 }
 
 /**
+ * Hàm tiện ích lấy toàn bộ dữ liệu của 1 fileType từ SQLite (ghép các Chunks lại)
+ */
+function getFullDataForFileType(fileType) {
+  if (!db || !fileType) return []
+  try {
+    const chunkStmt = db.prepare(
+      'SELECT chunk_index, data FROM calc_architecture_chunks WHERE file_type = ? ORDER BY chunk_index ASC'
+    )
+    const chunks = chunkStmt.all(fileType)
+    if (chunks && chunks.length > 0) {
+      const combined = []
+      for (const ch of chunks) {
+        if (ch.data) {
+          try {
+            const arr = typeof ch.data === 'string' ? JSON.parse(ch.data) : ch.data
+            if (Array.isArray(arr)) {
+              combined.push(...arr)
+            }
+          } catch {}
+        }
+      }
+      return combined
+    }
+
+    // Fallback sang dữ liệu cũ lưu trong cột data
+    const fileRow = db.prepare('SELECT data FROM calc_architecture_files WHERE file_type = ?').get(fileType)
+    if (fileRow?.data) {
+      try {
+        const parsed = typeof fileRow.data === 'string' ? JSON.parse(fileRow.data) : fileRow.data
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    }
+  } catch (err) {
+    console.error('[SQLite] Lỗi getFullDataForFileType:', err)
+  }
+  return []
+}
+
+/**
  * Cấu hình IPC Handlers cho Renderer Process giao tiếp với SQLite
  */
 export function setupSqliteIpc() {
   initSqliteDatabase()
 
-  // Lưu 1 file kiến trúc
+  // Lưu từng khúc (Chunk) của 1 file kiến trúc (Batch Insert siêu tốc)
+  ipcMain.handle('sqlite:save-calc-file-chunk', async (_, payload) => {
+    if (!db) {
+      return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    }
+    try {
+      const {
+        fileType,
+        fileName,
+        fileSize,
+        rowCount,
+        columns,
+        chunk,
+        chunkIndex,
+        totalChunks,
+        isFirstChunk,
+        isLastChunk,
+        uploadedAt
+      } = payload
+
+      const tx = db.transaction(() => {
+        if (isFirstChunk) {
+          const metaStmt = db.prepare(`
+            INSERT INTO calc_architecture_files (file_type, file_name, file_size, row_count, columns, data, uploaded_at)
+            VALUES (?, ?, ?, ?, ?, '', ?)
+            ON CONFLICT(file_type) DO UPDATE SET
+              file_name = excluded.file_name,
+              file_size = excluded.file_size,
+              row_count = excluded.row_count,
+              columns = excluded.columns,
+              data = '',
+              uploaded_at = excluded.uploaded_at
+          `)
+          metaStmt.run(
+            fileType,
+            fileName || '',
+            fileSize || 0,
+            rowCount || 0,
+            typeof columns === 'string' ? columns : JSON.stringify(columns || []),
+            uploadedAt || new Date().toISOString()
+          )
+
+          db.prepare('DELETE FROM calc_architecture_chunks WHERE file_type = ?').run(fileType)
+        }
+
+        if (chunk && chunk.length > 0) {
+          const chunkStmt = db.prepare(`
+            INSERT OR REPLACE INTO calc_architecture_chunks (file_type, chunk_index, row_count, data)
+            VALUES (?, ?, ?, ?)
+          `)
+          chunkStmt.run(
+            fileType,
+            chunkIndex,
+            chunk.length,
+            typeof chunk === 'string' ? chunk : JSON.stringify(chunk)
+          )
+        }
+      })
+
+      tx()
+      return { success: true }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi lưu file chunk:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // Lưu 1 file kiến trúc (nguyên khối fallback)
   ipcMain.handle('sqlite:save-calc-file', async (_, payload) => {
     if (!db) {
       return { success: false, error: 'Database SQLite chưa sẵn sàng' }
@@ -141,20 +260,21 @@ export function setupSqliteIpc() {
     }
   })
 
-  // Lấy chi tiết 1 file (bao gồm data) khi thực sự cần hiển thị Tab đó
+  // Lấy chi tiết 1 file (bao gồm data được ghép từ chunks) khi thực sự cần hiển thị Tab đó
   ipcMain.handle('sqlite:get-calc-file', async (_, fileType) => {
     if (!db) return null
     try {
       const stmt = db.prepare('SELECT * FROM calc_architecture_files WHERE file_type = ?')
       const row = stmt.get(fileType)
       if (!row) return null
+      const fullData = getFullDataForFileType(fileType)
       return {
         fileType: row.file_type,
         fileName: row.file_name,
         fileSize: row.file_size,
-        rowCount: row.row_count,
+        rowCount: row.row_count || fullData.length,
         columns: JSON.parse(row.columns || '[]'),
-        data: JSON.parse(row.data || '[]'),
+        data: fullData,
         uploadedAt: row.uploaded_at
       }
     } catch (err) {
@@ -169,30 +289,33 @@ export function setupSqliteIpc() {
     try {
       const stmt = db.prepare('SELECT * FROM calc_architecture_files')
       const rows = stmt.all()
-      return rows.map((row) => ({
-        fileType: row.file_type,
-        fileName: row.file_name,
-        fileSize: row.file_size,
-        rowCount: row.row_count,
-        columns: JSON.parse(row.columns || '[]'),
-        data: JSON.parse(row.data || '[]'),
-        uploadedAt: row.uploaded_at
-      }))
+      return rows.map((row) => {
+        const fullData = getFullDataForFileType(row.file_type)
+        return {
+          fileType: row.file_type,
+          fileName: row.file_name,
+          fileSize: row.file_size,
+          rowCount: row.row_count || fullData.length,
+          columns: JSON.parse(row.columns || '[]'),
+          data: fullData,
+          uploadedAt: row.uploaded_at
+        }
+      })
     } catch (err) {
       console.error('[SQLite IPC] Lỗi lấy toàn bộ files:', err)
       return []
     }
   })
 
-  // Xóa 1 file hoặc xóa toàn bộ
+  // Xóa 1 file hoặc xóa toàn bộ (kèm xóa chunks)
   ipcMain.handle('sqlite:delete-calc-file', async (_, fileType) => {
     if (!db) return { success: false }
     try {
       if (fileType) {
-        const stmt = db.prepare('DELETE FROM calc_architecture_files WHERE file_type = ?')
-        stmt.run(fileType)
+        db.prepare('DELETE FROM calc_architecture_files WHERE file_type = ?').run(fileType)
+        db.prepare('DELETE FROM calc_architecture_chunks WHERE file_type = ?').run(fileType)
       } else {
-        db.exec('DELETE FROM calc_architecture_files')
+        db.exec('DELETE FROM calc_architecture_files; DELETE FROM calc_architecture_chunks;')
       }
       return { success: true }
     } catch (err) {
@@ -207,13 +330,13 @@ export function setupSqliteIpc() {
       return { success: false, error: 'Database SQLite chưa sẵn sàng' }
     }
     try {
-      const stmt = db.prepare('SELECT file_type, data FROM calc_architecture_files')
+      const stmt = db.prepare('SELECT file_type FROM calc_architecture_files')
       const rows = stmt.all()
       const files = {}
       for (const r of rows) {
         if (r.file_type) {
           files[r.file_type] = {
-            data: typeof r.data === 'string' ? JSON.parse(r.data || '[]') : r.data
+            data: getFullDataForFileType(r.file_type)
           }
         }
       }

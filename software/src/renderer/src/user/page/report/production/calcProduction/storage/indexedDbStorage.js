@@ -9,6 +9,7 @@ let dbPromise = null
 
 const REQUIRED_STORES = [
   { name: STORAGE_KEYS.STORE_FILES, keyPath: 'fileType' },
+  { name: STORAGE_KEYS.STORE_FILE_CHUNKS, keyPath: 'id' },
   { name: STORAGE_KEYS.STORE_CALC_RESULTS, keyPath: 'id' },
   { name: STORAGE_KEYS.STORE_METADATA, keyPath: 'key' },
   { name: STORAGE_KEYS.STORE_MASTER, keyPath: 'regCode' }
@@ -81,25 +82,84 @@ export const resetCalcProductionDB = () => {
   }
 }
 
+const CHUNK_ROW_SIZE = 2500
+
 /**
- * Lưu 1 file kiến trúc vào IndexedDB
+ * Lưu 1 file kiến trúc vào IndexedDB theo từng khúc (Chunking) để không đơ UI
  */
-export const saveArchitectureFileIDB = async (fileType, fileData) => {
+export const saveArchitectureFileIDB = async (fileType, fileData, onProgress = null) => {
   try {
     const db = await getCalcProductionDB()
-    const record = {
+    const rows = fileData.data || []
+    const totalRows = rows.length
+    const totalChunks = Math.max(1, Math.ceil(totalRows / CHUNK_ROW_SIZE))
+
+    // 1. Lưu bản ghi metadata tổng quan của file
+    const metaRecord = {
       fileType,
       fileName: fileData.fileName || '',
       fileSize: fileData.fileSize || 0,
-      rowCount: fileData.rowCount || fileData.data?.length || 0,
+      rowCount: fileData.rowCount || totalRows,
       columns: fileData.columns || [],
-      data: fileData.data || [],
+      data: [], // Để rỗng trong metadata, dữ liệu thực được chia nhỏ lưu ở STORE_FILE_CHUNKS
       uploadedAt: fileData.uploadedAt || new Date().toISOString()
     }
-    await db.put(STORAGE_KEYS.STORE_FILES, record)
-    return { success: true, record }
+    await db.put(STORAGE_KEYS.STORE_FILES, metaRecord)
+
+    // 2. Xóa các chunk cũ của fileType này trong IndexedDB
+    try {
+      const txClear = db.transaction(STORAGE_KEYS.STORE_FILE_CHUNKS, 'readwrite')
+      const chunkStore = txClear.objectStore(STORAGE_KEYS.STORE_FILE_CHUNKS)
+      let cursor = await chunkStore.openCursor()
+      while (cursor) {
+        if (cursor.value?.fileType === fileType) {
+          await cursor.delete()
+        }
+        cursor = await cursor.continue()
+      }
+      await txClear.done
+    } catch (clearErr) {
+      console.warn('[IndexedDB] Dọn dẹp chunk cũ:', clearErr)
+    }
+
+    // 3. Ghi dữ liệu lần lượt theo từng khúc (Chunk)
+    for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+      const startIdx = chunkIdx * CHUNK_ROW_SIZE
+      const endIdx = Math.min(startIdx + CHUNK_ROW_SIZE, totalRows)
+      const chunkData = rows.slice(startIdx, endIdx)
+
+      const chunkRecord = {
+        id: `${fileType}_${chunkIdx}`,
+        fileType,
+        chunkIndex: chunkIdx,
+        rowCount: chunkData.length,
+        data: chunkData
+      }
+
+      const txChunk = db.transaction(STORAGE_KEYS.STORE_FILE_CHUNKS, 'readwrite')
+      await txChunk.objectStore(STORAGE_KEYS.STORE_FILE_CHUNKS).put(chunkRecord)
+      await txChunk.done
+
+      // Báo tiến trình cho UI
+      const processedRows = endIdx
+      const savePercent = Math.min(100, Math.round(90 + (10 * (chunkIdx + 1)) / totalChunks))
+      onProgress?.({
+        step: 'SAVING_CHUNKS_IDB',
+        percent: savePercent,
+        processedRows,
+        totalRows,
+        chunkIndex: chunkIdx + 1,
+        totalChunks,
+        message: `Đang lưu khúc ${chunkIdx + 1}/${totalChunks} (${processedRows.toLocaleString('vi-VN')}/${totalRows.toLocaleString('vi-VN')} dòng) vào CSDL...`
+      })
+
+      // Nhả luồng sự kiện cho UI render mượt mà
+      await new Promise((res) => setTimeout(res, 0))
+    }
+
+    return { success: true, record: metaRecord }
   } catch (error) {
-    console.error(`[IndexedDB] Lỗi lưu file ${fileType}:`, error)
+    console.error(`[IndexedDB] Lỗi lưu file chunk ${fileType}:`, error)
     throw error
   }
 }
@@ -134,12 +194,46 @@ export const getAllFileSummariesIDB = async () => {
 }
 
 /**
- * Lấy dữ liệu 1 file kiến trúc chi tiết từ IndexedDB
+ * Lấy dữ liệu 1 file kiến trúc chi tiết từ IndexedDB (ghép các khúc chunk lại)
  */
 export const getArchitectureFileIDB = async (fileType) => {
   try {
     const db = await getCalcProductionDB()
-    return await db.get(STORAGE_KEYS.STORE_FILES, fileType)
+    const meta = await db.get(STORAGE_KEYS.STORE_FILES, fileType)
+    if (!meta) return null
+
+    // Đọc tất cả các chunk thuộc fileType này
+    const chunks = []
+    try {
+      const tx = db.transaction(STORAGE_KEYS.STORE_FILE_CHUNKS, 'readonly')
+      const store = tx.objectStore(STORAGE_KEYS.STORE_FILE_CHUNKS)
+      let cursor = await store.openCursor()
+      while (cursor) {
+        if (cursor.value?.fileType === fileType) {
+          chunks.push(cursor.value)
+        }
+        cursor = await cursor.continue()
+      }
+    } catch (e) {
+      console.warn('[IndexedDB] Đọc chunks:', e)
+    }
+
+    if (chunks.length > 0) {
+      chunks.sort((a, b) => a.chunkIndex - b.chunkIndex)
+      const combinedData = []
+      for (const ch of chunks) {
+        if (Array.isArray(ch.data)) {
+          combinedData.push(...ch.data)
+        }
+      }
+      return {
+        ...meta,
+        data: combinedData
+      }
+    }
+
+    // Fallback nếu dữ liệu cũ còn nằm trực tiếp trong meta.data
+    return meta
   } catch (error) {
     console.error(`[IndexedDB] Lỗi lấy file ${fileType}:`, error)
     return null
@@ -154,11 +248,12 @@ export const getAllArchitectureFilesIDB = async () => {
     const db = await getCalcProductionDB()
     const files = await db.getAll(STORAGE_KEYS.STORE_FILES)
     const result = {}
-    files.forEach((f) => {
+
+    for (const f of files) {
       if (f?.fileType) {
-        result[f.fileType] = f
+        result[f.fileType] = await getArchitectureFileIDB(f.fileType)
       }
-    })
+    }
     return result
   } catch (error) {
     console.error('[IndexedDB] Lỗi lấy toàn bộ files:', error)
@@ -167,15 +262,30 @@ export const getAllArchitectureFilesIDB = async () => {
 }
 
 /**
- * Xóa 1 file hoặc toàn bộ files trong IndexedDB
+ * Xóa 1 file hoặc toàn bộ files trong IndexedDB kèm các chunks
  */
 export const deleteArchitectureFileIDB = async (fileType) => {
   try {
     const db = await getCalcProductionDB()
     if (fileType) {
       await db.delete(STORAGE_KEYS.STORE_FILES, fileType)
+      try {
+        const tx = db.transaction(STORAGE_KEYS.STORE_FILE_CHUNKS, 'readwrite')
+        const store = tx.objectStore(STORAGE_KEYS.STORE_FILE_CHUNKS)
+        let cursor = await store.openCursor()
+        while (cursor) {
+          if (cursor.value?.fileType === fileType) {
+            await cursor.delete()
+          }
+          cursor = await cursor.continue()
+        }
+        await tx.done
+      } catch {}
     } else {
       await db.clear(STORAGE_KEYS.STORE_FILES)
+      try {
+        await db.clear(STORAGE_KEYS.STORE_FILE_CHUNKS)
+      } catch {}
     }
     return { success: true }
   } catch (error) {

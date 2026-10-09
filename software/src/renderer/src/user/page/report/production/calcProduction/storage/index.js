@@ -34,12 +34,12 @@ export const getStorageMode = () => {
 export const storageAdapter = {
   getMode: getStorageMode,
 
-  saveFile: async (fileType, fileData) => {
+  saveFile: async (fileType, fileData, onProgress = null) => {
     const mode = getStorageMode()
     if (mode === 'sqlite') {
-      return await saveArchitectureFileSQLite(fileType, fileData)
+      return await saveArchitectureFileSQLite(fileType, fileData, onProgress)
     }
-    return await saveArchitectureFileIDB(fileType, fileData)
+    return await saveArchitectureFileIDB(fileType, fileData, onProgress)
   },
 
   getAllSummaries: async () => {

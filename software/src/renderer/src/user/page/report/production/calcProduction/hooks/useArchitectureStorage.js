@@ -57,8 +57,8 @@ export function useArchitectureStorage({ autoLoad = false } = {}) {
     }
   }, [])
 
-  const saveFile = async (fileType, fileData) => {
-    await storageAdapter.saveFile(fileType, fileData)
+  const saveFile = async (fileType, fileData, onProgress = null) => {
+    await storageAdapter.saveFile(fileType, fileData, onProgress)
     detailCacheRef.current[fileType] = fileData
     setFilesDataMap((prev) => ({ ...prev, [fileType]: fileData }))
     setFileSummaries((prev) => ({

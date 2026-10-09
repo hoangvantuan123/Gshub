@@ -49,38 +49,70 @@ export const getAllFileSummariesSQLite = async () => {
   return await getAllFileSummariesIDB()
 }
 
+const CHUNK_ROW_SIZE = 2500
+
 /**
- * Lưu 1 file kiến trúc vào SQLite qua Electron IPC và đồng thời lưu bản sao IndexedDB
+ * Lưu 1 file kiến trúc vào SQLite qua Electron IPC theo từng khúc (Chunking) và đồng thời lưu bản sao IndexedDB
  */
-export const saveArchitectureFileSQLite = async (fileType, fileData) => {
+export const saveArchitectureFileSQLite = async (fileType, fileData, onProgress = null) => {
   let sqliteSuccess = false
+  const rows = fileData.data || []
+  const totalRows = rows.length
+  const totalChunks = Math.max(1, Math.ceil(totalRows / CHUNK_ROW_SIZE))
+
   try {
     if (isElectronSqliteAvailable()) {
-      const payload = {
-        fileType,
-        fileName: fileData.fileName || '',
-        fileSize: fileData.fileSize || 0,
-        rowCount: fileData.rowCount || fileData.data?.length || 0,
-        columns: JSON.stringify(fileData.columns || []),
-        data: JSON.stringify(fileData.data || []),
-        uploadedAt: fileData.uploadedAt || new Date().toISOString()
-      }
+      for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+        const startIdx = chunkIdx * CHUNK_ROW_SIZE
+        const endIdx = Math.min(startIdx + CHUNK_ROW_SIZE, totalRows)
+        const chunkData = rows.slice(startIdx, endIdx)
 
-      if (window?.electron?.sqlite?.saveFile) {
-        await window.electron.sqlite.saveFile(payload)
-        sqliteSuccess = true
-      } else if (window?.electron?.ipcRenderer) {
-        await window.electron.ipcRenderer.invoke('sqlite:save-calc-file', payload)
-        sqliteSuccess = true
+        const chunkPayload = {
+          fileType,
+          fileName: fileData.fileName || '',
+          fileSize: fileData.fileSize || 0,
+          rowCount: fileData.rowCount || totalRows,
+          columns: fileData.columns || [],
+          chunk: chunkData,
+          chunkIndex: chunkIdx,
+          totalChunks,
+          isFirstChunk: chunkIdx === 0,
+          isLastChunk: chunkIdx === totalChunks - 1,
+          uploadedAt: fileData.uploadedAt || new Date().toISOString()
+        }
+
+        if (window?.electron?.ipcRenderer) {
+          await window.electron.ipcRenderer.invoke('sqlite:save-calc-file-chunk', chunkPayload)
+          sqliteSuccess = true
+        } else if (window?.electron?.sqlite?.saveFileChunk) {
+          await window.electron.sqlite.saveFileChunk(chunkPayload)
+          sqliteSuccess = true
+        }
+
+        // Báo tiến độ lên giao diện
+        const processedRows = endIdx
+        const savePercent = Math.min(100, Math.round(90 + (10 * (chunkIdx + 1)) / totalChunks))
+        onProgress?.({
+          step: 'SAVING_CHUNKS_SQLITE',
+          percent: savePercent,
+          processedRows,
+          totalRows,
+          chunkIndex: chunkIdx + 1,
+          totalChunks,
+          message: `Đang nạp khúc ${chunkIdx + 1}/${totalChunks} (${processedRows.toLocaleString('vi-VN')}/${totalRows.toLocaleString('vi-VN')} dòng) vào SQLite...`
+        })
+
+        // Nhả luồng sự kiện cho UI
+        await new Promise((res) => setTimeout(res, 0))
       }
     }
   } catch (error) {
-    console.warn('[SQLite Storage] IPC SQLite không phản hồi:', error)
+    console.warn('[SQLite Storage] IPC SQLite lưu chunk không phản hồi:', error)
   }
 
-  // Đồng thời lưu IndexedDB làm bản sao an toàn
+  // Đồng thời lưu IndexedDB làm bản sao an toàn (theo chunk)
   try {
-    await saveArchitectureFileIDB(fileType, fileData)
+    await saveArchitectureFileIDB(fileType, fileData, onProgress)
   } catch (idbErr) {
     console.warn('[IndexedDB Storage] Ghi bản sao IDB:', idbErr)
   }

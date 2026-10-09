@@ -209,7 +209,13 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
           message: `Đang lưu ${parsed.rowCount.toLocaleString('vi-VN')} dòng vào hệ thống...`
         }))
 
-        await saveFile(fileType, parsed)
+        await saveFile(fileType, parsed, (saveProg) => {
+          setImportProgress((prev) => ({
+            ...prev,
+            percent: saveProg?.percent || prev.percent,
+            message: saveProg?.message || prev.message
+          }))
+        })
         setIsRegistered(false)
         notify(
           'success',
@@ -253,13 +259,13 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
           }))
         })
 
-        setImportProgress((prev) => ({
-          ...prev,
-          percent: 92,
-          message: `Đang lưu ${parsed.rowCount.toLocaleString('vi-VN')} dòng vào hệ thống...`
-        }))
-
-        await saveFile(fileType, parsed)
+        await saveFile(fileType, parsed, (saveProg) => {
+          setImportProgress((prev) => ({
+            ...prev,
+            percent: saveProg?.percent || prev.percent,
+            message: saveProg?.message || prev.message
+          }))
+        })
         setIsRegistered(false)
         notify(
           'success',

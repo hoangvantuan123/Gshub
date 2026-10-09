@@ -359,3 +359,59 @@ export const calculateProductionSQLite = async () => {
   }
   return null
 }
+
+/**
+ * Công bố báo cáo (Cập nhật trạng thái PUBLISHED và Version)
+ */
+export const publishMasterRegistrationSQLite = async (regCode, version = '1.0') => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.publishMasterReg) {
+        return await window.electron.sqlite.publishMasterReg({ regCode, version })
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:publish-master-reg', { regCode, version })
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi publish master registration:', error)
+    }
+  }
+  const { updateMasterRegistrationStatusIDB } = await import('./indexedDbStorage')
+  return await updateMasterRegistrationStatusIDB(regCode, 'PUBLISHED')
+}
+
+/**
+ * Xuất gói siêu nén .gsprod (Columnar Matrix + Gzip Level 9)
+ */
+export const exportBundlePackageSQLite = async (payload = {}) => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.exportBundlePackage) {
+        return await window.electron.sqlite.exportBundlePackage(payload)
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:export-bundle-package', payload)
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi export bundle package:', error)
+    }
+  }
+  return { success: false, error: 'Tính năng xuất gói yêu cầu ứng dụng Desktop GsHub' }
+}
+
+/**
+ * Đồng bộ ngay lập tức gói siêu nén .gsprod vào CSDL SQLite của User
+ */
+export const importBundlePackageSQLite = async (payload = {}) => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.importBundlePackage) {
+        return await window.electron.sqlite.importBundlePackage(payload)
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:import-bundle-package', payload)
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi import bundle package:', error)
+    }
+  }
+  return { success: false, error: 'Tính năng đồng bộ gói yêu cầu ứng dụng Desktop GsHub' }
+}
+

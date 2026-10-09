@@ -7,12 +7,12 @@ import {
   Play,
   Save,
   Trash2,
-  RotateCw,
-  Search,
   SlidersHorizontal,
-  FileSpreadsheet,
-  SquareArrowOutUpRight,
-  ArrowLeft
+  ArrowLeft,
+  MinusCircle,
+  Share2,
+  FileArchive,
+  CheckCircle2
 } from 'lucide-react'
 
 const CalcProductionActions = memo(function CalcProductionActions({
@@ -23,30 +23,37 @@ const CalcProductionActions = memo(function CalcProductionActions({
   isParsing = false,
   isCalculating = false,
   isRegistering = false,
+  isPublishing = false,
+  isExporting = false,
   fileStatusSummary = {},
   masterRecord = null,
+  masterInfo = null,
+  selectedRowsCount = 0,
   onUploadFile,
   onOpenCustomMapping,
+  onDeleteSelectedRows,
   onDeleteTabFile,
   onClearAll,
   onRunCalculation,
   onRegisterMaster,
-  onExportExcel,
-  onExportAll,
-  onRefresh,
-  onOpenSearch,
-  onOpenInNewWindow
+  onPublishReport,
+  onExportBundle,
+  onOpenSearch
 }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
   const customMappingInputRef = useRef(null)
+
+  const currentMaster = masterInfo || masterRecord || {}
+  const isPublished = currentMaster.status === 'PUBLISHED' || currentMaster.isPublished
 
   const uploadedCount = Object.values(fileStatusSummary || {}).filter(
     (s) => s?.isUploaded || (s?.rowCount || 0) > 0
   ).length
 
   const hasActiveFileData = Boolean(
-    activeFileData && (activeFileData.rowCount > 0 || (activeFileData.data && activeFileData.data.length > 0))
+    activeFileData &&
+      (activeFileData.rowCount > 0 || (activeFileData.data && activeFileData.data.length > 0))
   )
 
   const handleFileChange = (e) => {
@@ -89,7 +96,7 @@ const CalcProductionActions = memo(function CalcProductionActions({
         onChange={handleCustomMappingFileChange}
       />
 
-      {/* DETAIL VIEW: Nút Quay Lại */}
+      {/* DETAIL VIEW: Nút Quay Lại / Thoát */}
       {isDetailView && typeof onBack === 'function' && (
         <Button
           key="Back"
@@ -97,7 +104,7 @@ const CalcProductionActions = memo(function CalcProductionActions({
           size="sm"
           onClick={onBack}
           className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900 h-7 px-2"
-          title="Quay lại danh sách truy vấn"
+          title="Quay lại / Thoát khỏi màn hình"
         >
           <ArrowLeft size={13} className="text-slate-500" />
           <span>{t('QUAY LẠI')}</span>
@@ -150,7 +157,7 @@ const CalcProductionActions = memo(function CalcProductionActions({
         <span>{t('TÍNH KHSX & TKSX')}</span>
       </Button>
 
-      {/* REGISTRATION VIEW: 4. Đăng ký báo cáo */}
+      {/* REGISTRATION VIEW: 4. Đăng ký báo cáo (Lưu bản nháp/nội bộ) */}
       {!isDetailView && (
         <Button
           key="Register"
@@ -159,86 +166,79 @@ const CalcProductionActions = memo(function CalcProductionActions({
           onClick={onRegisterMaster}
           disabled={isRegistering || isCalculating || uploadedCount === 0}
           className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0"
-          title="Đăng ký và lưu thông tin báo cáo master vào CSDL"
+          title="Lưu bản đăng ký báo cáo nội bộ vào CSDL"
         >
           <Save size={13} className="text-indigo-600" />
-          <span>{t('ĐĂNG KÝ BÁO CÁO')}</span>
+          <span>{t('LƯU ĐĂNG KÝ')}</span>
         </Button>
       )}
 
-      {/* CHUNG: 4.1. Xuất Excel */}
-      {typeof onExportExcel === 'function' && (
+      {/* REGISTRATION VIEW: 5. Công bố báo cáo (Publish Version) */}
+      {!isDetailView && typeof onPublishReport === 'function' && (
         <Button
-          key="ExportExcel"
+          key="Publish"
           variant="ghost"
           size="sm"
-          onClick={onExportExcel}
-          disabled={!hasActiveFileData}
-          className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 h-7 px-2"
-          title="Xuất bảng dữ liệu hiện tại ra tệp Excel chuẩn"
+          onClick={onPublishReport}
+          disabled={isPublishing || isCalculating || uploadedCount === 0}
+          className={`uppercase text-[11px] font-bold h-7 px-2 shrink-0 ${
+            isPublished
+              ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/60'
+              : 'text-violet-700 hover:text-violet-800'
+          }`}
+          title="Công bố phiên bản báo cáo chính thức (v1.0) cho người dùng khác"
         >
-          <FileSpreadsheet size={13} className="text-emerald-600" />
-          <span>{t('XUẤT EXCEL')}</span>
+          {isPublished ? (
+            <CheckCircle2 size={13} className="text-emerald-600" />
+          ) : (
+            <Share2 size={13} className="text-violet-600" />
+          )}
+          <span>
+            {isPublished
+              ? `${t('ĐÃ CÔNG BỐ')} (v${currentMaster.version || '1.0'})`
+              : t('CÔNG BỐ BÁO CÁO')}
+          </span>
         </Button>
       )}
 
-      {/* DETAIL VIEW: Xuất toàn bộ bảng */}
-      {isDetailView && typeof onExportAll === 'function' && (
+      {/* CHUNG: 6. Xuất gói siêu nén .gsprod (<1MB thay vì 50MB) */}
+      {typeof onExportBundle === 'function' && (
         <Button
-          key="ExportAll"
+          key="ExportBundle"
           variant="ghost"
           size="sm"
-          onClick={onExportAll}
-          className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800 h-7 px-2"
-          title="Xuất toàn bộ các bảng ra 1 file Excel nhiều sheet"
+          onClick={onExportBundle}
+          disabled={isExporting || (uploadedCount === 0 && !hasActiveFileData)}
+          className="uppercase text-[11px] font-bold text-amber-700 hover:text-amber-800 h-7 px-2 shrink-0"
+          title="Nén 6 bảng thành gói siêu nén .gsprod (<1MB) để chia sẻ/đồng bộ máy khác"
         >
-          <FileSpreadsheet size={13} className="text-indigo-600" />
-          <span>{t('XUẤT TOÀN BỘ BẢNG')}</span>
+          <FileArchive size={13} className="text-amber-600" />
+          <span>{t('XUẤT GÓI .GSPROD')}</span>
         </Button>
       )}
 
-      {/* REGISTRATION VIEW: 5. Cửa sổ mới */}
-      {!isDetailView && typeof onOpenInNewWindow === 'function' && (
+
+
+      {/* CHUNG: 6. Xóa dòng đã chọn trong Tab hiện tại */}
+      {hasActiveFileData && typeof onDeleteSelectedRows === 'function' && (
         <Button
-          key="NewWindow"
+          key="DeleteRow"
           variant="ghost"
           size="sm"
-          onClick={onOpenInNewWindow}
-          className="uppercase text-[11px] font-semibold text-blue-700 hover:text-blue-800 h-7 px-2"
-          title="Mở toàn bộ các bảng trong cửa sổ mới độc lập"
+          onClick={onDeleteSelectedRows}
+          className="uppercase text-[11px] font-semibold text-rose-600 hover:text-rose-700 h-7 px-2"
+          title="Xóa các dòng đang bôi đen / chọn khỏi tab hiện tại"
         >
-          <SquareArrowOutUpRight size={13} className="text-blue-600" />
-          <span>{t('CỬA SỔ MỚI')}</span>
+          <MinusCircle size={13} className="text-rose-500" />
+          <span>
+            {selectedRowsCount > 0
+              ? `${t('XÓA')} ${selectedRowsCount} ${t('DÒNG')}`
+              : t('XÓA DÒNG')}
+          </span>
         </Button>
       )}
 
-      {/* CHUNG: 6. Làm mới */}
-      <Button
-        key="Refresh"
-        variant="ghost"
-        size="sm"
-        onClick={onRefresh}
-        className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900 h-7 px-2"
-        title="Nạp lại dữ liệu từ CSDL"
-      >
-        <RotateCw size={13} className="text-slate-500" />
-        <span>{t('LÀM MỚI')}</span>
-      </Button>
-
-      {/* CHUNG: 7. Tìm kiếm */}
-      <Button
-        key="Search"
-        variant="ghost"
-        size="sm"
-        onClick={onOpenSearch}
-        className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900 h-7 px-2"
-        title="Tìm kiếm trên bảng (Ctrl+F)"
-      >
-        <Search size={13} className="text-blue-500" />
-        <span>{t('TÌM KIẾM')}</span>
-      </Button>
-
-      {/* REGISTRATION VIEW: 8. Xóa tab hiện tại */}
+      {/* REGISTRATION VIEW: 7. Xóa tab hiện tại */}
       {!isDetailView && hasActiveFileData && (
         <Button
           key="DeleteTab"
@@ -253,7 +253,7 @@ const CalcProductionActions = memo(function CalcProductionActions({
         </Button>
       )}
 
-      {/* REGISTRATION VIEW: 9. Xóa tất cả */}
+      {/* REGISTRATION VIEW: 8. Xóa tất cả */}
       {!isDetailView && uploadedCount > 0 && (
         <Button
           key="ClearAll"

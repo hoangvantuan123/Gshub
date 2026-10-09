@@ -482,6 +482,25 @@ export default function CalcProductionDetailView() {
     }
   }, [masterRecord, targetRegCode])
 
+  const handleBackOrClose = useCallback(() => {
+    if (
+      typeof window !== 'undefined' &&
+      (window.location.pathname.startsWith('/sub/') ||
+        window.location.hash.includes('/sub/') ||
+        window.history.length <= 1)
+    ) {
+      if (window.electron?.close) {
+        window.electron.close()
+      } else if (window.electron?.ipcRenderer) {
+        window.electron.ipcRenderer.send('window:close')
+      } else {
+        window.close()
+      }
+    } else {
+      navigate(-1)
+    }
+  }, [navigate])
+
   return (
     <>
     <DataPageContainer
@@ -489,16 +508,13 @@ export default function CalcProductionDetailView() {
       actions={
         <CalcProductionActions
           isDetailView={true}
-          onBack={() => navigate(-1)}
+          onBack={handleBackOrClose}
           activeTabDef={currentTabDef}
           activeFileData={activeTabFileData}
           isCalculating={isCalculating}
           fileStatusSummary={fileStatusSummary}
           masterRecord={masterRecord}
           onRunCalculation={handleRunCalculation}
-          onRefresh={fetchDetailData}
-          onExportExcel={handleExportTabExcel}
-          onExportAll={handleExportAllTabsExcel}
           onOpenSearch={() => setShowSearch(true)}
         />
       }

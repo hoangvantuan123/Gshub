@@ -25,7 +25,7 @@ var File_datahub_proto protoreflect.FileDescriptor
 const file_datahub_proto_rawDesc = "" +
 	"\n" +
 	"\rdatahub.proto\x12\adatahub\x1a\n" +
-	"auth.proto\x1a\fconfig.proto\x1a\x12work_process.proto\x1a\vproxy.proto\x1a\vaudit.proto\x1a\fhealth.proto\x1a\x11plan_report.proto2\x8c\x13\n" +
+	"auth.proto\x1a\fconfig.proto\x1a\x12work_process.proto\x1a\vproxy.proto\x1a\vaudit.proto\x1a\fhealth.proto\x1a\x11plan_report.proto2\xe6\x16\n" +
 	"\x0eDataHubService\x12@\n" +
 	"\x05Login\x12\x1a.datahub.LoginProtoRequest\x1a\x1b.datahub.LoginProtoResponse\x12I\n" +
 	"\n" +
@@ -55,61 +55,73 @@ const file_datahub_proto_rawDesc = "" +
 	"\x1dGetProductionStatisticsReport\x12$.datahub.ProdStatsReportProtoRequest\x1a%.datahub.ProdStatsReportProtoResponse\x12O\n" +
 	"\fGetAuditLogs\x12\x1e.datahub.AuditLogsProtoRequest\x1a\x1f.datahub.AuditLogsProtoResponse\x12H\n" +
 	"\vHealthCheck\x12\x1b.datahub.HealthProtoRequest\x1a\x1c.datahub.HealthProtoResponse\x12N\n" +
-	"\rQueryCodeHelp\x12\x1d.datahub.CodeHelpProtoRequest\x1a\x1e.datahub.CodeHelpProtoResponseB\x1cZ\x1aservice-datahub/pb/datahubb\x06proto3"
+	"\rQueryCodeHelp\x12\x1d.datahub.CodeHelpProtoRequest\x1a\x1e.datahub.CodeHelpProtoResponse\x12v\n" +
+	"\x17PublishProductionBundle\x12,.datahub.PublishProductionBundleProtoRequest\x1a-.datahub.PublishProductionBundleProtoResponse\x12s\n" +
+	"\x16QueryProductionBundles\x12+.datahub.QueryProductionBundlesProtoRequest\x1a,.datahub.QueryProductionBundlesProtoResponse\x12v\n" +
+	"\x17GetProductionBundleData\x12,.datahub.GetProductionBundleDataProtoRequest\x1a-.datahub.GetProductionBundleDataProtoResponse\x12s\n" +
+	"\x16DeleteProductionBundle\x12+.datahub.DeleteProductionBundleProtoRequest\x1a,.datahub.DeleteProductionBundleProtoResponseB\x1cZ\x1aservice-datahub/pb/datahubb\x06proto3"
 
 var file_datahub_proto_goTypes = []any{
-	(*LoginProtoRequest)(nil),                  // 0: datahub.LoginProtoRequest
-	(*SessionProtoRequest)(nil),                // 1: datahub.SessionProtoRequest
-	(*GetConfigsProtoRequest)(nil),             // 2: datahub.GetConfigsProtoRequest
-	(*SaveConfigProtoRequest)(nil),             // 3: datahub.SaveConfigProtoRequest
-	(*DeleteConfigProtoRequest)(nil),           // 4: datahub.DeleteConfigProtoRequest
-	(*ProxyProtoRequest)(nil),                  // 5: datahub.ProxyProtoRequest
-	(*WorkProcessProtoRequest)(nil),            // 6: datahub.WorkProcessProtoRequest
-	(*FactoryProtoRequest)(nil),                // 7: datahub.FactoryProtoRequest
-	(*GetEndpointsProtoRequest)(nil),           // 8: datahub.GetEndpointsProtoRequest
-	(*SaveEndpointProtoRequest)(nil),           // 9: datahub.SaveEndpointProtoRequest
-	(*PlanMasterProtoRequest)(nil),             // 10: datahub.PlanMasterProtoRequest
-	(*DeletePlanMasterProtoRequest)(nil),       // 11: datahub.DeletePlanMasterProtoRequest
-	(*PlanRegistrationSaveProtoRequest)(nil),   // 12: datahub.PlanRegistrationSaveProtoRequest
-	(*PlanDetailProtoRequest)(nil),             // 13: datahub.PlanDetailProtoRequest
-	(*AddPlanDetailProtoRequest)(nil),          // 14: datahub.AddPlanDetailProtoRequest
-	(*UpdatePlanDetailProtoRequest)(nil),       // 15: datahub.UpdatePlanDetailProtoRequest
-	(*DeletePlanDetailProtoRequest)(nil),       // 16: datahub.DeletePlanDetailProtoRequest
-	(*ProdStatsDetailProtoRequest)(nil),        // 17: datahub.ProdStatsDetailProtoRequest
-	(*AddProdStatsDetailProtoRequest)(nil),     // 18: datahub.AddProdStatsDetailProtoRequest
-	(*UpdateProdStatsDetailProtoRequest)(nil),  // 19: datahub.UpdateProdStatsDetailProtoRequest
-	(*DeleteProdStatsDetailProtoRequest)(nil),  // 20: datahub.DeleteProdStatsDetailProtoRequest
-	(*PlanReportProtoRequest)(nil),             // 21: datahub.PlanReportProtoRequest
-	(*ProdStatsReportProtoRequest)(nil),        // 22: datahub.ProdStatsReportProtoRequest
-	(*AuditLogsProtoRequest)(nil),              // 23: datahub.AuditLogsProtoRequest
-	(*HealthProtoRequest)(nil),                 // 24: datahub.HealthProtoRequest
-	(*CodeHelpProtoRequest)(nil),               // 25: datahub.CodeHelpProtoRequest
-	(*LoginProtoResponse)(nil),                 // 26: datahub.LoginProtoResponse
-	(*SessionProtoResponse)(nil),               // 27: datahub.SessionProtoResponse
-	(*GetConfigsProtoResponse)(nil),            // 28: datahub.GetConfigsProtoResponse
-	(*SaveConfigProtoResponse)(nil),            // 29: datahub.SaveConfigProtoResponse
-	(*DeleteConfigProtoResponse)(nil),          // 30: datahub.DeleteConfigProtoResponse
-	(*ProxyProtoResponse)(nil),                 // 31: datahub.ProxyProtoResponse
-	(*WorkProcessProtoResponse)(nil),           // 32: datahub.WorkProcessProtoResponse
-	(*FactoryProtoResponse)(nil),               // 33: datahub.FactoryProtoResponse
-	(*GetEndpointsProtoResponse)(nil),          // 34: datahub.GetEndpointsProtoResponse
-	(*SaveEndpointProtoResponse)(nil),          // 35: datahub.SaveEndpointProtoResponse
-	(*PlanMasterProtoResponse)(nil),            // 36: datahub.PlanMasterProtoResponse
-	(*DeletePlanMasterProtoResponse)(nil),      // 37: datahub.DeletePlanMasterProtoResponse
-	(*PlanRegistrationSaveProtoResponse)(nil),  // 38: datahub.PlanRegistrationSaveProtoResponse
-	(*PlanDetailProtoResponse)(nil),            // 39: datahub.PlanDetailProtoResponse
-	(*AddPlanDetailProtoResponse)(nil),         // 40: datahub.AddPlanDetailProtoResponse
-	(*UpdatePlanDetailProtoResponse)(nil),      // 41: datahub.UpdatePlanDetailProtoResponse
-	(*DeletePlanDetailProtoResponse)(nil),      // 42: datahub.DeletePlanDetailProtoResponse
-	(*ProdStatsDetailProtoResponse)(nil),       // 43: datahub.ProdStatsDetailProtoResponse
-	(*AddProdStatsDetailProtoResponse)(nil),    // 44: datahub.AddProdStatsDetailProtoResponse
-	(*UpdateProdStatsDetailProtoResponse)(nil), // 45: datahub.UpdateProdStatsDetailProtoResponse
-	(*DeleteProdStatsDetailProtoResponse)(nil), // 46: datahub.DeleteProdStatsDetailProtoResponse
-	(*PlanReportProtoResponse)(nil),            // 47: datahub.PlanReportProtoResponse
-	(*ProdStatsReportProtoResponse)(nil),       // 48: datahub.ProdStatsReportProtoResponse
-	(*AuditLogsProtoResponse)(nil),             // 49: datahub.AuditLogsProtoResponse
-	(*HealthProtoResponse)(nil),                // 50: datahub.HealthProtoResponse
-	(*CodeHelpProtoResponse)(nil),              // 51: datahub.CodeHelpProtoResponse
+	(*LoginProtoRequest)(nil),                    // 0: datahub.LoginProtoRequest
+	(*SessionProtoRequest)(nil),                  // 1: datahub.SessionProtoRequest
+	(*GetConfigsProtoRequest)(nil),               // 2: datahub.GetConfigsProtoRequest
+	(*SaveConfigProtoRequest)(nil),               // 3: datahub.SaveConfigProtoRequest
+	(*DeleteConfigProtoRequest)(nil),             // 4: datahub.DeleteConfigProtoRequest
+	(*ProxyProtoRequest)(nil),                    // 5: datahub.ProxyProtoRequest
+	(*WorkProcessProtoRequest)(nil),              // 6: datahub.WorkProcessProtoRequest
+	(*FactoryProtoRequest)(nil),                  // 7: datahub.FactoryProtoRequest
+	(*GetEndpointsProtoRequest)(nil),             // 8: datahub.GetEndpointsProtoRequest
+	(*SaveEndpointProtoRequest)(nil),             // 9: datahub.SaveEndpointProtoRequest
+	(*PlanMasterProtoRequest)(nil),               // 10: datahub.PlanMasterProtoRequest
+	(*DeletePlanMasterProtoRequest)(nil),         // 11: datahub.DeletePlanMasterProtoRequest
+	(*PlanRegistrationSaveProtoRequest)(nil),     // 12: datahub.PlanRegistrationSaveProtoRequest
+	(*PlanDetailProtoRequest)(nil),               // 13: datahub.PlanDetailProtoRequest
+	(*AddPlanDetailProtoRequest)(nil),            // 14: datahub.AddPlanDetailProtoRequest
+	(*UpdatePlanDetailProtoRequest)(nil),         // 15: datahub.UpdatePlanDetailProtoRequest
+	(*DeletePlanDetailProtoRequest)(nil),         // 16: datahub.DeletePlanDetailProtoRequest
+	(*ProdStatsDetailProtoRequest)(nil),          // 17: datahub.ProdStatsDetailProtoRequest
+	(*AddProdStatsDetailProtoRequest)(nil),       // 18: datahub.AddProdStatsDetailProtoRequest
+	(*UpdateProdStatsDetailProtoRequest)(nil),    // 19: datahub.UpdateProdStatsDetailProtoRequest
+	(*DeleteProdStatsDetailProtoRequest)(nil),    // 20: datahub.DeleteProdStatsDetailProtoRequest
+	(*PlanReportProtoRequest)(nil),               // 21: datahub.PlanReportProtoRequest
+	(*ProdStatsReportProtoRequest)(nil),          // 22: datahub.ProdStatsReportProtoRequest
+	(*AuditLogsProtoRequest)(nil),                // 23: datahub.AuditLogsProtoRequest
+	(*HealthProtoRequest)(nil),                   // 24: datahub.HealthProtoRequest
+	(*CodeHelpProtoRequest)(nil),                 // 25: datahub.CodeHelpProtoRequest
+	(*PublishProductionBundleProtoRequest)(nil),  // 26: datahub.PublishProductionBundleProtoRequest
+	(*QueryProductionBundlesProtoRequest)(nil),   // 27: datahub.QueryProductionBundlesProtoRequest
+	(*GetProductionBundleDataProtoRequest)(nil),  // 28: datahub.GetProductionBundleDataProtoRequest
+	(*DeleteProductionBundleProtoRequest)(nil),   // 29: datahub.DeleteProductionBundleProtoRequest
+	(*LoginProtoResponse)(nil),                   // 30: datahub.LoginProtoResponse
+	(*SessionProtoResponse)(nil),                 // 31: datahub.SessionProtoResponse
+	(*GetConfigsProtoResponse)(nil),              // 32: datahub.GetConfigsProtoResponse
+	(*SaveConfigProtoResponse)(nil),              // 33: datahub.SaveConfigProtoResponse
+	(*DeleteConfigProtoResponse)(nil),            // 34: datahub.DeleteConfigProtoResponse
+	(*ProxyProtoResponse)(nil),                   // 35: datahub.ProxyProtoResponse
+	(*WorkProcessProtoResponse)(nil),             // 36: datahub.WorkProcessProtoResponse
+	(*FactoryProtoResponse)(nil),                 // 37: datahub.FactoryProtoResponse
+	(*GetEndpointsProtoResponse)(nil),            // 38: datahub.GetEndpointsProtoResponse
+	(*SaveEndpointProtoResponse)(nil),            // 39: datahub.SaveEndpointProtoResponse
+	(*PlanMasterProtoResponse)(nil),              // 40: datahub.PlanMasterProtoResponse
+	(*DeletePlanMasterProtoResponse)(nil),        // 41: datahub.DeletePlanMasterProtoResponse
+	(*PlanRegistrationSaveProtoResponse)(nil),    // 42: datahub.PlanRegistrationSaveProtoResponse
+	(*PlanDetailProtoResponse)(nil),              // 43: datahub.PlanDetailProtoResponse
+	(*AddPlanDetailProtoResponse)(nil),           // 44: datahub.AddPlanDetailProtoResponse
+	(*UpdatePlanDetailProtoResponse)(nil),        // 45: datahub.UpdatePlanDetailProtoResponse
+	(*DeletePlanDetailProtoResponse)(nil),        // 46: datahub.DeletePlanDetailProtoResponse
+	(*ProdStatsDetailProtoResponse)(nil),         // 47: datahub.ProdStatsDetailProtoResponse
+	(*AddProdStatsDetailProtoResponse)(nil),      // 48: datahub.AddProdStatsDetailProtoResponse
+	(*UpdateProdStatsDetailProtoResponse)(nil),   // 49: datahub.UpdateProdStatsDetailProtoResponse
+	(*DeleteProdStatsDetailProtoResponse)(nil),   // 50: datahub.DeleteProdStatsDetailProtoResponse
+	(*PlanReportProtoResponse)(nil),              // 51: datahub.PlanReportProtoResponse
+	(*ProdStatsReportProtoResponse)(nil),         // 52: datahub.ProdStatsReportProtoResponse
+	(*AuditLogsProtoResponse)(nil),               // 53: datahub.AuditLogsProtoResponse
+	(*HealthProtoResponse)(nil),                  // 54: datahub.HealthProtoResponse
+	(*CodeHelpProtoResponse)(nil),                // 55: datahub.CodeHelpProtoResponse
+	(*PublishProductionBundleProtoResponse)(nil), // 56: datahub.PublishProductionBundleProtoResponse
+	(*QueryProductionBundlesProtoResponse)(nil),  // 57: datahub.QueryProductionBundlesProtoResponse
+	(*GetProductionBundleDataProtoResponse)(nil), // 58: datahub.GetProductionBundleDataProtoResponse
+	(*DeleteProductionBundleProtoResponse)(nil),  // 59: datahub.DeleteProductionBundleProtoResponse
 }
 var file_datahub_proto_depIdxs = []int32{
 	0,  // 0: datahub.DataHubService.Login:input_type -> datahub.LoginProtoRequest
@@ -139,35 +151,43 @@ var file_datahub_proto_depIdxs = []int32{
 	23, // 24: datahub.DataHubService.GetAuditLogs:input_type -> datahub.AuditLogsProtoRequest
 	24, // 25: datahub.DataHubService.HealthCheck:input_type -> datahub.HealthProtoRequest
 	25, // 26: datahub.DataHubService.QueryCodeHelp:input_type -> datahub.CodeHelpProtoRequest
-	26, // 27: datahub.DataHubService.Login:output_type -> datahub.LoginProtoResponse
-	27, // 28: datahub.DataHubService.GetSession:output_type -> datahub.SessionProtoResponse
-	28, // 29: datahub.DataHubService.GetAllConfigs:output_type -> datahub.GetConfigsProtoResponse
-	29, // 30: datahub.DataHubService.SaveConfig:output_type -> datahub.SaveConfigProtoResponse
-	30, // 31: datahub.DataHubService.DeleteConfig:output_type -> datahub.DeleteConfigProtoResponse
-	31, // 32: datahub.DataHubService.ProxyForward:output_type -> datahub.ProxyProtoResponse
-	31, // 33: datahub.DataHubService.StreamProxy:output_type -> datahub.ProxyProtoResponse
-	32, // 34: datahub.DataHubService.QueryWorkProcess:output_type -> datahub.WorkProcessProtoResponse
-	33, // 35: datahub.DataHubService.GetFactories:output_type -> datahub.FactoryProtoResponse
-	34, // 36: datahub.DataHubService.GetAllEndpoints:output_type -> datahub.GetEndpointsProtoResponse
-	35, // 37: datahub.DataHubService.SaveEndpoint:output_type -> datahub.SaveEndpointProtoResponse
-	36, // 38: datahub.DataHubService.QueryPlanMaster:output_type -> datahub.PlanMasterProtoResponse
-	37, // 39: datahub.DataHubService.DeletePlanMaster:output_type -> datahub.DeletePlanMasterProtoResponse
-	38, // 40: datahub.DataHubService.SavePlanRegistration:output_type -> datahub.PlanRegistrationSaveProtoResponse
-	39, // 41: datahub.DataHubService.QueryPlanDetail:output_type -> datahub.PlanDetailProtoResponse
-	40, // 42: datahub.DataHubService.AddPlanDetail:output_type -> datahub.AddPlanDetailProtoResponse
-	41, // 43: datahub.DataHubService.UpdatePlanDetail:output_type -> datahub.UpdatePlanDetailProtoResponse
-	42, // 44: datahub.DataHubService.DeletePlanDetail:output_type -> datahub.DeletePlanDetailProtoResponse
-	43, // 45: datahub.DataHubService.QueryProdStatsDetail:output_type -> datahub.ProdStatsDetailProtoResponse
-	44, // 46: datahub.DataHubService.AddProdStatsDetail:output_type -> datahub.AddProdStatsDetailProtoResponse
-	45, // 47: datahub.DataHubService.UpdateProdStatsDetail:output_type -> datahub.UpdateProdStatsDetailProtoResponse
-	46, // 48: datahub.DataHubService.DeleteProdStatsDetail:output_type -> datahub.DeleteProdStatsDetailProtoResponse
-	47, // 49: datahub.DataHubService.GetProductionPlanReport:output_type -> datahub.PlanReportProtoResponse
-	48, // 50: datahub.DataHubService.GetProductionStatisticsReport:output_type -> datahub.ProdStatsReportProtoResponse
-	49, // 51: datahub.DataHubService.GetAuditLogs:output_type -> datahub.AuditLogsProtoResponse
-	50, // 52: datahub.DataHubService.HealthCheck:output_type -> datahub.HealthProtoResponse
-	51, // 53: datahub.DataHubService.QueryCodeHelp:output_type -> datahub.CodeHelpProtoResponse
-	27, // [27:54] is the sub-list for method output_type
-	0,  // [0:27] is the sub-list for method input_type
+	26, // 27: datahub.DataHubService.PublishProductionBundle:input_type -> datahub.PublishProductionBundleProtoRequest
+	27, // 28: datahub.DataHubService.QueryProductionBundles:input_type -> datahub.QueryProductionBundlesProtoRequest
+	28, // 29: datahub.DataHubService.GetProductionBundleData:input_type -> datahub.GetProductionBundleDataProtoRequest
+	29, // 30: datahub.DataHubService.DeleteProductionBundle:input_type -> datahub.DeleteProductionBundleProtoRequest
+	30, // 31: datahub.DataHubService.Login:output_type -> datahub.LoginProtoResponse
+	31, // 32: datahub.DataHubService.GetSession:output_type -> datahub.SessionProtoResponse
+	32, // 33: datahub.DataHubService.GetAllConfigs:output_type -> datahub.GetConfigsProtoResponse
+	33, // 34: datahub.DataHubService.SaveConfig:output_type -> datahub.SaveConfigProtoResponse
+	34, // 35: datahub.DataHubService.DeleteConfig:output_type -> datahub.DeleteConfigProtoResponse
+	35, // 36: datahub.DataHubService.ProxyForward:output_type -> datahub.ProxyProtoResponse
+	35, // 37: datahub.DataHubService.StreamProxy:output_type -> datahub.ProxyProtoResponse
+	36, // 38: datahub.DataHubService.QueryWorkProcess:output_type -> datahub.WorkProcessProtoResponse
+	37, // 39: datahub.DataHubService.GetFactories:output_type -> datahub.FactoryProtoResponse
+	38, // 40: datahub.DataHubService.GetAllEndpoints:output_type -> datahub.GetEndpointsProtoResponse
+	39, // 41: datahub.DataHubService.SaveEndpoint:output_type -> datahub.SaveEndpointProtoResponse
+	40, // 42: datahub.DataHubService.QueryPlanMaster:output_type -> datahub.PlanMasterProtoResponse
+	41, // 43: datahub.DataHubService.DeletePlanMaster:output_type -> datahub.DeletePlanMasterProtoResponse
+	42, // 44: datahub.DataHubService.SavePlanRegistration:output_type -> datahub.PlanRegistrationSaveProtoResponse
+	43, // 45: datahub.DataHubService.QueryPlanDetail:output_type -> datahub.PlanDetailProtoResponse
+	44, // 46: datahub.DataHubService.AddPlanDetail:output_type -> datahub.AddPlanDetailProtoResponse
+	45, // 47: datahub.DataHubService.UpdatePlanDetail:output_type -> datahub.UpdatePlanDetailProtoResponse
+	46, // 48: datahub.DataHubService.DeletePlanDetail:output_type -> datahub.DeletePlanDetailProtoResponse
+	47, // 49: datahub.DataHubService.QueryProdStatsDetail:output_type -> datahub.ProdStatsDetailProtoResponse
+	48, // 50: datahub.DataHubService.AddProdStatsDetail:output_type -> datahub.AddProdStatsDetailProtoResponse
+	49, // 51: datahub.DataHubService.UpdateProdStatsDetail:output_type -> datahub.UpdateProdStatsDetailProtoResponse
+	50, // 52: datahub.DataHubService.DeleteProdStatsDetail:output_type -> datahub.DeleteProdStatsDetailProtoResponse
+	51, // 53: datahub.DataHubService.GetProductionPlanReport:output_type -> datahub.PlanReportProtoResponse
+	52, // 54: datahub.DataHubService.GetProductionStatisticsReport:output_type -> datahub.ProdStatsReportProtoResponse
+	53, // 55: datahub.DataHubService.GetAuditLogs:output_type -> datahub.AuditLogsProtoResponse
+	54, // 56: datahub.DataHubService.HealthCheck:output_type -> datahub.HealthProtoResponse
+	55, // 57: datahub.DataHubService.QueryCodeHelp:output_type -> datahub.CodeHelpProtoResponse
+	56, // 58: datahub.DataHubService.PublishProductionBundle:output_type -> datahub.PublishProductionBundleProtoResponse
+	57, // 59: datahub.DataHubService.QueryProductionBundles:output_type -> datahub.QueryProductionBundlesProtoResponse
+	58, // 60: datahub.DataHubService.GetProductionBundleData:output_type -> datahub.GetProductionBundleDataProtoResponse
+	59, // 61: datahub.DataHubService.DeleteProductionBundle:output_type -> datahub.DeleteProductionBundleProtoResponse
+	31, // [31:62] is the sub-list for method output_type
+	0,  // [0:31] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
@@ -54,8 +54,13 @@ export default function CalcProductionPage({
     handleConfirmMapping,
     handleUploadFileForTab,
     handleDeleteTabFile,
+    handleDeleteSelectedRows,
     handleRunCalculation,
     handleRegisterMaster,
+    handlePublishReport,
+    handleExportBundle,
+    isPublishing,
+    isExporting,
     clearAllFiles,
     refreshFiles
   } = useCalcProductionLogic({
@@ -82,8 +87,10 @@ export default function CalcProductionPage({
   const currentColumns = activeTabFileData?.columns
   const currentData = activeTabFileData?.data
 
-  // ── Grid State ──
+  // ── Grid State & Fast Search ──
   const [gridData, setGridData] = useState(() => currentData || [])
+  const [searchText, setSearchText] = useState('')
+  const [statusFilter, setStatusFilter] = useState('ALL')
   const [showSearch, setShowSearch] = useState(false)
   const [selection, setSelection] = useState({
     columns: CompactSelection.empty(),
@@ -110,6 +117,8 @@ export default function CalcProductionPage({
 
     setGridData(rows)
     setCols(newCols)
+    setSearchText('')
+    setStatusFilter('ALL')
     setSelection({
       columns: CompactSelection.empty(),
       rows: CompactSelection.empty()
@@ -147,6 +156,39 @@ export default function CalcProductionPage({
     setStatusMessage,
     t
   ])
+
+  // Lọc dữ liệu thời gian thực theo từ khóa tìm kiếm & trạng thái
+  const filteredGridData = useMemo(() => {
+    let result = gridData || []
+
+    if (statusFilter && statusFilter !== 'ALL') {
+      result = result.filter((row) => {
+        if (!row) return false
+        const st = String(
+          row.StatusDpSx ??
+            row.CoordinatorStatus ??
+            row['Trạng thái ĐP - SX'] ??
+            row.CheckKhsx ??
+            row['CHECK KHSX'] ??
+            ''
+        )
+        return st === statusFilter
+      })
+    }
+
+    if (searchText && searchText.trim()) {
+      const q = searchText.trim().toLowerCase()
+      result = result.filter((row) => {
+        if (!row) return false
+        return Object.values(row).some((val) => {
+          if (val === undefined || val === null) return false
+          return String(val).toLowerCase().includes(q)
+        })
+      })
+    }
+
+    return result
+  }, [gridData, searchText, statusFilter])
 
   // Cleanup khi unmount trang (rời khỏi menu sang menu khác)
   useEffect(() => {
@@ -259,6 +301,29 @@ export default function CalcProductionPage({
     }
   }
 
+  const selectedRowsIndices = useMemo(() => {
+    const indices = []
+    if (selection?.rows) {
+      selection.rows.toArray().forEach((idx) => {
+        if (!indices.includes(idx)) indices.push(idx)
+      })
+    }
+    if (selection?.current?.range) {
+      const { y, height } = selection.current.range
+      for (let i = y; i < y + height; i++) {
+        if (!indices.includes(i)) indices.push(i)
+      }
+    }
+    if (selection?.current?.cell && indices.length === 0) {
+      indices.push(selection.current.cell[1])
+    }
+    return indices
+  }, [selection])
+
+  const handleDeleteRows = useCallback(() => {
+    handleDeleteSelectedRows(selectedRowsIndices)
+  }, [handleDeleteSelectedRows, selectedRowsIndices])
+
   return (
     <>
       <DataPageContainer
@@ -270,18 +335,21 @@ export default function CalcProductionPage({
             isParsing={isParsing}
             isCalculating={isCalculating}
             isRegistering={isRegistering}
+            isPublishing={isPublishing}
+            isExporting={isExporting}
+            masterInfo={masterInfo}
             storageMode={storageMode}
             fileStatusSummary={fileStatusSummary}
+            selectedRowsCount={selectedRowsIndices.length}
             onUploadFile={handleUploadFileForTab}
             onOpenCustomMapping={openMappingModalForCurrentTab}
+            onDeleteSelectedRows={handleDeleteRows}
             onDeleteTabFile={handleDeleteTabFile}
             onClearAll={clearAllFiles}
             onRunCalculation={handleRunCalculation}
             onRegisterMaster={handleRegisterMaster}
-            onExportExcel={handleExportExcel}
-            onRefresh={refreshFiles}
-            onOpenSearch={() => setShowSearch(true)}
-            onOpenInNewWindow={handleOpenInNewWindow}
+            onPublishReport={handlePublishReport}
+            onExportBundle={handleExportBundle}
           />
         }
         query={
@@ -292,20 +360,25 @@ export default function CalcProductionPage({
             onChangeMasterInfo={handleChangeMasterInfo}
             onGenerateRegCode={handleGenerateNewRegCode}
             fileStatusSummary={fileStatusSummary}
-            calcResults={calcResults}
+            searchText={searchText}
+            setSearchText={setSearchText}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            totalRowsCount={gridData.length}
+            filteredRowsCount={filteredGridData.length}
           />
         }
-        queryTitle={t('Danh sách 4 Tab Kiến Trúc Dữ Liệu & Chỉ Số Tổng Hợp')}
+        queryTitle={t('ĐĂNG KÝ MASTER & BỘ LỌC DỮ LIỆU KHSX - TKSX')}
         defaultOpenQuery={true}
         table={
           <CalcDataGridTable
-            tableTitle={`${currentTabDef.title} (${(gridData.length || 0).toLocaleString('vi-VN')} dòng)`}
+            tableTitle={`${currentTabDef.title} (${filteredGridData.length.toLocaleString('vi-VN')}/${(gridData.length || 0).toLocaleString('vi-VN')} dòng)`}
             cols={cols}
             setCols={setCols}
             defaultCols={defaultCols}
-            gridData={gridData}
+            gridData={filteredGridData}
             setGridData={setGridData}
-            numRows={gridData.length}
+            numRows={filteredGridData.length}
             selection={selection}
             setSelection={setSelection}
             showSearch={showSearch}

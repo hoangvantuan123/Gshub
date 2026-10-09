@@ -2,11 +2,78 @@
  * SQLite Database Manager for Production Calculation Module (Desktop App)
  * Sử dụng better-sqlite3 / sqlite3 lưu trữ cục bộ tại UserData
  */
-import { app, ipcMain } from 'electron'
+import { app, ipcMain, dialog, BrowserWindow } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import zlib from 'zlib'
 
 let db = null
+
+/**
+ * Chuyển đổi mảng đối tượng thành Columnar Matrix
+ */
+function objectsToMatrix(rows = []) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { cols: [], rows: [] }
+  }
+  const colSet = new Set()
+  const sampleLimit = Math.min(rows.length, 100)
+  for (let i = 0; i < sampleLimit; i++) {
+    const row = rows[i]
+    if (row && typeof row === 'object') {
+      Object.keys(row).forEach((k) => colSet.add(k))
+    }
+  }
+  if (rows.length > 100) {
+    for (let i = 100; i < rows.length; i += 25) {
+      const row = rows[i]
+      if (row && typeof row === 'object') {
+        Object.keys(row).forEach((k) => colSet.add(k))
+      }
+    }
+  }
+  const cols = Array.from(colSet)
+  const colCount = cols.length
+  const rowCount = rows.length
+  const matrixRows = new Array(rowCount)
+  for (let i = 0; i < rowCount; i++) {
+    const row = rows[i] || {}
+    const r = new Array(colCount)
+    for (let c = 0; c < colCount; c++) {
+      const val = row[cols[c]]
+      r[c] = val === undefined ? null : val
+    }
+    matrixRows[i] = r
+  }
+  return { cols, rows: matrixRows }
+}
+
+/**
+ * Phục hồi ma trận thành mảng đối tượng
+ */
+function matrixToObjects(matrix) {
+  if (!matrix || !Array.isArray(matrix.cols) || !Array.isArray(matrix.rows)) {
+    return []
+  }
+  const { cols, rows } = matrix
+  const rowCount = rows.length
+  const colCount = cols.length
+  const result = new Array(rowCount)
+  for (let i = 0; i < rowCount; i++) {
+    const r = rows[i]
+    const obj = {}
+    if (Array.isArray(r)) {
+      for (let c = 0; c < colCount; c++) {
+        const val = r[c]
+        if (val !== null && val !== undefined) {
+          obj[cols[c]] = val
+        }
+      }
+    }
+    result[i] = obj
+  }
+  return result
+}
 
 /**
  * Khởi tạo cơ sở dữ liệu SQLite
@@ -68,6 +135,7 @@ export function initSqliteDatabase() {
           reg_code TEXT PRIMARY KEY,
           factory_name TEXT,
           apply_date TEXT,
+          production_team TEXT,
           remark TEXT,
           status TEXT,
           stat_report_rows INTEGER DEFAULT 0,
@@ -79,6 +147,18 @@ export function initSqliteDatabase() {
           registered_at TEXT
         );
       `)
+      try {
+        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN production_team TEXT;`)
+      } catch {}
+      try {
+        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN version TEXT DEFAULT '1.0';`)
+      } catch {}
+      try {
+        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN is_published INTEGER DEFAULT 0;`)
+      } catch {}
+      try {
+        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN published_at TEXT;`)
+      } catch {}
 
       // 4. Bảng lưu kết quả tính toán KHSX & TKSX
       db.exec(`
@@ -926,48 +1006,87 @@ export function setupSqliteIpc() {
         cur.rt += rt
       })
 
-      const planCalculatedRows = summaryOpData.map((row, idx) => {
-        const op = normalize(row.OperationOrderNo ?? row['Lệnh thao tác'] ?? row['Số lệnh thao tác'] ?? `KHSX-${idx + 1}`)
-        const matCode = String(row.MaterialCode ?? row['Mã vật tư'] ?? row['Mã hàng'] ?? '').trim()
-        const matName = String(row.MaterialName ?? row['Tên vật tư'] ?? row['Tên hàng'] ?? '').trim()
-        const machine = String(row.MachineName ?? row['Tên máy'] ?? row.MachineCode ?? 'Chưa gán').trim()
-        const rawPlanned = parseFloat(String(row['Số lượng \ncần sx \n(1)'] ?? row['Số lượng cần sản xuất'] ?? row.PlannedQty ?? 0).replace(/,/g, '')) || 0
-        const rawTarget = parseFloat(String(row['Số lượng \ncần đạt \n(2)'] ?? row['Số lượng cần đạt'] ?? row.TargetQty ?? 0).replace(/,/g, '')) || 0
-        const rawDuration = parseFloat(String(row['Tổng thời gian kế hoạch (7)'] ?? row.PlannedHours ?? 0).replace(/,/g, '')) || 0
-
-        const act = actualByOp.get(op) || { p: 0, q: 0, d: 0, rt: 0 }
-        const rate = rawPlanned > 0 ? Number(((act.p / rawPlanned) * 100).toFixed(2)) : 0
-        const actRunHours = Number((act.rt / 60).toFixed(2))
-
-        return {
-          IdSeq: `KHSX-${idx + 1}`,
-          OperationOrderNo: op,
-          MaterialCode: matCode,
-          MaterialName: matName,
-          Unit: String(row.Unit ?? row['ĐVT'] ?? 'Cái').trim(),
-          MachineName: machine,
-          OperationName: String(row.OperationName ?? row['Tên thao tác'] ?? '').trim(),
-          PlannedQty: rawPlanned,
-          TargetQty: rawTarget,
-          AllowedDefectQty: parseFloat(String(row['Số lượng \nsai hỏng \ncho phép \n(3)'] ?? 0).replace(/,/g, '')) || 0,
-          ActualProducedQty: act.p,
-          ActualQualifiedQty: act.q,
-          ActualDefectQty: act.d,
-          RemainingQty: Math.max(0, rawPlanned - act.p),
-          CompletionRate: rate,
-          CompletionStatus: rate >= 100 ? (rate > 100 ? 'Vượt KHSX' : 'Đạt KHSX') : 'Chưa hoàn thành',
-          PlannedHours: rawDuration,
-          ActualRunHours: actRunHours,
-          TimeDiffHours: Number((actRunHours - rawDuration).toFixed(2))
+      // 2. Lọc danh sách duy nhất theo Số lệnh thao tác (Deduplication)
+      const uniquePlanMap = new Map()
+      summaryOpData.forEach((row, idx) => {
+        const op = normalize(
+          row.OperationOrderNo ??
+          row.PlannedOperationOrderNo ??
+          row['Lệnh thao tác'] ??
+          row['Số lệnh thao tác'] ??
+          row['Số lệnh TT'] ??
+          `KHSX-${idx + 1}`
+        )
+        if (!op) return
+        if (!uniquePlanMap.has(op)) {
+          uniquePlanMap.set(op, row)
         }
       })
 
-      // Tính toán KHSX
+      const planCalculatedRows = []
       let totalPlannedQty = 0
-      let totalUnfinishedQty = 0
-      summaryOpData.forEach((row) => {
-        totalPlannedQty += parseFloat(String(row['Số lượng \ncần sx \n(1)'] ?? row['Số lượng cần sản xuất'] ?? row.PlannedQty ?? 0).replace(/,/g, '')) || 0
+
+      uniquePlanMap.forEach((row, op) => {
+        const pic = String(row.OrderIssuer ?? row.PicCoordinator ?? row['Người phát hành lệnh thao tác'] ?? row['PIC ĐP'] ?? '').trim()
+        const opDate = String(row.OperationDate ?? row.KhsxOpDate ?? row['Ngày KHSX thao tác'] ?? row['Ngày thực hiện thao tác'] ?? '').trim()
+        const stageOrderNo = String(row.StageOrderNo ?? row['Lệnh công đoạn'] ?? row['Số lệnh công đoạn'] ?? '').trim()
+        const stageCreatedDate = String(row.OpOrderReleaseDate ?? row.StageOrderCreatedDate ?? row['Ngày phát hành lệnh thao tác'] ?? '').trim()
+        const matCode = String(row.MaterialCode ?? row['Mã vật tư'] ?? row['Mã hàng'] ?? '').trim()
+        const matName = String(row.MaterialName ?? row['Tên vật tư'] ?? row['Tên hàng'] ?? '').trim()
+        const opName = String(row.PlannedOperationTypeName ?? row.OperationName ?? row['Tên phân loại thao tác'] ?? '').trim()
+        const machine = String(row.PlannedMachineName ?? row.MachineName ?? row['Tên máy'] ?? '').trim()
+        const unit = String(row.Unit ?? row['ĐVT'] ?? row['Đvt'] ?? 'Pcs').trim()
+
+        const rawPlanned = parseFloat(String(row['Số lượng cần sx (1)'] ?? row['Số lượng \ncần sx \n(1)'] ?? row['Số lượng cần sản xuất'] ?? row.PlannedQty ?? 0).replace(/,/g, '')) || 0
+        const rawTarget = parseFloat(String(row['Số lượng cần đạt (2)'] ?? row['Số lượng \ncần đạt \n(2)'] ?? row['Số lượng cần đạt'] ?? row.TargetQty ?? 0).replace(/,/g, '')) || 0
+        const startTime = String(row.PlannedStartTime ?? row.StartTime ?? row['Thời gian bắt đầu (5)'] ?? row['Thời gian bắt đầu'] ?? '').trim()
+        const endTime = String(row.PlannedEndTime ?? row.EndTime ?? row['Thời gian kết thúc (6)'] ?? row['Thời gian kết thúc'] ?? '').trim()
+
+        let rawDuration = parseFloat(String(row.PlannedTotalHours ?? row['Tổng thời gian kế hoạch (7)=(6)-(5)'] ?? 0).replace(/,/g, '')) || 0
+        let standardRunMin = rawDuration > 0 ? Math.round(rawDuration * 60) : 0
+
+        const act = actualByOp.get(op) || { p: 0, q: 0, d: 0, rt: 0 }
+        let standardCapa = standardRunMin > 0 && rawTarget > 0 ? Number(((rawTarget / standardRunMin) * 60).toFixed(4)) : 0
+        let actualCapa = act.rt > 0 && act.q > 0 ? Number(((act.q / act.rt) * 60).toFixed(4)) : 0
+
+        let coordinatorStatus = 'Trượt KH'
+        if (act.q >= rawTarget && rawTarget > 0) {
+          coordinatorStatus = act.q > rawTarget * 1.05 ? 'Vượt KH' : 'Đạt KH'
+        } else if (act.q > 0) {
+          coordinatorStatus = 'Đang chạy'
+        }
+
+        totalPlannedQty += rawPlanned
+
+        planCalculatedRows.push({
+          PicCoordinator: pic,
+          OperationOrderNo: op,
+          OperationDate: opDate,
+          StageOrderNo: stageOrderNo,
+          StageOrderCreatedDate: stageCreatedDate,
+          MaterialCode: matCode,
+          MaterialName: matName,
+          OperationName: opName,
+          OperationTypeName: opName,
+          MachineName: machine,
+          Unit: unit,
+          OpTargetQty: rawTarget,
+          OpPlannedQty: rawPlanned,
+          ActualQualifiedQty: act.q,
+          StartTime: startTime,
+          EndTime: endTime,
+          StandardRunMinutes: standardRunMin,
+          ActualRunMinutes: act.rt,
+          StandardCapa: standardCapa,
+          ActualCapa: actualCapa,
+          CoordinatorStatus: coordinatorStatus,
+          TimeStatus: act.rt > 0 && standardRunMin > 0 ? (act.rt <= standardRunMin ? 'Đạt thời gian' : 'Vượt giờ ĐM') : '',
+          CapaStatus: actualCapa > 0 && standardCapa > 0 ? (actualCapa >= standardCapa ? 'Đạt Capa' : 'Chưa đạt Capa') : '',
+          KhsxStatus: 'KHSX'
+        })
       })
+
+      let totalUnfinishedQty = 0
       unfinishedOpData.forEach((row) => {
         totalUnfinishedQty += parseFloat(String(row['Số lượng còn lại'] ?? row.RemainingQty ?? 0).replace(/,/g, '')) || 0
       })
@@ -975,7 +1094,7 @@ export function setupSqliteIpc() {
       const planResult = {
         totalPlannedQty,
         totalUnfinishedQty,
-        totalPlannedOrders: summaryOpData.length,
+        totalPlannedOrders: planCalculatedRows.length,
         totalUnfinishedOrders: unfinishedOpData.length,
         calculatedRows: planCalculatedRows
       }
@@ -1062,19 +1181,12 @@ export function setupSqliteIpc() {
     }
   })
 
-  // Lấy kết quả tính toán theo id hoặc bản ghi mới nhất
+  // Lấy kết quả tính toán theo id (chỉ trả về kết quả đúng của id đó, không tự động fallback lấy bừa kết quả cũ)
   ipcMain.handle('sqlite:get-calc-results', async (_, id) => {
-    if (!db) return null
+    if (!db || !id) return null
     try {
-      let r = null
-      if (id) {
-        const stmt = db.prepare('SELECT * FROM calc_results WHERE id = ?')
-        r = stmt.get(id)
-      }
-      if (!r) {
-        const stmtLatest = db.prepare('SELECT * FROM calc_results ORDER BY calculated_at DESC LIMIT 1')
-        r = stmtLatest.get()
-      }
+      const stmt = db.prepare('SELECT * FROM calc_results WHERE id = ?')
+      const r = stmt.get(id)
       if (!r) return null
       return {
         id: r.id,
@@ -1089,19 +1201,20 @@ export function setupSqliteIpc() {
     }
   })
 
-  // Lưu đăng ký Master
+  // Lưu đăng ký Master (hỗ trợ version, is_published, published_at)
   ipcMain.handle('sqlite:save-master-reg', async (_, payload) => {
     if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
     try {
       const stmt = db.prepare(`
         INSERT INTO calc_master_registrations (
-          reg_code, factory_name, apply_date, remark, status,
+          reg_code, factory_name, apply_date, production_team, remark, status,
           stat_report_rows, unfinished_op_rows, summary_op_rows, mes_approval_rows, total_rows,
-          file_summaries, registered_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          file_summaries, registered_at, version, is_published, published_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(reg_code) DO UPDATE SET
           factory_name = excluded.factory_name,
           apply_date = excluded.apply_date,
+          production_team = excluded.production_team,
           remark = excluded.remark,
           status = excluded.status,
           stat_report_rows = excluded.stat_report_rows,
@@ -1110,15 +1223,24 @@ export function setupSqliteIpc() {
           mes_approval_rows = excluded.mes_approval_rows,
           total_rows = excluded.total_rows,
           file_summaries = excluded.file_summaries,
-          registered_at = excluded.registered_at
+          registered_at = excluded.registered_at,
+          version = excluded.version,
+          is_published = excluded.is_published,
+          published_at = excluded.published_at
       `)
+
+      const status = payload.status || 'DRAFT'
+      const version = payload.version || '1.0'
+      const isPublished = payload.isPublished ? 1 : 0
+      const publishedAt = payload.publishedAt || (isPublished ? new Date().toISOString() : null)
 
       stmt.run(
         payload.regCode,
         payload.factoryName || 'GS1 Hà Nội',
         payload.applyDate || '',
+        payload.productionTeam || 'Tất cả các tổ',
         payload.remark || '',
-        payload.status || 'REGISTERED',
+        status,
         payload.statReportRows || 0,
         payload.unfinishedOpRows || 0,
         payload.summaryOpRows || 0,
@@ -1127,11 +1249,38 @@ export function setupSqliteIpc() {
         typeof payload.fileSummaries === 'string'
           ? payload.fileSummaries
           : JSON.stringify(payload.fileSummaries || {}),
-        payload.registeredAt || new Date().toISOString()
+        payload.registeredAt || new Date().toISOString(),
+        version,
+        isPublished,
+        publishedAt
       )
       return { success: true }
     } catch (err) {
       console.error('[SQLite IPC] Lỗi lưu master reg:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // Công bố báo cáo (Publish Version)
+  ipcMain.handle('sqlite:publish-master-reg', async (_, payload) => {
+    if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    try {
+      const regCode = typeof payload === 'string' ? payload : payload?.regCode
+      const version = payload?.version || '1.0'
+      const publishedAt = new Date().toISOString()
+
+      const stmt = db.prepare(`
+        UPDATE calc_master_registrations
+        SET status = 'PUBLISHED',
+            version = ?,
+            is_published = 1,
+            published_at = ?
+        WHERE reg_code = ?
+      `)
+      stmt.run(version, publishedAt, regCode)
+      return { success: true, version, publishedAt, status: 'PUBLISHED' }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi công bố báo cáo:', err)
       return { success: false, error: err.message }
     }
   })
@@ -1146,8 +1295,12 @@ export function setupSqliteIpc() {
         regCode: r.reg_code,
         factoryName: r.factory_name,
         applyDate: r.apply_date,
+        productionTeam: r.production_team || 'Tất cả các tổ',
         remark: r.remark,
-        status: r.status,
+        status: r.status || 'DRAFT',
+        version: r.version || '1.0',
+        isPublished: Boolean(r.is_published),
+        publishedAt: r.published_at,
         statReportRows: r.stat_report_rows,
         unfinishedOpRows: r.unfinished_op_rows,
         summaryOpRows: r.summary_op_rows,
@@ -1173,8 +1326,12 @@ export function setupSqliteIpc() {
         regCode: r.reg_code,
         factoryName: r.factory_name,
         applyDate: r.apply_date,
+        productionTeam: r.production_team || 'Tất cả các tổ',
         remark: r.remark,
-        status: r.status,
+        status: r.status || 'DRAFT',
+        version: r.version || '1.0',
+        isPublished: Boolean(r.is_published),
+        publishedAt: r.published_at,
         statReportRows: r.stat_report_rows,
         unfinishedOpRows: r.unfinished_op_rows,
         summaryOpRows: r.summary_op_rows,
@@ -1198,6 +1355,321 @@ export function setupSqliteIpc() {
       return { success: true }
     } catch (err) {
       console.error('[SQLite IPC] Lỗi xóa master reg:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // Xuất gói siêu nén .gsprod (Columnar Matrix + Gzip Level 9 - Giảm từ 50MB -> <1MB)
+  ipcMain.handle('sqlite:export-bundle-package', async (event, payload = {}) => {
+    if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    try {
+      const regCode = payload.regCode
+      let masterRecord = null
+      if (regCode) {
+        const mRow = db.prepare('SELECT * FROM calc_master_registrations WHERE reg_code = ?').get(regCode)
+        if (mRow) {
+          masterRecord = {
+            regCode: mRow.reg_code,
+            factoryName: mRow.factory_name,
+            applyDate: mRow.apply_date,
+            productionTeam: mRow.production_team,
+            remark: mRow.remark,
+            status: 'PUBLISHED',
+            version: mRow.version || payload.version || '1.0',
+            isPublished: 1,
+            publishedAt: mRow.published_at || new Date().toISOString(),
+            statReportRows: mRow.stat_report_rows,
+            unfinishedOpRows: mRow.unfinished_op_rows,
+            summaryOpRows: mRow.summary_op_rows,
+            mesApprovalRows: mRow.mes_approval_rows,
+            totalRows: mRow.total_rows,
+            fileSummaries: JSON.parse(mRow.file_summaries || '{}'),
+            registeredAt: mRow.registered_at
+          }
+        }
+      }
+
+      if (!masterRecord) {
+        masterRecord = payload.master || {
+          regCode: regCode || `REG_${Date.now()}`,
+          factoryName: 'GS1 Hà Nội',
+          applyDate: new Date().toISOString().slice(0, 10),
+          productionTeam: 'Tất cả các tổ',
+          status: 'PUBLISHED',
+          version: payload.version || '1.0',
+          isPublished: 1,
+          publishedAt: new Date().toISOString()
+        }
+      }
+
+      // Lấy toàn bộ 4 file kiến trúc
+      const statRows = getFullDataForFileType('STAT_REPORT')
+      const unfinRows = getFullDataForFileType('UNFINISHED_OP')
+      const sumRows = getFullDataForFileType('SUMMARY_OP')
+      const mesRows = getFullDataForFileType('MES_APPROVAL')
+
+      // Lấy kết quả tính toán
+      let calcRes = null
+      if (regCode) {
+        const resRow = db.prepare('SELECT * FROM calc_results WHERE id = ?').get(regCode)
+        if (resRow) {
+          calcRes = {
+            summary: JSON.parse(resRow.summary || '{}'),
+            plan: JSON.parse(resRow.plan_data || '{}'),
+            stat: JSON.parse(resRow.stat_data || '{}')
+          }
+        }
+      }
+
+      // Chuẩn bị bundle với Columnar Matrix
+      const bundleData = {
+        format: 'GSHUB_PROD_BUNDLE',
+        specVersion: '1.0',
+        version: masterRecord.version || '1.0',
+        exportedAt: new Date().toISOString(),
+        master: masterRecord,
+        architecture: {
+          STAT_REPORT: objectsToMatrix(statRows),
+          UNFINISHED_OP: objectsToMatrix(unfinRows),
+          SUMMARY_OP: objectsToMatrix(sumRows),
+          MES_APPROVAL: objectsToMatrix(mesRows)
+        },
+        calcResults: {
+          summary: calcRes?.summary || {},
+          plan: objectsToMatrix(calcRes?.plan?.calculatedRows || calcRes?.plan || []),
+          stat: objectsToMatrix(calcRes?.stat?.calculatedRows || calcRes?.stat || [])
+        }
+      }
+
+      const jsonStr = JSON.stringify(bundleData)
+      const rawSizeBytes = Buffer.byteLength(jsonStr, 'utf8')
+      const compressedBuffer = zlib.gzipSync(jsonStr, { level: 9 })
+      const compressedSizeBytes = compressedBuffer.length
+
+      let savePath = payload.targetPath
+      if (!savePath) {
+        const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow()
+        const defaultName = `${masterRecord.regCode || 'KHSX'}_v${masterRecord.version || '1.0'}.gsprod`
+        const saveDialogRes = await dialog.showSaveDialog(win, {
+          title: 'Xuất gói dữ liệu sản xuất (.gsprod)',
+          defaultPath: path.join(app.getPath('downloads'), defaultName),
+          filters: [
+            { name: 'GSHUB Production Package (*.gsprod)', extensions: ['gsprod'] },
+            { name: 'All Files (*.*)', extensions: ['*'] }
+          ]
+        })
+        if (saveDialogRes.canceled || !saveDialogRes.filePath) {
+          return { success: false, canceled: true }
+        }
+        savePath = saveDialogRes.filePath
+      }
+
+      fs.writeFileSync(savePath, compressedBuffer)
+
+      const rawMB = (rawSizeBytes / 1024 / 1024).toFixed(2)
+      const compMB = (compressedSizeBytes / 1024 / 1024).toFixed(2)
+      const ratio = ((1 - compressedSizeBytes / Math.max(1, rawSizeBytes)) * 100).toFixed(1) + '%'
+
+      return {
+        success: true,
+        filePath: savePath,
+        rawSizeBytes,
+        compressedSizeBytes,
+        rawMB,
+        compMB,
+        ratio,
+        regCode: masterRecord.regCode,
+        version: masterRecord.version
+      }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi xuất gói .gsprod:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // Nhập và đồng bộ ngay lập tức gói siêu nén .gsprod vào CSDL SQLite của User
+  ipcMain.handle('sqlite:import-bundle-package', async (event, payload = {}) => {
+    if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    try {
+      let buffer = null
+      let filePath = payload.filePath
+
+      if (payload.buffer) {
+        buffer = Buffer.from(payload.buffer)
+      } else if (filePath && fs.existsSync(filePath)) {
+        buffer = fs.readFileSync(filePath)
+      } else {
+        const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow()
+        const openDialogRes = await dialog.showOpenDialog(win, {
+          title: 'Chọn gói dữ liệu sản xuất (.gsprod) để đồng bộ',
+          properties: ['openFile'],
+          filters: [
+            { name: 'GSHUB Production Package (*.gsprod)', extensions: ['gsprod'] },
+            { name: 'All Files (*.*)', extensions: ['*'] }
+          ]
+        })
+        if (openDialogRes.canceled || !openDialogRes.filePaths?.length) {
+          return { success: false, canceled: true }
+        }
+        filePath = openDialogRes.filePaths[0]
+        buffer = fs.readFileSync(filePath)
+      }
+
+      if (!buffer) {
+        return { success: false, error: 'Không đọc được dữ liệu gói file' }
+      }
+
+      // Giải nén Gzip
+      const decompressedString = zlib.gunzipSync(buffer).toString('utf8')
+      const bundleObj = JSON.parse(decompressedString)
+
+      if (bundleObj.format !== 'GSHUB_PROD_BUNDLE') {
+        return { success: false, error: 'Định dạng file không phải là GSHUB Production Package (.gsprod)' }
+      }
+
+      const master = bundleObj.master || {}
+      const arch = bundleObj.architecture || {}
+      const res = bundleObj.calcResults || bundleObj.results || {}
+
+      // Bung dữ liệu từ Matrix
+      const statRows = matrixToObjects(arch.STAT_REPORT)
+      const unfinRows = matrixToObjects(arch.UNFINISHED_OP)
+      const sumRows = matrixToObjects(arch.SUMMARY_OP)
+      const mesRows = matrixToObjects(arch.MES_APPROVAL)
+      const planRows = matrixToObjects(res.plan)
+      const statCalcRows = matrixToObjects(res.stat)
+
+      const CHUNK_SIZE = 5000
+
+      // Dùng Transaction ghi tốc độ cao vào SQLite
+      const syncTransaction = db.transaction(() => {
+        // 1. Lưu Master Registration
+        const masterStmt = db.prepare(`
+          INSERT INTO calc_master_registrations (
+            reg_code, factory_name, apply_date, production_team, remark, status,
+            stat_report_rows, unfinished_op_rows, summary_op_rows, mes_approval_rows, total_rows,
+            file_summaries, registered_at, version, is_published, published_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(reg_code) DO UPDATE SET
+            factory_name = excluded.factory_name,
+            apply_date = excluded.apply_date,
+            production_team = excluded.production_team,
+            remark = excluded.remark,
+            status = excluded.status,
+            stat_report_rows = excluded.stat_report_rows,
+            unfinished_op_rows = excluded.unfinished_op_rows,
+            summary_op_rows = excluded.summary_op_rows,
+            mes_approval_rows = excluded.mes_approval_rows,
+            total_rows = excluded.total_rows,
+            file_summaries = excluded.file_summaries,
+            registered_at = excluded.registered_at,
+            version = excluded.version,
+            is_published = excluded.is_published,
+            published_at = excluded.published_at
+        `)
+
+        masterStmt.run(
+          master.regCode,
+          master.factoryName || 'GS1 Hà Nội',
+          master.applyDate || '',
+          master.productionTeam || 'Tất cả các tổ',
+          master.remark || 'Đồng bộ từ gói .gsprod',
+          'PUBLISHED',
+          statRows.length,
+          unfinRows.length,
+          sumRows.length,
+          mesRows.length,
+          statRows.length + unfinRows.length + sumRows.length + mesRows.length,
+          JSON.stringify(master.fileSummaries || {}),
+          master.registeredAt || new Date().toISOString(),
+          master.version || '1.0',
+          1,
+          master.publishedAt || new Date().toISOString()
+        )
+
+        // 2. Lưu 4 file kiến trúc
+        const filesMap = {
+          STAT_REPORT: statRows,
+          UNFINISHED_OP: unfinRows,
+          SUMMARY_OP: sumRows,
+          MES_APPROVAL: mesRows
+        }
+
+        const insertFileStmt = db.prepare(`
+          INSERT INTO calc_architecture_files (file_type, file_name, file_size, row_count, columns, data, uploaded_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(file_type) DO UPDATE SET
+            file_name = excluded.file_name,
+            file_size = excluded.file_size,
+            row_count = excluded.row_count,
+            columns = excluded.columns,
+            data = excluded.data,
+            uploaded_at = excluded.uploaded_at
+        `)
+
+        const deleteChunksStmt = db.prepare('DELETE FROM calc_architecture_chunks WHERE file_type = ?')
+        const insertChunkStmt = db.prepare(`
+          INSERT INTO calc_architecture_chunks (file_type, chunk_index, row_count, data)
+          VALUES (?, ?, ?, ?)
+        `)
+
+        for (const [fType, rows] of Object.entries(filesMap)) {
+          deleteChunksStmt.run(fType)
+          const cols = rows.length > 0 ? Object.keys(rows[0]) : []
+          insertFileStmt.run(
+            fType,
+            `${fType}_synced.xlsx`,
+            rows.length * 200,
+            rows.length,
+            JSON.stringify(cols),
+            JSON.stringify(rows.slice(0, 100)),
+            new Date().toISOString()
+          )
+
+          const totalChunks = Math.ceil(rows.length / CHUNK_SIZE) || 1
+          for (let i = 0; i < totalChunks; i++) {
+            const chunkRows = rows.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
+            insertChunkStmt.run(fType, i, chunkRows.length, JSON.stringify(chunkRows))
+          }
+        }
+
+        // 3. Lưu kết quả tính
+        const calcStmt = db.prepare(`
+          INSERT INTO calc_results (id, summary, plan_data, stat_data, calculated_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            summary = excluded.summary,
+            plan_data = excluded.plan_data,
+            stat_data = excluded.stat_data,
+            calculated_at = excluded.calculated_at
+        `)
+
+        calcStmt.run(
+          master.regCode,
+          JSON.stringify(res.summary || {}),
+          JSON.stringify({ calculatedRows: planRows }),
+          JSON.stringify({ calculatedRows: statCalcRows }),
+          new Date().toISOString()
+        )
+      })
+
+      syncTransaction()
+
+      return {
+        success: true,
+        regCode: master.regCode,
+        version: master.version || '1.0',
+        master,
+        statReportRows: statRows.length,
+        unfinishedOpRows: unfinRows.length,
+        summaryOpRows: sumRows.length,
+        mesApprovalRows: mesRows.length,
+        planRows: planRows.length,
+        statCalcRows: statCalcRows.length,
+        totalRows: statRows.length + unfinRows.length + sumRows.length + mesRows.length
+      }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi đồng bộ gói .gsprod:', err)
       return { success: false, error: err.message }
     }
   })

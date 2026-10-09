@@ -151,3 +151,21 @@ func ProxyForward(pool *grpcclient.Pool) gin.HandlerFunc {
 func GetLogs(pool *grpcclient.Pool) gin.HandlerFunc {
 	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/GetAuditLogs")
 }
+
+// 7. Production Calculation Compressed Bundles (.gsprod packages)
+func PublishProductionBundle(pool *grpcclient.Pool) gin.HandlerFunc {
+	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/PublishProductionBundle")
+}
+
+func QueryProductionBundles(pool *grpcclient.Pool) gin.HandlerFunc {
+	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryProductionBundles")
+}
+
+func GetProductionBundleData(pool *grpcclient.Pool) gin.HandlerFunc {
+	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/GetProductionBundleData")
+}
+
+func DeleteProductionBundle(pool *grpcclient.Pool) gin.HandlerFunc {
+	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/DeleteProductionBundle")
+}
+

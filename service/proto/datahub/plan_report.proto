@@ -579,3 +579,103 @@ message PlanReportProtoResponse {
   int32 page_size = 16;
   string data_json = 17;
 }
+
+// ==========================================
+// 8. Production Calculation .gsprod Bundles
+// ==========================================
+
+message ProductionBundleProtoItem {
+  uint32 id = 1;
+  string reg_code = 2;
+  string factory_name = 3;
+  string apply_date = 4;
+  string production_team = 5;
+  string status = 6;
+  string version = 7;
+  int32 total_rows = 8;
+  double raw_size_mb = 9;
+  double compressed_size_mb = 10;
+  string compression_ratio = 11;
+  string file_summaries = 12;
+  string calc_summary = 13;
+  string remark = 14;
+  string created_by = 15;
+  string created_at = 16;
+  string updated_at = 17;
+}
+
+message PublishProductionBundleProtoRequest {
+  string reg_code = 1;
+  string factory_name = 2;
+  string apply_date = 3;
+  string production_team = 4;
+  string status = 5;
+  string version = 6;
+  int32 total_rows = 7;
+  double raw_size_mb = 8;
+  double compressed_size_mb = 9;
+  string compression_ratio = 10;
+  bytes bundle_data = 11;
+  string bundle_base64 = 12;
+  string file_summaries = 13;
+  string calc_summary = 14;
+  string remark = 15;
+  string created_by = 16;
+}
+
+message PublishProductionBundleProtoResponse {
+  bool success = 1;
+  string message = 2;
+  string reg_code = 3;
+  string version = 4;
+  double compressed_size_mb = 5;
+  string compression_ratio = 6;
+  string error_message = 7;
+}
+
+message QueryProductionBundlesProtoRequest {
+  string factory_name = 1;
+  string production_team = 2;
+  string apply_date_from = 3;
+  string apply_date_to = 4;
+  string status = 5;
+  string keyword = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+}
+
+message QueryProductionBundlesProtoResponse {
+  bool success = 1;
+  string message = 2;
+  repeated ProductionBundleProtoItem data = 3;
+  int64 total_records = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+  string error_message = 7;
+}
+
+message GetProductionBundleDataProtoRequest {
+  string reg_code = 1;
+}
+
+message GetProductionBundleDataProtoResponse {
+  bool success = 1;
+  string message = 2;
+  string reg_code = 3;
+  string version = 4;
+  bytes bundle_data = 5;
+  int32 total_rows = 6;
+  string error_message = 7;
+}
+
+message DeleteProductionBundleProtoRequest {
+  string reg_code = 1;
+}
+
+message DeleteProductionBundleProtoResponse {
+  bool success = 1;
+  string message = 2;
+  int64 deleted_rows = 3;
+  string error_message = 4;
+}
+

@@ -627,7 +627,6 @@ export const UNFINISHED_OP_COLUMN_SCHEMA = [
   { title: 'Số lượng cần đạt', key: 'TargetQty', kind: 'Number', width: 120 },
   { title: 'Số lượng cần sản xuất', key: 'PlannedQty', kind: 'Number', width: 130 },
   { title: 'Số lượng đã thống kê', key: 'StatQty', kind: 'Number', width: 130 },
-  { title: 'Số lượng còn lại', key: 'RemainingQty', kind: 'Number', width: 120 },
   { title: 'Thời gian bắt đầu', key: 'StartTime', kind: 'Text', width: 130 },
   { title: 'Thời gian kết thúc', key: 'EndTime', kind: 'Text', width: 130 },
   {
@@ -1396,31 +1395,37 @@ export const MES_APPROVAL_COLUMN_SCHEMA = [
 ]
 
 export const RESULT_KHSX_COLUMN_SCHEMA = [
-  { group: 'Thông tin Lệnh & Vật tư', title: 'Số lệnh thao tác', key: 'OperationOrderNo', kind: 'Text', width: 170 },
-  { group: 'Thông tin Lệnh & Vật tư', title: 'Mã vật tư', key: 'MaterialCode', kind: 'Text', width: 140 },
-  { group: 'Thông tin Lệnh & Vật tư', title: 'Tên vật tư', key: 'MaterialName', kind: 'Text', width: 250 },
-  { group: 'Thông tin Lệnh & Vật tư', title: 'Đơn vị tính', key: 'Unit', kind: 'Text', width: 90 },
-  { group: 'Thiết bị & Công đoạn', title: 'Máy sản xuất', key: 'MachineName', kind: 'Text', width: 160 },
-  { group: 'Thiết bị & Công đoạn', title: 'Công đoạn', key: 'OperationName', kind: 'Text', width: 150 },
-  { group: 'Chỉ số Kế hoạch (KHSX)', title: 'SL Cần sản xuất (KH)', key: 'PlannedQty', kind: 'Number', width: 160 },
-  { group: 'Chỉ số Kế hoạch (KHSX)', title: 'SL Cần đạt', key: 'TargetQty', kind: 'Number', width: 130 },
-  { group: 'Chỉ số Kế hoạch (KHSX)', title: 'SL Lỗi cho phép', key: 'AllowedDefectQty', kind: 'Number', width: 130 },
-  { group: 'Thực tế Thực hiện (TKSX)', title: 'SL Thực tế sản xuất', key: 'ActualProducedQty', kind: 'Number', width: 160 },
-  { group: 'Thực tế Thực hiện (TKSX)', title: 'SL Đạt chuẩn', key: 'ActualQualifiedQty', kind: 'Number', width: 130 },
-  { group: 'Thực tế Thực hiện (TKSX)', title: 'SL Phế phẩm / Lỗi', key: 'ActualDefectQty', kind: 'Number', width: 140 },
-  { group: 'Thực tế Thực hiện (TKSX)', title: 'SL Dở dang / Còn lại', key: 'RemainingQty', kind: 'Number', width: 160 },
-  { group: 'Đánh giá Hoàn thành', title: 'Tỷ lệ hoàn thành (%)', key: 'CompletionRate', kind: 'Number', width: 150 },
-  { group: 'Đánh giá Hoàn thành', title: 'Trạng thái hoàn thành', key: 'CompletionStatus', kind: 'Text', width: 160 },
-  { group: 'Thời gian & Tiến độ', title: 'Tổng giờ KH (giờ)', key: 'PlannedHours', kind: 'Number', width: 140 },
-  { group: 'Thời gian & Tiến độ', title: 'Tổng giờ chạy thực tế (giờ)', key: 'ActualRunHours', kind: 'Number', width: 170 },
-  { group: 'Thời gian & Tiến độ', title: 'Chênh lệch giờ', key: 'TimeDiffHours', kind: 'Number', width: 130 }
+  { title: 'PIC ĐP', key: 'PicCoordinator', kind: 'Text', width: 170 },
+  { title: 'Số lệnh thao tác', key: 'OperationOrderNo', kind: 'Text', width: 160 },
+  { title: 'Ngày thực hiện thao tác', key: 'OperationDate', kind: 'Text', width: 140 },
+  { title: 'Số lệnh công đoạn', key: 'StageOrderNo', kind: 'Text', width: 160 },
+  { title: 'Ngày tạo lệnh công đoạn', key: 'StageOrderCreatedDate', kind: 'Text', width: 140 },
+  { title: 'Mã hàng', key: 'MaterialCode', kind: 'Text', width: 140 },
+  { title: 'Tên hàng', key: 'MaterialName', kind: 'Text', width: 220 },
+  { title: 'Thao tác', key: 'OperationName', kind: 'Text', width: 160 },
+  { title: 'Phân loại thao tác', key: 'OperationTypeName', kind: 'Text', width: 150 },
+  { title: 'Máy sản xuất', key: 'MachineName', kind: 'Text', width: 170 },
+  { title: 'Đvt', key: 'Unit', kind: 'Text', width: 80 },
+  { title: 'Số lượng cần đạt LTT', key: 'OpTargetQty', kind: 'Number', width: 130 },
+  { title: 'Số lượng cần sản xuất', key: 'OpPlannedQty', kind: 'Number', width: 140 },
+  { title: 'Số lượng đã thống kê đạt', key: 'ActualQualifiedQty', kind: 'Number', width: 150 },
+  { title: 'Thời gian bắt đầu', key: 'StartTime', kind: 'Text', width: 140 },
+  { title: 'Thời gian kết thúc', key: 'EndTime', kind: 'Text', width: 140 },
+  { title: 'Thời gian sản xuất theo ĐM', key: 'StandardRunMinutes', kind: 'Number', width: 150 },
+  { title: 'Thời gian sản xuất', key: 'ActualRunMinutes', kind: 'Number', width: 130 },
+  { title: 'Capa ĐM', key: 'StandardCapa', kind: 'Number', width: 120 },
+  { title: 'Capa thực tế', key: 'ActualCapa', kind: 'Number', width: 120 },
+  { title: 'Trạng thái ĐP - SX', key: 'CoordinatorStatus', kind: 'Text', width: 130 },
+  { title: 'Trạng thái thời gian', key: 'TimeStatus', kind: 'Text', width: 130 },
+  { title: 'Trạng thái capa', key: 'CapaStatus', kind: 'Text', width: 120 },
+  { title: 'KHSX', key: 'KhsxStatus', kind: 'Text', width: 100 }
 ]
 
 export const TAB_DEFINITIONS = [
   {
     id: ARCHITECTURE_FILE_TYPES.STAT_REPORT,
     key: 'stat_report',
-    title: '1. Thống Kê Sản Xuất',
+    title: '1. Thống kê sản xuất',
     shortTitle: 'Thống kê SX',
     description: 'Báo cáo Thống kê sản xuất chi tiết từ MES / Bravo',
     columnsSchema: STAT_REPORT_COLUMN_SCHEMA
@@ -1428,7 +1433,7 @@ export const TAB_DEFINITIONS = [
   {
     id: ARCHITECTURE_FILE_TYPES.UNFINISHED_OP,
     key: 'unfinished_op',
-    title: '2. Lệnh TT Chưa Hoàn Thành',
+    title: '2. Lệnh TT chưa hoàn thành',
     shortTitle: 'Lệnh TT chưa xong',
     description: 'Báo cáo Lệnh thao tác chưa hoàn thành / dở dang',
     columnsSchema: UNFINISHED_OP_COLUMN_SCHEMA
@@ -1436,7 +1441,7 @@ export const TAB_DEFINITIONS = [
   {
     id: ARCHITECTURE_FILE_TYPES.SUMMARY_OP,
     key: 'summary_op',
-    title: '3. Tổng Hợp Lệnh Thao Tác',
+    title: '3. Tổng hợp lệnh thao tác',
     shortTitle: 'Tổng hợp lệnh TT',
     description: 'Báo cáo Tổng hợp lệnh thao tác, định mức và chỉ số OEE',
     columnsSchema: SUMMARY_OP_COLUMN_SCHEMA
@@ -1444,7 +1449,7 @@ export const TAB_DEFINITIONS = [
   {
     id: ARCHITECTURE_FILE_TYPES.MES_APPROVAL,
     key: 'mes_approval',
-    title: '4. Duyệt Sản Lượng MES',
+    title: '4. Duyệt sản lượng MES',
     shortTitle: 'Duyệt SL MES',
     description: 'Báo cáo Duyệt sản lượng trên hệ thống MES',
     columnsSchema: MES_APPROVAL_COLUMN_SCHEMA
@@ -1452,8 +1457,8 @@ export const TAB_DEFINITIONS = [
   {
     id: ARCHITECTURE_FILE_TYPES.RESULT_TKSX,
     key: 'result_tksx',
-    title: '5. BẢNG KẾT QUẢ TKSX',
-    shortTitle: 'Kết Quả TKSX',
+    title: '5. Kết quả TKSX',
+    shortTitle: 'Kết quả TKSX',
     description:
       'Bảng dữ liệu Thống Kê Sản Xuất hoàn chỉnh 98 cột sau khi tính toán đối soát với Lệnh TT và MES',
     columnsSchema: STAT_REPORT_COLUMN_SCHEMA,
@@ -1462,8 +1467,8 @@ export const TAB_DEFINITIONS = [
   {
     id: ARCHITECTURE_FILE_TYPES.RESULT_KHSX,
     key: 'result_khsx',
-    title: '6. BẢNG KẾT QUẢ KHSX',
-    shortTitle: 'Kết Quả KHSX',
+    title: '6. Kết quả KHSX',
+    shortTitle: 'Kết quả KHSX',
     description:
       'Bảng tổng hợp đối soát Kế hoạch sản xuất và tiến độ thực tế theo từng lệnh thao tác',
     columnsSchema: RESULT_KHSX_COLUMN_SCHEMA,

@@ -48,4 +48,10 @@ service DataHubService {
   // 7. Audit Logs & System Health
   rpc GetAuditLogs (AuditLogsProtoRequest) returns (AuditLogsProtoResponse);
   rpc HealthCheck (HealthProtoRequest) returns (HealthProtoResponse);
+
+  // 8. Production Calculation Compressed Bundles (.gsprod packages)
+  rpc PublishProductionBundle (PublishProductionBundleProtoRequest) returns (PublishProductionBundleProtoResponse);
+  rpc QueryProductionBundles (QueryProductionBundlesProtoRequest) returns (QueryProductionBundlesProtoResponse);
+  rpc GetProductionBundleData (GetProductionBundleDataProtoRequest) returns (GetProductionBundleDataProtoResponse);
+  rpc DeleteProductionBundle (DeleteProductionBundleProtoRequest) returns (DeleteProductionBundleProtoResponse);
 }

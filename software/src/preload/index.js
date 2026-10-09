@@ -153,9 +153,12 @@ const api = {
     saveCalcResults: (payload) => ipcRenderer.invoke('sqlite:save-calc-results', payload),
     getCalcResults: (id) => ipcRenderer.invoke('sqlite:get-calc-results', id),
     saveMasterReg: (payload) => ipcRenderer.invoke('sqlite:save-master-reg', payload),
+    publishMasterReg: (payload) => ipcRenderer.invoke('sqlite:publish-master-reg', payload),
     getMasterReg: (regCode) => ipcRenderer.invoke('sqlite:get-master-reg', regCode),
     getAllMasterRegs: () => ipcRenderer.invoke('sqlite:get-all-master-regs'),
-    deleteMasterReg: (regCode) => ipcRenderer.invoke('sqlite:delete-master-reg', regCode)
+    deleteMasterReg: (regCode) => ipcRenderer.invoke('sqlite:delete-master-reg', regCode),
+    exportBundlePackage: (payload) => ipcRenderer.invoke('sqlite:export-bundle-package', payload),
+    importBundlePackage: (payload) => ipcRenderer.invoke('sqlite:import-bundle-package', payload)
   }
 }
 

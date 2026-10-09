@@ -16,6 +16,9 @@ import { RESULT_CALC_COLUMNS_SCHEMA } from '../columns/calcGridColumns'
 import { parseUploadedFile, inspectUploadedFile } from '../engine/fileParsers'
 import { runProductionCalculations } from '../engine'
 import storageAdapter from '../storage'
+import { publishMasterRegistrationSQLite, exportBundlePackageSQLite } from '../storage/sqliteStorage'
+import { publishProductionBundleOnline } from '@renderer/api/production/calcBundleApi'
+import { packProductionBundle, uint8ArrayToBase64 } from '../engine/bundlePacker'
 import { useArchitectureStorage } from './useArchitectureStorage'
 
 const generateDefaultRegCode = () => {
@@ -29,6 +32,9 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
   const [isCalculating, setIsCalculating] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
   const [isRegistering, setIsRegistering] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [isRegistered, setIsRegistered] = useState(false)
   const [calcResults, setCalcResults] = useState(null)
 
   // State Modal Cấu hình & Ánh xạ Cột Excel
@@ -44,7 +50,11 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     regCode: generateDefaultRegCode(),
     factoryName: 'GS1 Hà Nội',
     applyDate: dayjs().format('YYYY-MM-DD'),
-    remark: ''
+    productionTeam: 'Tất cả các tổ',
+    remark: '',
+    status: 'DRAFT',
+    version: '1.0',
+    isPublished: false
   })
 
   const notify = useCallback(
@@ -63,15 +73,6 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     }))
   }, [])
 
-  const handleGenerateNewRegCode = useCallback(() => {
-    const newCode = generateDefaultRegCode()
-    setMasterInfo((prev) => ({
-      ...prev,
-      regCode: newCode
-    }))
-    notify('info', `Đã tạo mã đăng ký mới: ${newCode}`)
-  }, [notify])
-
   const {
     fileSummaries,
     filesDataMap,
@@ -83,7 +84,19 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     deleteFile,
     clearAllFiles,
     loadAllFilesForCalculation
-  } = useArchitectureStorage({ autoLoad: true })
+  } = useArchitectureStorage({ autoLoad: false })
+
+  const handleGenerateNewRegCode = useCallback(() => {
+    const newCode = generateDefaultRegCode()
+    setMasterInfo((prev) => ({
+      ...prev,
+      regCode: newCode
+    }))
+    clearAllFiles()
+    setCalcResults(null)
+    setIsRegistered(false)
+    notify('info', `Đã tạo mã đăng ký mới: ${newCode}`)
+  }, [clearAllFiles, notify])
 
   const activeTabFileData = useMemo(() => {
     if (activeTab === 'result_tksx') {
@@ -132,14 +145,19 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     return filesDataMap[activeTab] || null
   }, [filesDataMap, fileSummaries, activeTab, calcResults])
 
-  // Tự động nạp chi tiết Tab khi chuyển tab hoặc khi vừa nạp xong
+  // Nạp chi tiết Tab khi người dùng chủ động chọn tab (nếu đã có tóm tắt file được nạp)
   useEffect(() => {
-    if (activeTab && activeTab !== 'result_tksx' && activeTab !== 'result_khsx') {
+    if (
+      activeTab &&
+      activeTab !== 'result_tksx' &&
+      activeTab !== 'result_khsx' &&
+      fileSummaries[activeTab]?.rowCount > 0 &&
+      !filesDataMap[activeTab]
+    ) {
       loadTabDetail(activeTab)
     }
-  }, [activeTab, loadTabDetail])
+  }, [activeTab, fileSummaries, filesDataMap, loadTabDetail])
 
-  const [isRegistered, setIsRegistered] = useState(false)
   const [importProgress, setImportProgress] = useState({
     fileName: '',
     fileSize: 0,
@@ -338,6 +356,62 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     [deleteFile, notify]
   )
 
+  // Xóa các dòng đang chọn trong Tab hiện tại
+  const handleDeleteSelectedRows = useCallback(
+    async (selectedRowsIndices) => {
+      if (!selectedRowsIndices || selectedRowsIndices.length === 0) {
+        notify('warning', 'Vui lòng chọn ít nhất 1 dòng để xóa')
+        return
+      }
+
+      const indicesSet = new Set(selectedRowsIndices)
+      const count = indicesSet.size
+
+      if (activeTab === 'result_tksx') {
+        const oldRows = calcResults?.stat?.calculatedRows || []
+        const filtered = oldRows.filter((_, idx) => !indicesSet.has(idx))
+        setCalcResults((prev) => ({
+          ...prev,
+          stat: {
+            ...prev?.stat,
+            calculatedRows: filtered,
+            totalTickets: filtered.length
+          }
+        }))
+        notify('info', `Đã xóa ${count} dòng khỏi Kết Quả TKSX`)
+        return
+      }
+
+      if (activeTab === 'result_khsx') {
+        const oldRows = calcResults?.plan?.calculatedRows || []
+        const filtered = oldRows.filter((_, idx) => !indicesSet.has(idx))
+        setCalcResults((prev) => ({
+          ...prev,
+          plan: {
+            ...prev?.plan,
+            calculatedRows: filtered
+          }
+        }))
+        notify('info', `Đã xóa ${count} dòng khỏi Kết Quả KHSX`)
+        return
+      }
+
+      const currentFile = filesDataMap[activeTab]
+      if (currentFile && Array.isArray(currentFile.data)) {
+        const filtered = currentFile.data.filter((_, idx) => !indicesSet.has(idx))
+        const updatedFile = {
+          ...currentFile,
+          data: filtered,
+          rowCount: filtered.length
+        }
+        await saveFile(activeTab, updatedFile)
+        setIsRegistered(false)
+        notify('info', `Đã xóa ${count} dòng khỏi tab hiện tại`)
+      }
+    },
+    [activeTab, calcResults, filesDataMap, saveFile, notify]
+  )
+
   // Lưu đăng ký Master vào DB khi người dùng bấm ĐĂNG KÝ BÁO CÁO
   const handleRegisterMaster = useCallback(async () => {
     const uploadedCount = Object.values(fileSummaries || {}).filter((s) => s.rowCount > 0).length
@@ -358,9 +432,10 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       // Lưu thông tin đăng ký Master
       const masterRecord = {
         regCode: masterInfo.regCode,
-        factoryName: masterInfo.factoryName,
-        applyDate: masterInfo.applyDate,
-        remark: masterInfo.remark,
+        factoryName: masterInfo.factoryName || 'GS1 Hà Nội',
+        applyDate: masterInfo.applyDate || dayjs().format('YYYY-MM-DD'),
+        productionTeam: masterInfo.productionTeam || 'Tất cả các tổ',
+        remark: masterInfo.remark || '',
         status: 'REGISTERED',
         statReportRows: statRows,
         unfinishedOpRows: unfinRows,
@@ -380,7 +455,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       }
 
       setIsRegistered(true)
-      notify('success', `Đã đăng ký báo cáo thành công [Mã: ${masterInfo.regCode}]!`)
+      notify('success', `Đã lưu đăng ký báo cáo nội bộ [Mã: ${masterInfo.regCode}]!`)
     } catch (err) {
       console.error('Lỗi đăng ký:', err)
       notify('error', `Lỗi khi đăng ký báo cáo: ${err.message}`)
@@ -388,6 +463,101 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       setIsRegistering(false)
     }
   }, [fileSummaries, activeTabFileData, masterInfo, notify])
+
+  // 1. Công bố báo cáo (Publish Version)
+  const handlePublishReport = useCallback(async () => {
+    if (!masterInfo.regCode) {
+      notify('error', 'Chưa có mã đăng ký báo cáo')
+      return
+    }
+    setIsPublishing(true)
+    notify('info', `Đang công bố báo cáo [${masterInfo.regCode}]...`)
+    try {
+      const res = await publishMasterRegistrationSQLite(masterInfo.regCode, masterInfo.version || '1.0')
+      if (res?.success) {
+        setMasterInfo((prev) => ({
+          ...prev,
+          status: 'PUBLISHED',
+          version: res.version || prev.version || '1.0',
+          isPublished: true,
+          publishedAt: res.publishedAt || new Date().toISOString()
+        }))
+        setIsRegistered(true)
+
+        // Tự động đẩy gói siêu nén lên Server DataHub Online (Zero-latency background stream)
+        try {
+          const filesData = await loadAllFilesForCalculation()
+          const bundlePack = packProductionBundle(masterInfo, filesData, calcResults, {
+            version: res.version || '1.0'
+          })
+          const base64Str = uint8ArrayToBase64(bundlePack.buffer)
+          const statRows = filesData?.STAT_REPORT?.length || 0
+          const unfinRows = filesData?.UNFINISHED_OP?.length || 0
+          const sumRows = filesData?.SUMMARY_OP?.length || 0
+          const mesRows = filesData?.MES_APPROVAL?.length || 0
+          const totalRows = statRows + unfinRows + sumRows + mesRows
+
+          await publishProductionBundleOnline({
+            reg_code: masterInfo.regCode,
+            factory_name: masterInfo.factoryName || 'GS1 Hà Nội',
+            apply_date: masterInfo.applyDate || dayjs().format('YYYY-MM-DD'),
+            production_team: masterInfo.productionTeam || 'Tất cả các tổ',
+            status: 'PUBLISHED',
+            version: res.version || '1.0',
+            total_rows: totalRows,
+            raw_size_mb: parseFloat((bundlePack.rawSize / 1024 / 1024).toFixed(2)),
+            compressed_size_mb: parseFloat((bundlePack.compressedSize / 1024 / 1024).toFixed(2)),
+            compression_ratio: bundlePack.ratio,
+            bundle_base64: base64Str,
+            file_summaries: JSON.stringify(fileSummaries || {}),
+            calc_summary: JSON.stringify(calcResults?.summary || {}),
+            remark: masterInfo.remark || ''
+          })
+          notify(
+            'success',
+            `Đã công bố & lưu trữ bản Online lên Server DataHub! [v${res.version || '1.0'} • Nén: ${(bundlePack.compressedSize / 1024 / 1024).toFixed(2)}MB (${bundlePack.ratio})]`
+          )
+        } catch (serverErr) {
+          console.warn('[DataHub Online] Không thể đẩy lên server:', serverErr)
+          notify(
+            'success',
+            `Đã công bố thành công trên máy nội bộ [v${res.version || '1.0'}] (Server offline: ${serverErr.message})`
+          )
+        }
+      } else {
+        notify('error', res?.error || 'Không thể công bố báo cáo')
+      }
+    } catch (err) {
+      notify('error', `Lỗi công bố: ${err.message}`)
+    } finally {
+      setIsPublishing(false)
+    }
+  }, [masterInfo, calcResults, fileSummaries, loadAllFilesForCalculation, notify])
+
+  // 2. Xuất gói siêu nén .gsprod (Columnar Matrix + Gzip Level 9 - Giảm từ 50MB -> <1MB)
+  const handleExportBundle = useCallback(async () => {
+    setIsExporting(true)
+    notify('info', 'Đang nén dữ liệu 6 bảng và chuẩn bị gói .gsprod...')
+    try {
+      const res = await exportBundlePackageSQLite({
+        regCode: masterInfo.regCode,
+        version: masterInfo.version || '1.0',
+        master: masterInfo
+      })
+      if (res?.success) {
+        notify(
+          'success',
+          `✅ Xuất gói thành công! Gốc: ${res.rawMB}MB ➔ Nén: ${res.compMB}MB (Tiết kiệm ${res.ratio})`
+        )
+      } else if (!res?.canceled) {
+        notify('error', res?.error || 'Không thể xuất gói dữ liệu')
+      }
+    } catch (err) {
+      notify('error', `Lỗi xuất gói: ${err.message}`)
+    } finally {
+      setIsExporting(false)
+    }
+  }, [masterInfo, notify])
 
   const [calculationProgress, setCalculationProgress] = useState({
     percent: 0,
@@ -397,13 +567,20 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     storageMode: ''
   })
 
-  // Bắt đầu tính toán
+  // Bắt đầu tính toán (Tự động sinh mã đăng ký duy nhất mới cho đợt tính này)
   const handleRunCalculation = useCallback(async () => {
     const uploadedCount = Object.values(fileSummaries || {}).filter((s) => s.rowCount > 0).length
     if (uploadedCount === 0 && (!activeTabFileData || activeTabFileData.rowCount === 0)) {
       notify('error', 'Vui lòng tải lên ít nhất 1 file kiến trúc để tính toán')
       return
     }
+
+    // Tự động sinh mã đăng ký mới cho đợt tính toán
+    const calcRegCode = generateDefaultRegCode()
+    setMasterInfo((prev) => ({
+      ...prev,
+      regCode: calcRegCode
+    }))
 
     const currentStorageMode =
       storageMode === 'sqlite' || storageMode === 'electron_sqlite'
@@ -413,11 +590,11 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     setCalculationProgress({
       percent: 15,
       step: 'READ_DB',
-      message: 'Đang nạp 4 bảng dữ liệu kiến trúc từ CSDL...',
+      message: `Đang khởi tạo đợt tính toán [${calcRegCode}]...`,
       detail: `Đọc dữ liệu từ ${currentStorageMode}`,
       storageMode: currentStorageMode
     })
-    notify('info', 'Đang thực hiện tính toán KHSX và TKSX...')
+    notify('info', `Đang thực hiện tính toán KHSX và TKSX [Mã: ${calcRegCode}]...`)
 
     try {
       // 1. Tự động lưu đợt đăng ký Master nếu có file tải lên
@@ -428,10 +605,11 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       const total = statRows + unfinRows + sumRows + mesRows
 
       const masterRecord = {
-        regCode: masterInfo.regCode,
-        factoryName: masterInfo.factoryName,
-        applyDate: masterInfo.applyDate,
-        remark: masterInfo.remark,
+        regCode: calcRegCode,
+        factoryName: masterInfo.factoryName || 'GS1 Hà Nội',
+        applyDate: masterInfo.applyDate || dayjs().format('YYYY-MM-DD'),
+        productionTeam: masterInfo.productionTeam || 'Tất cả các tổ',
+        remark: masterInfo.remark || '',
         status: 'REGISTERED',
         statReportRows: statRows,
         unfinishedOpRows: unfinRows,
@@ -445,7 +623,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       try {
         await storageAdapter.saveMasterRegistration(masterRecord)
         if (typeof window !== 'undefined') {
-          localStorage.setItem(`S_MASTER_REG_${masterInfo.regCode}`, JSON.stringify(masterRecord))
+          localStorage.setItem(`S_MASTER_REG_${calcRegCode}`, JSON.stringify(masterRecord))
           window.dispatchEvent(new Event('storage'))
         }
         setIsRegistered(true)
@@ -472,7 +650,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
         storageMode: currentStorageMode
       })
 
-      const results = await runProductionCalculations(allFiles)
+      const results = await runProductionCalculations(allFiles, masterInfo)
 
       setCalculationProgress({
         percent: 85,
@@ -495,7 +673,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
 
       try {
         await storageAdapter.saveCalcResults({
-          id: masterInfo?.regCode || 'latest_calculation',
+          id: calcRegCode,
           summary: results?.summary || {},
           planData: results?.plan?.calculatedRows || [],
           statData: results?.stat?.calculatedRows || [],
@@ -520,7 +698,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       setActiveTab('result_tksx')
       notify(
         'success',
-        `Đã hoàn thành tính toán! Đã xuất ${(results?.stat?.calculatedRows?.length || 0).toLocaleString('vi-VN')} dòng kết quả TKSX.`
+        `Đã hoàn thành tính toán! Đã xuất ${(results?.stat?.calculatedRows?.length || 0).toLocaleString('vi-VN')} dòng kết quả TKSX [Mã: ${calcRegCode}].`
       )
     } catch (err) {
       console.error('Lỗi tính toán:', err)
@@ -578,6 +756,8 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     isCalculating,
     isRegistering,
     isRegistered,
+    isPublishing,
+    isExporting,
     calcResults,
     storageMode,
     fileStatusSummary,
@@ -589,8 +769,11 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     handleConfirmMapping,
     handleUploadFileForTab,
     handleDeleteTabFile,
+    handleDeleteSelectedRows,
     handleRunCalculation,
     handleRegisterMaster,
+    handlePublishReport,
+    handleExportBundle,
     clearAllFiles: () => {
       clearAllFiles()
       setIsRegistered(false)

@@ -2,6 +2,7 @@ package grpcserver
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,6 +28,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Server struct {
@@ -2185,6 +2187,220 @@ func (s *Server) QueryCodeHelp(ctx context.Context, req *pb.CodeHelpProtoRequest
 		Success:  true,
 		Message:  "2000",
 		DataJson: string(dataBytes),
+	}, nil
+}
+
+// =========================================================================
+// 9. Production Calculation Compressed Bundles (.gsprod packages)
+// =========================================================================
+
+func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishProductionBundleProtoRequest) (*pb.PublishProductionBundleProtoResponse, error) {
+	if req == nil || req.RegCode == "" {
+		return &pb.PublishProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Mã đăng ký (reg_code) là bắt buộc",
+			ErrorMessage: "Mã đăng ký (reg_code) là bắt buộc",
+		}, nil
+	}
+
+	bundleBytes := req.BundleData
+	if len(bundleBytes) == 0 && req.BundleBase64 != "" {
+		if decoded, err := base64.StdEncoding.DecodeString(req.BundleBase64); err == nil {
+			bundleBytes = decoded
+		}
+	}
+
+	version := req.Version
+	if version == "" {
+		version = "1.0"
+	}
+
+	bundle := reportmodels.CalcProductionBundle{
+		RegCode:          req.RegCode,
+		FactoryName:      req.FactoryName,
+		ApplyDate:        req.ApplyDate,
+		ProductionTeam:   req.ProductionTeam,
+		Status:           "PUBLISHED",
+		Version:          version,
+		TotalRows:        int(req.TotalRows),
+		RawSizeMB:        req.RawSizeMb,
+		CompressedSizeMB: req.CompressedSizeMb,
+		CompressionRatio: req.CompressionRatio,
+		BundleData:       bundleBytes,
+		FileSummaries:    req.FileSummaries,
+		CalcSummary:      req.CalcSummary,
+		Remark:           req.Remark,
+		CreatedBy:        req.CreatedBy,
+	}
+
+	err := s.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "reg_code"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"factory_name", "apply_date", "production_team", "status", "version",
+			"total_rows", "raw_size_mb", "compressed_size_mb", "compression_ratio",
+			"bundle_data", "file_summaries", "calc_summary", "remark", "updated_at",
+		}),
+	}).Create(&bundle).Error
+
+	if err != nil {
+		s.logger.Error("[gRPC] Lỗi lưu gói production bundle", zap.Error(err), zap.String("reg_code", req.RegCode))
+		return &pb.PublishProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Không thể lưu gói dữ liệu lên server: " + err.Error(),
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	s.logger.Info("[gRPC] Đã công bố thành công gói production bundle",
+		zap.String("reg_code", bundle.RegCode),
+		zap.String("version", bundle.Version),
+		zap.Int("bytes", len(bundle.BundleData)),
+	)
+
+	return &pb.PublishProductionBundleProtoResponse{
+		Success:          true,
+		Message:          "Công bố và lưu trữ gói dữ liệu lên Server DataHub thành công!",
+		RegCode:          bundle.RegCode,
+		Version:          bundle.Version,
+		CompressedSizeMb: bundle.CompressedSizeMB,
+		CompressionRatio: bundle.CompressionRatio,
+	}, nil
+}
+
+func (s *Server) QueryProductionBundles(ctx context.Context, req *pb.QueryProductionBundlesProtoRequest) (*pb.QueryProductionBundlesProtoResponse, error) {
+	page := int(req.GetPage())
+	pageSize := int(req.GetPageSize())
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 500 {
+		pageSize = 50
+	}
+
+	query := s.db.WithContext(ctx).Model(&reportmodels.CalcProductionBundle{}).
+		Select("id, reg_code, factory_name, apply_date, production_team, status, version, total_rows, raw_size_mb, compressed_size_mb, compression_ratio, file_summaries, calc_summary, remark, created_by, created_at, updated_at")
+
+	if req.GetFactoryName() != "" && req.GetFactoryName() != "Tất cả" {
+		query = query.Where("factory_name = ?", req.GetFactoryName())
+	}
+	if req.GetProductionTeam() != "" && req.GetProductionTeam() != "Tất cả" {
+		query = query.Where("production_team = ?", req.GetProductionTeam())
+	}
+	if req.GetStatus() != "" && req.GetStatus() != "Tất cả" {
+		query = query.Where("status = ?", req.GetStatus())
+	}
+	if req.GetApplyDateFrom() != "" {
+		query = query.Where("apply_date >= ?", req.GetApplyDateFrom())
+	}
+	if req.GetApplyDateTo() != "" {
+		query = query.Where("apply_date <= ?", req.GetApplyDateTo())
+	}
+	if req.GetKeyword() != "" {
+		like := "%" + req.GetKeyword() + "%"
+		query = query.Where("(reg_code ILIKE ? OR remark ILIKE ? OR created_by ILIKE ?)", like, like, like)
+	}
+
+	var totalRecords int64
+	query.Count(&totalRecords)
+
+	var items []reportmodels.CalcProductionBundle
+	err := query.Order("created_at DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&items).Error
+
+	if err != nil {
+		return &pb.QueryProductionBundlesProtoResponse{
+			Success:      false,
+			Message:      "Lỗi truy vấn danh sách gói: " + err.Error(),
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	protoItems := make([]*pb.ProductionBundleProtoItem, len(items))
+	for i, it := range items {
+		protoItems[i] = &pb.ProductionBundleProtoItem{
+			Id:               uint32(it.ID),
+			RegCode:          it.RegCode,
+			FactoryName:      it.FactoryName,
+			ApplyDate:        it.ApplyDate,
+			ProductionTeam:   it.ProductionTeam,
+			Status:           it.Status,
+			Version:          it.Version,
+			TotalRows:        int32(it.TotalRows),
+			RawSizeMb:        it.RawSizeMB,
+			CompressedSizeMb: it.CompressedSizeMB,
+			CompressionRatio: it.CompressionRatio,
+			FileSummaries:    it.FileSummaries,
+			CalcSummary:      it.CalcSummary,
+			Remark:           it.Remark,
+			CreatedBy:        it.CreatedBy,
+			CreatedAt:        it.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:        it.UpdatedAt.Format("2006-01-02 15:04:05"),
+		}
+	}
+
+	return &pb.QueryProductionBundlesProtoResponse{
+		Success:      true,
+		Message:      "Truy vấn thành công",
+		Data:         protoItems,
+		TotalRecords: totalRecords,
+		Page:         int32(page),
+		PageSize:     int32(pageSize),
+	}, nil
+}
+
+func (s *Server) GetProductionBundleData(ctx context.Context, req *pb.GetProductionBundleDataProtoRequest) (*pb.GetProductionBundleDataProtoResponse, error) {
+	if req == nil || req.RegCode == "" {
+		return &pb.GetProductionBundleDataProtoResponse{
+			Success:      false,
+			Message:      "Mã đăng ký (reg_code) là bắt buộc",
+			ErrorMessage: "Mã đăng ký (reg_code) là bắt buộc",
+		}, nil
+	}
+
+	var bundle reportmodels.CalcProductionBundle
+	err := s.db.WithContext(ctx).Where("reg_code = ?", req.RegCode).First(&bundle).Error
+	if err != nil {
+		return &pb.GetProductionBundleDataProtoResponse{
+			Success:      false,
+			Message:      "Không tìm thấy gói dữ liệu: " + req.RegCode,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &pb.GetProductionBundleDataProtoResponse{
+		Success:    true,
+		Message:    "Lấy gói dữ liệu thành công",
+		RegCode:    bundle.RegCode,
+		Version:    bundle.Version,
+		BundleData: bundle.BundleData,
+		TotalRows:  int32(bundle.TotalRows),
+	}, nil
+}
+
+func (s *Server) DeleteProductionBundle(ctx context.Context, req *pb.DeleteProductionBundleProtoRequest) (*pb.DeleteProductionBundleProtoResponse, error) {
+	if req == nil || req.RegCode == "" {
+		return &pb.DeleteProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Mã đăng ký (reg_code) là bắt buộc",
+			ErrorMessage: "Mã đăng ký (reg_code) là bắt buộc",
+		}, nil
+	}
+
+	res := s.db.WithContext(ctx).Where("reg_code = ?", req.RegCode).Delete(&reportmodels.CalcProductionBundle{})
+	if res.Error != nil {
+		return &pb.DeleteProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Lỗi xóa gói dữ liệu: " + res.Error.Error(),
+			ErrorMessage: res.Error.Error(),
+		}, nil
+	}
+
+	return &pb.DeleteProductionBundleProtoResponse{
+		Success:     true,
+		Message:     "Đã xóa gói dữ liệu thành công",
+		DeletedRows: res.RowsAffected,
 	}, nil
 }
 

@@ -23,6 +23,7 @@ func SetupRouter(
 	summaryPlanReportHandler *handlers.SummaryPlanReportHandler,
 	summaryStatReportHandler *handlers.SummaryStatReportHandler,
 	helpHandler *handlers.HelpHandler,
+	calcBundleHandler *handlers.CalcBundleHandler,
 	healthHandler *handlers.HealthHandler,
 	logger *zap.Logger,
 ) *gin.Engine {
@@ -145,6 +146,15 @@ func SetupRouter(
 	v1.Use(middleware.AppSecurityMiddleware(logger))
 	v1.Use(middleware.OptionalJwtAuthMiddleware(cfg))
 	{
+		// 0. Production Bundles (Pure POST gRPC Bridge / REST compat)
+		bundleGroup := v1.Group("/production-calc/bundles")
+		{
+			bundleGroup.POST("/publish", calcBundleHandler.PublishBundle)
+			bundleGroup.POST("/query", calcBundleHandler.QueryBundles)
+			bundleGroup.POST("/get-data", calcBundleHandler.DownloadBundle)
+			bundleGroup.POST("/delete", calcBundleHandler.DeleteBundle)
+		}
+
 		// 1. Dynamic ERP Configurations Management (CRUD)
 		configs := v1.Group("/configs")
 		{

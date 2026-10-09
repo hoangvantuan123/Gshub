@@ -163,5 +163,20 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 			prodReportsV1.GET("/plan", datahub.GetProductionPlanReport(pool))
 			prodReportsV1.POST("/plan", datahub.GetProductionPlanReport(pool))
 		}
+
+		// Production Calc Compressed Bundles (.gsprod package upload/download/query) via gRPC
+		bundlesV1 := v1.Group("/production-calc/bundles")
+		{
+			bundlesV1.POST("/PublishProductionBundle", datahub.PublishProductionBundle(pool))
+			bundlesV1.POST("/QueryProductionBundles", datahub.QueryProductionBundles(pool))
+			bundlesV1.POST("/GetProductionBundleData", datahub.GetProductionBundleData(pool))
+			bundlesV1.POST("/DeleteProductionBundle", datahub.DeleteProductionBundle(pool))
+
+			// Aliases
+			bundlesV1.POST("/publish", datahub.PublishProductionBundle(pool))
+			bundlesV1.POST("/query", datahub.QueryProductionBundles(pool))
+			bundlesV1.POST("/get-data", datahub.GetProductionBundleData(pool))
+			bundlesV1.POST("/delete", datahub.DeleteProductionBundle(pool))
+		}
 	}
 }

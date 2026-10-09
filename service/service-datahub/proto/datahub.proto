@@ -62,4 +62,10 @@ service DataHubService {
 
   // 8. Dynamic CodeHelp & Lookups
   rpc QueryCodeHelp (CodeHelpProtoRequest) returns (CodeHelpProtoResponse);
+
+  // 9. Production Calculation Compressed Bundles (.gsprod packages)
+  rpc PublishProductionBundle (PublishProductionBundleProtoRequest) returns (PublishProductionBundleProtoResponse);
+  rpc QueryProductionBundles (QueryProductionBundlesProtoRequest) returns (QueryProductionBundlesProtoResponse);
+  rpc GetProductionBundleData (GetProductionBundleDataProtoRequest) returns (GetProductionBundleDataProtoResponse);
+  rpc DeleteProductionBundle (DeleteProductionBundleProtoRequest) returns (DeleteProductionBundleProtoResponse);
 }

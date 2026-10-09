@@ -33,10 +33,13 @@ export default function CalcProductionQueryPage({
     handleNavigateToDetail,
     handleOpenCalcProduction,
     handleDeleteMaster,
+    handleImportBundle,
+    handleExportBundle,
     queriedRows,
     selectedRegCode,
     setSelectedRegCode,
-    isLoading
+    isLoading,
+    isSyncing
   } = useCalcMasterQueryLogic({ setStatusMessage })
 
   // ── Grid State ──
@@ -184,10 +187,9 @@ export default function CalcProductionQueryPage({
           onOpenCalcProduction={handleOpenCalcProduction}
           onViewDetail={() => handleNavigateToDetail()}
           onDeleteSelected={() => handleDeleteMaster()}
-          onResetFilters={handleResetFilters}
           onExportExcel={handleExportExcel}
-          onOpenSearch={() => setShowSearch(true)}
           isLoading={isLoading}
+          isSyncing={isSyncing}
           hasSelection={Boolean(selectedRegCode)}
           totalRows={gridData.length}
         />

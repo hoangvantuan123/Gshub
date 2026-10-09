@@ -93,37 +93,51 @@ export default function CalcDataGridTable({
     })
   }, [cols, getCellTheme])
 
-  // Tính tổng SUM cho từng cột số liệu hiển thị ở hàng cuối cùng (Summary Row)
+  // Tính tổng SUM cho từng cột số liệu hiển thị ở hàng cuối cùng (Summary Row) - Tối ưu Single Pass O(N)
   const columnSums = useMemo(() => {
     if (!gridData || gridData.length === 0 || !cols || cols.length === 0) return {}
 
-    const sums = {}
-    cols.forEach((col) => {
+    // 1. Lọc trước danh sách các cột dạng Số
+    const numericCols = []
+    for (let i = 0; i < cols.length; i++) {
+      const col = cols[i]
       const colId = col.id || ''
       const colTitle = col.title || ''
       const isNumericKind = col.kind === GridCellKind.Number
+      if (isNumericKind || col.isNumeric || col.isNumber) {
+        numericCols.push({ colId, colTitle, total: 0, hasValidNumber: false })
+      }
+    }
 
-      let total = 0
-      let hasValidNumber = false
+    if (numericCols.length === 0) return {}
 
-      for (let i = 0; i < gridData.length; i++) {
-        const item = gridData[i]
-        if (!item) continue
-        const rawVal = item[colId] !== undefined ? item[colId] : item[colTitle]
+    // 2. Duyệt 1 vòng lặp duy nhất qua toàn bộ các dòng dữ liệu (Single Pass O(N))
+    const totalRows = gridData.length
+    for (let r = 0; r < totalRows; r++) {
+      const item = gridData[r]
+      if (!item) continue
+
+      for (let c = 0; c < numericCols.length; c++) {
+        const nc = numericCols[c]
+        const rawVal = item[nc.colId] !== undefined ? item[nc.colId] : item[nc.colTitle]
         if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
-          const num =
-            typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal).replace(/,/g, ''))
+          const num = typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal).replace(/,/g, ''))
           if (!isNaN(num) && isFinite(num)) {
-            total += num
-            hasValidNumber = true
+            nc.total += num
+            nc.hasValidNumber = true
           }
         }
       }
+    }
 
-      if (hasValidNumber && (isNumericKind || total > 0)) {
-        sums[colId] = Number(total.toFixed(2))
+    // 3. Đóng gói kết quả tổng
+    const sums = {}
+    for (let c = 0; c < numericCols.length; c++) {
+      const nc = numericCols[c]
+      if (nc.hasValidNumber) {
+        sums[nc.colId] = Number(nc.total.toFixed(2))
       }
-    })
+    }
 
     return sums
   }, [gridData, cols])

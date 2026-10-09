@@ -793,6 +793,7 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
         // ── 2. XÂY DỰNG HEADER DEFS ──
         const headerDefs = []
         const seenKeys = {}
+        let technicianCounter = 0
 
         for (let c = 0; c < maxCols; c++) {
           const val0 = row0[c] || ''
@@ -816,243 +817,8 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
 
           let colTitle = ''
           let colGroup = ''
-          let resolvedKey = ''
-          let resolvedTitle = ''
 
-          const rawVal0Lower = (val0 || '').toLowerCase().trim()
-          const rawVal1Lower = (val1 || '').toLowerCase().trim()
-
-          if (rawVal0Lower.includes('ngày bắt đầu') || rawVal1Lower.includes('ngày bắt đầu')) {
-            colTitle = 'Ngày bắt đầu'
-            colGroup = ''
-            resolvedKey = 'StartDate'
-            resolvedTitle = 'Ngày bắt đầu'
-          } else if (
-            rawVal0Lower.includes('ngày kết thúc') ||
-            rawVal1Lower.includes('ngày kết thúc')
-          ) {
-            colTitle = 'Ngày kết thúc'
-            colGroup = ''
-            resolvedKey = 'EndDate'
-            resolvedTitle = 'Ngày kết thúc'
-          } else if (
-            rawVal0Lower.includes('ngày thống kê') ||
-            rawVal1Lower.includes('ngày thống kê')
-          ) {
-            colTitle = 'Ngày thống kê'
-            colGroup = ''
-            resolvedKey = 'StatDate'
-            resolvedTitle = 'Ngày thống kê'
-          } else if (
-            rawVal0Lower.includes('mã lệnh thống kê bravo') ||
-            rawVal1Lower.includes('mã lệnh thống kê bravo') ||
-            rawVal0Lower.includes('lệnh thống kê bravo') ||
-            rawVal1Lower.includes('lệnh thống kê bravo') ||
-            rawVal0Lower.includes('thống kê bravo') ||
-            rawVal1Lower.includes('thống kê bravo') ||
-            rawVal0Lower.includes('mã thống kê bravo') ||
-            rawVal1Lower.includes('mã thống kê bravo') ||
-            rawVal0Lower.includes('mã lệnh thống kê') ||
-            rawVal1Lower.includes('mã lệnh thống kê') ||
-            rawVal0Lower.includes('lệnh thống kê') ||
-            rawVal1Lower.includes('lệnh thống kê')
-          ) {
-            colTitle = 'Mã lệnh thống kê Bravo'
-            colGroup = ''
-            resolvedKey = 'BravoStatCode'
-            resolvedTitle = 'Mã lệnh thống kê Bravo'
-          } else if (
-            rawVal0Lower.includes('mã phiếu') ||
-            rawVal1Lower.includes('mã phiếu') ||
-            rawVal0Lower.includes('mã phiếu duyệt') ||
-            rawVal1Lower.includes('mã phiếu duyệt') ||
-            rawVal0Lower.includes('số phiếu duyệt') ||
-            rawVal1Lower.includes('số phiếu duyệt') ||
-            rawVal0Lower.includes('phiếu duyệt') ||
-            rawVal1Lower.includes('phiếu duyệt')
-          ) {
-            if (fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL) {
-              colTitle = 'Mã phiếu'
-              colGroup = ''
-              resolvedKey = 'SlipNo'
-              resolvedTitle = 'Mã phiếu'
-            } else {
-              colTitle = 'Số phiếu thống kê'
-              colGroup = ''
-              resolvedKey = 'StatSlipNo'
-              resolvedTitle = 'Số phiếu thống kê'
-            }
-          } else if (
-            rawVal0Lower.includes('số phiếu xuất') ||
-            rawVal1Lower.includes('số phiếu xuất') ||
-            rawVal0Lower.includes('phiếu xuất') ||
-            rawVal1Lower.includes('phiếu xuất') ||
-            rawVal0Lower.includes('xktđ') ||
-            rawVal1Lower.includes('xktđ')
-          ) {
-            colTitle = 'Số phiếu xuất'
-            colGroup = 'Tự động hóa & Đồng bộ'
-            resolvedKey = 'ExportSlipNo'
-            resolvedTitle = 'Số phiếu xuất'
-          } else if (
-            rawVal0Lower.includes('số phiếu nhập') ||
-            rawVal1Lower.includes('số phiếu nhập') ||
-            rawVal0Lower.includes('phiếu nhập') ||
-            rawVal1Lower.includes('phiếu nhập') ||
-            rawVal0Lower.includes('nktđ') ||
-            rawVal1Lower.includes('nktđ')
-          ) {
-            colTitle = 'Số phiếu nhập'
-            colGroup = 'Tự động hóa & Đồng bộ'
-            resolvedKey = 'ImportSlipNo'
-            resolvedTitle = 'Số phiếu nhập'
-          } else if (
-            rawVal0Lower.includes('xuất tự động') ||
-            rawVal1Lower.includes('xuất tự động') ||
-            rawVal0Lower === 'xuất tđ' ||
-            rawVal1Lower === 'xuất tđ'
-          ) {
-            colTitle = 'Xuất tự động'
-            colGroup = 'Tự động hóa & Đồng bộ'
-            resolvedKey = 'IsAutoExport'
-            resolvedTitle = 'Xuất tự động'
-          } else if (
-            rawVal0Lower.includes('nhập tự động') ||
-            rawVal1Lower.includes('nhập tự động') ||
-            rawVal0Lower === 'nhập tđ' ||
-            rawVal1Lower === 'nhập tđ'
-          ) {
-            colTitle = 'Nhập tự động'
-            colGroup = 'Tự động hóa & Đồng bộ'
-            resolvedKey = 'IsAutoImport'
-            resolvedTitle = 'Nhập tự động'
-          } else if (
-            rawVal0Lower.includes('sai mã thao tác') ||
-            rawVal1Lower.includes('sai mã thao tác') ||
-            rawVal0Lower.includes('sai mã tt') ||
-            rawVal1Lower.includes('sai mã tt')
-          ) {
-            colTitle = 'Sai mã thao tác'
-            colGroup = 'Tự động hóa & Đồng bộ'
-            resolvedKey = 'IsWrongOpCode'
-            resolvedTitle = 'Sai mã thao tác'
-          } else if (
-            rawVal0Lower.includes('thống kê bổ sung') ||
-            rawVal1Lower.includes('thống kê bổ sung') ||
-            rawVal0Lower.includes('tk bổ sung') ||
-            rawVal1Lower.includes('tk bổ sung')
-          ) {
-            colTitle = 'Thống kê bổ sung'
-            colGroup = 'Tự động hóa & Đồng bộ'
-            resolvedKey = 'IsSupplementaryStat'
-            resolvedTitle = 'Thống kê bổ sung'
-          } else if (
-            rawVal0Lower.includes('ngày tạo phiếu') ||
-            rawVal1Lower.includes('ngày tạo phiếu') ||
-            rawVal0Lower.includes('ngày lập phiếu') ||
-            rawVal1Lower.includes('ngày lập phiếu')
-          ) {
-            colTitle = 'Ngày tạo phiếu'
-            colGroup = 'Tự động hóa & Đồng bộ'
-            resolvedKey = 'SlipCreatedDate'
-            resolvedTitle = 'Ngày tạo phiếu'
-          } else if (
-            rawVal0Lower.includes('số phiếu thống kê') ||
-            rawVal1Lower.includes('số phiếu thống kê') ||
-            rawVal0Lower.includes('phiếu thống kê') ||
-            rawVal1Lower.includes('phiếu thống kê') ||
-            rawVal0Lower.includes('số phiếu tk') ||
-            rawVal1Lower.includes('số phiếu tk') ||
-            rawVal0Lower.includes('phiếu tk') ||
-            rawVal1Lower.includes('phiếu tk') ||
-            rawVal0Lower.includes('mã thống kê') ||
-            rawVal1Lower.includes('mã thống kê') ||
-            rawVal0Lower.includes('số thống kê') ||
-            rawVal1Lower.includes('số thống kê') ||
-            rawVal0Lower.includes('mã tk') ||
-            rawVal1Lower.includes('mã tk') ||
-            rawVal0Lower.includes('số tk') ||
-            rawVal1Lower.includes('số tk') ||
-            rawVal0Lower.includes('mã phiếu tk') ||
-            rawVal1Lower.includes('mã phiếu tk') ||
-            rawVal0Lower.includes('mã phiếu thống kê') ||
-            rawVal1Lower.includes('mã phiếu thống kê') ||
-            rawVal0Lower === 'số phiếu' ||
-            rawVal1Lower === 'số phiếu'
-          ) {
-            colTitle = 'Số phiếu thống kê'
-            colGroup = ''
-            resolvedKey = 'StatSlipNo'
-            resolvedTitle = 'Số phiếu thống kê'
-          } else if (
-            rawVal0Lower.includes('thời gian duyệt phiếu ở mes') ||
-            rawVal1Lower.includes('thời gian duyệt phiếu ở mes') ||
-            rawVal0Lower.includes('thời gian duyệt ở mes') ||
-            rawVal1Lower.includes('thời gian duyệt ở mes') ||
-            rawVal0Lower.includes('tg duyệt ở mes') ||
-            rawVal1Lower.includes('tg duyệt ở mes') ||
-            rawVal0Lower.includes('thời gian duyệt mes') ||
-            rawVal1Lower.includes('thời gian duyệt mes')
-          ) {
-            colTitle = 'Thời gian duyệt phiếu ở MES'
-            colGroup = 'Tự động hóa & Đồng bộ'
-            resolvedKey = 'MesApprovedTime'
-            resolvedTitle = 'Thời gian duyệt phiếu ở MES'
-          } else if (
-            rawVal0Lower.includes('thời gian duyệt') ||
-            rawVal1Lower.includes('thời gian duyệt') ||
-            rawVal0Lower.includes('tg duyệt') ||
-            rawVal1Lower.includes('tg duyệt') ||
-            rawVal0Lower.includes('giờ duyệt') ||
-            rawVal1Lower.includes('giờ duyệt') ||
-            rawVal0Lower.includes('thời gian phê duyệt') ||
-            rawVal1Lower.includes('thời gian phê duyệt') ||
-            rawVal0Lower.includes('ngày duyệt') ||
-            rawVal1Lower.includes('ngày duyệt') ||
-            rawVal0Lower.includes('ngày phê duyệt') ||
-            rawVal1Lower.includes('ngày phê duyệt')
-          ) {
-            if (
-              fileType === ARCHITECTURE_FILE_TYPES.STAT_REPORT ||
-              fileType === ARCHITECTURE_FILE_TYPES.RESULT_TKSX
-            ) {
-              colTitle = 'Thời gian duyệt phiếu ở MES'
-              colGroup = 'Tự động hóa & Đồng bộ'
-              resolvedKey = 'MesApprovedTime'
-              resolvedTitle = 'Thời gian duyệt phiếu ở MES'
-            } else {
-              colTitle = 'Thời gian duyệt'
-              colGroup = ''
-              resolvedKey = 'ApprovedTime'
-              resolvedTitle = 'Thời gian duyệt'
-            }
-          } else if (
-            rawVal0Lower.includes('nhân viên thống kê') ||
-            rawVal1Lower.includes('nhân viên thống kê')
-          ) {
-            colTitle = 'Nhân viên thống kê'
-            colGroup = ''
-            resolvedKey = 'StatEmployee'
-            resolvedTitle = 'Nhân viên thống kê'
-          } else if (
-            isTwoTier &&
-            (rawVal0Lower.includes('thời gian thực hiện') ||
-              rawVal0Lower === 'thời gian thực hiện' ||
-              rawVal0Lower === 'thời gian')
-          ) {
-            colGroup = 'Thời gian thực hiện'
-            if (rawVal1Lower.includes('bắt đầu') || rawVal1Lower === 'bắt đầu') {
-              colTitle = 'Bắt đầu'
-              resolvedKey = 'StartTime'
-              resolvedTitle = 'Bắt đầu'
-            } else if (rawVal1Lower.includes('kết thúc') || rawVal1Lower === 'kết thúc') {
-              colTitle = 'Kết thúc'
-              resolvedKey = 'EndTime'
-              resolvedTitle = 'Kết thúc'
-            } else {
-              colTitle = val1 || val0
-            }
-          } else if (isTwoTier) {
+          if (isTwoTier) {
             if (val0 && val1) {
               if (val0 === val1) {
                 colTitle = val0
@@ -1069,14 +835,27 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
               colGroup = ''
             } else {
               colTitle = `Cột_${c + 1}`
+              colGroup = ''
             }
           } else {
             colTitle = val0 || `Cột_${c + 1}`
+            colGroup = ''
           }
 
-          const titleLower = colTitle.toLowerCase()
-          const groupLower = colGroup.toLowerCase()
+          const clean = (s) =>
+            String(s || '')
+              .replace(/[\r\n\t]+/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .toLowerCase()
 
+          const cleanTitle = clean(colTitle)
+          const cleanGroup = clean(colGroup)
+
+          let resolvedKey = ''
+          let resolvedTitle = colTitle
+
+          // 1. Kiểm tra cấu hình ánh xạ thủ công từ Modal
           if (
             customConfig.columnMappings &&
             customConfig.columnMappings[c] &&
@@ -1087,116 +866,46 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
             if (matchedInSchema) {
               resolvedKey = matchedInSchema.key
               resolvedTitle = matchedInSchema.title
+              colGroup = colGroup || matchedInSchema.group || ''
             } else {
               resolvedKey = colTitle.replace(/[\s/\\()+-]+/g, '_')
             }
-          } else if (titleLower.includes('họ tên') || titleLower === 'họ tên') {
-            if (groupLower.includes('chính')) {
-              resolvedKey = 'LeadTechnicianName'
-              resolvedTitle = 'Họ tên'
-            } else if (groupLower.includes('phụ 1')) {
-              resolvedKey = 'AssistantWorker1Name'
-              resolvedTitle = 'Họ tên'
-            } else if (groupLower.includes('phụ 2')) {
-              resolvedKey = 'AssistantWorker2Name'
-              resolvedTitle = 'Họ tên'
-            } else {
-              resolvedKey = `TechnicianName_${c}`
-            }
-          } else if (
-            groupLower.includes('đơn hàng') &&
-            (titleLower.includes('số lượng') || titleLower === 'số lượng')
-          ) {
-            resolvedKey = 'DetailQty'
-            resolvedTitle = 'Số lượng'
-          } else if (
-            (groupLower.includes('công đoạn') || groupLower.includes('lệnh công đoạn')) &&
-            (titleLower.includes('phát hành') || titleLower.includes('ngày phát hành'))
-          ) {
-            resolvedKey = 'StageOrderReleaseDate'
-            resolvedTitle = 'Ngày phát hành lệnh CĐ'
-          } else if (
-            (groupLower.includes('công đoạn') || groupLower.includes('lệnh công đoạn')) &&
-            (titleLower.includes('cần đạt') || titleLower.includes('sl cần đạt'))
-          ) {
-            resolvedKey = 'StageTargetQty'
-            resolvedTitle = 'SL cần đạt (CĐ)'
-          } else if (
-            (groupLower.includes('công đoạn') || groupLower.includes('lệnh công đoạn')) &&
-            (titleLower.includes('sản xuất') || titleLower.includes('cần sx') || titleLower.includes('sl cần sản xuất'))
-          ) {
-            resolvedKey = 'StagePlannedQty'
-            resolvedTitle = 'SL cần sản xuất (CĐ)'
-          } else if (
-            (groupLower.includes('thao tác') || groupLower.includes('lệnh thao tác')) &&
-            (titleLower.includes('phát hành') || titleLower.includes('ngày phát hành'))
-          ) {
-            resolvedKey = 'OpOrderReleaseDate'
-            resolvedTitle = 'Ngày phát hành lệnh TT'
-          } else if (
-            (groupLower.includes('thao tác') || groupLower.includes('lệnh thao tác')) &&
-            (titleLower.includes('cần đạt') || titleLower.includes('sl cần đạt'))
-          ) {
-            resolvedKey = 'OpTargetQty'
-            resolvedTitle = 'SL cần đạt (TT)'
-          } else if (
-            (groupLower.includes('thao tác') || groupLower.includes('lệnh thao tác')) &&
-            (titleLower.includes('sản xuất') || titleLower.includes('cần sx') || titleLower.includes('sl cần sản xuất'))
-          ) {
-            resolvedKey = 'OpPlannedQty'
-            resolvedTitle = 'SL cần sản xuất (TT)'
-          } else if (
-            (groupLower.includes('thao tác') || groupLower.includes('lệnh thao tác')) &&
-            (titleLower === 'đvt' || titleLower === 'dvt' || titleLower.includes('đơn vị'))
-          ) {
-            resolvedKey = 'OpUnit'
-            resolvedTitle = 'Đvt'
-          } else if (
-            (groupLower.includes('chất lượng') || groupLower.includes('trạng thái')) &&
-            (titleLower === 'đvt' || titleLower === 'dvt' || titleLower.includes('đơn vị'))
-          ) {
-            resolvedKey = 'QualityUnit'
-            resolvedTitle = 'Đvt chất lượng'
-          } else if (
-            groupLower.includes('chung') &&
-            (titleLower === 'đvt' || titleLower === 'dvt' || titleLower.includes('đơn vị quy đổi'))
-          ) {
-            resolvedKey = titleLower.includes('quy đổi') ? 'ConvertUnit' : 'Unit'
-            resolvedTitle = titleLower.includes('quy đổi') ? 'Đơn vị quy đổi' : 'Đvt'
-          } else if (!resolvedKey) {
-            const clean = (s) =>
-              String(s || '')
-                .replace(/[\r\n]+/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim()
-                .toLowerCase()
-            const cleanTitle = clean(colTitle)
-            const cleanGroup = clean(colGroup)
+          }
 
+          // 2. Ưu tiên khớp chính xác theo Schema của Tab hiện tại (schemaList)
+          if (!resolvedKey) {
+            // A. Khớp chính xác cả Group lẫn Title
             let matched = schemaList.find((s) => {
               const sGroup = clean(s.group)
               const sTitle = clean(s.title)
-              return (
-                sGroup &&
-                cleanGroup &&
-                (sGroup === cleanGroup ||
-                  sGroup.includes(cleanGroup) ||
-                  cleanGroup.includes(sGroup)) &&
-                (sTitle === cleanTitle ||
-                  sTitle.includes(cleanTitle) ||
-                  cleanTitle.includes(sTitle))
-              )
+              return sGroup && cleanGroup && sGroup === cleanGroup && sTitle === cleanTitle
             })
 
+            // B. Khớp Group và Title (bỏ qua ký hiệu số thứ tự như (1), (5), (6),...)
+            if (!matched && cleanGroup) {
+              matched = schemaList.find((s) => {
+                const sGroup = clean(s.group)
+                const sTitle = clean(s.title)
+                if (sGroup !== cleanGroup && !sGroup.includes(cleanGroup) && !cleanGroup.includes(sGroup)) {
+                  return false
+                }
+                const cleanSTitleNoParen = sTitle.replace(/\s*\(\d+.*?\)/g, '').trim()
+                const cleanColTitleNoParen = cleanTitle.replace(/\s*\(\d+.*?\)/g, '').trim()
+                return (
+                  sTitle === cleanTitle ||
+                  cleanSTitleNoParen === cleanColTitleNoParen ||
+                  (sTitle.length > 3 && cleanTitle.length > 3 && (sTitle.includes(cleanTitle) || cleanTitle.includes(sTitle)))
+                )
+              })
+            }
+
+            // C. Khớp Title trên toàn bộ Schema
             if (!matched) {
               matched = schemaList.find((s) => {
                 const sTitle = clean(s.title)
-                return (
-                  sTitle === cleanTitle ||
-                  (sTitle.length > 3 &&
-                    cleanTitle.length > 3 &&
-                    (sTitle.includes(cleanTitle) || cleanTitle.includes(sTitle)))
-                )
+                const cleanSTitleNoParen = sTitle.replace(/\s*\(\d+.*?\)/g, '').trim()
+                const cleanColTitleNoParen = cleanTitle.replace(/\s*\(\d+.*?\)/g, '').trim()
+                return sTitle === cleanTitle || (cleanSTitleNoParen.length > 2 && cleanSTitleNoParen === cleanColTitleNoParen)
               })
             }
 
@@ -1206,6 +915,47 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
               if (!colGroup && matched.group) {
                 colGroup = matched.group
               }
+            }
+          }
+
+          // 3. Quy tắc nhận diện bổ sung cho các cột đặc biệt (Thợ máy, Phiếu duyệt, Tự động hóa)
+          if (!resolvedKey) {
+            const titleLower = cleanTitle
+            const groupLower = cleanGroup
+
+            if (titleLower.includes('họ tên') || titleLower.includes('technician')) {
+              technicianCounter++
+              if (groupLower.includes('chính') || titleLower.includes('chính') || technicianCounter === 1) {
+                resolvedKey = 'LeadTechnicianName'
+                resolvedTitle = 'Họ tên'
+                colGroup = colGroup || 'Thợ chính'
+              } else if (groupLower.includes('phụ 1') || titleLower.includes('phụ 1') || technicianCounter === 2) {
+                resolvedKey = 'AssistantWorker1Name'
+                resolvedTitle = 'Họ tên'
+                colGroup = colGroup || 'Thợ phụ 1'
+              } else if (groupLower.includes('phụ 2') || titleLower.includes('phụ 2') || technicianCounter === 3) {
+                resolvedKey = 'AssistantWorker2Name'
+                resolvedTitle = 'Họ tên'
+                colGroup = colGroup || 'Thợ phụ 2'
+              } else {
+                resolvedKey = `AssistantWorker${technicianCounter - 1}Name`
+                resolvedTitle = 'Họ tên'
+                colGroup = colGroup || `Thợ phụ ${technicianCounter - 1}`
+              }
+            } else if (
+              titleLower.includes('mã phiếu') ||
+              titleLower.includes('số phiếu tk') ||
+              titleLower.includes('phiếu thống kê') ||
+              titleLower === 'số phiếu'
+            ) {
+              resolvedKey = fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'SlipNo' : 'StatSlipNo'
+              resolvedTitle = fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'Mã phiếu' : 'Số phiếu thống kê'
+            } else if (titleLower.includes('mã lệnh thống kê bravo') || titleLower.includes('thống kê bravo')) {
+              resolvedKey = 'BravoStatCode'
+              resolvedTitle = 'Mã lệnh thống kê Bravo'
+            } else if (titleLower.includes('thời gian duyệt phiếu ở mes') || titleLower.includes('thời gian duyệt ở mes')) {
+              resolvedKey = fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'ApprovedTime' : 'MesApprovedTime'
+              resolvedTitle = fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'Thời gian duyệt' : 'Thời gian duyệt phiếu ở MES'
             } else {
               resolvedKey = colTitle.replace(/[\s/\\()+-]+/g, '_')
             }

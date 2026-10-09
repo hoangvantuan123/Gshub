@@ -4917,6 +4917,874 @@ func (x *PlanReportProtoResponse) GetDataJson() string {
 	return ""
 }
 
+type ProductionBundleProtoItem struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	RegCode          string                 `protobuf:"bytes,2,opt,name=reg_code,json=regCode,proto3" json:"reg_code,omitempty"`
+	FactoryName      string                 `protobuf:"bytes,3,opt,name=factory_name,json=factoryName,proto3" json:"factory_name,omitempty"`
+	ApplyDate        string                 `protobuf:"bytes,4,opt,name=apply_date,json=applyDate,proto3" json:"apply_date,omitempty"`
+	ProductionTeam   string                 `protobuf:"bytes,5,opt,name=production_team,json=productionTeam,proto3" json:"production_team,omitempty"`
+	Status           string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	Version          string                 `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`
+	TotalRows        int32                  `protobuf:"varint,8,opt,name=total_rows,json=totalRows,proto3" json:"total_rows,omitempty"`
+	RawSizeMb        float64                `protobuf:"fixed64,9,opt,name=raw_size_mb,json=rawSizeMb,proto3" json:"raw_size_mb,omitempty"`
+	CompressedSizeMb float64                `protobuf:"fixed64,10,opt,name=compressed_size_mb,json=compressedSizeMb,proto3" json:"compressed_size_mb,omitempty"`
+	CompressionRatio string                 `protobuf:"bytes,11,opt,name=compression_ratio,json=compressionRatio,proto3" json:"compression_ratio,omitempty"`
+	FileSummaries    string                 `protobuf:"bytes,12,opt,name=file_summaries,json=fileSummaries,proto3" json:"file_summaries,omitempty"`
+	CalcSummary      string                 `protobuf:"bytes,13,opt,name=calc_summary,json=calcSummary,proto3" json:"calc_summary,omitempty"`
+	Remark           string                 `protobuf:"bytes,14,opt,name=remark,proto3" json:"remark,omitempty"`
+	CreatedBy        string                 `protobuf:"bytes,15,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	CreatedAt        string                 `protobuf:"bytes,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt        string                 `protobuf:"bytes,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ProductionBundleProtoItem) Reset() {
+	*x = ProductionBundleProtoItem{}
+	mi := &file_plan_report_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProductionBundleProtoItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProductionBundleProtoItem) ProtoMessage() {}
+
+func (x *ProductionBundleProtoItem) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProductionBundleProtoItem.ProtoReflect.Descriptor instead.
+func (*ProductionBundleProtoItem) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ProductionBundleProtoItem) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ProductionBundleProtoItem) GetRegCode() string {
+	if x != nil {
+		return x.RegCode
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetFactoryName() string {
+	if x != nil {
+		return x.FactoryName
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetApplyDate() string {
+	if x != nil {
+		return x.ApplyDate
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetProductionTeam() string {
+	if x != nil {
+		return x.ProductionTeam
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetTotalRows() int32 {
+	if x != nil {
+		return x.TotalRows
+	}
+	return 0
+}
+
+func (x *ProductionBundleProtoItem) GetRawSizeMb() float64 {
+	if x != nil {
+		return x.RawSizeMb
+	}
+	return 0
+}
+
+func (x *ProductionBundleProtoItem) GetCompressedSizeMb() float64 {
+	if x != nil {
+		return x.CompressedSizeMb
+	}
+	return 0
+}
+
+func (x *ProductionBundleProtoItem) GetCompressionRatio() string {
+	if x != nil {
+		return x.CompressionRatio
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetFileSummaries() string {
+	if x != nil {
+		return x.FileSummaries
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetCalcSummary() string {
+	if x != nil {
+		return x.CalcSummary
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *ProductionBundleProtoItem) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type PublishProductionBundleProtoRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RegCode          string                 `protobuf:"bytes,1,opt,name=reg_code,json=regCode,proto3" json:"reg_code,omitempty"`
+	FactoryName      string                 `protobuf:"bytes,2,opt,name=factory_name,json=factoryName,proto3" json:"factory_name,omitempty"`
+	ApplyDate        string                 `protobuf:"bytes,3,opt,name=apply_date,json=applyDate,proto3" json:"apply_date,omitempty"`
+	ProductionTeam   string                 `protobuf:"bytes,4,opt,name=production_team,json=productionTeam,proto3" json:"production_team,omitempty"`
+	Status           string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	Version          string                 `protobuf:"bytes,6,opt,name=version,proto3" json:"version,omitempty"`
+	TotalRows        int32                  `protobuf:"varint,7,opt,name=total_rows,json=totalRows,proto3" json:"total_rows,omitempty"`
+	RawSizeMb        float64                `protobuf:"fixed64,8,opt,name=raw_size_mb,json=rawSizeMb,proto3" json:"raw_size_mb,omitempty"`
+	CompressedSizeMb float64                `protobuf:"fixed64,9,opt,name=compressed_size_mb,json=compressedSizeMb,proto3" json:"compressed_size_mb,omitempty"`
+	CompressionRatio string                 `protobuf:"bytes,10,opt,name=compression_ratio,json=compressionRatio,proto3" json:"compression_ratio,omitempty"`
+	BundleData       []byte                 `protobuf:"bytes,11,opt,name=bundle_data,json=bundleData,proto3" json:"bundle_data,omitempty"`
+	BundleBase64     string                 `protobuf:"bytes,12,opt,name=bundle_base64,json=bundleBase64,proto3" json:"bundle_base64,omitempty"`
+	FileSummaries    string                 `protobuf:"bytes,13,opt,name=file_summaries,json=fileSummaries,proto3" json:"file_summaries,omitempty"`
+	CalcSummary      string                 `protobuf:"bytes,14,opt,name=calc_summary,json=calcSummary,proto3" json:"calc_summary,omitempty"`
+	Remark           string                 `protobuf:"bytes,15,opt,name=remark,proto3" json:"remark,omitempty"`
+	CreatedBy        string                 `protobuf:"bytes,16,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *PublishProductionBundleProtoRequest) Reset() {
+	*x = PublishProductionBundleProtoRequest{}
+	mi := &file_plan_report_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishProductionBundleProtoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishProductionBundleProtoRequest) ProtoMessage() {}
+
+func (x *PublishProductionBundleProtoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishProductionBundleProtoRequest.ProtoReflect.Descriptor instead.
+func (*PublishProductionBundleProtoRequest) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *PublishProductionBundleProtoRequest) GetRegCode() string {
+	if x != nil {
+		return x.RegCode
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetFactoryName() string {
+	if x != nil {
+		return x.FactoryName
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetApplyDate() string {
+	if x != nil {
+		return x.ApplyDate
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetProductionTeam() string {
+	if x != nil {
+		return x.ProductionTeam
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetTotalRows() int32 {
+	if x != nil {
+		return x.TotalRows
+	}
+	return 0
+}
+
+func (x *PublishProductionBundleProtoRequest) GetRawSizeMb() float64 {
+	if x != nil {
+		return x.RawSizeMb
+	}
+	return 0
+}
+
+func (x *PublishProductionBundleProtoRequest) GetCompressedSizeMb() float64 {
+	if x != nil {
+		return x.CompressedSizeMb
+	}
+	return 0
+}
+
+func (x *PublishProductionBundleProtoRequest) GetCompressionRatio() string {
+	if x != nil {
+		return x.CompressionRatio
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetBundleData() []byte {
+	if x != nil {
+		return x.BundleData
+	}
+	return nil
+}
+
+func (x *PublishProductionBundleProtoRequest) GetBundleBase64() string {
+	if x != nil {
+		return x.BundleBase64
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetFileSummaries() string {
+	if x != nil {
+		return x.FileSummaries
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetCalcSummary() string {
+	if x != nil {
+		return x.CalcSummary
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetRemark() string {
+	if x != nil {
+		return x.Remark
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoRequest) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+type PublishProductionBundleProtoResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Success          bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message          string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	RegCode          string                 `protobuf:"bytes,3,opt,name=reg_code,json=regCode,proto3" json:"reg_code,omitempty"`
+	Version          string                 `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
+	CompressedSizeMb float64                `protobuf:"fixed64,5,opt,name=compressed_size_mb,json=compressedSizeMb,proto3" json:"compressed_size_mb,omitempty"`
+	CompressionRatio string                 `protobuf:"bytes,6,opt,name=compression_ratio,json=compressionRatio,proto3" json:"compression_ratio,omitempty"`
+	ErrorMessage     string                 `protobuf:"bytes,7,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *PublishProductionBundleProtoResponse) Reset() {
+	*x = PublishProductionBundleProtoResponse{}
+	mi := &file_plan_report_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishProductionBundleProtoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishProductionBundleProtoResponse) ProtoMessage() {}
+
+func (x *PublishProductionBundleProtoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishProductionBundleProtoResponse.ProtoReflect.Descriptor instead.
+func (*PublishProductionBundleProtoResponse) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *PublishProductionBundleProtoResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *PublishProductionBundleProtoResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoResponse) GetRegCode() string {
+	if x != nil {
+		return x.RegCode
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoResponse) GetCompressedSizeMb() float64 {
+	if x != nil {
+		return x.CompressedSizeMb
+	}
+	return 0
+}
+
+func (x *PublishProductionBundleProtoResponse) GetCompressionRatio() string {
+	if x != nil {
+		return x.CompressionRatio
+	}
+	return ""
+}
+
+func (x *PublishProductionBundleProtoResponse) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+type QueryProductionBundlesProtoRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	FactoryName    string                 `protobuf:"bytes,1,opt,name=factory_name,json=factoryName,proto3" json:"factory_name,omitempty"`
+	ProductionTeam string                 `protobuf:"bytes,2,opt,name=production_team,json=productionTeam,proto3" json:"production_team,omitempty"`
+	ApplyDateFrom  string                 `protobuf:"bytes,3,opt,name=apply_date_from,json=applyDateFrom,proto3" json:"apply_date_from,omitempty"`
+	ApplyDateTo    string                 `protobuf:"bytes,4,opt,name=apply_date_to,json=applyDateTo,proto3" json:"apply_date_to,omitempty"`
+	Status         string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	Keyword        string                 `protobuf:"bytes,6,opt,name=keyword,proto3" json:"keyword,omitempty"`
+	Page           int32                  `protobuf:"varint,7,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize       int32                  `protobuf:"varint,8,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *QueryProductionBundlesProtoRequest) Reset() {
+	*x = QueryProductionBundlesProtoRequest{}
+	mi := &file_plan_report_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryProductionBundlesProtoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryProductionBundlesProtoRequest) ProtoMessage() {}
+
+func (x *QueryProductionBundlesProtoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryProductionBundlesProtoRequest.ProtoReflect.Descriptor instead.
+func (*QueryProductionBundlesProtoRequest) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *QueryProductionBundlesProtoRequest) GetFactoryName() string {
+	if x != nil {
+		return x.FactoryName
+	}
+	return ""
+}
+
+func (x *QueryProductionBundlesProtoRequest) GetProductionTeam() string {
+	if x != nil {
+		return x.ProductionTeam
+	}
+	return ""
+}
+
+func (x *QueryProductionBundlesProtoRequest) GetApplyDateFrom() string {
+	if x != nil {
+		return x.ApplyDateFrom
+	}
+	return ""
+}
+
+func (x *QueryProductionBundlesProtoRequest) GetApplyDateTo() string {
+	if x != nil {
+		return x.ApplyDateTo
+	}
+	return ""
+}
+
+func (x *QueryProductionBundlesProtoRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *QueryProductionBundlesProtoRequest) GetKeyword() string {
+	if x != nil {
+		return x.Keyword
+	}
+	return ""
+}
+
+func (x *QueryProductionBundlesProtoRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *QueryProductionBundlesProtoRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type QueryProductionBundlesProtoResponse struct {
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Success       bool                         `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                       `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Data          []*ProductionBundleProtoItem `protobuf:"bytes,3,rep,name=data,proto3" json:"data,omitempty"`
+	TotalRecords  int64                        `protobuf:"varint,4,opt,name=total_records,json=totalRecords,proto3" json:"total_records,omitempty"`
+	Page          int32                        `protobuf:"varint,5,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                        `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	ErrorMessage  string                       `protobuf:"bytes,7,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryProductionBundlesProtoResponse) Reset() {
+	*x = QueryProductionBundlesProtoResponse{}
+	mi := &file_plan_report_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryProductionBundlesProtoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryProductionBundlesProtoResponse) ProtoMessage() {}
+
+func (x *QueryProductionBundlesProtoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryProductionBundlesProtoResponse.ProtoReflect.Descriptor instead.
+func (*QueryProductionBundlesProtoResponse) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *QueryProductionBundlesProtoResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *QueryProductionBundlesProtoResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *QueryProductionBundlesProtoResponse) GetData() []*ProductionBundleProtoItem {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *QueryProductionBundlesProtoResponse) GetTotalRecords() int64 {
+	if x != nil {
+		return x.TotalRecords
+	}
+	return 0
+}
+
+func (x *QueryProductionBundlesProtoResponse) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *QueryProductionBundlesProtoResponse) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *QueryProductionBundlesProtoResponse) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+type GetProductionBundleDataProtoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RegCode       string                 `protobuf:"bytes,1,opt,name=reg_code,json=regCode,proto3" json:"reg_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProductionBundleDataProtoRequest) Reset() {
+	*x = GetProductionBundleDataProtoRequest{}
+	mi := &file_plan_report_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProductionBundleDataProtoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProductionBundleDataProtoRequest) ProtoMessage() {}
+
+func (x *GetProductionBundleDataProtoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProductionBundleDataProtoRequest.ProtoReflect.Descriptor instead.
+func (*GetProductionBundleDataProtoRequest) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *GetProductionBundleDataProtoRequest) GetRegCode() string {
+	if x != nil {
+		return x.RegCode
+	}
+	return ""
+}
+
+type GetProductionBundleDataProtoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	RegCode       string                 `protobuf:"bytes,3,opt,name=reg_code,json=regCode,proto3" json:"reg_code,omitempty"`
+	Version       string                 `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
+	BundleData    []byte                 `protobuf:"bytes,5,opt,name=bundle_data,json=bundleData,proto3" json:"bundle_data,omitempty"`
+	TotalRows     int32                  `protobuf:"varint,6,opt,name=total_rows,json=totalRows,proto3" json:"total_rows,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,7,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProductionBundleDataProtoResponse) Reset() {
+	*x = GetProductionBundleDataProtoResponse{}
+	mi := &file_plan_report_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProductionBundleDataProtoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProductionBundleDataProtoResponse) ProtoMessage() {}
+
+func (x *GetProductionBundleDataProtoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProductionBundleDataProtoResponse.ProtoReflect.Descriptor instead.
+func (*GetProductionBundleDataProtoResponse) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *GetProductionBundleDataProtoResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *GetProductionBundleDataProtoResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *GetProductionBundleDataProtoResponse) GetRegCode() string {
+	if x != nil {
+		return x.RegCode
+	}
+	return ""
+}
+
+func (x *GetProductionBundleDataProtoResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *GetProductionBundleDataProtoResponse) GetBundleData() []byte {
+	if x != nil {
+		return x.BundleData
+	}
+	return nil
+}
+
+func (x *GetProductionBundleDataProtoResponse) GetTotalRows() int32 {
+	if x != nil {
+		return x.TotalRows
+	}
+	return 0
+}
+
+func (x *GetProductionBundleDataProtoResponse) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+type DeleteProductionBundleProtoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RegCode       string                 `protobuf:"bytes,1,opt,name=reg_code,json=regCode,proto3" json:"reg_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteProductionBundleProtoRequest) Reset() {
+	*x = DeleteProductionBundleProtoRequest{}
+	mi := &file_plan_report_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteProductionBundleProtoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteProductionBundleProtoRequest) ProtoMessage() {}
+
+func (x *DeleteProductionBundleProtoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteProductionBundleProtoRequest.ProtoReflect.Descriptor instead.
+func (*DeleteProductionBundleProtoRequest) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *DeleteProductionBundleProtoRequest) GetRegCode() string {
+	if x != nil {
+		return x.RegCode
+	}
+	return ""
+}
+
+type DeleteProductionBundleProtoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	DeletedRows   int64                  `protobuf:"varint,3,opt,name=deleted_rows,json=deletedRows,proto3" json:"deleted_rows,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,4,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteProductionBundleProtoResponse) Reset() {
+	*x = DeleteProductionBundleProtoResponse{}
+	mi := &file_plan_report_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteProductionBundleProtoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteProductionBundleProtoResponse) ProtoMessage() {}
+
+func (x *DeleteProductionBundleProtoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteProductionBundleProtoResponse.ProtoReflect.Descriptor instead.
+func (*DeleteProductionBundleProtoResponse) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *DeleteProductionBundleProtoResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *DeleteProductionBundleProtoResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *DeleteProductionBundleProtoResponse) GetDeletedRows() int64 {
+	if x != nil {
+		return x.DeletedRows
+	}
+	return 0
+}
+
+func (x *DeleteProductionBundleProtoResponse) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
 var File_plan_report_proto protoreflect.FileDescriptor
 
 const file_plan_report_proto_rawDesc = "" +
@@ -5485,7 +6353,97 @@ const file_plan_report_proto_rawDesc = "" +
 	"totalPages\x12\x12\n" +
 	"\x04page\x18\x0f \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x10 \x01(\x05R\bpageSize\x12\x1b\n" +
-	"\tdata_json\x18\x11 \x01(\tR\bdataJsonB\x1cZ\x1aservice-datahub/pb/datahubb\x06proto3"
+	"\tdata_json\x18\x11 \x01(\tR\bdataJson\"\xbc\x04\n" +
+	"\x19ProductionBundleProtoItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x19\n" +
+	"\breg_code\x18\x02 \x01(\tR\aregCode\x12!\n" +
+	"\ffactory_name\x18\x03 \x01(\tR\vfactoryName\x12\x1d\n" +
+	"\n" +
+	"apply_date\x18\x04 \x01(\tR\tapplyDate\x12'\n" +
+	"\x0fproduction_team\x18\x05 \x01(\tR\x0eproductionTeam\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x18\n" +
+	"\aversion\x18\a \x01(\tR\aversion\x12\x1d\n" +
+	"\n" +
+	"total_rows\x18\b \x01(\x05R\ttotalRows\x12\x1e\n" +
+	"\vraw_size_mb\x18\t \x01(\x01R\trawSizeMb\x12,\n" +
+	"\x12compressed_size_mb\x18\n" +
+	" \x01(\x01R\x10compressedSizeMb\x12+\n" +
+	"\x11compression_ratio\x18\v \x01(\tR\x10compressionRatio\x12%\n" +
+	"\x0efile_summaries\x18\f \x01(\tR\rfileSummaries\x12!\n" +
+	"\fcalc_summary\x18\r \x01(\tR\vcalcSummary\x12\x16\n" +
+	"\x06remark\x18\x0e \x01(\tR\x06remark\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x0f \x01(\tR\tcreatedBy\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x10 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x11 \x01(\tR\tupdatedAt\"\xbe\x04\n" +
+	"#PublishProductionBundleProtoRequest\x12\x19\n" +
+	"\breg_code\x18\x01 \x01(\tR\aregCode\x12!\n" +
+	"\ffactory_name\x18\x02 \x01(\tR\vfactoryName\x12\x1d\n" +
+	"\n" +
+	"apply_date\x18\x03 \x01(\tR\tapplyDate\x12'\n" +
+	"\x0fproduction_team\x18\x04 \x01(\tR\x0eproductionTeam\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12\x18\n" +
+	"\aversion\x18\x06 \x01(\tR\aversion\x12\x1d\n" +
+	"\n" +
+	"total_rows\x18\a \x01(\x05R\ttotalRows\x12\x1e\n" +
+	"\vraw_size_mb\x18\b \x01(\x01R\trawSizeMb\x12,\n" +
+	"\x12compressed_size_mb\x18\t \x01(\x01R\x10compressedSizeMb\x12+\n" +
+	"\x11compression_ratio\x18\n" +
+	" \x01(\tR\x10compressionRatio\x12\x1f\n" +
+	"\vbundle_data\x18\v \x01(\fR\n" +
+	"bundleData\x12#\n" +
+	"\rbundle_base64\x18\f \x01(\tR\fbundleBase64\x12%\n" +
+	"\x0efile_summaries\x18\r \x01(\tR\rfileSummaries\x12!\n" +
+	"\fcalc_summary\x18\x0e \x01(\tR\vcalcSummary\x12\x16\n" +
+	"\x06remark\x18\x0f \x01(\tR\x06remark\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x10 \x01(\tR\tcreatedBy\"\x8f\x02\n" +
+	"$PublishProductionBundleProtoResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x19\n" +
+	"\breg_code\x18\x03 \x01(\tR\aregCode\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\tR\aversion\x12,\n" +
+	"\x12compressed_size_mb\x18\x05 \x01(\x01R\x10compressedSizeMb\x12+\n" +
+	"\x11compression_ratio\x18\x06 \x01(\tR\x10compressionRatio\x12#\n" +
+	"\rerror_message\x18\a \x01(\tR\ferrorMessage\"\x9f\x02\n" +
+	"\"QueryProductionBundlesProtoRequest\x12!\n" +
+	"\ffactory_name\x18\x01 \x01(\tR\vfactoryName\x12'\n" +
+	"\x0fproduction_team\x18\x02 \x01(\tR\x0eproductionTeam\x12&\n" +
+	"\x0fapply_date_from\x18\x03 \x01(\tR\rapplyDateFrom\x12\"\n" +
+	"\rapply_date_to\x18\x04 \x01(\tR\vapplyDateTo\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12\x18\n" +
+	"\akeyword\x18\x06 \x01(\tR\akeyword\x12\x12\n" +
+	"\x04page\x18\a \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\b \x01(\x05R\bpageSize\"\x8c\x02\n" +
+	"#QueryProductionBundlesProtoResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x126\n" +
+	"\x04data\x18\x03 \x03(\v2\".datahub.ProductionBundleProtoItemR\x04data\x12#\n" +
+	"\rtotal_records\x18\x04 \x01(\x03R\ftotalRecords\x12\x12\n" +
+	"\x04page\x18\x05 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x06 \x01(\x05R\bpageSize\x12#\n" +
+	"\rerror_message\x18\a \x01(\tR\ferrorMessage\"@\n" +
+	"#GetProductionBundleDataProtoRequest\x12\x19\n" +
+	"\breg_code\x18\x01 \x01(\tR\aregCode\"\xf4\x01\n" +
+	"$GetProductionBundleDataProtoResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x19\n" +
+	"\breg_code\x18\x03 \x01(\tR\aregCode\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\tR\aversion\x12\x1f\n" +
+	"\vbundle_data\x18\x05 \x01(\fR\n" +
+	"bundleData\x12\x1d\n" +
+	"\n" +
+	"total_rows\x18\x06 \x01(\x05R\ttotalRows\x12#\n" +
+	"\rerror_message\x18\a \x01(\tR\ferrorMessage\"?\n" +
+	"\"DeleteProductionBundleProtoRequest\x12\x19\n" +
+	"\breg_code\x18\x01 \x01(\tR\aregCode\"\xa1\x01\n" +
+	"#DeleteProductionBundleProtoResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12!\n" +
+	"\fdeleted_rows\x18\x03 \x01(\x03R\vdeletedRows\x12#\n" +
+	"\rerror_message\x18\x04 \x01(\tR\ferrorMessageB\x1cZ\x1aservice-datahub/pb/datahubb\x06proto3"
 
 var (
 	file_plan_report_proto_rawDescOnce sync.Once
@@ -5499,48 +6457,57 @@ func file_plan_report_proto_rawDescGZIP() []byte {
 	return file_plan_report_proto_rawDescData
 }
 
-var file_plan_report_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_plan_report_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
 var file_plan_report_proto_goTypes = []any{
-	(*PlanMasterProtoItem)(nil),                // 0: datahub.PlanMasterProtoItem
-	(*PlanMasterProtoRequest)(nil),             // 1: datahub.PlanMasterProtoRequest
-	(*PlanMasterProtoResponse)(nil),            // 2: datahub.PlanMasterProtoResponse
-	(*DeletePlanMasterProtoRequest)(nil),       // 3: datahub.DeletePlanMasterProtoRequest
-	(*DeletePlanMasterProtoResponse)(nil),      // 4: datahub.DeletePlanMasterProtoResponse
-	(*PlanDetailProtoItem)(nil),                // 5: datahub.PlanDetailProtoItem
-	(*PlanDetailProtoRequest)(nil),             // 6: datahub.PlanDetailProtoRequest
-	(*PlanDetailProtoResponse)(nil),            // 7: datahub.PlanDetailProtoResponse
-	(*AddPlanDetailProtoRequest)(nil),          // 8: datahub.AddPlanDetailProtoRequest
-	(*AddPlanDetailProtoResponse)(nil),         // 9: datahub.AddPlanDetailProtoResponse
-	(*UpdatePlanDetailProtoRequest)(nil),       // 10: datahub.UpdatePlanDetailProtoRequest
-	(*UpdatePlanDetailProtoResponse)(nil),      // 11: datahub.UpdatePlanDetailProtoResponse
-	(*DeletePlanDetailProtoRequest)(nil),       // 12: datahub.DeletePlanDetailProtoRequest
-	(*DeletePlanDetailProtoResponse)(nil),      // 13: datahub.DeletePlanDetailProtoResponse
-	(*ProdStatsDetailProtoItem)(nil),           // 14: datahub.ProdStatsDetailProtoItem
-	(*ProdStatsDetailProtoRequest)(nil),        // 15: datahub.ProdStatsDetailProtoRequest
-	(*ProdStatsDetailProtoResponse)(nil),       // 16: datahub.ProdStatsDetailProtoResponse
-	(*AddProdStatsDetailProtoRequest)(nil),     // 17: datahub.AddProdStatsDetailProtoRequest
-	(*AddProdStatsDetailProtoResponse)(nil),    // 18: datahub.AddProdStatsDetailProtoResponse
-	(*UpdateProdStatsDetailProtoRequest)(nil),  // 19: datahub.UpdateProdStatsDetailProtoRequest
-	(*UpdateProdStatsDetailProtoResponse)(nil), // 20: datahub.UpdateProdStatsDetailProtoResponse
-	(*DeleteProdStatsDetailProtoRequest)(nil),  // 21: datahub.DeleteProdStatsDetailProtoRequest
-	(*DeleteProdStatsDetailProtoResponse)(nil), // 22: datahub.DeleteProdStatsDetailProtoResponse
-	(*PlanRegistrationSaveProtoRequest)(nil),   // 23: datahub.PlanRegistrationSaveProtoRequest
-	(*PlanRegistrationSaveProtoResponse)(nil),  // 24: datahub.PlanRegistrationSaveProtoResponse
-	(*ProdStatsReportSummaryProto)(nil),        // 25: datahub.ProdStatsReportSummaryProto
-	(*TeamStatAggregateProto)(nil),             // 26: datahub.TeamStatAggregateProto
-	(*MachineStatAggregateProto)(nil),          // 27: datahub.MachineStatAggregateProto
-	(*DailyStatAggregateProto)(nil),            // 28: datahub.DailyStatAggregateProto
-	(*ProdStatsReportProtoRequest)(nil),        // 29: datahub.ProdStatsReportProtoRequest
-	(*ProdStatsReportProtoResponse)(nil),       // 30: datahub.ProdStatsReportProtoResponse
-	(*PlanReportSummaryProto)(nil),             // 31: datahub.PlanReportSummaryProto
-	(*PlanStatusItemProto)(nil),                // 32: datahub.PlanStatusItemProto
-	(*PicPlanAggregateProto)(nil),              // 33: datahub.PicPlanAggregateProto
-	(*TeamPlanAggregateProto)(nil),             // 34: datahub.TeamPlanAggregateProto
-	(*MachinePlanAggregateProto)(nil),          // 35: datahub.MachinePlanAggregateProto
-	(*DailyPlanAggregateProto)(nil),            // 36: datahub.DailyPlanAggregateProto
-	(*PlanFilterOptionsProto)(nil),             // 37: datahub.PlanFilterOptionsProto
-	(*PlanReportProtoRequest)(nil),             // 38: datahub.PlanReportProtoRequest
-	(*PlanReportProtoResponse)(nil),            // 39: datahub.PlanReportProtoResponse
+	(*PlanMasterProtoItem)(nil),                  // 0: datahub.PlanMasterProtoItem
+	(*PlanMasterProtoRequest)(nil),               // 1: datahub.PlanMasterProtoRequest
+	(*PlanMasterProtoResponse)(nil),              // 2: datahub.PlanMasterProtoResponse
+	(*DeletePlanMasterProtoRequest)(nil),         // 3: datahub.DeletePlanMasterProtoRequest
+	(*DeletePlanMasterProtoResponse)(nil),        // 4: datahub.DeletePlanMasterProtoResponse
+	(*PlanDetailProtoItem)(nil),                  // 5: datahub.PlanDetailProtoItem
+	(*PlanDetailProtoRequest)(nil),               // 6: datahub.PlanDetailProtoRequest
+	(*PlanDetailProtoResponse)(nil),              // 7: datahub.PlanDetailProtoResponse
+	(*AddPlanDetailProtoRequest)(nil),            // 8: datahub.AddPlanDetailProtoRequest
+	(*AddPlanDetailProtoResponse)(nil),           // 9: datahub.AddPlanDetailProtoResponse
+	(*UpdatePlanDetailProtoRequest)(nil),         // 10: datahub.UpdatePlanDetailProtoRequest
+	(*UpdatePlanDetailProtoResponse)(nil),        // 11: datahub.UpdatePlanDetailProtoResponse
+	(*DeletePlanDetailProtoRequest)(nil),         // 12: datahub.DeletePlanDetailProtoRequest
+	(*DeletePlanDetailProtoResponse)(nil),        // 13: datahub.DeletePlanDetailProtoResponse
+	(*ProdStatsDetailProtoItem)(nil),             // 14: datahub.ProdStatsDetailProtoItem
+	(*ProdStatsDetailProtoRequest)(nil),          // 15: datahub.ProdStatsDetailProtoRequest
+	(*ProdStatsDetailProtoResponse)(nil),         // 16: datahub.ProdStatsDetailProtoResponse
+	(*AddProdStatsDetailProtoRequest)(nil),       // 17: datahub.AddProdStatsDetailProtoRequest
+	(*AddProdStatsDetailProtoResponse)(nil),      // 18: datahub.AddProdStatsDetailProtoResponse
+	(*UpdateProdStatsDetailProtoRequest)(nil),    // 19: datahub.UpdateProdStatsDetailProtoRequest
+	(*UpdateProdStatsDetailProtoResponse)(nil),   // 20: datahub.UpdateProdStatsDetailProtoResponse
+	(*DeleteProdStatsDetailProtoRequest)(nil),    // 21: datahub.DeleteProdStatsDetailProtoRequest
+	(*DeleteProdStatsDetailProtoResponse)(nil),   // 22: datahub.DeleteProdStatsDetailProtoResponse
+	(*PlanRegistrationSaveProtoRequest)(nil),     // 23: datahub.PlanRegistrationSaveProtoRequest
+	(*PlanRegistrationSaveProtoResponse)(nil),    // 24: datahub.PlanRegistrationSaveProtoResponse
+	(*ProdStatsReportSummaryProto)(nil),          // 25: datahub.ProdStatsReportSummaryProto
+	(*TeamStatAggregateProto)(nil),               // 26: datahub.TeamStatAggregateProto
+	(*MachineStatAggregateProto)(nil),            // 27: datahub.MachineStatAggregateProto
+	(*DailyStatAggregateProto)(nil),              // 28: datahub.DailyStatAggregateProto
+	(*ProdStatsReportProtoRequest)(nil),          // 29: datahub.ProdStatsReportProtoRequest
+	(*ProdStatsReportProtoResponse)(nil),         // 30: datahub.ProdStatsReportProtoResponse
+	(*PlanReportSummaryProto)(nil),               // 31: datahub.PlanReportSummaryProto
+	(*PlanStatusItemProto)(nil),                  // 32: datahub.PlanStatusItemProto
+	(*PicPlanAggregateProto)(nil),                // 33: datahub.PicPlanAggregateProto
+	(*TeamPlanAggregateProto)(nil),               // 34: datahub.TeamPlanAggregateProto
+	(*MachinePlanAggregateProto)(nil),            // 35: datahub.MachinePlanAggregateProto
+	(*DailyPlanAggregateProto)(nil),              // 36: datahub.DailyPlanAggregateProto
+	(*PlanFilterOptionsProto)(nil),               // 37: datahub.PlanFilterOptionsProto
+	(*PlanReportProtoRequest)(nil),               // 38: datahub.PlanReportProtoRequest
+	(*PlanReportProtoResponse)(nil),              // 39: datahub.PlanReportProtoResponse
+	(*ProductionBundleProtoItem)(nil),            // 40: datahub.ProductionBundleProtoItem
+	(*PublishProductionBundleProtoRequest)(nil),  // 41: datahub.PublishProductionBundleProtoRequest
+	(*PublishProductionBundleProtoResponse)(nil), // 42: datahub.PublishProductionBundleProtoResponse
+	(*QueryProductionBundlesProtoRequest)(nil),   // 43: datahub.QueryProductionBundlesProtoRequest
+	(*QueryProductionBundlesProtoResponse)(nil),  // 44: datahub.QueryProductionBundlesProtoResponse
+	(*GetProductionBundleDataProtoRequest)(nil),  // 45: datahub.GetProductionBundleDataProtoRequest
+	(*GetProductionBundleDataProtoResponse)(nil), // 46: datahub.GetProductionBundleDataProtoResponse
+	(*DeleteProductionBundleProtoRequest)(nil),   // 47: datahub.DeleteProductionBundleProtoRequest
+	(*DeleteProductionBundleProtoResponse)(nil),  // 48: datahub.DeleteProductionBundleProtoResponse
 }
 var file_plan_report_proto_depIdxs = []int32{
 	0,  // 0: datahub.PlanMasterProtoResponse.data:type_name -> datahub.PlanMasterProtoItem
@@ -5570,11 +6537,12 @@ var file_plan_report_proto_depIdxs = []int32{
 	36, // 24: datahub.PlanReportProtoResponse.daily_trend_data:type_name -> datahub.DailyPlanAggregateProto
 	37, // 25: datahub.PlanReportProtoResponse.filter_options:type_name -> datahub.PlanFilterOptionsProto
 	5,  // 26: datahub.PlanReportProtoResponse.items:type_name -> datahub.PlanDetailProtoItem
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	40, // 27: datahub.QueryProductionBundlesProtoResponse.data:type_name -> datahub.ProductionBundleProtoItem
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_plan_report_proto_init() }
@@ -5588,7 +6556,7 @@ func file_plan_report_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_plan_report_proto_rawDesc), len(file_plan_report_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   40,
+			NumMessages:   49,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

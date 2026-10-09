@@ -101,9 +101,14 @@ export default function TitleBar({ title }) {
         window.electron.close()
       } else if (window.electron?.ipcRenderer) {
         window.electron.ipcRenderer.send('window:close')
+      } else {
+        window.close()
       }
     } catch (e) {
       console.warn('Could not close window:', e)
+      try {
+        window.close()
+      } catch {}
     }
   }, [])
 

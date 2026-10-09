@@ -50,7 +50,8 @@ export default function CalcMasterQueryFilters({ filters, onChangeFilter, onEnte
             options={[
               { value: 'Tất cả', label: 'Tất cả nhà máy' },
               { value: 'GS1 Hà Nội', label: 'GS1 Hà Nội' },
-              { value: 'GS5 Quế Võ', label: 'GS5 Quế Võ' }
+              { value: 'GS5 Quế Võ 1B', label: 'GS5 Quế Võ 1B' },
+              { value: 'GS5 Quế Võ 2', label: 'GS5 Quế Võ 2' }
             ]}
           />
         </div>

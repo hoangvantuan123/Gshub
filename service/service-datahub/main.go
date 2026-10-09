@@ -85,6 +85,7 @@ func main() {
 	prodStatsDetailHandler := handlers.NewProdStatsDetailHandler(prodStatsDetailService, logger)
 	summaryPlanReportHandler := handlers.NewSummaryPlanReportHandler(summaryPlanReportService, logger)
 	summaryStatReportHandler := handlers.NewSummaryStatReportHandler(summaryStatReportService, logger)
+	calcBundleHandler := handlers.NewCalcBundleHandler(db, logger)
 	healthHandler := handlers.NewHealthHandler(db)
 
 	// 6. Setup HTTP REST Router (Reporting & Data only)
@@ -102,6 +103,7 @@ func main() {
 		summaryPlanReportHandler,
 		summaryStatReportHandler,
 		helpHandler,
+		calcBundleHandler,
 		healthHandler,
 		logger,
 	)

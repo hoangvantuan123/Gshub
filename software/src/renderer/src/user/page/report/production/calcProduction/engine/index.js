@@ -8,20 +8,7 @@ import { calculateProductionSQLite, isElectronSqliteAvailable } from '../storage
 
 import storageAdapter from '../storage'
 
-export const runProductionCalculations = async (files = {}) => {
-  // 1. Nếu chạy trên Electron Desktop: Ưu tiên tính toán trực tiếp từ CSDL SQLite qua IPC (Native C++)
-  if (isElectronSqliteAvailable()) {
-    try {
-      const sqliteResult = await calculateProductionSQLite()
-      if (sqliteResult && sqliteResult.success && sqliteResult.stat?.calculatedRows?.length > 0) {
-        return sqliteResult
-      }
-    } catch (err) {
-      console.warn('[Calc Engine] Chuyển sang động cơ tính toán tối ưu IndexedDB:', err)
-    }
-  }
-
-  // 2. Chạy trên Web / Fallback: Đảm bảo chọc trực tiếp vào CSDL IndexedDB đọc toàn bộ 4 bảng thô
+export const runProductionCalculations = async (files = {}, masterInfo = {}) => {
   let allFiles = files
   if (!allFiles || Object.keys(allFiles).length === 0 || !allFiles.stat_report?.data?.length) {
     try {
@@ -31,8 +18,8 @@ export const runProductionCalculations = async (files = {}) => {
     }
   }
 
-  const planResult = calculateKHSX(allFiles || {})
-  const statResult = calculateTKSX(allFiles || {})
+  const planResult = calculateKHSX(allFiles || {}, masterInfo || {})
+  const statResult = calculateTKSX(allFiles || {}, masterInfo || {})
 
   // Tính tỷ lệ hoàn thành kế hoạch (Thực tế / Kế hoạch)
   const completionRate =

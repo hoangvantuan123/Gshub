@@ -13,7 +13,7 @@ cd /d "%ROOT_DIR%"
 
 if not exist logs mkdir logs
 
-echo [1/3] === DANG BUILD GSHUB SERVER-CORE (gRPC :5051) ===
+echo [1/3] === DANG BUILD GSHUB SERVER-CORE (gRPC :60051) ===
 cd /d "%ROOT_DIR%server-core"
 set GOOS=windows
 set GOARCH=amd64
@@ -42,7 +42,7 @@ copy /y cmd\server\main "%ROOT_DIR%server" >nul
 echo [OK] Server-core build thanh cong!
 echo.
 
-echo [2/3] === DANG BUILD GSHUB SERVICE-DATAHUB (ERP/Reports :5052) ===
+echo [2/3] === DANG BUILD GSHUB SERVICE-DATAHUB (ERP/Reports :60052) ===
 cd /d "%ROOT_DIR%service-datahub"
 set GOOS=windows
 set GOARCH=amd64

@@ -156,18 +156,25 @@ export const getArchitectureFileSQLite = async (fileType) => {
 /**
  * Lấy dữ liệu 1 file kiến trúc theo phân trang (mặc định 1.500 dòng/trang) từ SQLite
  */
-export const getArchitectureFilePageSQLite = async (fileType, page = 1, pageSize = 1500) => {
+export const getArchitectureFilePageSQLite = async (
+  fileType,
+  page = 1,
+  pageSize = 1500,
+  searchFilters = {}
+) => {
   try {
     if (isElectronSqliteAvailable()) {
       let res = null
+      const payload = {
+        fileType,
+        page,
+        pageSize,
+        ...(searchFilters || {})
+      }
       if (window?.electron?.ipcRenderer) {
-        res = await window.electron.ipcRenderer.invoke('sqlite:get-calc-file-page', {
-          fileType,
-          page,
-          pageSize
-        })
+        res = await window.electron.ipcRenderer.invoke('sqlite:get-calc-file-page', payload)
       } else if (window?.electron?.sqlite?.getFilePage) {
-        res = await window.electron.sqlite.getFilePage({ fileType, page, pageSize })
+        res = await window.electron.sqlite.getFilePage(payload)
       }
 
       if (res && Array.isArray(res.rows)) {
@@ -178,7 +185,7 @@ export const getArchitectureFilePageSQLite = async (fileType, page = 1, pageSize
     console.warn('[SQLite Storage] Lỗi lấy phân trang từ SQLite, fallback sang IndexedDB:', error)
   }
 
-  return await getArchitectureFilePageIDB(fileType, page, pageSize)
+  return await getArchitectureFilePageIDB(fileType, page, pageSize, searchFilters)
 }
 
 /**

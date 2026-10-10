@@ -217,6 +217,18 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 		now := time.Now()
 		masterIdSeq := services.GenerateUUIDv7()
 
+		rowVer := int64(1)
+		vStr := strings.TrimSpace(req.Version)
+		if vStr == "" {
+			vStr = strings.TrimSpace(req.CalcVersion)
+		}
+		if vStr != "" {
+			vClean := strings.TrimPrefix(strings.TrimPrefix(vStr, "v"), "V")
+			if vFloat, err := strconv.ParseFloat(vClean, 64); err == nil && vFloat > 0 {
+				rowVer = int64(vFloat * 10)
+			}
+		}
+
 		createdMaster = models.ERPPlanMaster{
 			IdSeq:         masterIdSeq,
 			RegCode:       regCode,
@@ -227,7 +239,7 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 			Remark:        &req.Remark,
 			Status:        &req.Status,
 			TotalRows:     totalRows,
-			RowVersion:    1,
+			RowVersion:    rowVer,
 			IsActive:      true,
 			CreatedBy:     &userId,
 			CreatedByName: &userName,

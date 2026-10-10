@@ -1122,13 +1122,20 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       const khsxRegCode = `${baseReg}-KHSX`
       const tksxRegCode = `${baseReg}-TKSX`
 
+      const activeVersion =
+        masterInfo.version ||
+        masterInfo.calcVersion ||
+        freshCalc?.version ||
+        freshCalc?.plan?.calcVersion ||
+        '1.0'
+
       // BƯỚC 1: Đẩy Báo cáo Kế hoạch sản xuất (KHSX)
       if (khsxRows.length > 0) {
         setPushRegistrationProgress((prev) => ({
           ...prev,
           percent: 25,
           step: 'KHSX',
-          message: `Đang nạp ${khsxRows.length.toLocaleString('vi-VN')} dòng Kế hoạch SX (KHSX)...`,
+          message: `Đang nạp ${khsxRows.length.toLocaleString('vi-VN')} dòng Kế hoạch SX (KHSX) v${activeVersion}...`,
           detail: '',
           statusTag: 'Đang nạp KHSX'
         }))
@@ -1140,6 +1147,8 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
             factoryName,
             applyDate,
             regCode: khsxRegCode,
+            version: activeVersion,
+            calcVersion: activeVersion,
             remark,
             status: 'published',
             isDraft: false,
@@ -1165,7 +1174,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
           ...prev,
           percent: 65,
           step: 'TKSX',
-          message: `Đang nạp ${statRows.length.toLocaleString('vi-VN')} dòng Thống kê SX (TKSX)...`,
+          message: `Đang nạp ${statRows.length.toLocaleString('vi-VN')} dòng Thống kê SX (TKSX) v${activeVersion}...`,
           detail: '',
           statusTag: 'Đang nạp TKSX'
         }))
@@ -1177,6 +1186,8 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
             factoryName,
             applyDate,
             regCode: tksxRegCode,
+            version: activeVersion,
+            calcVersion: activeVersion,
             remark,
             status: 'published',
             isDraft: false,

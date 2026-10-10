@@ -247,7 +247,12 @@ export const getArchitectureFileIDB = async (fileType) => {
 /**
  * Lấy dữ liệu 1 file kiến trúc theo phân trang (mặc định 1.500 dòng/trang) từ IndexedDB
  */
-export const getArchitectureFilePageIDB = async (fileType, page = 1, pageSize = 1500) => {
+export const getArchitectureFilePageIDB = async (
+  fileType,
+  page = 1,
+  pageSize = 1500,
+  { searchText = '', filterValues = {}, statusFilter = 'ALL' } = {}
+) => {
   try {
     const db = await getCalcProductionDB()
     const normType = String(fileType || '').toLowerCase()
@@ -282,7 +287,75 @@ export const getArchitectureFilePageIDB = async (fileType, page = 1, pageSize = 
       allRows = meta.data
     }
 
-    const total = allRows.length || meta.rowCount || 0
+    // 1. Lọc theo ô tìm kiếm chung SearchText
+    if (searchText && String(searchText).trim()) {
+      const tokens = String(searchText)
+        .split(/[,;\n\r\t|]+/)
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean)
+
+      if (tokens.length > 0) {
+        allRows = allRows.filter((row) => {
+          if (!row) return false
+          return Object.values(row).some((val) => {
+            if (val === null || val === undefined) return false
+            const strVal = String(val).toLowerCase()
+            return tokens.some((token) => strVal.includes(token))
+          })
+        })
+      }
+    }
+
+    // 2. Lọc theo trạng thái statusFilter
+    if (statusFilter && statusFilter !== 'ALL') {
+      const sf = String(statusFilter).toLowerCase()
+      allRows = allRows.filter((row) => {
+        if (!row) return false
+        const tag = String(
+          row.CoordinatorStatus ||
+            row['Trạng thái ĐP - SX'] ||
+            row.StatusDpSx ||
+            row.CheckKhsx ||
+            row['CHECK KHSX'] ||
+            row.KhsxStatus ||
+            row.Status ||
+            row.OpInfoStatus ||
+            row['Trạng thái LTT'] ||
+            ''
+        ).toLowerCase()
+        return tag === sf || tag.includes(sf) || sf.includes(tag)
+      })
+    }
+
+    // 3. Lọc theo các trường lọc động filterValues
+    if (filterValues && typeof filterValues === 'object') {
+      const activeFilters = Object.entries(filterValues).filter(
+        ([, val]) => val !== undefined && val !== null && String(val).trim() !== ''
+      )
+      if (activeFilters.length > 0) {
+        allRows = allRows.filter((row) => {
+          if (!row) return false
+          return activeFilters.every(([key, filterVal]) => {
+            const tokens = String(filterVal)
+              .split(/[,;\n\r\t|]+/)
+              .map((t) => t.trim().toLowerCase())
+              .filter(Boolean)
+            if (tokens.length === 0) return true
+            const rowVal =
+              row[key] !== undefined
+                ? row[key]
+                : row[key.toLowerCase()] !== undefined
+                ? row[key.toLowerCase()]
+                : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
+            if (rowVal === null || rowVal === undefined) return false
+            const rowValStr = String(rowVal).toLowerCase()
+            return tokens.some((token) => rowValStr.includes(token))
+          })
+        })
+      }
+    }
+
+    const total = allRows.length
     const totalPages = Math.max(1, Math.ceil(total / pageSize))
     if (page > totalPages || total === 0) {
       return {

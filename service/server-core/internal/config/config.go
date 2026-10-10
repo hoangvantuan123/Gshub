@@ -51,7 +51,7 @@ func Load() {
 		LogStorage:       getEnv("LOG_STORAGE", "../grafana-logs/logs"),
 		Env:              env,
 		ServiceName:      getEnv("SERVICE_NAME", "microservice-user"),
-		PortGrpc:         getEnvAsInt("PORT_GRPC", 5051),
+		PortGrpc:         getEnvAsInt("PORT_GRPC", 60051),
 		PostgresHost:     getEnv("POSTGRES_HOST", "localhost"),
 		PostgresPort:     getEnvAsInt("POSTGRES_PORT", 5432),
 		PostgresUser:     getEnv("POSTGRES_USER", "postgres"),

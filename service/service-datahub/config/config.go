@@ -72,10 +72,10 @@ func LoadConfig() (*Config, error) {
 
 	cfg := &Config{
 		Server: ServerConfig{
-			Port:            getEnv("PORT", "8080"),
-			GRPCPort:        getEnv("GRPC_PORT", "50057"),
+			Port:            getEnv("PORT", "9645"),
+			GRPCPort:        getEnv("GRPC_PORT", "60052"),
 			Env:             getEnv("APP_ENV", "development"),
-			StorageRootPath: getEnv("STORAGE_ROOT_PATH", "storage"),
+			StorageRootPath: getEnv("STORAGE_ROOT_PATH", "../../storage"),
 		},
 		DB: DBConfig{
 			Host:               getEnv("DB_HOST", "127.0.0.1"),

@@ -67,6 +67,8 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
   // Kích thước mỗi chunk tối ưu: 1.000 dòng để đảm bảo payload nhẹ (~1MB), không bị timeout hay nghẽn socket
   const CHUNK_SIZE = 1000
 
+  const version = payload.version || payload.calcVersion || payload.Version || '1.0'
+
   // Với số lượng dòng nhỏ (<= 1.000 dòng), gửi 1 lần duy nhất cùng Master
   if (totalRows <= CHUNK_SIZE) {
     const formattedPayload = {
@@ -75,6 +77,8 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
       factoryName,
       applyDate,
       regCode: regCodeInput,
+      version,
+      calcVersion: version,
       remark,
       status: payload.status || (payload.isDraft ? 'draft' : 'published'),
       isDraft: Boolean(payload.isDraft),
@@ -109,6 +113,8 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
     factoryName,
     applyDate,
     regCode: regCodeInput,
+    version,
+    calcVersion: version,
     remark,
     status: payload.status || (payload.isDraft ? 'draft' : 'published'),
     isDraft: Boolean(payload.isDraft),

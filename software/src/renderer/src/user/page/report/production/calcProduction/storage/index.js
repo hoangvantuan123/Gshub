@@ -70,12 +70,12 @@ export const storageAdapter = {
     return await getArchitectureFileIDB(fileType)
   },
 
-  getFilePage: async (fileType, page = 1, pageSize = 1500) => {
+  getFilePage: async (fileType, page = 1, pageSize = 1500, searchFilters = {}) => {
     const mode = getStorageMode()
     if (mode === 'sqlite') {
-      return await getArchitectureFilePageSQLite(fileType, page, pageSize)
+      return await getArchitectureFilePageSQLite(fileType, page, pageSize, searchFilters)
     }
-    return await getArchitectureFilePageIDB(fileType, page, pageSize)
+    return await getArchitectureFilePageIDB(fileType, page, pageSize, searchFilters)
   },
 
   getAllFiles: async () => {

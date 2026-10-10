@@ -21,7 +21,7 @@ asarUnpack:
 win:
   executableName: GsHub ERP
   requestedExecutionLevel: asInvoker
-  icon: build/icon.ico
+  icon: assets/icon.ico
   # certificateFile: "certs/windows-cert.pfx"
   # certificatePassword: ${env.WIN_CSC_KEY_PASSWORD}
   
@@ -29,6 +29,8 @@ nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
   createDesktopShortcut: always
   oneClick: true
   perMachine: false

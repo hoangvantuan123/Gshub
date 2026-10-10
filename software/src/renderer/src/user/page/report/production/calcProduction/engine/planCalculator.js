@@ -106,6 +106,94 @@ export function formatDateOnly(val) {
 }
 
 /**
+ * Định dạng ngày giờ đầy đủ DD/MM/YYYY HH:mm:ss cho Tab 6 Kết quả KHSX
+ * Hỗ trợ các trường hợp:
+ * 1. Chuỗi đã có cả ngày và giờ (VD: 2026-09-26 07:00:00, 26/09/2026 07:00:00, số serial Excel): format DD/MM/YYYY HH:mm:ss
+ * 2. Chuỗi chỉ có giờ (VD: 09:57:26, 07:00:00, 19:00:00, 05:25:02, 06:05:00):
+ *    - Ghép với baseDate (opDate, row.StartDate, applyDate,...)
+ *    - Nếu là EndTime và giờ kết thúc < giờ bắt đầu (ca đêm vắt qua ngày hôm sau), tự động +1 ngày
+ */
+export function formatFullDateTime(timeVal, baseDateVal = '', isEndTime = false, startTimeVal = '') {
+  if (timeVal === undefined || timeVal === null || timeVal === '') return ''
+
+  const str = String(timeVal).trim()
+  if (!str) return ''
+
+  // Trường hợp 1: Số serial Excel (VD: 46291.29166667)
+  if (/^\d{5}(\.\d+)?$/.test(str)) {
+    const num = parseFloat(str)
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30))
+    const millis = Math.round(num * 86400000)
+    const date = new Date(excelEpoch.getTime() + millis)
+    if (!isNaN(date)) return dayjs(date).format('DD/MM/YYYY HH:mm:ss')
+  }
+
+  // Trường hợp 2: Đã có ngày và giờ trong chuỗi (VD: 26/09/2026 07:00:00 hoặc 2026-09-26 07:00:00)
+  const hasDatePart =
+    /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\s+\d{1,2}:\d{2}/.test(str) ||
+    /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}[\sT]\d{1,2}:\d{2}/.test(str)
+
+  if (hasDatePart) {
+    const djs = parseDateTimeFlexible(str)
+    if (djs && djs.isValid()) {
+      return djs.format('DD/MM/YYYY HH:mm:ss')
+    }
+  }
+
+  // Trường hợp 3: Chuỗi chỉ có giờ (hoặc kèm AM/PM/SA/CH)
+  const timeMatch = str.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?/i)
+  if (timeMatch) {
+    let h = parseInt(timeMatch[1], 10)
+    const min = parseInt(timeMatch[2], 10)
+    const sec = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0
+    const ampm = timeMatch[4] ? timeMatch[4].toUpperCase() : ''
+
+    if ((ampm === 'PM' || ampm === 'CH') && h < 12) h += 12
+    if ((ampm === 'AM' || ampm === 'SA') && h === 12) h = 0
+
+    // Tìm baseDate
+    let dateDjs = null
+    if (baseDateVal) {
+      dateDjs = parseDateTimeFlexible(baseDateVal)
+    }
+    if (!dateDjs || !dateDjs.isValid()) {
+      dateDjs = dayjs()
+    }
+
+    let targetDate = dateDjs.hour(h).minute(min).second(sec).millisecond(0)
+
+    // Nếu là EndTime: kiểm tra xem có qua đêm không (+1 ngày)
+    if (isEndTime && startTimeVal) {
+      const sMatch = String(startTimeVal).match(/(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?/i)
+      if (sMatch) {
+        let sH = parseInt(sMatch[1], 10)
+        const sMin = parseInt(sMatch[2], 10)
+        const sAmpm = sMatch[4] ? sMatch[4].toUpperCase() : ''
+        if ((sAmpm === 'PM' || sAmpm === 'CH') && sH < 12) sH += 12
+        if ((sAmpm === 'AM' || sAmpm === 'SA') && sH === 12) sH = 0
+
+        const startTotalMin = sH * 60 + sMin
+        const endTotalMin = h * 60 + min
+        if (endTotalMin < startTotalMin) {
+          targetDate = targetDate.add(1, 'day')
+        }
+      }
+    }
+
+    return targetDate.format('DD/MM/YYYY HH:mm:ss')
+  }
+
+  // Fallback nếu có thể parse bằng parseDateTimeFlexible
+  const fallbackDjs = parseDateTimeFlexible(str)
+  if (fallbackDjs && fallbackDjs.isValid()) {
+    return fallbackDjs.format('DD/MM/YYYY HH:mm:ss')
+  }
+
+  return str
+}
+
+
+/**
  * Tính toán 3 cột điều kiện KHSX cho từng dòng của Tab 3 "Tổng hợp lệnh thao tác":
  * 1. Ngày KHSX thao tác (Date Part)
  * 2. Check KHSX theo Bắt đầu: [ApplyDate 07:00:00 -> ApplyDate+1 06:59:59]
@@ -305,6 +393,84 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     return ''
   }
 
+  // Trích xuất chuỗi version từ bản ghi
+  const extractRowVersion = (r) => {
+    if (!r || typeof r !== 'object') return ''
+    const v =
+      r.Version ??
+      r.version ??
+      r['Version'] ??
+      r['Phiên bản'] ??
+      r['Phiên bản KHSX'] ??
+      r['Mã phiên bản'] ??
+      r.OpVersion ??
+      r.PlanVersion ??
+      ''
+    return String(v).trim()
+  }
+
+  // Chuyển chuỗi version thành số trọng số để so sánh (VD: "2.0" -> 2000, "1.1" -> 1001)
+  const parseVersionWeight = (val) => {
+    if (val === undefined || val === null || val === '') return 0
+    const str = String(val).trim().toUpperCase().replace(/^V/, '')
+    const parts = str.split('.')
+    if (parts.length >= 2) {
+      const major = parseFloat(parts[0]) || 0
+      const minor = parseFloat(parts[1]) || 0
+      return major * 1000 + minor
+    }
+    const num = parseFloat(str)
+    return isNaN(num) ? 0 : num
+  }
+
+  // So sánh 2 dòng dữ liệu để luôn ưu tiên chọn phiên bản (Version) mới nhất
+  const isNewerVersion = (newRow, existingRow) => {
+    if (!existingRow) return true
+    if (!newRow) return false
+
+    const vNew = extractRowVersion(newRow)
+    const vOld = extractRowVersion(existingRow)
+
+    const wNew = parseVersionWeight(vNew)
+    const wOld = parseVersionWeight(vOld)
+
+    if (wNew !== wOld) {
+      return wNew > wOld
+    }
+
+    // Nếu trọng số version bằng nhau, kiểm tra ngày phát hành / tạo lệnh
+    const dateNew = String(
+      newRow.OpOrderReleaseDate ??
+        newRow.OrderCreatedDate ??
+        newRow.CreatedDate ??
+        newRow['Ngày phát hành lệnh thao tác'] ??
+        newRow['Ngày phát hành'] ??
+        newRow['Ngày tạo lệnh'] ??
+        newRow.PlannedStartTime ??
+        newRow.StartTime ??
+        ''
+    ).trim()
+
+    const dateOld = String(
+      existingRow.OpOrderReleaseDate ??
+        existingRow.OrderCreatedDate ??
+        existingRow.CreatedDate ??
+        existingRow['Ngày phát hành lệnh thao tác'] ??
+        existingRow['Ngày phát hành'] ??
+        existingRow['Ngày tạo lệnh'] ??
+        existingRow.PlannedStartTime ??
+        existingRow.StartTime ??
+        ''
+    ).trim()
+
+    if (dateNew && dateOld && dateNew !== dateOld) {
+      return dateNew > dateOld
+    }
+
+    // Mặc định dòng xuất hiện sau trong file là bản cập nhật mới nhất
+    return true
+  }
+
   summaryOpData.forEach((row) => {
     const rawCode =
       row.OperationOrderNo ??
@@ -330,11 +496,31 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       ''
     const stageCode = normalizeCode(rawStage)
 
-    if (code && !summaryOpByCode.has(code)) summaryOpByCode.set(code, row)
-    if (baseCode && !summaryOpByBaseCode.has(baseCode)) summaryOpByBaseCode.set(baseCode, row)
-    if (alpha && !summaryOpByAlpha.has(alpha)) summaryOpByAlpha.set(alpha, row)
-    if (alphaBase && !summaryOpByAlphaBase.has(alphaBase)) summaryOpByAlphaBase.set(alphaBase, row)
-    if (stageCode && !summaryOpByStageOrder.has(stageCode)) summaryOpByStageOrder.set(stageCode, row)
+    if (code) {
+      if (!summaryOpByCode.has(code) || isNewerVersion(row, summaryOpByCode.get(code))) {
+        summaryOpByCode.set(code, row)
+      }
+    }
+    if (baseCode) {
+      if (!summaryOpByBaseCode.has(baseCode) || isNewerVersion(row, summaryOpByBaseCode.get(baseCode))) {
+        summaryOpByBaseCode.set(baseCode, row)
+      }
+    }
+    if (alpha) {
+      if (!summaryOpByAlpha.has(alpha) || isNewerVersion(row, summaryOpByAlpha.get(alpha))) {
+        summaryOpByAlpha.set(alpha, row)
+      }
+    }
+    if (alphaBase) {
+      if (!summaryOpByAlphaBase.has(alphaBase) || isNewerVersion(row, summaryOpByAlphaBase.get(alphaBase))) {
+        summaryOpByAlphaBase.set(alphaBase, row)
+      }
+    }
+    if (stageCode) {
+      if (!summaryOpByStageOrder.has(stageCode) || isNewerVersion(row, summaryOpByStageOrder.get(stageCode))) {
+        summaryOpByStageOrder.set(stageCode, row)
+      }
+    }
 
     const rowIssuer = findIssuerInRow(row)
     if (rowIssuer && !defaultSummaryIssuer) {
@@ -437,8 +623,10 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         row.OperationOrder ??
         ''
     )
-    if (code && !unfinishedMap.has(code)) {
-      unfinishedMap.set(code, row)
+    if (code) {
+      if (!unfinishedMap.has(code) || isNewerVersion(row, unfinishedMap.get(code))) {
+        unfinishedMap.set(code, row)
+      }
     }
   })
 
@@ -475,7 +663,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     const code = getCleanCode(row)
     if (!code) return
 
-    if (!statReportOrdersMap.has(code)) {
+    if (!statReportOrdersMap.has(code) || isNewerVersion(row, statReportOrdersMap.get(code))) {
       statReportOrdersMap.set(code, row)
     }
 
@@ -643,14 +831,26 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     const checks = computeKhsxChecks(startTime, endTime, applyDate, rules)
     const isKhsxDate = checks.checkKhsxStart === rules.khsxStatus.validLabel
 
-    // Lọc theo ngày KHSX nếu thỏa mãn
-    if (isKhsxDate && !uniqueOpOrdersMap.has(code)) {
-      uniqueOpOrdersMap.set(code, {
-        row,
-        startTime,
-        endTime,
-        checks
-      })
+    // Lọc theo ngày KHSX nếu thỏa mãn (luôn cập nhật lấy phiên bản Version mới nhất)
+    if (isKhsxDate) {
+      if (!uniqueOpOrdersMap.has(code)) {
+        uniqueOpOrdersMap.set(code, {
+          row,
+          startTime,
+          endTime,
+          checks
+        })
+      } else {
+        const existing = uniqueOpOrdersMap.get(code)
+        if (isNewerVersion(row, existing.row)) {
+          uniqueOpOrdersMap.set(code, {
+            row,
+            startTime,
+            endTime,
+            checks
+          })
+        }
+      }
     }
   })
 
@@ -684,13 +884,25 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       const checks = computeKhsxChecks(startTime, endTime, applyDate, rules)
       const isKhsxDate = checks.checkKhsxStart === rules.khsxStatus.validLabel
 
-      if (isKhsxDate && !uniqueOpOrdersMap.has(code)) {
-        uniqueOpOrdersMap.set(code, {
-          row,
-          startTime,
-          endTime,
-          checks
-        })
+      if (isKhsxDate) {
+        if (!uniqueOpOrdersMap.has(code)) {
+          uniqueOpOrdersMap.set(code, {
+            row,
+            startTime,
+            endTime,
+            checks
+          })
+        } else {
+          const existing = uniqueOpOrdersMap.get(code)
+          if (isNewerVersion(row, existing.row)) {
+            uniqueOpOrdersMap.set(code, {
+              row,
+              startTime,
+              endTime,
+              checks
+            })
+          }
+        }
       }
     })
   }
@@ -879,8 +1091,10 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       actualRunMin = parseNum(unfinRow.ProductionDurationMinutes)
     }
 
-    // 15. Thời gian bắt đầu: startTime
-    // 16. Thời gian kết thúc: endTime
+    // 15. Thời gian bắt đầu: định dạng DD/MM/YYYY HH:mm:ss
+    // 16. Thời gian kết thúc: định dạng DD/MM/YYYY HH:mm:ss (tự động +1 ngày nếu ca đêm vắt qua ngày)
+    const finalStartTime = formatFullDateTime(startTime, opDate || applyDate, false)
+    const finalEndTime = formatFullDateTime(endTime, opDate || applyDate, true, startTime)
 
     // 17. Thời gian sản xuất theo ĐM (phút) =+IF(OR(O3="";P3="");"";ROUND((P3-O3)*1440;0))
     let standardRunMin = 0
@@ -1030,8 +1244,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       OpTargetQty: finalTargetQty,
       OpPlannedQty: finalPlannedQty,
       ActualQualifiedQty: actualQualified,
-      StartTime: startTime,
-      EndTime: endTime,
+      StartTime: finalStartTime,
+      EndTime: finalEndTime,
       StandardRunMinutes: finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       ActualRunMinutes: actualRunMin > 0 ? actualRunMin : '',
       StandardCapa: finalStandardCapa !== '' && finalStandardCapa > 0 ? finalStandardCapa : '',
@@ -1058,8 +1272,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       'Số lượng cần đạt LTT': finalTargetQty,
       'Số lượng cần sản xuất': finalPlannedQty,
       'Số lượng đã thống kê đạt': actualQualified,
-      'Thời gian bắt đầu': startTime,
-      'Thời gian kết thúc': endTime,
+      'Thời gian bắt đầu': finalStartTime,
+      'Thời gian kết thúc': finalEndTime,
       'Thời gian sản xuất theo ĐM': finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       'Thời gian sản xuất': actualRunMin > 0 ? actualRunMin : '',
       'Capa ĐM': finalStandardCapa !== '' && finalStandardCapa > 0 ? finalStandardCapa : '',
@@ -1237,6 +1451,9 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         ''
     ).trim()
 
+    const finalStartTime = formatFullDateTime(startTime, startDate || opDate || applyDate, false)
+    const finalEndTime = formatFullDateTime(endTime, endDate || startDate || opDate || applyDate, true, startTime)
+
     let standardRunMin = 0
     if (startTime && endTime) {
       const sDjs = parseDateTimeFlexible(startTime)
@@ -1353,8 +1570,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       OpTargetQty: finalTargetQty,
       OpPlannedQty: finalPlannedQty,
       ActualQualifiedQty: actualQualified,
-      StartTime: startTime,
-      EndTime: endTime,
+      StartTime: finalStartTime,
+      EndTime: finalEndTime,
       StandardRunMinutes: finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       ActualRunMinutes: actualRunMin > 0 ? actualRunMin : '',
       StandardCapa: finalStandardCapa !== '' && finalStandardCapa > 0 ? finalStandardCapa : '',
@@ -1380,8 +1597,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       'Số lượng cần đạt LTT': finalTargetQty,
       'Số lượng cần sản xuất': finalPlannedQty,
       'Số lượng đã thống kê đạt': actualQualified,
-      'Thời gian bắt đầu': startTime,
-      'Thời gian kết thúc': endTime,
+      'Thời gian bắt đầu': finalStartTime,
+      'Thời gian kết thúc': finalEndTime,
       'Thời gian sản xuất theo ĐM': finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       'Thời gian sản xuất': actualRunMin > 0 ? actualRunMin : '',
       'Capa ĐM': finalStandardCapa !== '' && finalStandardCapa > 0 ? finalStandardCapa : '',

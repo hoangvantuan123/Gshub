@@ -218,6 +218,26 @@ export default function CalcProductionDetailView() {
   const [filterValues, setFilterValues] = useState({})
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+
+  const activeSearchFilters = useMemo(() => {
+    return {
+      searchText: searchText || '',
+      statusFilter: statusFilter || 'ALL',
+      filterValues: filterValues || {}
+    }
+  }, [searchText, statusFilter, filterValues])
+
+  const activeSearchFiltersRef = useRef(activeSearchFilters)
+  activeSearchFiltersRef.current = activeSearchFilters
+
+  const isSearchActive = useMemo(() => {
+    return Boolean(
+      (searchText && searchText.trim()) ||
+        (statusFilter && statusFilter !== 'ALL') ||
+        Object.values(filterValues || {}).some((v) => Boolean(v && String(v).trim()))
+    )
+  }, [searchText, statusFilter, filterValues])
+
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false)
   const [calcRules, setCalcRules] = useState(() => {
     try {
@@ -294,18 +314,114 @@ export default function CalcProductionDetailView() {
     setCols(defaultCols)
   }, [defaultCols])
 
-  // ── Hàm nạp dữ liệu cho 1 Tab cụ thể theo Page ──
+  // ── Helper lọc dữ liệu hàng theo điều kiện tìm kiếm chung, trạng thái & trường động ──
+  const applyRowSearchFilters = useCallback((rowsList, filters) => {
+    if (!filters) return rowsList || []
+    const { searchText, statusFilter, filterValues } = filters
+    if (
+      (!searchText || !String(searchText).trim()) &&
+      (!statusFilter || statusFilter === 'ALL') &&
+      (!filterValues || Object.keys(filterValues).length === 0)
+    ) {
+      return rowsList || []
+    }
+    let filtered = rowsList || []
+
+    if (searchText && String(searchText).trim()) {
+      const tokens = String(searchText)
+        .split(/[,;\n\r\t|]+/)
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean)
+      if (tokens.length > 0) {
+        filtered = filtered.filter((row) => {
+          if (!row) return false
+          return Object.values(row).some((val) => {
+            if (val === null || val === undefined) return false
+            const strVal = String(val).toLowerCase()
+            return tokens.some((token) => strVal.includes(token))
+          })
+        })
+      }
+    }
+
+    if (statusFilter && statusFilter !== 'ALL') {
+      const sf = String(statusFilter).toLowerCase()
+      filtered = filtered.filter((row) => {
+        if (!row) return false
+        const tag = String(
+          row.CoordinatorStatus ||
+            row['Trạng thái ĐP - SX'] ||
+            row.StatusDpSx ||
+            row.CheckKhsx ||
+            row['CHECK KHSX'] ||
+            row['Check KHSX'] ||
+            row.KhsxStatus ||
+            row.KHSX ||
+            row.StatusSX ||
+            row.StatusKHSX ||
+            row.Status ||
+            row.OpInfoStatus ||
+            row['Trạng thái LTT'] ||
+            row.WorkingTag ||
+            ''
+        ).toLowerCase()
+        return tag === sf || tag.includes(sf) || sf.includes(tag)
+      })
+    }
+
+    if (filterValues && typeof filterValues === 'object') {
+      const activeFilters = Object.entries(filterValues).filter(
+        ([, val]) => val !== undefined && val !== null && String(val).trim() !== ''
+      )
+      if (activeFilters.length > 0) {
+        filtered = filtered.filter((row) => {
+          if (!row) return false
+          return activeFilters.every(([key, filterVal]) => {
+            const tokens = String(filterVal)
+              .split(/[,;\n\r\t|]+/)
+              .map((t) => t.trim().toLowerCase())
+              .filter(Boolean)
+            if (tokens.length === 0) return true
+            const rowVal =
+              row[key] !== undefined
+                ? row[key]
+                : row[key.toLowerCase()] !== undefined
+                ? row[key.toLowerCase()]
+                : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
+            if (rowVal === null || rowVal === undefined) return false
+            const rowValStr = String(rowVal).toLowerCase()
+            return tokens.some((token) => rowValStr.includes(token))
+          })
+        })
+      }
+    }
+
+    return filtered
+  }, [])
+
+  // ── Hàm nạp dữ liệu cho 1 Tab cụ thể theo Page (Chọc thẳng DB SQLite / IndexedDB khi tìm kiếm) ──
   const loadTabData = useCallback(
-    async (tabId, pageNumber = 1, currentSummaries = null, currentCalcRes = null) => {
+    async (
+      tabId,
+      pageNumber = 1,
+      currentSummaries = null,
+      currentCalcRes = null,
+      currentSearchFilters = null
+    ) => {
       const summaries = currentSummaries || fileSummaries
       const results = currentCalcRes || calcResults
+      const searchFilters =
+        currentSearchFilters !== null && currentSearchFilters !== undefined
+          ? currentSearchFilters
+          : activeSearchFiltersRef.current
 
       if (tabId === 'result_tksx') {
-        const rows = results?.stat?.calculatedRows || []
-        const total = rows.length
+        const rawRows = results?.stat?.calculatedRows || []
+        const filteredRows = applyRowSearchFilters(rawRows, searchFilters)
+        const total = filteredRows.length
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
         const offset = (pageNumber - 1) * PAGE_SIZE
-        const pagedRows = rows.slice(offset, offset + PAGE_SIZE)
+        const pagedRows = filteredRows.slice(offset, offset + PAGE_SIZE)
 
         return {
           rows: pagedRows,
@@ -317,11 +433,12 @@ export default function CalcProductionDetailView() {
       }
 
       if (tabId === 'result_khsx') {
-        const rows = results?.plan?.calculatedRows || []
-        const total = rows.length
+        const rawRows = results?.plan?.calculatedRows || []
+        const filteredRows = applyRowSearchFilters(rawRows, searchFilters)
+        const total = filteredRows.length
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
         const offset = (pageNumber - 1) * PAGE_SIZE
-        const pagedRows = rows.slice(offset, offset + PAGE_SIZE)
+        const pagedRows = filteredRows.slice(offset, offset + PAGE_SIZE)
 
         return {
           rows: pagedRows,
@@ -332,11 +449,12 @@ export default function CalcProductionDetailView() {
         }
       }
 
-      // 4 Bảng kiến trúc: Đọc từ SQLite / IndexedDB qua phân trang 1.500 dòng
+      // 4 Bảng kiến trúc: Chọc thẳng vào SQLite / IndexedDB với bộ lọc tìm kiếm
       try {
-        const res = await storageAdapter.getFilePage(tabId, pageNumber, PAGE_SIZE)
+        const res = await storageAdapter.getFilePage(tabId, pageNumber, PAGE_SIZE, searchFilters)
         const pagedRows = res?.rows || []
-        const total = res?.total || summaries[tabId]?.rowCount || pagedRows.length
+        const total =
+          res?.total !== undefined ? res.total : summaries[tabId]?.rowCount || pagedRows.length
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
         const offset = (pageNumber - 1) * PAGE_SIZE
 
@@ -352,7 +470,7 @@ export default function CalcProductionDetailView() {
         return { rows: [], total: 0, page: 1, totalPages: 1, hasMore: false }
       }
     },
-    [fileSummaries, calcResults]
+    [fileSummaries, calcResults, applyRowSearchFilters]
   )
 
   // ── Hàm nạp trước dữ liệu toàn bộ 6 tabs ở chế độ ngầm (Background Preload) ──
@@ -810,85 +928,72 @@ export default function CalcProductionDetailView() {
     ]
   )
 
-  // ── Lọc dữ liệu hiển thị theo các trường tìm kiếm động hoặc ô tìm chung (Hỗ trợ tìm nhiều mã / nhiều bản ghi cùng lúc) ──
-  const filteredGridData = useMemo(() => {
-    let rows = gridData || []
+  // ── Khi người dùng nhập ô tìm kiếm hoặc đổi bộ lọc: Chọc thẳng vào SQLite / IndexedDB để tìm kiếm trên TOÀN BỘ dữ liệu ──
+  useEffect(() => {
+    if (!hasInitialFetchedRef.current) return
 
-    // 1. Lọc theo ô tìm kiếm chung SearchText (Phân tách nhiều bản ghi bằng dấu phẩy, chấm phẩy, xuống dòng, tab, pipe)
-    if (searchText && searchText.trim()) {
-      const tokens = String(searchText)
-        .split(/[,;\n\r\t|]+/)
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean)
+    const debounceTimer = setTimeout(async () => {
+      const currentTab = activeTabRef.current
+      loadingBarRef.current?.continuousStart?.()
+      try {
+        const dataRes = await loadTabData(
+          currentTab,
+          1,
+          fileSummaries,
+          calcResults,
+          activeSearchFilters
+        )
+        setGridData(dataRes.rows)
+        gridDataRef.current = dataRes.rows
 
-      if (tokens.length > 0) {
-        rows = rows.filter((row) => {
-          if (!row) return false
-          return Object.values(row).some((val) => {
-            if (val === null || val === undefined) return false
-            const strVal = String(val).toLowerCase()
-            return tokens.some((token) => strVal.includes(token))
+        const info = {
+          total: dataRes.total,
+          loadedCount: dataRes.rows.length,
+          pageSize: PAGE_SIZE,
+          page: 1,
+          totalPages: dataRes.totalPages,
+          hasMore: dataRes.hasMore
+        }
+        pageInfoRef.current = info
+
+        setPageData?.((prev) => ({
+          ...prev,
+          total: dataRes.total,
+          totalAll: fileSummaries[currentTab]?.rowCount || dataRes.total,
+          loadedCount: dataRes.rows.length,
+          page: 1,
+          pageSize: PAGE_SIZE,
+          totalPages: dataRes.totalPages
+        }))
+
+        if (isSearchActive) {
+          setStatusMessage?.({
+            type: 'info',
+            text: `Đã tìm trong cơ sở dữ liệu: ${dataRes.total.toLocaleString('vi-VN')} dòng khớp điều kiện.`
           })
-        })
+        }
+      } catch (err) {
+        console.warn('Lỗi tìm kiếm DB:', err)
+      } finally {
+        loadingBarRef.current?.complete?.()
       }
-    }
+    }, 250)
 
-    // 2. Lọc theo trạng thái statusFilter (hỗ trợ Trạng thái ĐP-SX, KHSX, Check KHSX)
-    if (statusFilter && statusFilter !== 'ALL') {
-      const sf = statusFilter.toLowerCase()
-      rows = rows.filter((row) => {
-        if (!row) return false
-        const tag = String(
-          row.CoordinatorStatus ||
-            row['Trạng thái ĐP - SX'] ||
-            row.StatusDpSx ||
-            row.CheckKhsx ||
-            row['CHECK KHSX'] ||
-            row['Check KHSX'] ||
-            row.KhsxStatus ||
-            row.KHSX ||
-            row.StatusSX ||
-            row.StatusKHSX ||
-            row.Status ||
-            row.WorkingTag ||
-            ''
-        ).toLowerCase()
-        return tag === sf || tag.includes(sf) || sf.includes(tag)
-      })
-    }
+    return () => clearTimeout(debounceTimer)
+  }, [
+    activeSearchFilters,
+    isSearchActive,
+    loadTabData,
+    fileSummaries,
+    calcResults,
+    setPageData,
+    setStatusMessage
+  ])
 
-    // 3. Lọc theo các trường tìm kiếm động sinh ra từ Ctrl + F (Phân tách nhiều mã bằng dấu phẩy, chấm phẩy, xuống dòng, tab, pipe)
-    const activeFilters = Object.entries(filterValues).filter(
-      ([, val]) => val !== undefined && val !== null && String(val).trim() !== ''
-    )
-
-    if (activeFilters.length > 0) {
-      rows = rows.filter((row) => {
-        if (!row) return false
-        return activeFilters.every(([key, filterVal]) => {
-          const tokens = String(filterVal)
-            .split(/[,;\n\r\t|]+/)
-            .map((t) => t.trim().toLowerCase())
-            .filter(Boolean)
-
-          if (tokens.length === 0) return true
-
-          const rowVal =
-            row[key] !== undefined
-              ? row[key]
-              : row[key.toLowerCase()] !== undefined
-              ? row[key.toLowerCase()]
-              : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
-
-          if (rowVal === null || rowVal === undefined) return false
-          const rowValStr = String(rowVal).toLowerCase()
-          return tokens.some((token) => rowValStr.includes(token))
-        })
-      })
-    }
-
-    return rows
-  }, [gridData, searchText, statusFilter, filterValues])
+  // ── Dữ liệu hiển thị trên bảng (Đã được lọc từ SQLite / IndexedDB) ──
+  const filteredGridData = useMemo(() => {
+    return applyRowSearchFilters(gridData, activeSearchFilters)
+  }, [gridData, activeSearchFilters, applyRowSearchFilters])
 
   // ── Xử lý Cuộn vô tận (Infinite Scroll): ban đầu nạp 1.500 dòng, cuộn đến nửa thì nạp tiếp ──
   const handleVisibleRegionChanged = useCallback(
@@ -2813,8 +2918,8 @@ export default function CalcProductionDetailView() {
             dynamicFilterFields={dynamicFilterFields}
             filterValues={filterValues}
             onDynamicFilterChange={handleDynamicFilterChange}
-            totalRowsCount={gridData.length}
-            filteredRowsCount={filteredGridData.length}
+            totalRowsCount={pageInfoRef.current.total || gridData.length}
+            filteredRowsCount={pageInfoRef.current.total || gridData.length}
             disabled={isCalculating || isPublishing}
             onOpenRuleConfig={() => setIsConfigModalOpen(true)}
           />

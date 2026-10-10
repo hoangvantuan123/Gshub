@@ -70,10 +70,10 @@ function Build-Service($serviceName, $sourcePath, $outputExeRelative, $outputLin
     return $true
 }
 
-# 1. Server Core (:5051)
+# 1. Server Core (:60051)
 $res1 = Build-Service "server-core" "./server-core/cmd/server" "server-core/cmd/server/main.exe" "server-core/cmd/server/main" "server-core" "server-core"
 
-# 2. Service Datahub (:5052)
+# 2. Service Datahub (:60052)
 $res2 = Build-Service "service-datahub" "./service-datahub" "service-datahub/main.exe" "service-datahub/main" "service-datahub" "service-datahub"
 
 # 3. Api Gateway (:9643)

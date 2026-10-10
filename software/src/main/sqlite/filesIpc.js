@@ -161,10 +161,10 @@ export function setupFilesIpc() {
     }
   })
 
-  // 5. Lấy dữ liệu phân trang (mặc định 1.500 dòng/trang) cho 1 fileType để cuộn mượt mà không nghẽn RAM
+  // 5. Lấy dữ liệu phân trang (mặc định 1.500 dòng/trang) cho 1 fileType để cuộn mượt mà không nghẽn RAM (kèm lọc tìm kiếm trực tiếp trong DB SQLite)
   ipcMain.handle(
     'sqlite:get-calc-file-page',
-    async (_, { fileType, page = 1, pageSize = 1500 } = {}) => {
+    async (_, { fileType, page = 1, pageSize = 1500, searchText = '', filterValues = {}, statusFilter = 'ALL' } = {}) => {
       const db = getDb()
       if (!db || !fileType) return { rows: [], total: 0, page: 1, pageSize: 1500, totalPages: 0 }
       try {
@@ -173,7 +173,78 @@ export function setupFilesIpc() {
         )
         const meta = metaStmt.get(fileType)
         const fullData = getFullDataForFileType(fileType)
-        const total = fullData.length || meta?.row_count || 0
+
+        let filteredData = fullData
+
+        // 1. Lọc theo ô tìm kiếm chung SearchText (hỗ trợ nhiều từ khóa phân tách bằng dấu phẩy, chấm phẩy, xuống dòng, tab, pipe)
+        if (searchText && String(searchText).trim()) {
+          const tokens = String(searchText)
+            .split(/[,;\n\r\t|]+/)
+            .map((t) => t.trim().toLowerCase())
+            .filter(Boolean)
+
+          if (tokens.length > 0) {
+            filteredData = filteredData.filter((row) => {
+              if (!row) return false
+              return Object.values(row).some((val) => {
+                if (val === null || val === undefined) return false
+                const strVal = String(val).toLowerCase()
+                return tokens.some((token) => strVal.includes(token))
+              })
+            })
+          }
+        }
+
+        // 2. Lọc theo trạng thái statusFilter
+        if (statusFilter && statusFilter !== 'ALL') {
+          const sf = String(statusFilter).toLowerCase()
+          filteredData = filteredData.filter((row) => {
+            if (!row) return false
+            const tag = String(
+              row.CoordinatorStatus ||
+                row['Trạng thái ĐP - SX'] ||
+                row.StatusDpSx ||
+                row.CheckKhsx ||
+                row['CHECK KHSX'] ||
+                row.KhsxStatus ||
+                row.Status ||
+                row.OpInfoStatus ||
+                row['Trạng thái LTT'] ||
+                ''
+            ).toLowerCase()
+            return tag === sf || tag.includes(sf) || sf.includes(tag)
+          })
+        }
+
+        // 3. Lọc theo các trường lọc động filterValues
+        if (filterValues && typeof filterValues === 'object') {
+          const activeFilters = Object.entries(filterValues).filter(
+            ([, val]) => val !== undefined && val !== null && String(val).trim() !== ''
+          )
+          if (activeFilters.length > 0) {
+            filteredData = filteredData.filter((row) => {
+              if (!row) return false
+              return activeFilters.every(([key, filterVal]) => {
+                const tokens = String(filterVal)
+                  .split(/[,;\n\r\t|]+/)
+                  .map((t) => t.trim().toLowerCase())
+                  .filter(Boolean)
+                if (tokens.length === 0) return true
+                const rowVal =
+                  row[key] !== undefined
+                    ? row[key]
+                    : row[key.toLowerCase()] !== undefined
+                    ? row[key.toLowerCase()]
+                    : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
+                if (rowVal === null || rowVal === undefined) return false
+                const rowValStr = String(rowVal).toLowerCase()
+                return tokens.some((token) => rowValStr.includes(token))
+              })
+            })
+          }
+        }
+
+        const total = filteredData.length
         const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
         if (page > totalPages || total === 0) {
@@ -192,7 +263,7 @@ export function setupFilesIpc() {
         }
 
         const offset = (Math.max(1, page) - 1) * pageSize
-        const pageRows = fullData.slice(offset, offset + pageSize)
+        const pageRows = filteredData.slice(offset, offset + pageSize)
 
         return {
           fileType,

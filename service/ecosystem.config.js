@@ -20,10 +20,10 @@ module.exports = {
         APP_ENV: 'production',
         NODE_ENV: 'production',
         PORT: 9643,
-        HOST_GRPC_USER: '127.0.0.1:5051',
-        HOST_GRPC_DATAHUB: '127.0.0.1:5052',
-        HOST_GRPC_BASIC: '127.0.0.1:5051',
-        HOST_GRPC_LOOKUP: '127.0.0.1:5051',
+        HOST_GRPC_USER: '127.0.0.1:60051',
+        HOST_GRPC_DATAHUB: '127.0.0.1:60052',
+        HOST_GRPC_BASIC: '127.0.0.1:60051',
+        HOST_GRPC_LOOKUP: '127.0.0.1:60051',
         PROTO_DIR: path.join(__dirname, 'proto'),
         JWT_SECRET: 'syscore_gshub_super_secret_jwt_key_2026',
         APP_SIGNATURE_SECRET: 'ERP_ELECTRON_SECURE_KEY_2026_@ANTIGRAVITY#X'
@@ -32,23 +32,23 @@ module.exports = {
         APP_ENV: 'development',
         NODE_ENV: 'dev',
         PORT: 9643,
-        HOST_GRPC_USER: '127.0.0.1:5051',
-        HOST_GRPC_DATAHUB: '127.0.0.1:5052',
-        HOST_GRPC_BASIC: '127.0.0.1:5051',
-        HOST_GRPC_LOOKUP: '127.0.0.1:5051',
+        HOST_GRPC_USER: '127.0.0.1:60051',
+        HOST_GRPC_DATAHUB: '127.0.0.1:60052',
+        HOST_GRPC_BASIC: '127.0.0.1:60051',
+        HOST_GRPC_LOOKUP: '127.0.0.1:60051',
         PROTO_DIR: path.join(__dirname, 'proto'),
         JWT_SECRET: 'syscore_gshub_dev_jwt_key_2026',
         APP_SIGNATURE_SECRET: 'ERP_ELECTRON_SECURE_KEY_2026_@ANTIGRAVITY#X'
       },
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      error_file: '../logs/pm2-gateway-error.log',
-      out_file: '../logs/pm2-gateway-out.log',
+      error_file: path.join(__dirname, 'logs', 'pm2-gateway-error.log'),
+      out_file: path.join(__dirname, 'logs', 'pm2-gateway-out.log'),
       merge_logs: true,
       time: true
     },
 
     // =========================================================================
-    // 2. GSHUB SERVER-CORE (Pure gRPC Engine & System/Auth/Role :5051)
+    // 2. GSHUB SERVER-CORE (Pure gRPC Engine & System/Auth/Role :60051)
     // =========================================================================
     {
       name: 'gshub-core',
@@ -63,7 +63,7 @@ module.exports = {
       restart_delay: 2000,
       env: {
         APP_ENV: 'production',
-        PORT_GRPC: 5051,
+        PORT_GRPC: 60051,
         POSTGRES_HOST: '127.0.0.1',
         POSTGRES_PORT: '5432',
         POSTGRES_USER: 'postgres',
@@ -77,7 +77,7 @@ module.exports = {
       },
       env_development: {
         APP_ENV: 'development',
-        PORT_GRPC: 5051,
+        PORT_GRPC: 60051,
         POSTGRES_HOST: '127.0.0.1',
         POSTGRES_PORT: '5432',
         POSTGRES_USER: 'postgres',
@@ -90,14 +90,14 @@ module.exports = {
         LOG_STORAGE: '../grafana-logs/logs'
       },
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      error_file: '../logs/pm2-core-error.log',
-      out_file: '../logs/pm2-core-out.log',
+      error_file: path.join(__dirname, 'logs', 'pm2-core-error.log'),
+      out_file: path.join(__dirname, 'logs', 'pm2-core-out.log'),
       merge_logs: true,
       time: true
     },
 
     // =========================================================================
-    // 3. GSHUB SERVICE-DATAHUB (Bravo ERP & Production Reports Engine :5052)
+    // 3. GSHUB SERVICE-DATAHUB (Bravo ERP & Production Reports Engine :60052)
     // =========================================================================
     {
       name: 'gshub-datahub',
@@ -113,7 +113,7 @@ module.exports = {
       env: {
         APP_ENV: 'production',
         PORT: 9645,
-        GRPC_PORT: 5052,
+        GRPC_PORT: 60052,
         DB_HOST: '127.0.0.1',
         DB_PORT: '5432',
         DB_USER: 'postgres',
@@ -125,6 +125,9 @@ module.exports = {
         DB_CONN_MAX_LIFETIME_MINUTES: '30',
         JWT_SECRET: 'syscore_gshub_super_secret_jwt_key_2026',
         JWT_EXPIRE_HOURS: '72',
+
+        // Đường dẫn Storage lưu file vật lý (.gsprod, báo cáo) - Đặt NGOÀI source code
+        STORAGE_ROOT_PATH: process.env.STORAGE_ROOT_PATH || path.join(__dirname, '..', 'storage'),
 
         // Bravo ERP Integration
         BRAVO_AUTH_URL: 'https://bravo.goldsunpackaging.vn:5051/fa837234b0b27bc02365a940995bdc24',
@@ -143,7 +146,7 @@ module.exports = {
       env_development: {
         APP_ENV: 'development',
         PORT: 9645,
-        GRPC_PORT: 5052,
+        GRPC_PORT: 60052,
         DB_HOST: '127.0.0.1',
         DB_PORT: '5432',
         DB_USER: 'postgres',
@@ -155,6 +158,9 @@ module.exports = {
         DB_CONN_MAX_LIFETIME_MINUTES: '30',
         JWT_SECRET: 'syscore_gshub_dev_jwt_key_2026',
         JWT_EXPIRE_HOURS: '72',
+
+        // Đường dẫn Storage lưu file vật lý (.gsprod, báo cáo) - Đặt NGOÀI source code
+        STORAGE_ROOT_PATH: process.env.STORAGE_ROOT_PATH || path.join(__dirname, '..', 'storage'),
 
         BRAVO_AUTH_URL: 'https://bravo.goldsunpackaging.vn:5051/fa837234b0b27bc02365a940995bdc24',
         BRAVO_BASE_API_URL: 'https://bravo.goldsunpackaging.vn:5051',
@@ -170,8 +176,8 @@ module.exports = {
         BRAVO_INSECURE_SKIP_VERIFY: 'true'
       },
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      error_file: '../logs/pm2-datahub-error.log',
-      out_file: '../logs/pm2-datahub-out.log',
+      error_file: path.join(__dirname, 'logs', 'pm2-datahub-error.log'),
+      out_file: path.join(__dirname, 'logs', 'pm2-datahub-out.log'),
       merge_logs: true,
       time: true
     }

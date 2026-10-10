@@ -49,6 +49,8 @@ type PlanRegistrationSaveRequest struct {
 	FactoryCode   string                   `json:"factoryCode"`
 	FactoryName   string                   `json:"factoryName"`
 	ApplyDate     string                   `json:"applyDate"`
+	Version       string                   `json:"version"`
+	CalcVersion   string                   `json:"calcVersion"`
 	Remark        string                   `json:"remark"`
 	Status        string                   `json:"status"`
 	IsDraft       bool                     `json:"isDraft"`

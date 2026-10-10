@@ -4,6 +4,12 @@
  * Sử dụng mô hình Columnar Matrix kết hợp thuật toán nén DEFLATE / Gzip Level 9
  */
 import pako from 'pako'
+import {
+  STAT_REPORT_COLUMN_SCHEMA,
+  UNFINISHED_OP_COLUMN_SCHEMA,
+  SUMMARY_OP_COLUMN_SCHEMA,
+  MES_APPROVAL_COLUMN_SCHEMA
+} from '../constants/calcConstants'
 
 /**
  * Chuyển đổi danh sách đối tượng (Array of Objects) thành dạng Columnar Matrix
@@ -90,8 +96,60 @@ export function matrixToObjects(matrix) {
  * @param {Object} options - { version: '1.0' }
  * @returns {Uint8Array} Compressed binary buffer
  */
-export function packProductionBundle(masterRecord = {}, architectureFiles = {}, calcResults = {}, options = {}) {
-  const version = options.version || masterRecord.version || '1.0'
+export function packProductionBundle(
+  masterRecord = {},
+  architectureFiles = {},
+  calcResults = {},
+  options = {}
+) {
+  let master = masterRecord || {}
+  let arch = architectureFiles || {}
+  let results = calcResults || {}
+  let opt = options || {}
+
+  // Hỗ trợ truyền 1 object duy nhất { masterInfo/masterRecord, filesData/architectureFiles, calcResults, options }
+  if (masterRecord && typeof masterRecord === 'object' && !architectureFiles && !calcResults) {
+    master = masterRecord.masterInfo || masterRecord.masterRecord || masterRecord.master || masterRecord
+    arch = masterRecord.filesData || masterRecord.architectureFiles || masterRecord.architecture || {}
+    results = masterRecord.calcResults || masterRecord.results || {}
+    opt = masterRecord.options || {}
+  } else if (
+    masterRecord &&
+    typeof masterRecord === 'object' &&
+    (masterRecord.masterInfo || masterRecord.filesData || masterRecord.calcResults)
+  ) {
+    master = masterRecord.masterInfo || masterRecord.masterRecord || masterRecord.master || masterRecord
+    arch = masterRecord.filesData || masterRecord.architectureFiles || architectureFiles || {}
+    results = masterRecord.calcResults || calcResults || {}
+    opt = masterRecord.options || options || {}
+  }
+
+  const getArrayFromArch = (...keys) => {
+    for (const k of keys) {
+      const item = arch[k]
+      if (Array.isArray(item)) return item
+      if (item && Array.isArray(item.data)) return item.data
+    }
+    return []
+  }
+
+  const getResultRows = (resItem) => {
+    if (!resItem) return []
+    if (Array.isArray(resItem)) return resItem
+    if (Array.isArray(resItem.calculatedRows)) return resItem.calculatedRows
+    if (Array.isArray(resItem.data)) return resItem.data
+    return []
+  }
+
+  const version = opt.version || master.version || '1.0'
+
+  const statData = getArrayFromArch('STAT_REPORT', 'stat_report', 'StatReport')
+  const unfinData = getArrayFromArch('UNFINISHED_OP', 'unfinished_op', 'UnfinishedOp')
+  const sumData = getArrayFromArch('SUMMARY_OP', 'summary_op', 'SummaryOp')
+  const mesData = getArrayFromArch('MES_APPROVAL', 'mes_approval', 'MesApproval')
+
+  const planResults = getResultRows(results?.plan)
+  const statResults = getResultRows(results?.stat)
 
   const bundleObj = {
     format: 'GSHUB_PROD_BUNDLE',
@@ -99,40 +157,43 @@ export function packProductionBundle(masterRecord = {}, architectureFiles = {}, 
     version,
     exportedAt: new Date().toISOString(),
     master: {
-      ...masterRecord,
+      ...master,
       version,
       status: 'PUBLISHED',
-      isPublished: 1,
-      publishedAt: masterRecord.publishedAt || new Date().toISOString()
+      isPublished: true,
+      publishedAt: master.publishedAt || new Date().toISOString()
     },
     architecture: {
-      STAT_REPORT: objectsToMatrix(architectureFiles?.STAT_REPORT || []),
-      UNFINISHED_OP: objectsToMatrix(architectureFiles?.UNFINISHED_OP || []),
-      SUMMARY_OP: objectsToMatrix(architectureFiles?.SUMMARY_OP || []),
-      MES_APPROVAL: objectsToMatrix(architectureFiles?.MES_APPROVAL || [])
+      STAT_REPORT: objectsToMatrix(statData),
+      UNFINISHED_OP: objectsToMatrix(unfinData),
+      SUMMARY_OP: objectsToMatrix(sumData),
+      MES_APPROVAL: objectsToMatrix(mesData)
     },
     results: {
-      summary: calcResults?.summary || {},
-      plan: objectsToMatrix(calcResults?.plan?.calculatedRows || calcResults?.plan || []),
-      stat: objectsToMatrix(calcResults?.stat?.calculatedRows || calcResults?.stat || [])
+      summary: results?.summary || {},
+      plan: objectsToMatrix(planResults),
+      stat: objectsToMatrix(statResults)
     }
   }
 
   const jsonString = JSON.stringify(bundleObj)
   // Nén Gzip / Deflate với mức nén tối đa (Level 9)
   const compressedUint8Array = pako.gzip(jsonString, { level: 9 })
+  const base64 = uint8ArrayToBase64(compressedUint8Array)
   return {
     buffer: compressedUint8Array,
+    base64,
     rawSize: jsonString.length,
     compressedSize: compressedUint8Array.length,
-    ratio: ((1 - compressedUint8Array.length / Math.max(1, jsonString.length)) * 100).toFixed(1) + '%'
+    ratio:
+      ((1 - compressedUint8Array.length / Math.max(1, jsonString.length)) * 100).toFixed(1) + '%'
   }
 }
 
 /**
  * Giải nén gói .gsprod nhị phân và bung toàn bộ dữ liệu 6 Tab + Master về nguyên bản
  * @param {Uint8Array|ArrayBuffer|Buffer} buffer
- * @returns {Object} { master, architectureFiles, calcResults, version }
+ * @returns {Object} { master, architectureFiles, filesData, calcResults, version }
  */
 export function unpackProductionBundle(buffer) {
   if (!buffer) throw new Error('Buffer gói dữ liệu không hợp lệ')
@@ -149,24 +210,75 @@ export function unpackProductionBundle(buffer) {
   const arch = bundleObj.architecture || {}
   const res = bundleObj.results || {}
 
+  const statRows = matrixToObjects(arch.STAT_REPORT || arch.stat_report)
+  const unfinRows = matrixToObjects(arch.UNFINISHED_OP || arch.unfinished_op)
+  const sumRows = matrixToObjects(arch.SUMMARY_OP || arch.summary_op)
+  const mesRows = matrixToObjects(arch.MES_APPROVAL || arch.mes_approval)
+
+  const planCalculatedRows = matrixToObjects(res.plan?.calculatedRows || res.plan)
+  const statCalculatedRows = matrixToObjects(res.stat?.calculatedRows || res.stat)
+
+  const architectureFiles = {
+    STAT_REPORT: statRows,
+    UNFINISHED_OP: unfinRows,
+    SUMMARY_OP: sumRows,
+    MES_APPROVAL: mesRows
+  }
+
+  const filesData = {
+    stat_report: {
+      fileType: 'stat_report',
+      fileName: '1. Thống kê sản xuất',
+      data: statRows,
+      rowCount: statRows.length,
+      columns: STAT_REPORT_COLUMN_SCHEMA,
+      isUploaded: statRows.length > 0
+    },
+    unfinished_op: {
+      fileType: 'unfinished_op',
+      fileName: '2. Lệnh thao tác chưa hoàn thành',
+      data: unfinRows,
+      rowCount: unfinRows.length,
+      columns: UNFINISHED_OP_COLUMN_SCHEMA,
+      isUploaded: unfinRows.length > 0
+    },
+    summary_op: {
+      fileType: 'summary_op',
+      fileName: '3. Tổng hợp lệnh thao tác',
+      data: sumRows,
+      rowCount: sumRows.length,
+      columns: SUMMARY_OP_COLUMN_SCHEMA,
+      isUploaded: sumRows.length > 0
+    },
+    mes_approval: {
+      fileType: 'mes_approval',
+      fileName: '4. Duyệt sản lượng ở MES',
+      data: mesRows,
+      rowCount: mesRows.length,
+      columns: MES_APPROVAL_COLUMN_SCHEMA,
+      isUploaded: mesRows.length > 0
+    }
+  }
+
+  const masterInfo = {
+    ...master,
+    status: master.status || 'PUBLISHED',
+    version: master.version || bundleObj.version || '1.0',
+    isPublished: true
+  }
+
   return {
     version: bundleObj.version || '1.0',
     exportedAt: bundleObj.exportedAt,
-    master: {
-      ...master,
-      status: master.status || 'PUBLISHED',
-      version: master.version || '1.0'
-    },
-    architectureFiles: {
-      STAT_REPORT: matrixToObjects(arch.STAT_REPORT),
-      UNFINISHED_OP: matrixToObjects(arch.UNFINISHED_OP),
-      SUMMARY_OP: matrixToObjects(arch.SUMMARY_OP),
-      MES_APPROVAL: matrixToObjects(arch.MES_APPROVAL)
-    },
+    master: masterInfo,
+    masterInfo,
+    architectureFiles,
+    filesData,
     calcResults: {
       summary: res.summary || {},
-      plan: { calculatedRows: matrixToObjects(res.plan) },
-      stat: { calculatedRows: matrixToObjects(res.stat) }
+      plan: { calculatedRows: planCalculatedRows },
+      stat: { calculatedRows: statCalculatedRows },
+      calculatedAt: bundleObj.exportedAt || new Date().toISOString()
     }
   }
 }
@@ -183,4 +295,3 @@ export function uint8ArrayToBase64(bytes) {
   }
   return btoa(binary)
 }
-

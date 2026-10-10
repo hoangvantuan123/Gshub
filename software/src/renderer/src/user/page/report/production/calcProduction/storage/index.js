@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /**
  * Unified Storage Adapter
  * Tự động điều phối lưu trữ:
@@ -8,6 +9,7 @@
 import {
   saveArchitectureFileIDB,
   getArchitectureFileIDB,
+  getArchitectureFilePageIDB,
   getAllArchitectureFilesIDB,
   getAllFileSummariesIDB,
   deleteArchitectureFileIDB,
@@ -17,6 +19,7 @@ import {
 import {
   saveArchitectureFileSQLite,
   getArchitectureFileSQLite,
+  getArchitectureFilePageSQLite,
   getAllArchitectureFilesSQLite,
   getAllFileSummariesSQLite,
   deleteArchitectureFileSQLite,
@@ -42,6 +45,15 @@ export const storageAdapter = {
     return await saveArchitectureFileIDB(fileType, fileData, onProgress)
   },
 
+  saveAllFilesData: async (regCode, filesData) => {
+    if (!filesData) return
+    for (const [fType, fData] of Object.entries(filesData)) {
+      if (fData && (fData.data || Array.isArray(fData))) {
+        await storageAdapter.saveFile(fType, fData)
+      }
+    }
+  },
+
   getAllSummaries: async () => {
     const mode = getStorageMode()
     if (mode === 'sqlite') {
@@ -56,6 +68,14 @@ export const storageAdapter = {
       return await getArchitectureFileSQLite(fileType)
     }
     return await getArchitectureFileIDB(fileType)
+  },
+
+  getFilePage: async (fileType, page = 1, pageSize = 1500) => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      return await getArchitectureFilePageSQLite(fileType, page, pageSize)
+    }
+    return await getArchitectureFilePageIDB(fileType, page, pageSize)
   },
 
   getAllFiles: async () => {
@@ -74,7 +94,13 @@ export const storageAdapter = {
     return await deleteArchitectureFileIDB(fileType)
   },
 
-  saveCalcResult: async (resultId, data) => {
+  saveCalcResult: async (resultIdOrObj, maybeData) => {
+    let resultId = resultIdOrObj
+    let data = maybeData
+    if (typeof resultIdOrObj === 'object' && resultIdOrObj !== null && maybeData === undefined) {
+      resultId = resultIdOrObj.id || resultIdOrObj.regCode || 'CURRENT_CALC'
+      data = resultIdOrObj
+    }
     const mode = getStorageMode()
     if (mode === 'sqlite') {
       const { saveCalcResultsSQLite } = await import('./sqliteStorage')
@@ -84,7 +110,13 @@ export const storageAdapter = {
     return await saveCalculationResultIDB(resultId, data)
   },
 
-  saveCalcResults: async (resultId, data) => {
+  saveCalcResults: async (resultIdOrObj, maybeData) => {
+    let resultId = resultIdOrObj
+    let data = maybeData
+    if (typeof resultIdOrObj === 'object' && resultIdOrObj !== null && maybeData === undefined) {
+      resultId = resultIdOrObj.id || resultIdOrObj.regCode || 'CURRENT_CALC'
+      data = resultIdOrObj
+    }
     const mode = getStorageMode()
     if (mode === 'sqlite') {
       const { saveCalcResultsSQLite } = await import('./sqliteStorage')
@@ -145,13 +177,39 @@ export const storageAdapter = {
   },
 
   deleteMasterRegistration: async (regCode) => {
+    try {
+      const { deleteMasterRegistrationSQLite } = await import('./sqliteStorage')
+      await deleteMasterRegistrationSQLite(regCode).catch(() => {})
+    } catch {}
+    try {
+      const { deleteMasterRegistrationIDB } = await import('./indexedDbStorage')
+      await deleteMasterRegistrationIDB(regCode).catch(() => {})
+    } catch {}
+    try {
+      localStorage.removeItem(`S_MASTER_REG_${regCode}`)
+      localStorage.removeItem(`S_CALC_RESULTS_${regCode}`)
+    } catch {}
+    return { success: true }
+  },
+
+  publishMasterRegistration: async (regCode, version = '1.0') => {
     const mode = getStorageMode()
     if (mode === 'sqlite') {
-      const { deleteMasterRegistrationSQLite } = await import('./sqliteStorage')
-      return await deleteMasterRegistrationSQLite(regCode)
+      const { publishMasterRegistrationSQLite } = await import('./sqliteStorage')
+      return await publishMasterRegistrationSQLite(regCode, version)
     }
-    const { deleteMasterRegistrationIDB } = await import('./indexedDbStorage')
-    return await deleteMasterRegistrationIDB(regCode)
+    const { updateMasterRegistrationStatusIDB } = await import('./indexedDbStorage')
+    return await updateMasterRegistrationStatusIDB(regCode, 'PUBLISHED', version)
+  },
+
+  saveTabSearchState: async (tabId, searchState) => {
+    const { saveTabSearchStateIDB } = await import('./indexedDbStorage')
+    return await saveTabSearchStateIDB(tabId, searchState)
+  },
+
+  getTabSearchState: async (tabId) => {
+    const { getTabSearchStateIDB } = await import('./indexedDbStorage')
+    return await getTabSearchStateIDB(tabId)
   }
 }
 

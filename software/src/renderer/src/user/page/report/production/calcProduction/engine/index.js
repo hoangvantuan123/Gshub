@@ -1,14 +1,20 @@
+/* eslint-disable no-empty, no-unused-vars */
 /**
  * Dispatcher điều phối toàn bộ động cơ tính toán KHSX & TKSX
  */
 
 import { calculateKHSX } from './planCalculator'
 import { calculateTKSX } from './statCalculator'
-import { calculateProductionSQLite, isElectronSqliteAvailable } from '../storage/sqliteStorage'
-
+import * as calcRules from './calcRuleConfig'
 import storageAdapter from '../storage'
 
-export const runProductionCalculations = async (files = {}, masterInfo = {}) => {
+export * from './calcRuleConfig'
+
+export const runProductionCalculations = async (
+  files = {},
+  masterInfo = {},
+  customRules = null
+) => {
   let allFiles = files
   if (!allFiles || Object.keys(allFiles).length === 0 || !allFiles.stat_report?.data?.length) {
     try {
@@ -18,8 +24,12 @@ export const runProductionCalculations = async (files = {}, masterInfo = {}) => 
     }
   }
 
-  const planResult = calculateKHSX(allFiles || {}, masterInfo || {})
-  const statResult = calculateTKSX(allFiles || {}, masterInfo || {})
+  const effectiveRules = customRules || masterInfo.calcRules || null
+  const calcVersion = masterInfo.calcVersion || masterInfo.version || masterInfo.Version || 'V1'
+  const regCode = masterInfo.regCode || masterInfo.RegCode || 'CURRENT_CALC'
+
+  const planResult = calculateKHSX(allFiles || {}, masterInfo || {}, effectiveRules)
+  const statResult = calculateTKSX(allFiles || {}, masterInfo || {}, planResult, effectiveRules)
 
   // Tính tỷ lệ hoàn thành kế hoạch (Thực tế / Kế hoạch)
   const completionRate =
@@ -29,8 +39,14 @@ export const runProductionCalculations = async (files = {}, masterInfo = {}) => 
 
   const result = {
     success: true,
+    version: calcVersion,
+    calcVersion,
+    regCode,
     calculatedAt: new Date().toISOString(),
     summary: {
+      version: calcVersion,
+      calcVersion,
+      regCode,
       completionRate,
       plannedQty: planResult.totalPlannedQty,
       producedQty: statResult.totalProducedQty,

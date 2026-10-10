@@ -282,16 +282,6 @@ export const useProductionStatisticsColumns = ({ isFieldVisible, isFieldReadOnly
 
       // ── 6. THỜI GIAN THỰC HIỆN
       {
-        title: t('report.startDate', 'Ngày bắt đầu'),
-        id: 'StartDate',
-        group: 'Thời gian thực hiện',
-        kind: 'Text',
-        readonly: false,
-        width: 110,
-        hasMenu: true,
-        visible: true
-      },
-      {
         title: t('report.startTime', 'Bắt đầu'),
         id: 'StartTime',
         group: 'Thời gian thực hiện',
@@ -302,8 +292,18 @@ export const useProductionStatisticsColumns = ({ isFieldVisible, isFieldReadOnly
         visible: true
       },
       {
-        title: t('report.endDate', 'Ngày kết thúc'),
-        id: 'EndDate',
+        title: t('report.endTime', 'Kết thúc'),
+        id: 'EndTime',
+        group: 'Thời gian thực hiện',
+        kind: 'Text',
+        readonly: false,
+        width: 90,
+        hasMenu: true,
+        visible: true
+      },
+      {
+        title: t('report.startDate', 'Ngày bắt đầu'),
+        id: 'StartDate',
         group: 'Thời gian thực hiện',
         kind: 'Text',
         readonly: false,
@@ -312,12 +312,12 @@ export const useProductionStatisticsColumns = ({ isFieldVisible, isFieldReadOnly
         visible: true
       },
       {
-        title: t('report.endTime', 'Kết thúc'),
-        id: 'EndTime',
+        title: t('report.endDate', 'Ngày kết thúc'),
+        id: 'EndDate',
         group: 'Thời gian thực hiện',
         kind: 'Text',
         readonly: false,
-        width: 90,
+        width: 110,
         hasMenu: true,
         visible: true
       },

@@ -80,6 +80,24 @@ export const getEmployeeCode = () => {
   }
 }
 
+export const getUserSeq = () => {
+  try {
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    return userInfo.UserSeq || userInfo.UserId || userInfo.id || userInfo.EmpID || null
+  } catch {
+    return null
+  }
+}
+
+export const getUserDisplayName = () => {
+  try {
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    return userInfo.UserName || userInfo.EmpName || userInfo.UserId || 'Admin'
+  } catch {
+    return 'Admin'
+  }
+}
+
 export const getId = () => {
   try {
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')

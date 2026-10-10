@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars, no-empty */
 /**
  * Quản lý lưu trữ IndexedDB cho module Tính KHSX & TKSX
  * Dùng khi ứng dụng chạy trên nền tảng Web
@@ -90,13 +91,14 @@ const CHUNK_ROW_SIZE = 2500
 export const saveArchitectureFileIDB = async (fileType, fileData, onProgress = null) => {
   try {
     const db = await getCalcProductionDB()
+    const normType = String(fileType || '').toLowerCase()
     const rows = fileData.data || []
     const totalRows = rows.length
     const totalChunks = Math.max(1, Math.ceil(totalRows / CHUNK_ROW_SIZE))
 
     // 1. Lưu bản ghi metadata tổng quan của file
     const metaRecord = {
-      fileType,
+      fileType: normType,
       fileName: fileData.fileName || '',
       fileSize: fileData.fileSize || 0,
       rowCount: fileData.rowCount || totalRows,
@@ -106,18 +108,18 @@ export const saveArchitectureFileIDB = async (fileType, fileData, onProgress = n
     }
     await db.put(STORAGE_KEYS.STORE_FILES, metaRecord)
 
-    // 2. Xóa các chunk cũ của fileType này trong IndexedDB
+    // 2. Xóa sạch mọi chunk cũ của fileType này (kể cả case chữ hoa/thường)
     try {
-      const txClear = db.transaction(STORAGE_KEYS.STORE_FILE_CHUNKS, 'readwrite')
-      const chunkStore = txClear.objectStore(STORAGE_KEYS.STORE_FILE_CHUNKS)
-      let cursor = await chunkStore.openCursor()
-      while (cursor) {
-        if (cursor.value?.fileType === fileType) {
-          await cursor.delete()
+      const allChunks = (await db.getAll(STORAGE_KEYS.STORE_FILE_CHUNKS)) || []
+      for (const ch of allChunks) {
+        if (
+          ch &&
+          (String(ch.fileType || '').toLowerCase() === normType ||
+            ch.id?.toLowerCase().startsWith(`${normType}_`))
+        ) {
+          await db.delete(STORAGE_KEYS.STORE_FILE_CHUNKS, ch.id)
         }
-        cursor = await cursor.continue()
       }
-      await txClear.done
     } catch (clearErr) {
       console.warn('[IndexedDB] Dọn dẹp chunk cũ:', clearErr)
     }
@@ -129,16 +131,14 @@ export const saveArchitectureFileIDB = async (fileType, fileData, onProgress = n
       const chunkData = rows.slice(startIdx, endIdx)
 
       const chunkRecord = {
-        id: `${fileType}_${chunkIdx}`,
-        fileType,
+        id: `${normType}_${chunkIdx}`,
+        fileType: normType,
         chunkIndex: chunkIdx,
         rowCount: chunkData.length,
         data: chunkData
       }
 
-      const txChunk = db.transaction(STORAGE_KEYS.STORE_FILE_CHUNKS, 'readwrite')
-      await txChunk.objectStore(STORAGE_KEYS.STORE_FILE_CHUNKS).put(chunkRecord)
-      await txChunk.done
+      await db.put(STORAGE_KEYS.STORE_FILE_CHUNKS, chunkRecord)
 
       // Báo tiến trình cho UI
       const processedRows = endIdx
@@ -176,8 +176,9 @@ export const getAllFileSummariesIDB = async () => {
     const result = {}
     files.forEach((f) => {
       if (f?.fileType) {
-        result[f.fileType] = {
-          fileType: f.fileType,
+        const normKey = String(f.fileType).toLowerCase()
+        result[normKey] = {
+          fileType: normKey,
           fileName: f.fileName || '',
           fileSize: f.fileSize || 0,
           rowCount: f.rowCount || 0,
@@ -194,41 +195,44 @@ export const getAllFileSummariesIDB = async () => {
 }
 
 /**
- * Lấy dữ liệu 1 file kiến trúc chi tiết từ IndexedDB (ghép các khúc chunk lại)
+ * Lấy dữ liệu 1 file kiến trúc chi tiết từ IndexedDB (ghép các khúc chunk lại, deduplicate theo chunkIndex)
  */
 export const getArchitectureFileIDB = async (fileType) => {
   try {
     const db = await getCalcProductionDB()
-    const meta = await db.get(STORAGE_KEYS.STORE_FILES, fileType)
+    const normType = String(fileType || '').toLowerCase()
+    const meta =
+      (await db.get(STORAGE_KEYS.STORE_FILES, normType)) ||
+      (await db.get(STORAGE_KEYS.STORE_FILES, fileType))
     if (!meta) return null
 
     // Đọc tất cả các chunk thuộc fileType này
-    const chunks = []
-    try {
-      const tx = db.transaction(STORAGE_KEYS.STORE_FILE_CHUNKS, 'readonly')
-      const store = tx.objectStore(STORAGE_KEYS.STORE_FILE_CHUNKS)
-      let cursor = await store.openCursor()
-      while (cursor) {
-        if (cursor.value?.fileType === fileType) {
-          chunks.push(cursor.value)
-        }
-        cursor = await cursor.continue()
+    const allChunks = (await db.getAll(STORAGE_KEYS.STORE_FILE_CHUNKS)) || []
+    const chunkMap = new Map()
+    for (const ch of allChunks) {
+      if (
+        ch &&
+        (String(ch.fileType || '').toLowerCase() === normType ||
+          ch.id?.toLowerCase().startsWith(`${normType}_`))
+      ) {
+        chunkMap.set(ch.chunkIndex, ch)
       }
-    } catch (e) {
-      console.warn('[IndexedDB] Đọc chunks:', e)
     }
 
-    if (chunks.length > 0) {
-      chunks.sort((a, b) => a.chunkIndex - b.chunkIndex)
+    if (chunkMap.size > 0) {
+      const sortedChunks = Array.from(chunkMap.values()).sort(
+        (a, b) => a.chunkIndex - b.chunkIndex
+      )
       const combinedData = []
-      for (const ch of chunks) {
+      for (const ch of sortedChunks) {
         if (Array.isArray(ch.data)) {
           combinedData.push(...ch.data)
         }
       }
       return {
         ...meta,
-        data: combinedData
+        data: combinedData,
+        rowCount: combinedData.length
       }
     }
 
@@ -237,6 +241,80 @@ export const getArchitectureFileIDB = async (fileType) => {
   } catch (error) {
     console.error(`[IndexedDB] Lỗi lấy file ${fileType}:`, error)
     return null
+  }
+}
+
+/**
+ * Lấy dữ liệu 1 file kiến trúc theo phân trang (mặc định 1.500 dòng/trang) từ IndexedDB
+ */
+export const getArchitectureFilePageIDB = async (fileType, page = 1, pageSize = 1500) => {
+  try {
+    const db = await getCalcProductionDB()
+    const normType = String(fileType || '').toLowerCase()
+    const meta =
+      (await db.get(STORAGE_KEYS.STORE_FILES, normType)) ||
+      (await db.get(STORAGE_KEYS.STORE_FILES, fileType))
+    if (!meta) return { rows: [], total: 0, page, pageSize, totalPages: 0 }
+
+    const allChunks = (await db.getAll(STORAGE_KEYS.STORE_FILE_CHUNKS)) || []
+    const chunkMap = new Map()
+    for (const ch of allChunks) {
+      if (
+        ch &&
+        (String(ch.fileType || '').toLowerCase() === normType ||
+          ch.id?.toLowerCase().startsWith(`${normType}_`))
+      ) {
+        chunkMap.set(ch.chunkIndex, ch)
+      }
+    }
+
+    let allRows = []
+    if (chunkMap.size > 0) {
+      const sortedChunks = Array.from(chunkMap.values()).sort(
+        (a, b) => a.chunkIndex - b.chunkIndex
+      )
+      for (const ch of sortedChunks) {
+        if (Array.isArray(ch.data)) {
+          allRows.push(...ch.data)
+        }
+      }
+    } else if (Array.isArray(meta.data)) {
+      allRows = meta.data
+    }
+
+    const total = allRows.length || meta.rowCount || 0
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    if (page > totalPages || total === 0) {
+      return {
+        fileType: normType,
+        fileName: meta.fileName || '',
+        columns: meta.columns || [],
+        rows: [],
+        total,
+        page,
+        pageSize,
+        totalPages,
+        uploadedAt: meta.uploadedAt || null
+      }
+    }
+
+    const offset = (Math.max(1, page) - 1) * pageSize
+    const pageRows = allRows.slice(offset, offset + pageSize)
+
+    return {
+      fileType: normType,
+      fileName: meta.fileName || '',
+      columns: meta.columns || [],
+      rows: pageRows,
+      total,
+      page: Math.max(1, page),
+      pageSize,
+      totalPages,
+      uploadedAt: meta.uploadedAt || null
+    }
+  } catch (error) {
+    console.error(`[IndexedDB] Lỗi lấy phân trang file ${fileType}:`, error)
+    return { rows: [], total: 0, page, pageSize, totalPages: 0, error: error.message }
   }
 }
 
@@ -251,7 +329,8 @@ export const getAllArchitectureFilesIDB = async () => {
 
     for (const f of files) {
       if (f?.fileType) {
-        result[f.fileType] = await getArchitectureFileIDB(f.fileType)
+        const normKey = String(f.fileType).toLowerCase()
+        result[normKey] = await getArchitectureFileIDB(normKey)
       }
     }
     return result
@@ -268,24 +347,24 @@ export const deleteArchitectureFileIDB = async (fileType) => {
   try {
     const db = await getCalcProductionDB()
     if (fileType) {
+      const normType = String(fileType || '').toLowerCase()
+      await db.delete(STORAGE_KEYS.STORE_FILES, normType)
       await db.delete(STORAGE_KEYS.STORE_FILES, fileType)
       try {
-        const tx = db.transaction(STORAGE_KEYS.STORE_FILE_CHUNKS, 'readwrite')
-        const store = tx.objectStore(STORAGE_KEYS.STORE_FILE_CHUNKS)
-        let cursor = await store.openCursor()
-        while (cursor) {
-          if (cursor.value?.fileType === fileType) {
-            await cursor.delete()
+        const allChunks = (await db.getAll(STORAGE_KEYS.STORE_FILE_CHUNKS)) || []
+        for (const ch of allChunks) {
+          if (
+            ch &&
+            (String(ch.fileType || '').toLowerCase() === normType ||
+              ch.id?.toLowerCase().startsWith(`${normType}_`))
+          ) {
+            await db.delete(STORAGE_KEYS.STORE_FILE_CHUNKS, ch.id)
           }
-          cursor = await cursor.continue()
         }
-        await tx.done
       } catch {}
     } else {
       await db.clear(STORAGE_KEYS.STORE_FILES)
-      try {
-        await db.clear(STORAGE_KEYS.STORE_FILE_CHUNKS)
-      } catch {}
+      await db.clear(STORAGE_KEYS.STORE_FILE_CHUNKS)
     }
     return { success: true }
   } catch (error) {
@@ -353,6 +432,34 @@ export const saveMasterRegistrationIDB = async (record) => {
 }
 
 /**
+ * Cập nhật trạng thái và version của bản ghi Master trong IndexedDB
+ */
+export const updateMasterRegistrationStatusIDB = async (
+  regCode,
+  status = 'PUBLISHED',
+  version = '1.0'
+) => {
+  if (!regCode) return { success: false }
+  try {
+    const db = await getCalcProductionDB()
+    const existing = await db.get(STORAGE_KEYS.STORE_MASTER, regCode)
+    const updated = {
+      ...(existing || { regCode }),
+      status,
+      version: version || existing?.version || '1.0',
+      isPublished: status === 'PUBLISHED' ? 1 : 0,
+      publishedAt: status === 'PUBLISHED' ? new Date().toISOString() : existing?.publishedAt,
+      updatedAt: new Date().toISOString()
+    }
+    await db.put(STORAGE_KEYS.STORE_MASTER, updated)
+    return { success: true, version: updated.version, status: updated.status }
+  } catch (err) {
+    console.error('[IndexedDB] Lỗi updateMasterRegistrationStatusIDB:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+/**
  * Lấy 1 bản ghi Master theo mã đăng ký từ IndexedDB
  */
 export const getMasterRegistrationIDB = async (regCode) => {
@@ -410,5 +517,39 @@ export const deleteMasterRegistrationIDB = async (regCode) => {
   } catch (error) {
     console.error('[IndexedDB] Lỗi xóa đăng ký Master:', error)
     throw error
+  }
+}
+
+/**
+ * Lưu trạng thái bộ lọc và tìm kiếm theo Tab vào IndexedDB để giải phóng RAM
+ */
+export const saveTabSearchStateIDB = async (tabId, searchState) => {
+  if (!tabId) return { success: false }
+  try {
+    const db = await getCalcProductionDB()
+    await db.put(STORAGE_KEYS.STORE_METADATA, {
+      key: `TAB_SEARCH_${tabId}`,
+      value: searchState,
+      updatedAt: new Date().toISOString()
+    })
+    return { success: true }
+  } catch (err) {
+    console.debug('[IndexedDB] saveTabSearchStateIDB error:', err)
+    return { success: false }
+  }
+}
+
+/**
+ * Lấy trạng thái bộ lọc và tìm kiếm theo Tab từ IndexedDB
+ */
+export const getTabSearchStateIDB = async (tabId) => {
+  if (!tabId) return null
+  try {
+    const db = await getCalcProductionDB()
+    const record = await db.get(STORAGE_KEYS.STORE_METADATA, `TAB_SEARCH_${tabId}`)
+    return record?.value || null
+  } catch (err) {
+    console.debug('[IndexedDB] getTabSearchStateIDB error:', err)
+    return null
   }
 }

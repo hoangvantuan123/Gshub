@@ -432,8 +432,17 @@ func Invoke(
 			success = s
 		}
 		msg := ""
-		if m, ok := protoMap["message"].(string); ok {
-			msg = m
+		if m, ok := protoMap["message"].(string); ok && strings.TrimSpace(m) != "" {
+			msg = strings.TrimSpace(m)
+		}
+		if msg == "" {
+			if em, ok := protoMap["errorMessage"].(string); ok && strings.TrimSpace(em) != "" {
+				msg = strings.TrimSpace(em)
+			} else if em, ok := protoMap["error_message"].(string); ok && strings.TrimSpace(em) != "" {
+				msg = strings.TrimSpace(em)
+			} else if em, ok := protoMap["error"].(string); ok && strings.TrimSpace(em) != "" {
+				msg = strings.TrimSpace(em)
+			}
 		}
 		var finalData interface{} = nil
 		if dataJson, ok := protoMap["dataJson"].(string); ok && strings.TrimSpace(dataJson) != "" {
@@ -479,6 +488,14 @@ func Invoke(
 				finalData = protoMap
 			} else if master, ok := protoMap["master"]; ok {
 				finalData = master
+			} else if _, hasBundle := protoMap["bundleData"]; hasBundle {
+				finalData = protoMap
+			} else if _, hasBundle := protoMap["bundle_data"]; hasBundle {
+				finalData = protoMap
+			} else if bundles, hasBundles := protoMap["bundles"]; hasBundles {
+				finalData = bundles
+			} else if len(protoMap) > 2 {
+				finalData = protoMap
 			}
 		}
 		var finalPage interface{} = nil

@@ -16,7 +16,7 @@ const getApiUrl = () => getDefaultDataHubUrl()
  */
 export async function publishProductionBundleOnline(payload) {
   const url = `${getApiUrl()}/api/v1/production-calc/bundles/PublishProductionBundle`
-  const token = accessToken || ''
+  const token = typeof accessToken === 'function' ? accessToken() : accessToken || ''
   const employeeCode = getEmployeeCode() || ''
 
   const finalPayload = {
@@ -31,8 +31,14 @@ export async function publishProductionBundleOnline(payload) {
     compressed_size_mb: payload.compressed_size_mb || payload.compressedSizeMB || 0,
     compression_ratio: payload.compression_ratio || payload.compressionRatio || '',
     bundle_base64: payload.bundle_base64 || payload.bundleBase64 || '',
-    file_summaries: typeof payload.file_summaries === 'string' ? payload.file_summaries : JSON.stringify(payload.file_summaries || payload.fileSummaries || {}),
-    calc_summary: typeof payload.calc_summary === 'string' ? payload.calc_summary : JSON.stringify(payload.calc_summary || payload.calcSummary || {}),
+    file_summaries:
+      typeof payload.file_summaries === 'string'
+        ? payload.file_summaries
+        : JSON.stringify(payload.file_summaries || payload.fileSummaries || {}),
+    calc_summary:
+      typeof payload.calc_summary === 'string'
+        ? payload.calc_summary
+        : JSON.stringify(payload.calc_summary || payload.calcSummary || {}),
     remark: payload.remark || '',
     created_by: payload.created_by || employeeCode || 'USER'
   }
@@ -50,7 +56,8 @@ export async function publishProductionBundleOnline(payload) {
     if (isSessionExpiredError(error)) {
       triggerSessionExpired()
     }
-    const msg = error.response?.data?.message || error.message || 'Lỗi đẩy gói lên Server DataHub qua gRPC'
+    const msg =
+      error.response?.data?.message || error.message || 'Lỗi đẩy gói lên Server DataHub qua gRPC'
     throw new Error(msg)
   }
 }
@@ -62,10 +69,23 @@ export async function publishProductionBundleOnline(payload) {
  */
 export async function queryProductionBundlesOnline(params = {}) {
   const url = `${getApiUrl()}/api/v1/production-calc/bundles/QueryProductionBundles`
-  const token = accessToken || ''
+  const token = typeof accessToken === 'function' ? accessToken() : accessToken || ''
+
+  const finalPayload = {
+    factory_name: params.factory_name || params.factoryName || '',
+    production_team: params.production_team || params.productionTeam || '',
+    apply_date_from:
+      params.apply_date_from || params.applyDateFrom || params.from_date || params.fromDate || '',
+    apply_date_to:
+      params.apply_date_to || params.applyDateTo || params.to_date || params.toDate || '',
+    status: params.status || '',
+    keyword: params.keyword || params.reg_code || params.regCode || '',
+    page: params.page || 1,
+    page_size: params.page_size || params.pageSize || 100
+  }
 
   try {
-    const response = await axios.post(url, params, {
+    const response = await axios.post(url, finalPayload, {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -77,7 +97,8 @@ export async function queryProductionBundlesOnline(params = {}) {
     if (isSessionExpiredError(error)) {
       triggerSessionExpired()
     }
-    const msg = error.response?.data?.message || error.message || 'Lỗi truy vấn gói từ Server DataHub'
+    const msg =
+      error.response?.data?.message || error.message || 'Lỗi truy vấn gói từ Server DataHub'
     throw new Error(msg)
   }
 }
@@ -88,10 +109,10 @@ export async function queryProductionBundlesOnline(params = {}) {
  * @returns {Promise<Uint8Array>}
  */
 export async function downloadProductionBundleOnline(regCode) {
-  if (!regCode) throw new Error('regCode là bắt buộc để tải gói dữ liệu')
+  if (!regCode) throw new Error('Mã đăng ký là bắt buộc để tải dữ liệu')
 
   const url = `${getApiUrl()}/api/v1/production-calc/bundles/GetProductionBundleData`
-  const token = accessToken || ''
+  const token = typeof accessToken === 'function' ? accessToken() : accessToken || ''
 
   try {
     const response = await axios.post(
@@ -107,7 +128,24 @@ export async function downloadProductionBundleOnline(regCode) {
     )
 
     const resData = response.data
-    let rawBundle = resData?.bundle_data || resData?.bundleData || resData?.data
+    let rawBundle =
+      resData?.bundle_data ||
+      resData?.bundleData ||
+      resData?.data?.bundle_data ||
+      resData?.data?.bundleData ||
+      resData?.data?.bundle_base64 ||
+      resData?.data?.bundleBase64 ||
+      resData?.data
+
+    if (rawBundle && typeof rawBundle === 'object' && !Array.isArray(rawBundle) && !(rawBundle instanceof Uint8Array)) {
+      rawBundle =
+        rawBundle.bundle_data ||
+        rawBundle.bundleData ||
+        rawBundle.bundle_base64 ||
+        rawBundle.bundleBase64 ||
+        rawBundle.data ||
+        rawBundle
+    }
 
     if (typeof rawBundle === 'string') {
       // Decode Base64 string to Uint8Array
@@ -126,7 +164,7 @@ export async function downloadProductionBundleOnline(regCode) {
     if (isSessionExpiredError(error)) {
       triggerSessionExpired()
     }
-    const msg = error.response?.data?.message || error.message || 'Lỗi tải gói từ Server DataHub'
+    const msg = error.response?.data?.message || error.message || 'Lỗi tải dữ liệu từ hệ thống'
     throw new Error(msg)
   }
 }
@@ -140,7 +178,7 @@ export async function deleteProductionBundleOnline(regCode) {
   if (!regCode) throw new Error('regCode là bắt buộc để xóa')
 
   const url = `${getApiUrl()}/api/v1/production-calc/bundles/DeleteProductionBundle`
-  const token = accessToken || ''
+  const token = typeof accessToken === 'function' ? accessToken() : accessToken || ''
 
   try {
     const response = await axios.post(

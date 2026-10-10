@@ -375,8 +375,110 @@ const isActualDataRow = (row) => {
  * Sử dụng thuật toán SSF Excel Date Code và Local Timezone để triệt tiêu hoàn toàn lệch 7 tiếng / lệch 1 ngày.
  * - Cột chỉ Giờ (StartTime, EndTime, Bắt đầu, Kết thúc): format chuẩn HH:mm (VD: 15:45, 02:47)
  * - Cột chỉ Ngày (StartDate, EndDate, StatDate, Ngày bắt đầu, Ngày kết thúc, Ngày thống kê): format chuẩn DD/MM/YY (VD: 25/09/26)
- * - Cột Ngày & Giờ đầy đủ (ApprovalTime, CreatedTime,...): format chuẩn DD/MM/YYYY HH:mm:ss
+/**
+ * Chuẩn hóa cặp Thời gian Bắt đầu và Kết thúc về hệ 24 giờ chuẩn:
+ * Tự động sửa lỗi khi file xuất từ ERP/MES bị định dạng 12 giờ thiếu nhãn PM
+ * (VD: 04:59:55 và 19:41:35 -> 16:59:55 và 19:41:35; hoặc 05:00 và 05:32 ca chiều -> 17:00 và 17:32)
  */
+export function normalizeRowOperationalTimePair(rowObj) {
+  if (!rowObj || typeof rowObj !== 'object') return rowObj
+
+  const startKeys = [
+    'PlannedStartTime',
+    'StartTime',
+    'Thời gian bắt đầu (5)',
+    'Thời gian bắt đầu\r\n(5)',
+    'Thời gian bắt đầu\n(5)',
+    'Thời gian bắt đầu',
+    'Bắt đầu'
+  ]
+  const endKeys = [
+    'PlannedEndTime',
+    'EndTime',
+    'Thời gian kết thúc (6)',
+    'Thời gian kết thúc\r\n(6)',
+    'Thời gian kết thúc\n(6)',
+    'Thời gian kết thúc',
+    'Kết thúc'
+  ]
+
+  const foundStartKey = startKeys.find(
+    (k) => rowObj[k] !== undefined && rowObj[k] !== null && String(rowObj[k]).trim() !== ''
+  )
+  const foundEndKey = endKeys.find(
+    (k) => rowObj[k] !== undefined && rowObj[k] !== null && String(rowObj[k]).trim() !== ''
+  )
+
+  if (!foundStartKey && !foundEndKey) return rowObj
+
+  const startVal = foundStartKey ? String(rowObj[foundStartKey]).trim() : ''
+  const endVal = foundEndKey ? String(rowObj[foundEndKey]).trim() : ''
+
+  const sMatch = startVal.match(
+    /^(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/
+  )
+  const eMatch = endVal.match(
+    /^(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/
+  )
+
+  const pad = (n) => String(n).padStart(2, '0')
+
+  if (sMatch && eMatch) {
+    const sDate = sMatch[1]
+    let sH = parseInt(sMatch[2], 10)
+    const sM = sMatch[3]
+    const sS = sMatch[4] || '00'
+
+    const eDate = eMatch[1]
+    let eH = parseInt(eMatch[2], 10)
+    const eM = eMatch[3]
+    const eS = eMatch[4] || '00'
+
+    let changed = false
+
+    // TH1: Cùng ngày, StartTime có giờ [1..6] và EndTime có giờ >= 12 (VD: 04:59:55 và 19:41:35)
+    if (sDate === eDate && sH >= 1 && sH <= 6 && eH >= 12) {
+      if (sH + 12 <= eH) {
+        sH += 12
+        changed = true
+      }
+    }
+    // TH2: Cùng ngày, cả StartTime và EndTime đều có giờ [1..6] (VD: 05:00 và 05:32)
+    else if (sDate === eDate && sH >= 1 && sH <= 6 && eH >= 1 && eH <= 6 && sH <= eH) {
+      sH += 12
+      eH += 12
+      changed = true
+    }
+
+    if (changed) {
+      const newStartVal = `${sDate} ${pad(sH)}:${sM}:${sS}`
+      const newEndVal = `${eDate} ${pad(eH)}:${eM}:${eS}`
+
+      startKeys.forEach((k) => {
+        if (rowObj[k] !== undefined) rowObj[k] = newStartVal
+      })
+      endKeys.forEach((k) => {
+        if (rowObj[k] !== undefined) rowObj[k] = newEndVal
+      })
+    }
+  } else if (sMatch && !eMatch) {
+    const sDate = sMatch[1]
+    let sH = parseInt(sMatch[2], 10)
+    const sM = sMatch[3]
+    const sS = sMatch[4] || '00'
+
+    if (sH >= 1 && sH <= 6) {
+      sH += 12
+      const newStartVal = `${sDate} ${pad(sH)}:${sM}:${sS}`
+      startKeys.forEach((k) => {
+        if (rowObj[k] !== undefined) rowObj[k] = newStartVal
+      })
+    }
+  }
+
+  return rowObj
+}
+
 export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
   if (val === null || val === undefined || val === '') return ''
 
@@ -487,9 +589,7 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
         return `${day}/${month}/${yearShort}`
       }
       const hasTime = frac > 0.00001
-      return hasTime
-        ? `${day}/${month}/${yearShort} ${timeStr}`
-        : `${day}/${month}/${yearShort}`
+      return hasTime ? `${day}/${month}/${yearShort} ${timeStr}` : `${day}/${month}/${yearShort}`
     }
   }
 
@@ -515,9 +615,7 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       return `${day}/${month}/${yearShort}`
     }
     const hasTime = hours !== '00' || minutes !== '00' || seconds !== '00'
-    return hasTime
-      ? `${day}/${month}/${yearShort} ${timeStr}`
-      : `${day}/${month}/${yearShort}`
+    return hasTime ? `${day}/${month}/${yearShort} ${timeStr}` : `${day}/${month}/${yearShort}`
   }
 
   // 3. Xử lý chuỗi văn bản
@@ -525,30 +623,40 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
     const str = val.trim()
     if (!str) return ''
 
-    // Nếu chuỗi là giờ dạng HH:mm hoặc HH:mm:ss
-    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(str)) {
-      const parts = str.split(':')
-      const h = pad(parts[0])
-      const m = pad(parts[1])
-      const s = parts[2] ? pad(parts[2]) : ''
-      return s ? `${h}:${m}:${s}` : `${h}:${m}`
+    // Nếu chuỗi chỉ là giờ dạng HH:mm hoặc HH:mm:ss (kèm AM/PM/SA/CH)
+    const pureTimeMatch = str.match(
+      /^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?$/i
+    )
+    if (pureTimeMatch) {
+      let h = parseInt(pureTimeMatch[1], 10)
+      const m = pad(pureTimeMatch[2])
+      const s = pureTimeMatch[3] ? pad(pureTimeMatch[3]) : ''
+      const ampm = pureTimeMatch[4] ? pureTimeMatch[4].toUpperCase() : ''
+      if ((ampm === 'PM' || ampm === 'CH') && h < 12) h += 12
+      if ((ampm === 'AM' || ampm === 'SA') && h === 12) h = 0
+      const hStr = pad(h)
+      return s ? `${hStr}:${m}:${s}` : `${hStr}:${m}`
     }
 
-    // Nếu là chuỗi ISO hoặc YYYY-MM-DD
-    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(str)) {
-      const parts = str.split(/[-/ T]/)
-      const year = parts[0]
-      const month = pad(parts[1])
-      const day = pad(parts[2])
+    // Nếu là chuỗi ISO hoặc YYYY-MM-DD (kèm giờ phút giây và AM/PM/SA/CH)
+    const isoMatch = str.match(
+      /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?)?/i
+    )
+    if (isoMatch) {
+      const year = isoMatch[1]
+      const month = pad(isoMatch[2])
+      const day = pad(isoMatch[3])
       const yearShort = String(year).slice(-2)
 
       let timeFormatted = ''
-      if (parts[3]) {
-        const timeParts = parts[3].split(':')
-        const h = pad(timeParts[0])
-        const m = pad(timeParts[1] || '00')
-        const s = pad(timeParts[2] || '00')
-        timeFormatted = `${h}:${m}:${s}`
+      if (isoMatch[4] !== undefined) {
+        let h = parseInt(isoMatch[4], 10)
+        const m = pad(isoMatch[5] || '00')
+        const s = pad(isoMatch[6] || '00')
+        const ampm = isoMatch[7] ? isoMatch[7].toUpperCase() : ''
+        if ((ampm === 'PM' || ampm === 'CH') && h < 12) h += 12
+        if ((ampm === 'AM' || ampm === 'SA') && h === 12) h = 0
+        timeFormatted = `${pad(h)}:${m}:${s}`
       }
 
       if (isDateTimeCol) {
@@ -562,20 +670,20 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       if (isOnlyTimeCol && timeFormatted) {
         return timeFormatted
       }
-      if (parts[3]) {
+      if (timeFormatted) {
         return `${day}/${month}/${yearShort} ${timeFormatted}`
       }
       return `${day}/${month}/${yearShort}`
     }
 
-    // Nếu là chuỗi DD/MM/YYYY hoặc DD-MM-YYYY hoặc DD/MM/YY
-    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/.test(str)) {
-      const mainPart = str.split(' ')[0]
-      const timePart = str.split(' ')[1] || ''
-      const parts = mainPart.split(/[-/]/)
-      const day = pad(parts[0])
-      const month = pad(parts[1])
-      let year = parts[2]
+    // Nếu là chuỗi DD/MM/YYYY hoặc DD-MM-YYYY hoặc DD/MM/YY (kèm giờ phút giây và AM/PM/SA/CH)
+    const dmyMatch = str.match(
+      /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?)?/i
+    )
+    if (dmyMatch) {
+      const day = pad(dmyMatch[1])
+      const month = pad(dmyMatch[2])
+      let year = dmyMatch[3]
       if (year.length === 4) {
         year = year.slice(-2)
       } else {
@@ -583,12 +691,14 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       }
 
       let timeFormatted = ''
-      if (timePart) {
-        const timeParts = timePart.split(':')
-        const h = pad(timeParts[0])
-        const m = pad(timeParts[1] || '00')
-        const s = pad(timeParts[2] || '00')
-        timeFormatted = `${h}:${m}:${s}`
+      if (dmyMatch[4] !== undefined) {
+        let h = parseInt(dmyMatch[4], 10)
+        const m = pad(dmyMatch[5] || '00')
+        const s = pad(dmyMatch[6] || '00')
+        const ampm = dmyMatch[7] ? dmyMatch[7].toUpperCase() : ''
+        if ((ampm === 'PM' || ampm === 'CH') && h < 12) h += 12
+        if ((ampm === 'AM' || ampm === 'SA') && h === 12) h = 0
+        timeFormatted = `${pad(h)}:${m}:${s}`
       }
 
       if (isDateTimeCol) {
@@ -872,8 +982,11 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
             }
           }
 
-          // 2. Ưu tiên khớp chính xác theo Schema của Tab hiện tại (schemaList)
+          // 2. Tự động nhận diện theo Ngữ cảnh Nhóm & Tiêu đề cột
           if (!resolvedKey) {
+            const titleLower = cleanTitle
+            const groupLower = cleanGroup
+
             // A. Khớp chính xác cả Group lẫn Title
             let matched = schemaList.find((s) => {
               const sGroup = clean(s.group)
@@ -881,32 +994,441 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
               return sGroup && cleanGroup && sGroup === cleanGroup && sTitle === cleanTitle
             })
 
-            // B. Khớp Group và Title (bỏ qua ký hiệu số thứ tự như (1), (5), (6),...)
+            // B. Khớp đặc biệt cho nhóm: THÔNG TIN LỆNH CÔNG ĐOẠN
+            if (
+              !matched &&
+              (groupLower.includes('công đoạn') ||
+                groupLower.includes('cd') ||
+                titleLower.includes('công đoạn') ||
+                titleLower.includes('(cđ)') ||
+                titleLower.includes('(cd)'))
+            ) {
+              if (
+                titleLower.includes('người') ||
+                titleLower.includes('nguoi') ||
+                titleLower.includes('pic')
+              ) {
+                matched = schemaList.find((s) => s.key === 'OrderIssuer') || {
+                  key: 'OrderIssuer',
+                  title: 'Người phát hành lệnh thao tác',
+                  group: 'THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC'
+                }
+              } else if (
+                titleLower.includes('phát hành') ||
+                titleLower.includes('phat hanh') ||
+                titleLower.includes('ngày') ||
+                titleLower.includes('ngay')
+              ) {
+                matched = schemaList.find((s) => s.key === 'StageOrderReleaseDate') || {
+                  key: 'StageOrderReleaseDate',
+                  title: 'Ngày phát hành lệnh CĐ',
+                  group: 'Thông tin lệnh công đoạn'
+                }
+              } else if (titleLower.includes('cần đạt') || titleLower.includes('can dat')) {
+                matched = schemaList.find((s) => s.key === 'StageTargetQty') || {
+                  key: 'StageTargetQty',
+                  title: 'SL cần đạt (CĐ)',
+                  group: 'Thông tin lệnh công đoạn'
+                }
+              } else if (
+                titleLower.includes('cần sản xuất') ||
+                titleLower.includes('cần sx') ||
+                titleLower.includes('can san xuat')
+              ) {
+                matched = schemaList.find((s) => s.key === 'StagePlannedQty') || {
+                  key: 'StagePlannedQty',
+                  title: 'SL cần sản xuất (CĐ)',
+                  group: 'Thông tin lệnh công đoạn'
+                }
+              } else if (
+                titleLower.includes('số lệnh') ||
+                titleLower.includes('so lenh') ||
+                titleLower.includes('mã lệnh')
+              ) {
+                matched = schemaList.find((s) => s.key === 'StageOrderNo') || {
+                  key: 'StageOrderNo',
+                  title: 'Số lệnh công đoạn',
+                  group: 'Thông tin lệnh công đoạn'
+                }
+              } else if (titleLower.includes('ngày lệnh') || titleLower.includes('ngay lenh')) {
+                matched = schemaList.find((s) => s.key === 'StageOrderDate') || {
+                  key: 'StageOrderDate',
+                  title: 'Ngày lệnh công đoạn',
+                  group: 'Thông tin lệnh công đoạn'
+                }
+              }
+            }
+
+            // C. Khớp đặc biệt cho nhóm: THÔNG TIN LỆNH THAO TÁC
+            if (
+              !matched &&
+              (groupLower.includes('thao tác') ||
+                groupLower.includes('tt') ||
+                titleLower.includes('thao tác') ||
+                titleLower.includes('(tt)'))
+            ) {
+              if (
+                titleLower.includes('người') ||
+                titleLower.includes('nguoi') ||
+                titleLower.includes('pic')
+              ) {
+                matched = schemaList.find((s) => s.key === 'OrderIssuer') || {
+                  key: 'OrderIssuer',
+                  title: 'Người phát hành lệnh thao tác',
+                  group: 'THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC'
+                }
+              } else if (
+                titleLower.includes('phát hành') ||
+                titleLower.includes('phat hanh') ||
+                titleLower.includes('ngày') ||
+                titleLower.includes('ngay')
+              ) {
+                matched = schemaList.find((s) => s.key === 'OpOrderReleaseDate') || {
+                  key: 'OpOrderReleaseDate',
+                  title: 'Ngày phát hành lệnh TT',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (titleLower.includes('cần đạt') || titleLower.includes('can dat')) {
+                matched = schemaList.find((s) => s.key === 'OpTargetQty') || {
+                  key: 'OpTargetQty',
+                  title: 'SL cần đạt (TT)',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (
+                titleLower.includes('cần sản xuất') ||
+                titleLower.includes('cần sx') ||
+                titleLower.includes('can san xuat')
+              ) {
+                matched = schemaList.find((s) => s.key === 'OpPlannedQty') || {
+                  key: 'OpPlannedQty',
+                  title: 'SL cần sản xuất (TT)',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (
+                titleLower === 'đvt' ||
+                titleLower === 'dvt' ||
+                titleLower.includes('đơn vị')
+              ) {
+                matched = schemaList.find((s) => s.key === 'OpUnit') || {
+                  key: 'OpUnit',
+                  title: 'Đvt',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (titleLower.includes('mã vật tư') || titleLower.includes('ma vat tu')) {
+                matched = schemaList.find((s) => s.key === 'MaterialCode') || {
+                  key: 'MaterialCode',
+                  title: 'Mã vật tư',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (titleLower.includes('tên vật tư') || titleLower.includes('ten vat tu')) {
+                matched = schemaList.find((s) => s.key === 'MaterialName') || {
+                  key: 'MaterialName',
+                  title: 'Tên vật tư',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (titleLower.includes('version')) {
+                matched = schemaList.find((s) => s.key === 'Version') || {
+                  key: 'Version',
+                  title: 'Version',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (titleLower.includes('model')) {
+                matched = schemaList.find((s) => s.key === 'Model') || {
+                  key: 'Model',
+                  title: 'Model',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (
+                titleLower.includes('sp/lề ng') ||
+                titleLower.includes('lề ng') ||
+                titleLower.includes('sp ng')
+              ) {
+                matched = schemaList.find((s) => s.key === 'ProductNgWeight') || {
+                  key: 'ProductNgWeight',
+                  title: 'Trọng lượng Sp/lề NG',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (
+                titleLower.includes('lề kỹ thuật') ||
+                titleLower.includes('le ky thuat') ||
+                titleLower.includes('lề kt')
+              ) {
+                matched = schemaList.find((s) => s.key === 'TechnicalMarginWeight') || {
+                  key: 'TechnicalMarginWeight',
+                  title: 'Trọng lượng lề kỹ thuật',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              } else if (
+                titleLower.includes('số lệnh') ||
+                titleLower.includes('so lenh') ||
+                titleLower.includes('lệnh thao tác')
+              ) {
+                matched = schemaList.find((s) => s.key === 'OperationOrderNo') || {
+                  key: 'OperationOrderNo',
+                  title: 'Số lệnh thao tác',
+                  group: 'Thông tin lệnh thao tác'
+                }
+              }
+            }
+
+            // D. Khớp đặc biệt cho nhóm: THỜI GIAN LÃNG PHÍ / HAO PHÍ
+            if (
+              !matched &&
+              (groupLower.includes('lãng phí') ||
+                groupLower.includes('hao phí') ||
+                groupLower.includes('lang phi') ||
+                groupLower.includes('hao phi'))
+            ) {
+              if (
+                titleLower.includes('01') ||
+                titleLower.includes('hỏng máy') ||
+                titleLower.includes('mất điện') ||
+                titleLower.includes('hong may')
+              ) {
+                matched = schemaList.find((s) => s.key === 'DowntimeBreakdownMinutes') || {
+                  key: 'DowntimeBreakdownMinutes',
+                  title: 'TG hỏng máy/mất điện (phút) (01)',
+                  group: 'Thời gian lãng phí'
+                }
+              } else if (
+                titleLower.includes('02') ||
+                titleLower.includes('chờ nvl') ||
+                titleLower.includes('cho nvl')
+              ) {
+                matched = schemaList.find((s) => s.key === 'DowntimeWaitingMaterialMinutes') || {
+                  key: 'DowntimeWaitingMaterialMinutes',
+                  title: 'Tg chờ NVL (phút) (02)',
+                  group: 'Thời gian lãng phí'
+                }
+              } else if (
+                titleLower.includes('03') ||
+                titleLower.includes('chuẩn bị') ||
+                titleLower.includes('chuan bi')
+              ) {
+                matched = schemaList.find((s) => s.key === 'DowntimeSetupMinutes') || {
+                  key: 'DowntimeSetupMinutes',
+                  title: 'Tg chuẩn bị (phút) (03)',
+                  group: 'Thời gian lãng phí'
+                }
+              } else if (
+                titleLower.includes('04') ||
+                titleLower.includes('sửa file') ||
+                titleLower.includes('sua file') ||
+                titleLower.includes('khuôn') ||
+                titleLower.includes('bản')
+              ) {
+                matched = schemaList.find((s) => s.key === 'DowntimeFixingMinutes') || {
+                  key: 'DowntimeFixingMinutes',
+                  title: 'TG sửa file/khuôn/bản (phút) (04)',
+                  group: 'Thời gian lãng phí'
+                }
+              } else if (
+                titleLower.includes('tổng') ||
+                titleLower.includes('tong') ||
+                titleLower.includes('1+2+3+4') ||
+                titleLower.includes('(5)')
+              ) {
+                matched = schemaList.find((s) => s.key === 'TotalDowntimeMinutes') || {
+                  key: 'TotalDowntimeMinutes',
+                  title: 'Tổng tg hao phí (5)=1+2+3+4',
+                  group: 'Thời gian lãng phí'
+                }
+              }
+            }
+
+            // E. Xử lý các cột duplicate theo thứ tự xuất hiện nếu không có group phân biệt
+            if (!matched) {
+              if (
+                titleLower === 'ngày phát hành lệnh' ||
+                titleLower === 'ngay phat hanh lenh' ||
+                titleLower === 'ngày phát hành'
+              ) {
+                if (!seenKeys['StageOrderReleaseDate']) {
+                  matched = {
+                    key: 'StageOrderReleaseDate',
+                    title: 'Ngày phát hành lệnh CĐ',
+                    group: 'Thông tin lệnh công đoạn'
+                  }
+                } else if (!seenKeys['OpOrderReleaseDate']) {
+                  matched = {
+                    key: 'OpOrderReleaseDate',
+                    title: 'Ngày phát hành lệnh TT',
+                    group: 'Thông tin lệnh thao tác'
+                  }
+                }
+              } else if (
+                titleLower === 'số lượng cần đạt' ||
+                titleLower === 'sl cần đạt' ||
+                titleLower === 'cần đạt'
+              ) {
+                if (!seenKeys['StageTargetQty']) {
+                  matched = {
+                    key: 'StageTargetQty',
+                    title: 'SL cần đạt (CĐ)',
+                    group: 'Thông tin lệnh công đoạn'
+                  }
+                } else if (!seenKeys['OpTargetQty']) {
+                  matched = {
+                    key: 'OpTargetQty',
+                    title: 'SL cần đạt (TT)',
+                    group: 'Thông tin lệnh thao tác'
+                  }
+                }
+              } else if (
+                titleLower === 'số lượng cần sản xuất' ||
+                titleLower === 'sl cần sản xuất' ||
+                titleLower === 'cần sản xuất' ||
+                titleLower === 'cần sx' ||
+                titleLower === 'sl cần sx'
+              ) {
+                if (!seenKeys['StagePlannedQty']) {
+                  matched = {
+                    key: 'StagePlannedQty',
+                    title: 'SL cần sản xuất (CĐ)',
+                    group: 'Thông tin lệnh công đoạn'
+                  }
+                } else if (!seenKeys['OpPlannedQty']) {
+                  matched = {
+                    key: 'OpPlannedQty',
+                    title: 'SL cần sản xuất (TT)',
+                    group: 'Thông tin lệnh thao tác'
+                  }
+                }
+              } else if (
+                titleLower === 'họ tên' ||
+                titleLower === 'ho ten' ||
+                titleLower.includes('họ tên') ||
+                titleLower.includes('technician') ||
+                titleLower === 'thợ' ||
+                titleLower.includes('người vận hành')
+              ) {
+                // Nhận diện thợ máy (Thợ chính, Thợ phụ 1, Thợ phụ 2)
+                technicianCounter++
+                if (groupLower.includes('phụ 2') || titleLower.includes('phụ 2')) {
+                  matched = schemaList.find((s) => s.key === 'AssistantWorker2Name') || {
+                    key: 'AssistantWorker2Name',
+                    title: 'Họ tên',
+                    group: 'Thợ phụ 2'
+                  }
+                } else if (groupLower.includes('phụ 1') || titleLower.includes('phụ 1')) {
+                  matched = schemaList.find((s) => s.key === 'AssistantWorker1Name') || {
+                    key: 'AssistantWorker1Name',
+                    title: 'Họ tên',
+                    group: 'Thợ phụ 1'
+                  }
+                } else if (groupLower.includes('chính') || titleLower.includes('chính')) {
+                  matched = schemaList.find((s) => s.key === 'LeadTechnicianName') || {
+                    key: 'LeadTechnicianName',
+                    title: 'Họ tên',
+                    group: 'Thợ chính'
+                  }
+                } else {
+                  // Phân bổ tuần tự nếu không có group chỉ định
+                  if (!seenKeys['LeadTechnicianName']) {
+                    matched = schemaList.find((s) => s.key === 'LeadTechnicianName') || {
+                      key: 'LeadTechnicianName',
+                      title: 'Họ tên',
+                      group: 'Thợ chính'
+                    }
+                  } else if (!seenKeys['AssistantWorker1Name']) {
+                    matched = schemaList.find((s) => s.key === 'AssistantWorker1Name') || {
+                      key: 'AssistantWorker1Name',
+                      title: 'Họ tên',
+                      group: 'Thợ phụ 1'
+                    }
+                  } else if (!seenKeys['AssistantWorker2Name']) {
+                    matched = schemaList.find((s) => s.key === 'AssistantWorker2Name') || {
+                      key: 'AssistantWorker2Name',
+                      title: 'Họ tên',
+                      group: 'Thợ phụ 2'
+                    }
+                  } else {
+                    matched = {
+                      key: `AssistantWorker${technicianCounter}Name`,
+                      title: 'Họ tên',
+                      group: `Thợ phụ ${technicianCounter}`
+                    }
+                  }
+                }
+              }
+            }
+
+            // F. Khớp theo Group và Title linh hoạt (bỏ qua ký hiệu số thứ tự như (1), (5), (6),...)
             if (!matched && cleanGroup) {
+              // F1. Ưu tiên khớp chính xác Title trong cùng Group
               matched = schemaList.find((s) => {
                 const sGroup = clean(s.group)
                 const sTitle = clean(s.title)
-                if (sGroup !== cleanGroup && !sGroup.includes(cleanGroup) && !cleanGroup.includes(sGroup)) {
+                if (
+                  sGroup !== cleanGroup &&
+                  !sGroup.includes(cleanGroup) &&
+                  !cleanGroup.includes(sGroup)
+                ) {
                   return false
                 }
-                const cleanSTitleNoParen = sTitle.replace(/\s*\(\d+.*?\)/g, '').trim()
-                const cleanColTitleNoParen = cleanTitle.replace(/\s*\(\d+.*?\)/g, '').trim()
+                const cleanSTitleNoParen = sTitle.replace(/\s*\(.*?\)/g, '').trim()
+                const cleanColTitleNoParen = cleanTitle.replace(/\s*\(.*?\)/g, '').trim()
                 return (
                   sTitle === cleanTitle ||
-                  cleanSTitleNoParen === cleanColTitleNoParen ||
-                  (sTitle.length > 3 && cleanTitle.length > 3 && (sTitle.includes(cleanTitle) || cleanTitle.includes(sTitle)))
+                  cleanSTitleNoParen === cleanColTitleNoParen
                 )
               })
+
+              // F2. Khớp tương đối Title trong cùng Group (loại trừ nhầm lẫn Ngày vs Giờ)
+              if (!matched) {
+                matched = schemaList.find((s) => {
+                  const sGroup = clean(s.group)
+                  const sTitle = clean(s.title)
+                  if (
+                    sGroup !== cleanGroup &&
+                    !sGroup.includes(cleanGroup) &&
+                    !cleanGroup.includes(sGroup)
+                  ) {
+                    return false
+                  }
+                  const isSDate = sTitle.includes('ngày') || sTitle.includes('date')
+                  const isColDate = cleanTitle.includes('ngày') || cleanTitle.includes('date')
+                  if (isSDate !== isColDate) return false
+
+                  return (
+                    sTitle.length > 3 &&
+                    cleanTitle.length > 3 &&
+                    (sTitle.includes(cleanTitle) || cleanTitle.includes(sTitle))
+                  )
+                })
+              }
             }
 
-            // C. Khớp Title trên toàn bộ Schema
+            // G. Khớp Title trên toàn bộ Schema (loại trừ các cột trùng tên cần phân định thứ tự như 'Họ tên')
             if (!matched) {
+              // G1. Ưu tiên TUYỆT ĐỐI khớp chính xác Title 100% trên toàn bộ Schema
               matched = schemaList.find((s) => {
                 const sTitle = clean(s.title)
-                const cleanSTitleNoParen = sTitle.replace(/\s*\(\d+.*?\)/g, '').trim()
-                const cleanColTitleNoParen = cleanTitle.replace(/\s*\(\d+.*?\)/g, '').trim()
-                return sTitle === cleanTitle || (cleanSTitleNoParen.length > 2 && cleanSTitleNoParen === cleanColTitleNoParen)
+                if (sTitle === 'họ tên' || sTitle === 'ho ten') return false
+                const cleanSTitleNoParen = sTitle.replace(/\s*\(.*?\)/g, '').trim()
+                const cleanColTitleNoParen = cleanTitle.replace(/\s*\(.*?\)/g, '').trim()
+                return (
+                  sTitle === cleanTitle ||
+                  (cleanSTitleNoParen.length > 2 && cleanSTitleNoParen === cleanColTitleNoParen)
+                )
               })
+
+              // G2. Chỉ khi không có cột nào khớp chính xác thì mới xét khớp tương đối (và chặn nhầm lẫn Ngày vs Giờ)
+              if (!matched) {
+                matched = schemaList.find((s) => {
+                  const sTitle = clean(s.title)
+                  if (sTitle === 'họ tên' || sTitle === 'ho ten') return false
+                  const isSDate = sTitle.includes('ngày') || sTitle.includes('date')
+                  const isColDate = cleanTitle.includes('ngày') || cleanTitle.includes('date')
+                  if (isSDate !== isColDate) return false
+
+                  return (
+                    sTitle.length > 3 &&
+                    cleanTitle.length > 3 &&
+                    (sTitle.includes(cleanTitle) || cleanTitle.includes(sTitle))
+                  )
+                })
+              }
             }
 
             if (matched) {
@@ -918,22 +1440,34 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
             }
           }
 
-          // 3. Quy tắc nhận diện bổ sung cho các cột đặc biệt (Thợ máy, Phiếu duyệt, Tự động hóa)
+          // 3. Quy tắc nhận diện bổ sung cho các cột đặc biệt (Phiếu duyệt, Tự động hóa)
           if (!resolvedKey) {
             const titleLower = cleanTitle
             const groupLower = cleanGroup
 
             if (titleLower.includes('họ tên') || titleLower.includes('technician')) {
               technicianCounter++
-              if (groupLower.includes('chính') || titleLower.includes('chính') || technicianCounter === 1) {
+              if (
+                groupLower.includes('chính') ||
+                titleLower.includes('chính') ||
+                technicianCounter === 1
+              ) {
                 resolvedKey = 'LeadTechnicianName'
                 resolvedTitle = 'Họ tên'
                 colGroup = colGroup || 'Thợ chính'
-              } else if (groupLower.includes('phụ 1') || titleLower.includes('phụ 1') || technicianCounter === 2) {
+              } else if (
+                groupLower.includes('phụ 1') ||
+                titleLower.includes('phụ 1') ||
+                technicianCounter === 2
+              ) {
                 resolvedKey = 'AssistantWorker1Name'
                 resolvedTitle = 'Họ tên'
                 colGroup = colGroup || 'Thợ phụ 1'
-              } else if (groupLower.includes('phụ 2') || titleLower.includes('phụ 2') || technicianCounter === 3) {
+              } else if (
+                groupLower.includes('phụ 2') ||
+                titleLower.includes('phụ 2') ||
+                technicianCounter === 3
+              ) {
                 resolvedKey = 'AssistantWorker2Name'
                 resolvedTitle = 'Họ tên'
                 colGroup = colGroup || 'Thợ phụ 2'
@@ -948,14 +1482,46 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
               titleLower.includes('phiếu thống kê') ||
               titleLower === 'số phiếu'
             ) {
-              resolvedKey = fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'SlipNo' : 'StatSlipNo'
-              resolvedTitle = fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'Mã phiếu' : 'Số phiếu thống kê'
-            } else if (titleLower.includes('mã lệnh thống kê bravo') || titleLower.includes('thống kê bravo')) {
+              resolvedKey =
+                fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'SlipNo' : 'StatSlipNo'
+              resolvedTitle =
+                fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'Mã phiếu' : 'Số phiếu thống kê'
+            } else if (
+              titleLower.includes('mã lệnh thống kê bravo') ||
+              titleLower.includes('thống kê bravo')
+            ) {
               resolvedKey = 'BravoStatCode'
               resolvedTitle = 'Mã lệnh thống kê Bravo'
-            } else if (titleLower.includes('thời gian duyệt phiếu ở mes') || titleLower.includes('thời gian duyệt ở mes')) {
-              resolvedKey = fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'ApprovedTime' : 'MesApprovedTime'
-              resolvedTitle = fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'Thời gian duyệt' : 'Thời gian duyệt phiếu ở MES'
+            } else if (
+              titleLower.includes('thời gian duyệt phiếu ở mes') ||
+              titleLower.includes('thời gian duyệt ở mes')
+            ) {
+              resolvedKey =
+                fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL
+                  ? 'ApprovedTime'
+                  : 'MesApprovedTime'
+              resolvedTitle =
+                fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL
+                  ? 'Thời gian duyệt'
+                  : 'Thời gian duyệt phiếu ở MES'
+            } else if (
+              titleLower.includes('người phát hành') ||
+              titleLower.includes('người tạo lệnh') ||
+              titleLower.includes('người lập lệnh') ||
+              titleLower.includes('pic điều phối') ||
+              titleLower.includes('pic đp') ||
+              titleLower.includes('pic dp')
+            ) {
+              resolvedKey = 'OrderIssuer'
+              resolvedTitle = 'Người phát hành lệnh thao tác'
+              colGroup = colGroup || 'THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC'
+            } else if (
+              titleLower.includes('ngày phát hành') ||
+              titleLower.includes('ngày tạo lệnh')
+            ) {
+              resolvedKey = 'OpOrderReleaseDate'
+              resolvedTitle = 'Ngày phát hành lệnh thao tác'
+              colGroup = colGroup || 'THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC'
             } else {
               resolvedKey = colTitle.replace(/[\s/\\()+-]+/g, '_')
             }
@@ -998,14 +1564,15 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
           let hasRowData = false
 
           for (let i = 0; i < headerDefs.length; i++) {
-            const { origIndex, key, title } = headerDefs[i]
+            const { origIndex, key, title, group } = headerDefs[i]
             const addr = XLSX.utils.encode_cell({ r, c: origIndex })
             const cell = worksheet[addr]
+            let val = ''
 
             if (cell && cell.v !== undefined && cell.v !== null && cell.v !== '') {
               hasRowData = true
               const rawVal = cell.v
-              let val = cell.w !== undefined ? cell.w : cell.v
+              val = cell.w !== undefined ? cell.w : cell.v
               if (typeof val === 'string') {
                 val = val.trim()
               }
@@ -1063,15 +1630,60 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
                   typeof rawVal === 'number' || rawVal instanceof Date ? rawVal : val
                 val = formatVietnamDateTimeValue(valToFormat, `${key}_${title}`)
               }
+            }
 
-              rowObj[key] = val
-              if (title && title !== key) {
-                rowObj[title] = val
-              }
+            rowObj[key] = val
+
+            const nonUniqueTitles = ['Họ tên', 'Mã thợ']
+            if (title && title !== key && !nonUniqueTitles.includes(title)) {
+              rowObj[title] = val
+            }
+            if (group && (title === 'Họ tên' || title === 'Mã thợ')) {
+              rowObj[group] = val
+              rowObj[`${group} - ${title}`] = val
             }
           }
 
           if (hasRowData) {
+            normalizeRowOperationalTimePair(rowObj)
+
+            // Đồng bộ 2 chiều Key tiếng Anh <-> Tiêu đề tiếng Việt cho các cột Lệnh công đoạn & Lệnh thao tác
+            if (rowObj.StageTargetQty !== undefined) {
+              rowObj['SL cần đạt (CĐ)'] = rowObj.StageTargetQty
+              rowObj['Số lượng cần đạt (CĐ)'] = rowObj.StageTargetQty
+              rowObj['Số lượng cần đạt'] = rowObj['Số lượng cần đạt'] ?? rowObj.StageTargetQty
+            }
+            if (rowObj.StagePlannedQty !== undefined) {
+              rowObj['SL cần sản xuất (CĐ)'] = rowObj.StagePlannedQty
+              rowObj['Số lượng cần sản xuất (CĐ)'] = rowObj.StagePlannedQty
+              rowObj['Số lượng cần sản xuất'] = rowObj['Số lượng cần sản xuất'] ?? rowObj.StagePlannedQty
+            }
+            if (rowObj.StageOrderReleaseDate !== undefined) {
+              rowObj['Ngày phát hành lệnh CĐ'] = rowObj.StageOrderReleaseDate
+              rowObj['Ngày phát hành lệnh (CĐ)'] = rowObj.StageOrderReleaseDate
+            }
+            if (rowObj.StageOrderNo !== undefined) {
+              rowObj['Số lệnh công đoạn'] = rowObj.StageOrderNo
+            }
+            if (rowObj.StageOrderDate !== undefined) {
+              rowObj['Ngày lệnh công đoạn'] = rowObj.StageOrderDate
+            }
+            if (rowObj.OpTargetQty !== undefined) {
+              rowObj['SL cần đạt (TT)'] = rowObj.OpTargetQty
+              rowObj['Số lượng cần đạt (TT)'] = rowObj.OpTargetQty
+            }
+            if (rowObj.OpPlannedQty !== undefined) {
+              rowObj['SL cần sản xuất (TT)'] = rowObj.OpPlannedQty
+              rowObj['Số lượng cần sản xuất (TT)'] = rowObj.OpPlannedQty
+            }
+            if (rowObj.OpOrderReleaseDate !== undefined) {
+              rowObj['Ngày phát hành lệnh TT'] = rowObj.OpOrderReleaseDate
+              rowObj['Ngày phát hành lệnh (TT)'] = rowObj.OpOrderReleaseDate
+            }
+            if (rowObj.OpUnit !== undefined) {
+              rowObj['Đvt'] = rowObj.OpUnit
+            }
+
             if (!rowObj.IdSeq) {
               rowObj.IdSeq =
                 typeof crypto !== 'undefined' && crypto.randomUUID

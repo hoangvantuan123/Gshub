@@ -1,7 +1,15 @@
 /* eslint-disable react/prop-types */
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ClipboardList, Search, RotateCcw } from 'lucide-react'
+import {
+  ClipboardList,
+  Search,
+  RotateCcw,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Settings
+} from 'lucide-react'
 import DynamicQueryBar from '@renderer/user/components/query/core/DynamicQueryBar'
 import { TAB_DEFINITIONS } from '../constants/calcConstants'
 
@@ -10,6 +18,8 @@ export default function CalcProductionQuery({
   onSelectTab,
   masterInfo = {},
   onChangeMasterInfo,
+  availableVersions = [],
+  onSelectVersion,
   fileStatusSummary = {},
   searchText = '',
   setSearchText,
@@ -17,13 +27,38 @@ export default function CalcProductionQuery({
   setStatusFilter,
   totalRowsCount = 0,
   filteredRowsCount = 0,
-  disabled = false
+  disabled = false,
+  dynamicFilterFields = [],
+  filterValues = {},
+  onDynamicFilterChange,
+  onOpenRuleConfig
 }) {
   const { t } = useTranslation()
 
-  // 1. Cấu hình 4 trường thông tin Master Đăng ký
-  const masterFields = useMemo(
-    () => [
+  // State đóng/mở từng nhóm điều kiện tìm kiếm
+  const [isMasterOpen, setIsMasterOpen] = useState(true)
+  const [isFilterOpen, setIsFilterOpen] = useState(true)
+
+  // 1. Cấu hình các trường thông tin Master Đăng ký (kèm chọn Phiên bản / Version)
+  const masterFields = useMemo(() => {
+    const hasMultipleVersions = availableVersions && availableVersions.length > 1
+    const versionOptions = (availableVersions || []).map((v) => {
+      const verStr = typeof v === 'string' ? v : v.version
+      const statusStr = typeof v === 'object' && v.status ? ` (${v.status})` : ''
+      return {
+        value: verStr,
+        label: `v${verStr}${statusStr}`
+      }
+    })
+
+    if (versionOptions.length === 0) {
+      versionOptions.push({
+        value: masterInfo?.version || '1.0',
+        label: `v${masterInfo?.version || '1.0'}`
+      })
+    }
+
+    return [
       {
         key: 'RegCode',
         label: t('Mã đăng ký'),
@@ -31,6 +66,14 @@ export default function CalcProductionQuery({
         disabled: true,
         readOnly: true,
         placeholder: 'Mã hệ thống tự sinh...',
+        colSpan: 1
+      },
+      {
+        key: 'Version',
+        label: t('Phiên bản (Version)'),
+        type: hasMultipleVersions ? 'select' : 'text',
+        options: versionOptions,
+        disabled: !hasMultipleVersions,
         colSpan: 1
       },
       {
@@ -51,18 +94,26 @@ export default function CalcProductionQuery({
         colSpan: 1
       },
       {
+        key: 'Status',
+        label: t('Trạng thái báo cáo'),
+        type: 'text',
+        disabled: true,
+        readOnly: true,
+        placeholder: 'Chưa xác định',
+        colSpan: 1
+      },
+      {
         key: 'Remark',
         label: t('Ghi chú / Mô tả'),
         type: 'text',
         placeholder: 'Nhập ghi chú cho đợt tính toán...',
         colSpan: 1
       }
-    ],
-    [t]
-  )
+    ]
+  }, [availableVersions, masterInfo?.version, t])
 
-  // 2. Cấu hình các trường Tìm kiếm & Bộ lọc dữ liệu bảng
-  const filterFields = useMemo(
+  // 2. Cấu hình các trường Tìm kiếm & Bộ lọc dữ liệu bảng (kèm các trường sinh động khi bấm Ctrl + F trên cột)
+  const baseFilterFields = useMemo(
     () => [
       {
         key: 'SearchText',
@@ -80,7 +131,12 @@ export default function CalcProductionQuery({
           { value: 'Khớp số lượng', label: t('Khớp số lượng (Đạt KH)') },
           { value: 'Khớp job', label: t('Khớp job (Đạt job)') },
           { value: 'Trượt KH', label: t('Trượt KH') },
-          { value: 'SX sai ngày KH', label: t('SX sai ngày KH') }
+          { value: 'SX sai ngày KH', label: t('SX sai ngày KH') },
+          { value: 'Khác KHSX', label: t('Khác KHSX (Ngoài KH)') },
+          { value: 'Thiếu họ tên LTT', label: t('⚠️ Thiếu họ tên LTT / PIC ĐP') },
+          { value: 'Chưa có TT lệnh', label: t('⚠️ Chưa có TT lệnh thao tác') },
+          { value: 'Thiếu TT lệnh', label: t('⚠️ Thiếu TT lệnh') },
+          { value: 'Đã bổ sung', label: t('Đã bổ sung bằng tay') }
         ],
         colSpan: 2
       }
@@ -88,16 +144,35 @@ export default function CalcProductionQuery({
     [t]
   )
 
+  const filterFields = useMemo(() => {
+    if (!dynamicFilterFields || dynamicFilterFields.length === 0) {
+      return baseFilterFields
+    }
+    return [...baseFilterFields, ...dynamicFilterFields]
+  }, [baseFilterFields, dynamicFilterFields])
+
   const currentValues = useMemo(() => {
+    let displayStatus = 'BẢN NHÁP (DRAFT)'
+    if (masterInfo.status === 'PUBLISHED' || masterInfo.isPublished) {
+      displayStatus = `ĐÃ CÔNG BỐ (v${masterInfo.version || '1.0'})`
+    } else if (masterInfo.status === 'DELETED') {
+      displayStatus = 'ĐÃ XÓA TRÊN HỆ THỐNG'
+    } else if (masterInfo.status === 'CANCELLED') {
+      displayStatus = 'ĐÃ HỦY'
+    }
+
     return {
       RegCode: masterInfo.regCode || '',
+      Version: masterInfo.version || '1.0',
       FactoryName: masterInfo.factoryName || 'GS1 Hà Nội',
       ApplyDate: masterInfo.applyDate || '',
+      Status: displayStatus,
       Remark: masterInfo.remark || '',
       SearchText: searchText || '',
-      StatusFilter: statusFilter || 'ALL'
+      StatusFilter: statusFilter || 'ALL',
+      ...(filterValues || {})
     }
-  }, [masterInfo, searchText, statusFilter])
+  }, [masterInfo, searchText, statusFilter, filterValues])
 
   const handleFieldChange = (key, value) => {
     if (key === 'SearchText') {
@@ -108,8 +183,22 @@ export default function CalcProductionQuery({
       setStatusFilter && setStatusFilter(value)
       return
     }
+    if (key === 'Version') {
+      if (typeof onSelectVersion === 'function') {
+        onSelectVersion(value)
+      } else if (typeof onChangeMasterInfo === 'function') {
+        onChangeMasterInfo('version', value)
+      }
+      return
+    }
+    if (dynamicFilterFields.some((f) => f.key === key)) {
+      onDynamicFilterChange && onDynamicFilterChange(key, value)
+      return
+    }
+
     const keyMap = {
       RegCode: 'regCode',
+      Version: 'version',
       FactoryName: 'factoryName',
       ApplyDate: 'applyDate',
       Remark: 'remark'
@@ -121,6 +210,11 @@ export default function CalcProductionQuery({
   const handleResetFilters = () => {
     setSearchText && setSearchText('')
     setStatusFilter && setStatusFilter('ALL')
+    if (dynamicFilterFields && dynamicFilterFields.length > 0) {
+      dynamicFilterFields.forEach((f) => {
+        onDynamicFilterChange && onDynamicFilterChange(f.key, '')
+      })
+    }
   }
 
   // 4 Tab nạp dữ liệu đầu vào & 2 Tab kết quả tính toán
@@ -128,55 +222,122 @@ export default function CalcProductionQuery({
   const resultTabs = useMemo(() => TAB_DEFINITIONS.filter((t) => t.isResultTab), [])
 
   const hasFilterActive = Boolean(
-    (searchText && searchText.trim()) || (statusFilter && statusFilter !== 'ALL')
+    (searchText && searchText.trim()) ||
+    (statusFilter && statusFilter !== 'ALL') ||
+    Object.values(filterValues || {}).some((v) => Boolean(v && String(v).trim()))
   )
 
   return (
-    <div className="w-full bg-white overflow-hidden">
-      {/* ── PHẦN 1: THÔNG TIN ĐĂNG KÝ MASTER BÁO CÁO ── */}
-      <div className="bg-slate-50/80 px-2 py-0.5 border-b border-slate-200 flex items-center justify-between select-none">
-        <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 uppercase tracking-wide">
-          <ClipboardList size={12} className="text-indigo-600 shrink-0" />
-          <span>{t('1. THÔNG TIN ĐĂNG KÝ MASTER')}</span>
+    <div className="w-full bg-white select-none overflow-hidden">
+      {/* ── NHÓM 1: THÔNG TIN ĐĂNG KÝ MASTER BÁO CÁO (Hỗ trợ Đóng / Mở) ── */}
+      <div className="w-full">
+        <div
+          onClick={() => setIsMasterOpen((prev) => !prev)}
+          className={`bg-slate-50 hover:bg-slate-100/80 px-2.5 py-1 flex items-center justify-between cursor-pointer select-none transition-colors ${
+            !isMasterOpen ? 'border-b border-slate-200' : ''
+          }`}
+        >
+          <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-indigo-700 uppercase tracking-wide">
+            {isMasterOpen ? (
+              <ChevronDown size={13} className="text-indigo-600 shrink-0" />
+            ) : (
+              <ChevronRight size={13} className="text-slate-400 shrink-0" />
+            )}
+            <ClipboardList size={12} className="text-indigo-600 shrink-0" />
+            <span>{t('1. THÔNG TIN ĐĂNG KÝ MASTER')}</span>
+
+            {/* Khi thu gọn: hiển thị tóm tắt ngắn gọn */}
+            {!isMasterOpen && masterInfo.regCode && (
+              <span className="text-[9.5px] font-normal normal-case text-slate-500 ml-2 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded">
+                Mã: <strong className="text-indigo-700 font-mono">{masterInfo.regCode}</strong> |{' '}
+                {masterInfo.factoryName || 'GS1 Hà Nội'}
+                {masterInfo.applyDate ? ` | ${masterInfo.applyDate}` : ''}
+              </span>
+            )}
+          </div>
+
+          <span className="text-[9px] text-slate-400 font-normal italic">
+            {isMasterOpen ? t('Nhấn để thu gọn nhóm Master') : t('Nhấn để mở rộng chi tiết Master')}
+          </span>
         </div>
-        <span className="text-[9px] text-slate-500 font-normal italic">
-          {t('Áp dụng chu kỳ tính toán 24h & lưu trữ đăng ký CSDL')}
-        </span>
+
+        {isMasterOpen && (
+          <DynamicQueryBar
+            fields={masterFields}
+            allAvailableFields={masterFields}
+            values={currentValues}
+            onChange={handleFieldChange}
+            showSettings={false}
+            disabled={disabled}
+            columns={5}
+          />
+        )}
       </div>
 
-      <DynamicQueryBar
-        fields={masterFields}
-        allAvailableFields={masterFields}
-        values={currentValues}
-        onChange={handleFieldChange}
-        showSettings={false}
-        disabled={disabled}
-        columns={4}
-      />
+      {/* ── NHÓM 2: BỘ LỌC VÀ TÌM KIẾM DỮ LIỆU BẢNG (Hỗ trợ Đóng / Mở) ── */}
+      <div className="w-full">
+        <div
+          onClick={() => setIsFilterOpen((prev) => !prev)}
+          className={`bg-slate-50 hover:bg-slate-100/80 px-2.5 py-1 flex items-center justify-between cursor-pointer select-none transition-colors ${
+            !isFilterOpen ? 'border-b border-slate-200' : ''
+          }`}
+        >
+          <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-blue-700 uppercase tracking-wide">
+            {isFilterOpen ? (
+              <ChevronDown size={13} className="text-blue-600 shrink-0" />
+            ) : (
+              <ChevronRight size={13} className="text-slate-400 shrink-0" />
+            )}
+            <Search size={12} className="text-blue-600 shrink-0" />
+            <span>{t('2. BỘ LỌC & TÌM KIẾM DỮ LIỆU THEO TAB')}</span>
 
-      {/* ── PHẦN 2: BỘ LỌC VÀ TÌM KIẾM DỮ LIỆU BẢNG ── */}
-      <div className="bg-slate-50/80 px-2 py-0.5 border-t border-b border-slate-200 flex items-center justify-between select-none">
-        <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-700 uppercase tracking-wide">
-          <Search size={12} className="text-blue-600 shrink-0" />
-          <span>{t('2. BỘ LỌC & TÌM KIẾM DỮ LIỆU THEO TAB')}</span>
+            {/* Khi thu gọn: hiển thị tóm tắt lọc */}
+            {!isFilterOpen && hasFilterActive && (
+              <span className="text-[9.5px] font-normal normal-case text-blue-700 ml-2 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded flex items-center gap-1">
+                <Filter size={10} className="text-blue-600" />
+                <span>
+                  Đang lọc: {filteredRowsCount}/{totalRowsCount} dòng
+                </span>
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {hasFilterActive && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleResetFilters()
+                }}
+                className="text-slate-400 hover:text-rose-600 text-[9.5px] flex items-center gap-0.5 px-1 py-0.2 rounded hover:bg-slate-200/60"
+                title={t('Bỏ tất cả bộ lọc')}
+              >
+                <RotateCcw size={10} />
+                <span>{t('Xóa lọc')}</span>
+              </button>
+            )}
+            <span className="text-[9px] text-slate-400 font-normal italic">
+              {isFilterOpen ? t('Nhấn để thu gọn nhóm bộ lọc') : t('Nhấn để mở rộng bộ lọc')}
+            </span>
+          </div>
         </div>
-        <span className="text-[9px] text-slate-500 font-normal italic">
-          {t('Tra cứu tức thì trên các cột của tab dữ liệu hiện tại')}
-        </span>
-      </div>
 
-      <DynamicQueryBar
-        fields={filterFields}
-        allAvailableFields={filterFields}
-        values={currentValues}
-        onChange={handleFieldChange}
-        showSettings={false}
-        disabled={disabled}
-        columns={4}
-      />
+        {isFilterOpen && (
+          <DynamicQueryBar
+            fields={filterFields}
+            allAvailableFields={filterFields}
+            values={currentValues}
+            onChange={handleFieldChange}
+            showSettings={false}
+            disabled={false}
+            columns={4}
+          />
+        )}
+      </div>
 
       {/* ── PHẦN 3: THANH CHUYỂN TAB DỮ LIỆU ĐẦU VÀO & KẾT QUẢ TÍNH TOÁN ── */}
-      <div className="flex items-center px-2 border-t border-b border-slate-200 bg-white select-none h-8 w-full overflow-hidden">
+      <div className="bg-white border-b border-slate-200 flex items-center px-2 select-none h-8 w-full overflow-hidden">
         {/* 4 Tab Nạp Dữ Liệu Đầu Vào */}
         <div className="flex items-center gap-3 shrink-0">
           {inputTabs.map((tab) => {
@@ -188,7 +349,7 @@ export default function CalcProductionQuery({
               <button
                 key={tab.id}
                 onClick={() => onSelectTab(tab.id)}
-                className={`h-8 px-1.5 text-[11px] font-semibold transition-all relative flex items-center gap-1 whitespace-nowrap border-b-2 outline-none ${
+                className={`h-8 px-1.5 text-[11px] font-semibold transition-all relative flex items-center gap-1 whitespace-nowrap border-b-2 outline-none cursor-pointer ${
                   isSelected
                     ? 'border-indigo-600 text-indigo-700 font-bold'
                     : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -228,7 +389,7 @@ export default function CalcProductionQuery({
               <button
                 key={tab.id}
                 onClick={() => onSelectTab(tab.id)}
-                className={`h-8 px-1.5 text-[11px] font-semibold transition-all relative flex items-center gap-1 whitespace-nowrap border-b-2 outline-none ${
+                className={`h-8 px-1.5 text-[11px] font-semibold transition-all relative flex items-center gap-1 whitespace-nowrap border-b-2 outline-none cursor-pointer ${
                   isSelected
                     ? 'border-emerald-600 text-emerald-800 font-bold bg-emerald-50/40'
                     : hasData
@@ -252,9 +413,9 @@ export default function CalcProductionQuery({
           })}
         </div>
 
-        {/* ── CHỈ SỐ LỌC DỮ LIỆU HIỆN TẠI (GÓC PHẢI THANH TAB) ── */}
+        {/* ── GÓC PHẢI THANH TAB: BỘ LỌC ĐANG CHẠY & NÚT CẤU HÌNH QUY TẮC ICON BÁNH RĂNG ── */}
         <div className="ml-auto flex items-center gap-2 pr-1 shrink-0 text-[11px]">
-          {hasFilterActive ? (
+          {hasFilterActive && (
             <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-blue-700 text-[10px] font-semibold">
               <span>
                 {t('Đang lọc')}: {filteredRowsCount}/{totalRowsCount} {t('dòng')}
@@ -268,10 +429,16 @@ export default function CalcProductionQuery({
                 <span>{t('Bỏ lọc')}</span>
               </button>
             </div>
-          ) : (
-            <span className="text-slate-400 text-[10px]">
-              {t('Hiển thị')}: {(totalRowsCount || 0).toLocaleString('vi-VN')} {t('dòng')}
-            </span>
+          )}
+
+          {onOpenRuleConfig && (
+            <button
+              onClick={onOpenRuleConfig}
+              className="flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 border border-slate-300 text-slate-700 w-7 h-7 rounded transition cursor-pointer"
+              title={t('Cấu hình quy tắc tính toán (giờ ca kíp, dung sai, nhãn trạng thái)')}
+            >
+              <Settings size={14} className="text-slate-600 hover:text-indigo-600 transition-colors" />
+            </button>
           )}
         </div>
       </div>

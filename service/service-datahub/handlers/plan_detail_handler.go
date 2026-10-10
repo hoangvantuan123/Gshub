@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -62,24 +64,48 @@ func (h *PlanDetailHandler) PlanDetailQ(c *gin.Context) {
 
 // PlanDetailA - Thêm mới các dòng chi tiết KHSX
 func (h *PlanDetailHandler) PlanDetailA(c *gin.Context) {
+	bodyBytes, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Không thể đọc dữ liệu: " + err.Error(),
+		})
+		return
+	}
+
 	var items []models.ERPPlanDetail
-	if err := c.ShouldBindJSON(&items); err != nil {
+	_ = json.Unmarshal(bodyBytes, &items)
+
+	var rawMaps []map[string]interface{}
+	if errRaw := json.Unmarshal(bodyBytes, &rawMaps); errRaw != nil {
 		var wrapper struct {
-			Items []models.ERPPlanDetail `json:"items"`
-			Data  []models.ERPPlanDetail `json:"data"`
+			Items []map[string]interface{} `json:"items"`
+			Data  []map[string]interface{} `json:"data"`
 		}
-		if errWrap := c.ShouldBindJSON(&wrapper); errWrap == nil && (len(wrapper.Items) > 0 || len(wrapper.Data) > 0) {
+		if errWrap := json.Unmarshal(bodyBytes, &wrapper); errWrap == nil {
 			if len(wrapper.Items) > 0 {
-				items = wrapper.Items
+				rawMaps = wrapper.Items
 			} else {
-				items = wrapper.Data
+				rawMaps = wrapper.Data
 			}
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"success": false,
-				"message": "Dữ liệu dòng chi tiết KHSX không hợp lệ: " + err.Error(),
-			})
-			return
+		}
+	}
+
+	if len(items) == 0 && len(rawMaps) > 0 {
+		items = make([]models.ERPPlanDetail, len(rawMaps))
+	}
+
+	if len(items) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Dữ liệu dòng chi tiết KHSX rỗng hoặc không hợp lệ",
+		})
+		return
+	}
+
+	for i := range items {
+		if i < len(rawMaps) && rawMaps[i] != nil {
+			fillPlanDetailFromRawMap(&items[i], rawMaps[i])
 		}
 	}
 

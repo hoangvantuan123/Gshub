@@ -113,30 +113,64 @@ export default function CalcMasterQueryTable({
         return {
           kind: GridCellKind.Text,
           data: strVal,
-          displayData: `🔗 ${strVal}`,
+          displayData: strVal,
           readonly: true,
           allowOverlay: false,
           hasMenu: meta.hasMenu,
           themeOverride: {
-            textDark: '#4338ca',
-            bgCell: '#eef2ff'
+            textDark: '#1e40af',
+            bgCell: '#eff6ff'
           }
         }
       }
 
       // Ô Trạng thái
       if (meta.columnKey === 'status') {
-        const strVal = String(value)
+        const strVal = String(value).toUpperCase()
+        let displayStatus = strVal
+        let textColor = '#334155'
+        let bgColor = '#f8fafc'
+
+        if (strVal === 'DRAFT' || strVal === 'DRAFTING' || strVal.includes('ĐANG LẬP')) {
+          displayStatus = 'Đang lập (DRAFT)'
+          textColor = '#b45309'
+          bgColor = '#fffbeb'
+        } else if (
+          strVal === 'REGISTERED' ||
+          strVal.includes('ĐÃ ĐĂNG KÝ') ||
+          strVal.includes('ĐÃ LƯU')
+        ) {
+          displayStatus = 'Đã lưu (REGISTERED)'
+          textColor = '#1d4ed8'
+          bgColor = '#eff6ff'
+        } else if (
+          strVal === 'PUBLISHED' ||
+          strVal.includes('ĐÃ CÔNG BỐ') ||
+          strVal.includes('ĐÃ PHÁT HÀNH')
+        ) {
+          displayStatus = 'Đã công bố (PUBLISHED)'
+          textColor = '#047857'
+          bgColor = '#ecfdf5'
+        } else if (
+          strVal === 'APPROVED' ||
+          strVal.includes('ĐÃ PHÊ DUYỆT') ||
+          strVal.includes('ĐÃ DUYỆT')
+        ) {
+          displayStatus = 'Đã duyệt (APPROVED)'
+          textColor = '#0f766e'
+          bgColor = '#f0fdfa'
+        }
+
         return {
           kind: GridCellKind.Text,
           data: strVal,
-          displayData: strVal === 'REGISTERED' ? '✓ ĐÃ ĐĂNG KÝ' : strVal,
+          displayData: displayStatus,
           readonly: true,
           allowOverlay: false,
           hasMenu: meta.hasMenu,
           themeOverride: {
-            textDark: '#047857',
-            bgCell: '#ecfdf5'
+            textDark: textColor,
+            bgCell: bgColor
           }
         }
       }

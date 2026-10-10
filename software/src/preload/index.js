@@ -150,7 +150,13 @@ const api = {
     getAllFiles: () => ipcRenderer.invoke('sqlite:get-all-calc-files'),
     deleteFile: (fileType) => ipcRenderer.invoke('sqlite:delete-calc-file', fileType),
     calculateProduction: () => ipcRenderer.invoke('sqlite:calculate-production'),
-    saveCalcResults: (payload) => ipcRenderer.invoke('sqlite:save-calc-results', payload),
+    saveCalcResults: (idOrPayload, maybeData) => {
+      const payload =
+        typeof idOrPayload === 'object' && idOrPayload !== null && maybeData === undefined
+          ? idOrPayload
+          : { id: idOrPayload, data: maybeData }
+      return ipcRenderer.invoke('sqlite:save-calc-results', payload)
+    },
     getCalcResults: (id) => ipcRenderer.invoke('sqlite:get-calc-results', id),
     saveMasterReg: (payload) => ipcRenderer.invoke('sqlite:save-master-reg', payload),
     publishMasterReg: (payload) => ipcRenderer.invoke('sqlite:publish-master-reg', payload),

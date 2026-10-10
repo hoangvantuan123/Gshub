@@ -316,16 +316,6 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
 
       // ── 6. THỜI GIAN THỰC HIỆN
       {
-        title: t('report.startDate', 'Ngày bắt đầu'),
-        id: 'StartDate',
-        group: 'Thời gian thực hiện',
-        kind: 'Text',
-        readonly: false,
-        width: 110,
-        hasMenu: true,
-        visible: true
-      },
-      {
         title: t('report.startTime', 'Bắt đầu'),
         id: 'StartTime',
         group: 'Thời gian thực hiện',
@@ -336,8 +326,18 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
         visible: true
       },
       {
-        title: t('report.endDate', 'Ngày kết thúc'),
-        id: 'EndDate',
+        title: t('report.endTime', 'Kết thúc'),
+        id: 'EndTime',
+        group: 'Thời gian thực hiện',
+        kind: 'Text',
+        readonly: false,
+        width: 90,
+        hasMenu: true,
+        visible: true
+      },
+      {
+        title: t('report.startDate', 'Ngày bắt đầu'),
+        id: 'StartDate',
         group: 'Thời gian thực hiện',
         kind: 'Text',
         readonly: false,
@@ -346,12 +346,12 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
         visible: true
       },
       {
-        title: t('report.endTime', 'Kết thúc'),
-        id: 'EndTime',
+        title: t('report.endDate', 'Ngày kết thúc'),
+        id: 'EndDate',
         group: 'Thời gian thực hiện',
         kind: 'Text',
         readonly: false,
-        width: 90,
+        width: 110,
         hasMenu: true,
         visible: true
       },
@@ -993,7 +993,7 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
         title: t('report.syncDelayMinutes', 'Độ trễ thời gian đồng bộ 2 hệ thống'),
         id: 'SyncDelayMinutes',
         group: 'Tự động hóa & Hệ thống',
-        kind: 'Number',
+        kind: 'Text',
         readonly: false,
         width: 220,
         hasMenu: true,

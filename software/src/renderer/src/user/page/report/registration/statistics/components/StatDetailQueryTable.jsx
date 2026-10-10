@@ -104,16 +104,18 @@ export default function StatDetailQueryTable({
       const columnKey = column.id || ''
       const isStatus = columnKey === 'WorkingTag' || columnKey === 'Status'
       const isNumber =
-        column.kind === 'Number' ||
-        columnKey.includes('Qty') ||
-        columnKey.includes('Hours') ||
-        columnKey.includes('Rate') ||
-        columnKey.includes('Minute') ||
-        columnKey.includes('Total') ||
-        columnKey.includes('Output') ||
-        columnKey.includes('Speed') ||
-        columnKey.includes('Waste') ||
-        columnKey.includes('Pass')
+        columnKey !== 'SyncDelayMinutes' &&
+        columnKey !== 'SyncLatencySeconds' &&
+        (column.kind === 'Number' ||
+          columnKey.includes('Qty') ||
+          columnKey.includes('Hours') ||
+          columnKey.includes('Rate') ||
+          columnKey.includes('Minute') ||
+          columnKey.includes('Total') ||
+          columnKey.includes('Output') ||
+          columnKey.includes('Speed') ||
+          columnKey.includes('Waste') ||
+          columnKey.includes('Pass'))
       const isDate = columnKey.endsWith('Date') || columnKey.includes('Time')
       const cellTheme = getCellTheme(columnKey, column)
       const isReadOnly = isReadOnlyColumn(columnKey, column) || column.readonly || true
@@ -217,7 +219,10 @@ export default function StatDetailQueryTable({
       }
 
       // Cột số liệu
-      if (meta.isNumber || typeof val === 'number') {
+      if (
+        (meta.isNumber || typeof val === 'number') &&
+        !(typeof val === 'string' && val.includes(':'))
+      ) {
         const numVal = Number(val) || 0
         return {
           kind: GridCellKind.Number,
@@ -231,12 +236,18 @@ export default function StatDetailQueryTable({
 
       // Cột chuỗi mặc định
       const strVal = val !== undefined && val !== null ? String(val) : ''
+      const isCenter =
+        meta.columnKey === 'SyncDelayMinutes' ||
+        meta.columnKey === 'SyncLatencySeconds' ||
+        meta.columnKey === 'MesApprovalTime' ||
+        meta.columnKey === 'MesApprovedTime'
       return {
         kind: GridCellKind.Text,
         data: strVal,
         displayData: strVal,
         readonly: true,
         allowOverlay: false,
+        contentAlign: isCenter ? 'center' : undefined,
         themeOverride: meta.cellTheme
       }
     },

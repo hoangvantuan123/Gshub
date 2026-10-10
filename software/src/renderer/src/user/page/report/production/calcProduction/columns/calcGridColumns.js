@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /**
  * Định nghĩa cấu trúc cột cho Glide Data Grid có hỗ trợ Grouped Headers 2 tầng và mapping English Keys sang Tiếng Việt
  */
@@ -13,6 +14,13 @@ import {
 } from '../constants/calcConstants'
 
 export const RESULT_CALC_COLUMNS_SCHEMA = [
+  {
+    group: 'Kết quả tính toán TKSX',
+    title: 'Version tính toán',
+    key: 'CalcVersion',
+    kind: 'Text',
+    width: 110
+  },
   {
     group: 'Kết quả tính toán TKSX',
     title: 'Thời gian chạy thực tế',
@@ -96,9 +104,13 @@ const ENGLISH_KEY_TO_VIETNAMESE = {
   MachineBreakdownReason: { title: 'Nguyên nhân hỏng máy', group: 'Thiết bị & Thao tác' },
   StartTime: { title: 'Bắt đầu', group: 'Thời gian thực hiện' },
   EndTime: { title: 'Kết thúc', group: 'Thời gian thực hiện' },
+  StartDate: { title: 'Ngày bắt đầu', group: 'Thông tin thống kê' },
+  EndDate: { title: 'Ngày kết thúc', group: 'Thông tin thống kê' },
   StatEmployee: { title: 'Nhân viên thống kê' },
   StatDate: { title: 'Ngày thống kê' },
-  StatSlipNo: { title: 'Số phiếu thống kê' }
+  StatSlipNo: { title: 'Số phiếu thống kê' },
+  PicCoordinator: { title: 'PIC ĐP', group: 'Thông tin lệnh thao tác' },
+  OpInfoStatus: { title: 'Trạng thái LTT', group: 'Thông tin lệnh thao tác' }
 }
 
 export function getGridColumnsForTab(fileType, dynamicColumns = []) {
@@ -113,16 +125,21 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
       const colId = col.key || col.id || ''
       const rawTitle = col.title || ''
 
-      // 1. Kiểm tra đối soát trong Schema chuẩn của Tab
-      const matched = schemaList.find(
-        (s) =>
-          s.key === colId ||
-          s.title === rawTitle ||
-          s.title?.toLowerCase() === rawTitle.toLowerCase() ||
-          s.key?.toLowerCase() === colId.toLowerCase()
+      // 1. Kiểm tra đối soát theo Key chính xác trước
+      let matched = schemaList.find(
+        (s) => s.key === colId || s.key?.toLowerCase() === colId.toLowerCase()
       )
+      // 2. Nếu không khớp key thì mới tìm theo title (loại trừ các tiêu đề trùng lặp như 'Họ tên')
+      if (!matched && rawTitle) {
+        matched = schemaList.find(
+          (s) =>
+            (s.title === rawTitle || s.title?.toLowerCase() === rawTitle.toLowerCase()) &&
+            s.title !== 'Họ tên' &&
+            s.title !== 'Mã thợ'
+        )
+      }
 
-      // 2. Kiểm tra từ điển dịch English Key -> Vietnamese Title
+      // 3. Kiểm tra từ điển dịch English Key -> Vietnamese Title
       const engMatch =
         ENGLISH_KEY_TO_VIETNAMESE[colId] ||
         ENGLISH_KEY_TO_VIETNAMESE[rawTitle] ||
@@ -133,8 +150,11 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
           ? { title: 'Họ tên', group: col.group || 'Thợ phụ' }
           : null)
 
-      let displayTitle = matched?.title || engMatch?.title || rawTitle || colId
-      let displayGroup = col.group || matched?.group || engMatch?.group || undefined
+      let displayTitle = col.title || matched?.title || engMatch?.title || rawTitle || colId
+      let displayGroup =
+        fileType === 'result_khsx' || fileType === ARCHITECTURE_FILE_TYPES.RESULT_KHSX
+          ? col.group || undefined
+          : col.group || matched?.group || engMatch?.group || undefined
 
       // Xử lý các tên tiếng Anh còn sót
       if (!matched && !engMatch) {
@@ -171,7 +191,7 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
       width: col.width || 140,
       kind: col.kind === 'Number' ? GridCellKind.Number : GridCellKind.Text,
       hasMenu: true,
-      readonly: true
+      readonly: col.readonly !== undefined ? col.readonly : true
     }))
   } else {
     // Fallback
@@ -181,7 +201,8 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
       const engMatch = ENGLISH_KEY_TO_VIETNAMESE[colKey] || ENGLISH_KEY_TO_VIETNAMESE[colName]
       const displayTitle = engMatch?.title || colName
       const displayGroup = (typeof col === 'object' ? col.group : undefined) || engMatch?.group
-      const isNum = colName.includes('SL') || colName.includes('Số lượng') || colName.includes('Qty')
+      const isNum =
+        colName.includes('SL') || colName.includes('Số lượng') || colName.includes('Qty')
 
       return {
         title: displayTitle,

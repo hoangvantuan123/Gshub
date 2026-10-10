@@ -1,6 +1,6 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../../../components/ui/button'
 import dayjs from 'dayjs'
@@ -63,12 +63,31 @@ const executiveGridTheme = {
 }
 
 export default function PlanRegistrationDetailView() {
-  const { regCode } = useParams()
+  const params = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { formatDate } = useDateFormat()
   const { setStatusMessage, setPageData } = usePageData() || {}
   const loadingBarRef = useRef(null)
+
+  const regCode = useMemo(() => {
+    if (params?.regCode) return params.regCode
+    if (params?.seq) return params.seq
+    if (params?.['*']) {
+      const clean = params['*'].replace(/^detail\//, '').split('/')[0]
+      if (clean) return decodeURIComponent(clean)
+    }
+    const q = searchParams.get('regCode') || searchParams.get('seq')
+    if (q) return q
+
+    const fullPath = window.location.hash || window.location.pathname
+    const match = fullPath.match(/detail\/([^?#/]+)/)
+    if (match && match[1]) {
+      return decodeURIComponent(match[1])
+    }
+    return ''
+  }, [params, searchParams])
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
@@ -96,7 +115,9 @@ export default function PlanRegistrationDetailView() {
   const [remark, setRemark] = useState(() => masterInfo?.Remark || '')
 
   // ── Sheet Data State & Sorting ──
+  const PAGE_SIZE = 1500
   const [sheetData, setSheetData] = useState([])
+  const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE)
   const [sortConfig, setSortConfig] = useState({ key: '', direction: 'desc' })
   const [showSearch, setShowSearch] = useState(false)
   const [selection, setSelection] = useState({
@@ -170,6 +191,11 @@ export default function PlanRegistrationDetailView() {
     })
   }, [sheetData, sortConfig])
 
+  // Danh sách dòng hiển thị theo phân trang (1.500 dòng mỗi lần cuộn)
+  const pagedList = useMemo(() => {
+    return displayList.slice(0, displayLimit)
+  }, [displayList, displayLimit])
+
   // ── Tải dữ liệu Master & Chi tiết từ Database ──
   const fetchDetailData = useCallback(async () => {
     if (!regCode) return
@@ -193,7 +219,9 @@ export default function PlanRegistrationDetailView() {
 
         try {
           sessionStorage.setItem(`master_info_${regCode}`, JSON.stringify(currentMaster))
-        } catch {}
+        } catch (_err) {
+          // ignore cache error
+        }
       }
 
       const isStatType =
@@ -218,13 +246,18 @@ export default function PlanRegistrationDetailView() {
       }))
 
       setSheetData(cleanList)
+      const initialLoaded = Math.min(PAGE_SIZE, cleanList.length)
+      setDisplayLimit(initialLoaded)
 
       setPageData?.((prev) => ({
         ...prev,
         total: cleanList.length,
         totalAll: cleanList.length,
-        loadedCount: cleanList.length,
+        loadedCount: initialLoaded,
         totalColumns: currentColumns.length,
+        page: 1,
+        pageSize: PAGE_SIZE,
+        totalPages: Math.max(1, Math.ceil(cleanList.length / PAGE_SIZE)),
         createdBy: currentMaster?.CreatedByName || currentMaster?.CreatedBy || '',
         createdAt: currentMaster?.CreatedAt
           ? new Date(currentMaster.CreatedAt).toLocaleDateString('vi-VN')
@@ -237,7 +270,7 @@ export default function PlanRegistrationDetailView() {
 
       setStatusMessage?.({
         type: 'success',
-        text: `Đã nạp ${cleanList.length.toLocaleString('vi-VN')} dòng chi tiết cho đợt đăng ký ${regCode}`
+        text: `Đã nạp ${initialLoaded.toLocaleString('vi-VN')} / ${cleanList.length.toLocaleString('vi-VN')} dòng chi tiết cho đợt đăng ký ${regCode}`
       })
     } catch (err) {
       console.error('Fetch detail error:', err)
@@ -250,15 +283,60 @@ export default function PlanRegistrationDetailView() {
     }
   }, [regCode, setPageData, setStatusMessage, currentColumns.length])
 
+  const hasInitialFetchedRef = useRef(false)
   useEffect(() => {
-    fetchDetailData()
-  }, [fetchDetailData])
+    if (!hasInitialFetchedRef.current && regCode) {
+      hasInitialFetchedRef.current = true
+      fetchDetailData()
+    }
+  }, [regCode, fetchDetailData])
+
+  // ── Xử lý Cuộn bảng tính: ban đầu nạp 1.500 dòng, cuộn đến nửa thì nạp tiếp 1.500 dòng ──
+  const isLoadingNextPageRef = useRef(false)
+  const onVisibleRegionChanged = useCallback(
+    (range) => {
+      if (isLoadingNextPageRef.current) return
+      const bottomRow = range.y + range.height
+      const currentCount = pagedList.length
+      const totalCount = displayList.length
+
+      const halfwayThreshold = currentCount - Math.floor(PAGE_SIZE * 0.5)
+
+      if (currentCount > 0 && currentCount < totalCount && bottomRow >= halfwayThreshold) {
+        isLoadingNextPageRef.current = true
+        const nextLimit = Math.min(displayLimit + PAGE_SIZE, totalCount)
+        setDisplayLimit(nextLimit)
+        const nextPage = Math.ceil(nextLimit / PAGE_SIZE)
+        const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+
+        setPageData?.((prev) => ({
+          ...prev,
+          loadedCount: nextLimit,
+          total: totalCount,
+          totalAll: totalCount,
+          page: nextPage,
+          pageSize: PAGE_SIZE,
+          totalPages
+        }))
+
+        setStatusMessage?.({
+          type: 'info',
+          text: `Đã nạp ${nextLimit.toLocaleString('vi-VN')} / ${totalCount.toLocaleString('vi-VN')} dòng (Trang ${nextPage}/${totalPages})`
+        })
+
+        setTimeout(() => {
+          isLoadingNextPageRef.current = false
+        }, 100)
+      }
+    },
+    [pagedList.length, displayList.length, displayLimit, setPageData, setStatusMessage]
+  )
 
   // ── GLIDE GRID CELL GETTER ──
   const getCellContent = useCallback(
     ([colIndex, rowIndex]) => {
       const col = currentColumns[colIndex]
-      const row = displayList[rowIndex]
+      const row = pagedList[rowIndex]
       if (!col || !row) {
         return {
           kind: GridCellKind.Text,
@@ -297,7 +375,12 @@ export default function PlanRegistrationDetailView() {
         }
       }
 
-      if (col.kind === 'Number' || typeof val === 'number') {
+      if (
+        col.id !== 'SyncDelayMinutes' &&
+        col.id !== 'SyncLatencySeconds' &&
+        (col.kind === 'Number' || typeof val === 'number') &&
+        !(typeof val === 'string' && val.includes(':'))
+      ) {
         const numVal = typeof val === 'number' ? val : Number(val)
         const isValid = !isNaN(numVal) && val !== '' && val !== null && val !== undefined
         const finalNum = isValid ? numVal : 0
@@ -313,12 +396,18 @@ export default function PlanRegistrationDetailView() {
       }
 
       const strVal = val === null || val === undefined ? '' : String(val).trim()
+      const isCenter =
+        col.id === 'SyncDelayMinutes' ||
+        col.id === 'SyncLatencySeconds' ||
+        col.id === 'MesApprovalTime' ||
+        col.id === 'MesApprovedTime'
       return {
         kind: GridCellKind.Text,
         data: strVal,
         displayData: strVal,
         readonly: true,
-        allowOverlay: false
+        allowOverlay: false,
+        contentAlign: isCenter ? 'center' : undefined
       }
     },
     [currentColumns, displayList]
@@ -662,12 +751,13 @@ export default function PlanRegistrationDetailView() {
               <DataEditor
                 ref={gridRef}
                 columns={currentColumns}
-                rows={displayList.length}
+                rows={pagedList.length}
                 getCellContent={getCellContent}
                 gridSelection={selection}
                 onGridSelectionChange={setSelection}
                 onHeaderClicked={onHeaderClicked}
                 onColumnResize={onColumnResize}
+                onVisibleRegionChanged={onVisibleRegionChanged}
                 getCellsForSelection={true}
                 rangeSelect="rect"
                 columnSelect="multi"

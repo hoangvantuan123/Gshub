@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
 import { useCallback, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid'
@@ -25,7 +25,10 @@ export default function CalcDataGridTable({
   setCols,
   cols = [],
   defaultCols = [],
-  onVisibleRegionChanged
+  onVisibleRegionChanged,
+  onAddQueryField,
+  onCellEdited: externalOnCellEdited,
+  canEdit = true
 }) {
   const { t } = useTranslation()
   const gridRef = useRef(null)
@@ -69,7 +72,15 @@ export default function CalcDataGridTable({
     gridData,
     selection,
     setSelection,
-    canEdit: false,
+    canEdit: canEdit,
+    readOnlyBg: '#ffffff',
+    gridTheme: {
+      bgCell: '#ffffff',
+      bgHeader: '#f8fafc',
+      headerFontStyle: '600 12px',
+      baseFontStyle: '12px'
+    },
+    onAddQueryField,
     setShowSearch
   })
 
@@ -82,120 +93,23 @@ export default function CalcDataGridTable({
       const columnTitle = column.title || ''
       const isNum = column.kind === GridCellKind.Number
       const cellTheme = getCellTheme(columnKey, column)
+      const isReadOnly = column.readonly === true || column.isReadOnly === true
       return {
         columnKey,
         columnTitle,
         isNum,
         kind: column.kind,
         cellTheme,
+        isReadOnly,
         hasMenu: column.hasMenu || true
       }
     })
   }, [cols, getCellTheme])
 
-  // Tính tổng SUM cho từng cột số liệu hiển thị ở hàng cuối cùng (Summary Row) - Tối ưu Single Pass O(N)
-  const columnSums = useMemo(() => {
-    if (!gridData || gridData.length === 0 || !cols || cols.length === 0) return {}
-
-    // 1. Lọc trước danh sách các cột dạng Số
-    const numericCols = []
-    for (let i = 0; i < cols.length; i++) {
-      const col = cols[i]
-      const colId = col.id || ''
-      const colTitle = col.title || ''
-      const isNumericKind = col.kind === GridCellKind.Number
-      if (isNumericKind || col.isNumeric || col.isNumber) {
-        numericCols.push({ colId, colTitle, total: 0, hasValidNumber: false })
-      }
-    }
-
-    if (numericCols.length === 0) return {}
-
-    // 2. Duyệt 1 vòng lặp duy nhất qua toàn bộ các dòng dữ liệu (Single Pass O(N))
-    const totalRows = gridData.length
-    for (let r = 0; r < totalRows; r++) {
-      const item = gridData[r]
-      if (!item) continue
-
-      for (let c = 0; c < numericCols.length; c++) {
-        const nc = numericCols[c]
-        const rawVal = item[nc.colId] !== undefined ? item[nc.colId] : item[nc.colTitle]
-        if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
-          const num = typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal).replace(/,/g, ''))
-          if (!isNaN(num) && isFinite(num)) {
-            nc.total += num
-            nc.hasValidNumber = true
-          }
-        }
-      }
-    }
-
-    // 3. Đóng gói kết quả tổng
-    const sums = {}
-    for (let c = 0; c < numericCols.length; c++) {
-      const nc = numericCols[c]
-      if (nc.hasValidNumber) {
-        sums[nc.colId] = Number(nc.total.toFixed(2))
-      }
-    }
-
-    return sums
-  }, [gridData, cols])
-
   const getData = useCallback(
     ([col, row]) => {
       try {
         const meta = colMetadata[col]
-        const colKey = meta?.columnKey || ''
-
-        // 1. Nếu là hàng cuối cùng (Pinned SUM / Summary Row)
-        if (row === gridData.length) {
-          const isFirstCol = col === 0
-
-          if (isFirstCol) {
-            return {
-              kind: GridCellKind.Text,
-              data: 'TỔNG CỘNG',
-              displayData: 'TỔNG CỘNG',
-              readonly: true,
-              allowOverlay: false,
-              themeOverride: {
-                bgCell: '#f1f5f9',
-                textDark: '#0f172a',
-                baseFontStyle: '700 11px Inter, sans-serif'
-              }
-            }
-          }
-
-          if (columnSums[colKey] !== undefined) {
-            const sumVal = columnSums[colKey]
-            return {
-              kind: GridCellKind.Number,
-              data: sumVal,
-              displayData: sumVal.toLocaleString('vi-VN'),
-              readonly: true,
-              allowOverlay: false,
-              themeOverride: {
-                bgCell: '#f8fafc',
-                textDark: '#047857',
-                baseFontStyle: '700 11px Inter, sans-serif'
-              }
-            }
-          }
-
-          return {
-            kind: GridCellKind.Text,
-            data: '',
-            displayData: '',
-            readonly: true,
-            allowOverlay: false,
-            themeOverride: {
-              bgCell: '#f8fafc'
-            }
-          }
-        }
-
-        // 2. Dòng dữ liệu thông thường
         const item = gridData[row]
         if (!meta || !item) {
           return {
@@ -208,8 +122,13 @@ export default function CalcDataGridTable({
         }
 
         let value = item[meta.columnKey]
-        if (value === undefined || value === null || value === '') {
-          if (meta.columnTitle && item[meta.columnTitle] !== undefined) {
+        if (value === undefined || value === null) {
+          const nonUniqueTitles = ['Họ tên', 'Mã thợ', 'Số lệnh', 'Ngày phát hành', 'SL cần đạt', 'SL cần sản xuất']
+          if (
+            meta.columnTitle &&
+            !nonUniqueTitles.includes(meta.columnTitle) &&
+            item[meta.columnTitle] !== undefined
+          ) {
             value = item[meta.columnTitle]
           } else {
             value = ''
@@ -222,8 +141,8 @@ export default function CalcDataGridTable({
               kind: GridCellKind.Text,
               data: '',
               displayData: '',
-              readonly: true,
-              allowOverlay: false,
+              readonly: meta.isReadOnly,
+              allowOverlay: !meta.isReadOnly,
               hasMenu: meta.hasMenu,
               themeOverride: meta.cellTheme
             }
@@ -235,8 +154,8 @@ export default function CalcDataGridTable({
               kind: GridCellKind.Number,
               data: numVal,
               displayData: numVal.toLocaleString('vi-VN'),
-              readonly: true,
-              allowOverlay: false,
+              readonly: meta.isReadOnly,
+              allowOverlay: !meta.isReadOnly,
               hasMenu: meta.hasMenu,
               themeOverride: meta.cellTheme
             }
@@ -248,8 +167,8 @@ export default function CalcDataGridTable({
           kind: GridCellKind.Text,
           data: strVal,
           displayData: strVal,
-          readonly: true,
-          allowOverlay: false,
+          readonly: meta.isReadOnly,
+          allowOverlay: !meta.isReadOnly,
           hasMenu: meta.hasMenu,
           themeOverride: meta.cellTheme
         }
@@ -264,11 +183,50 @@ export default function CalcDataGridTable({
         }
       }
     },
-    [gridData, colMetadata, cols, columnSums]
+    [gridData, colMetadata, cols]
   )
 
-  const hasData = gridData && gridData.length > 0
-  const effectiveRows = hasData ? gridData.length + 1 : 0
+  const onCellEdited = useCallback(
+    async (cell, newValue) => {
+      if (externalOnCellEdited) {
+        return externalOnCellEdited(cell, newValue)
+      }
+      if (!canEdit) return
+      if (
+        newValue.kind !== GridCellKind.Text &&
+        newValue.kind !== GridCellKind.Custom &&
+        newValue.kind !== GridCellKind.Boolean &&
+        newValue.kind !== GridCellKind.Number
+      ) {
+        return
+      }
+      const [col, row] = cell
+      const meta = colMetadata[col]
+      if (!meta || meta.isReadOnly) return
+
+      const val = newValue.kind === GridCellKind.Number ? newValue.data : (newValue.data ?? '')
+      setGridData((prevData) => {
+        const updated = [...prevData]
+        if (!updated[row]) return prevData
+        const rowData = { ...updated[row] }
+        rowData[meta.columnKey] = val
+        if (meta.columnTitle && meta.columnTitle !== meta.columnKey) {
+          rowData[meta.columnTitle] = val
+        }
+        if (meta.columnKey === 'PicCoordinator' || meta.columnKey === 'PIC ĐP') {
+          const hasVal = Boolean(val && String(val).trim())
+          const newStatus = hasVal ? 'Đã bổ sung' : 'Thiếu PIC ĐP'
+          rowData['OpInfoStatus'] = newStatus
+          rowData['Trạng thái LTT'] = newStatus
+        }
+        updated[row] = rowData
+        return updated
+      })
+    },
+    [externalOnCellEdited, canEdit, colMetadata, setGridData]
+  )
+
+  const effectiveRows = numRows !== undefined ? numRows : gridData?.length || 0
 
   return (
     <div className="w-full h-full flex items-center justify-center">
@@ -294,18 +252,13 @@ export default function CalcDataGridTable({
           gridSelection={selection}
           onGridSelectionChange={setSelection}
           getCellsForSelection={true}
-          trailingRowOptions={{
-            hint: ' ',
-            sticky: true,
-            tint: true
-          }}
           freezeColumns={freezeColumnsCount}
           headerHeight={23}
           overscrollY={20}
           overscrollX={50}
           smoothScrollY={true}
           smoothScrollX={true}
-          freezeTrailingRows={hasData ? 1 : 0}
+          freezeTrailingRows={0}
           rowHeight={23}
           fillHandle={true}
           keybindings={keybindings}
@@ -320,6 +273,7 @@ export default function CalcDataGridTable({
           onCellClicked={onCellClicked}
           onCellActivated={onCellActivated}
           onCellContextMenu={onCellContextMenu}
+          onCellEdited={onCellEdited}
         />
 
         {showMenu !== null &&

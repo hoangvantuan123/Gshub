@@ -156,7 +156,11 @@ export default function StatisticsImportTable({
         }
       }
 
-      if (meta.kind === 'Number' || typeof value === 'number') {
+      if (
+        meta.columnKey !== 'SyncDelayMinutes' &&
+        (meta.kind === 'Number' || typeof value === 'number') &&
+        !(typeof value === 'string' && value.includes(':'))
+      ) {
         const numVal = Number(value) || 0
         return {
           kind: GridCellKind.Number,
@@ -169,7 +173,12 @@ export default function StatisticsImportTable({
         }
       }
 
-      const strValue = typeof value === 'string' ? value : String(value)
+      const strValue = typeof value === 'string' ? value : String(value ?? '')
+      const isCenter =
+        meta.columnKey === 'SyncDelayMinutes' ||
+        meta.columnKey === 'MesApprovalTime' ||
+        meta.columnKey === 'StartTime' ||
+        meta.columnKey === 'EndTime'
 
       return {
         kind: GridCellKind.Text,
@@ -178,6 +187,7 @@ export default function StatisticsImportTable({
         readonly: meta.isReadOnly,
         allowOverlay: !meta.isReadOnly,
         hasMenu: meta.hasMenu,
+        contentAlign: isCenter ? 'center' : undefined,
         themeOverride: meta.cellTheme
       }
     },

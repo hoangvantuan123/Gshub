@@ -1,4 +1,8 @@
 import { request } from '../../../../../services/apiClient'
+import {
+  normalizeProdStatsDetailRows,
+  normalizePlanDetailRows
+} from './reportColumnNormalizer'
 
 /**
  * Service kết nối Backend API cho Module Đăng ký & Báo cáo Sản xuất (KHSX & TKSX)
@@ -31,11 +35,16 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
   const reportType = payload.ReportType || payload.reportType || 'plan'
   const isStat = reportType === 'statistics' || reportType === 'tksx'
 
-  const rawData =
+  const rawInput =
     payload.SheetData ||
     payload.data ||
     (isStat ? payload.statsData || payload.StatsData : payload.planData || payload.PlanData) ||
     []
+
+  // Chuẩn hóa và ánh xạ toàn diện tất cả 98 cột TKSX hoặc 24 cột KHSX
+  const rawData = isStat
+    ? normalizeProdStatsDetailRows(rawInput)
+    : normalizePlanDetailRows(rawInput)
   const totalRows = rawData.length
 
   const factoryCode =

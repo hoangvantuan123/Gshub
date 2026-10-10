@@ -175,11 +175,71 @@ export const PageDataProvider = ({ children }) => {
     [navigate, t, setStatusMessage, loadingInfo?.isLoading]
   )
 
+  // Đóng cửa sổ an toàn: Kiểm tra dữ liệu chưa lưu trước khi đóng cửa sổ / tab
+  const requestWindowClose = useCallback(
+    (options = {}) => {
+      const isDirty =
+        typeof dirtyCheckerRef.current === 'function' ? dirtyCheckerRef.current() : false
+
+      if (isDirty) {
+        setNavConfirmState({
+          isOpen: true,
+          targetPath: '__WINDOW_CLOSE__',
+          title: options.title || t('Xác nhận đóng cửa sổ'),
+          message: options.message || t('Dữ liệu trên màn hình hiện tại chưa được lưu!'),
+          subMessage:
+            options.subMessage ||
+            t(
+              'Nếu bạn đóng cửa sổ, toàn bộ dữ liệu đang nạp và các thay đổi chưa lưu sẽ bị hủy bỏ. Bạn có chắc chắn muốn tiếp tục?'
+            )
+        })
+        return false
+      }
+
+      // Nếu không có dữ liệu chưa lưu, thực hiện đóng cửa sổ ngay lập tức
+      try {
+        if (window.electron?.close) {
+          window.electron.close()
+        } else if (window.electron?.ipcRenderer) {
+          window.electron.ipcRenderer.send('window:close')
+        } else {
+          window.close()
+        }
+      } catch (e) {
+        console.warn('Could not close window:', e)
+        try {
+          window.close()
+        } catch {}
+      }
+      return true
+    },
+    [t]
+  )
+
   // Xử lý khi người dùng đồng ý rời trang và hủy thay đổi
   const handleConfirmNav = useCallback(() => {
     const target = navConfirmState.targetPath
     setNavConfirmState((prev) => ({ ...prev, isOpen: false, targetPath: '' }))
     dirtyCheckerRef.current = null // Xóa checker để không chặn lần tới
+
+    if (target === '__WINDOW_CLOSE__') {
+      try {
+        if (window.electron?.close) {
+          window.electron.close()
+        } else if (window.electron?.ipcRenderer) {
+          window.electron.ipcRenderer.send('window:close')
+        } else {
+          window.close()
+        }
+      } catch (e) {
+        console.warn('Could not close window:', e)
+        try {
+          window.close()
+        } catch {}
+      }
+      return
+    }
+
     if (target) {
       preloadRoute(target)
       navigate(target)
@@ -280,22 +340,35 @@ export const PageDataProvider = ({ children }) => {
       setSelectionStats,
       loadingInfo,
       registerDirtyChecker,
-      safeNavigate
+      safeNavigate,
+      requestWindowClose
     }),
-    [pageData, loadingInfo, setStatusMessage, setSelectionStats, registerDirtyChecker, safeNavigate]
+    [
+      pageData,
+      loadingInfo,
+      setStatusMessage,
+      setSelectionStats,
+      registerDirtyChecker,
+      safeNavigate,
+      requestWindowClose
+    ]
   )
 
   return (
     <PageDataContext.Provider value={value}>
       {children}
 
-      {/* Modal xác nhận chuyển menu khi có dữ liệu chưa lưu */}
+      {/* Modal xác nhận chuyển menu hoặc đóng cửa sổ khi có dữ liệu chưa lưu */}
       <SystemConfirmModal
         isOpen={navConfirmState.isOpen}
         title={navConfirmState.title}
         message={navConfirmState.message}
         subMessage={navConfirmState.subMessage}
-        confirmText={t('Hủy thay đổi & Chuyển trang')}
+        confirmText={
+          navConfirmState.targetPath === '__WINDOW_CLOSE__'
+            ? t('Hủy thay đổi & Đóng cửa sổ')
+            : t('Hủy thay đổi & Chuyển trang')
+        }
         cancelText={t('Ở lại trang')}
         type="warning"
         confirmVariant="danger"

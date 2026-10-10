@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import dayjs from 'dayjs'
+import * as XLSX from 'xlsx'
 import { openChildWindow } from '@renderer/utils/openChildWindow'
 import storageAdapter from '../storageAdapterProxy'
 import {
@@ -7,19 +8,22 @@ import {
   deleteProductionBundleOnline,
   downloadProductionBundleOnline
 } from '@renderer/api/production/calcBundleApi'
-import {
-  unpackProductionBundle
-} from '../../calcProduction/engine/bundlePacker'
+import { unpackProductionBundle } from '../../calcProduction/engine/bundlePacker'
+import { clearReportCache } from '../../../common/reportDataCache'
 
 export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
   const [filters, setFilters] = useState({
-    fromDate: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
-    toDate: dayjs().format('YYYY-MM-DD'),
-    factory: 'Tất cả',
-    team: 'Tất cả',
-    regCode: '',
-    status: 'Tất cả',
-    keyword: ''
+    FactoryName: '',
+    RegCode: '',
+    ApplyDate: '',
+    FromDate: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
+    ToDate: dayjs().format('YYYY-MM-DD'),
+    Status: '',
+    Version: '',
+    ProductionTeam: '',
+    RegisteredBy: '',
+    Remark: '',
+    Keyword: ''
   })
 
   const [rawMasters, setRawMasters] = useState([])
@@ -27,6 +31,9 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
   const [isLoading, setIsLoading] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [selectedRegCode, setSelectedRegCode] = useState(null)
+
+  const filtersRef = useRef(filters)
+  filtersRef.current = filters
 
   const notify = useCallback(
     (type, text) => {
@@ -44,21 +51,9 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
     }))
   }, [])
 
-  const handleResetFilters = useCallback(() => {
-    setFilters({
-      fromDate: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
-      toDate: dayjs().format('YYYY-MM-DD'),
-      factory: 'Tất cả',
-      team: 'Tất cả',
-      regCode: '',
-      status: 'Tất cả',
-      keyword: ''
-    })
-    notify('info', 'Đã đặt lại bộ lọc tìm kiếm')
-  }, [notify])
-
   // Lấy dữ liệu Master đồng thời từ Server DataHub Database và CSDL Local Cache
-  const fetchMasterList = useCallback(async () => {
+  const fetchMasterList = useCallback(async (customFilters = null) => {
+    const currentFilters = customFilters || filtersRef.current
     setIsLoading(true)
     notify('info', 'Đang truy vấn CSDL Server DataHub & Local Cache...')
     try {
@@ -94,33 +89,113 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
       let serverList = []
       try {
         const serverRes = await queryProductionBundlesOnline({
-          from_date: filters.fromDate || '',
-          to_date: filters.toDate || '',
-          factory_name: filters.factory === 'Tất cả' ? '' : filters.factory,
-          production_team: filters.team === 'Tất cả' ? '' : filters.team,
-          reg_code: filters.regCode || '',
-          status: filters.status === 'Tất cả' ? '' : filters.status
+          from_date: currentFilters.FromDate || currentFilters.fromDate || '',
+          to_date: currentFilters.ToDate || currentFilters.toDate || '',
+          factory_name:
+            (currentFilters.FactoryName || currentFilters.factory) === 'Tất cả'
+              ? ''
+              : currentFilters.FactoryName || currentFilters.factory || '',
+          production_team:
+            (currentFilters.ProductionTeam || currentFilters.team) === 'Tất cả'
+              ? ''
+              : currentFilters.ProductionTeam || currentFilters.team || '',
+          reg_code: currentFilters.RegCode || currentFilters.regCode || '',
+          status:
+            (currentFilters.Status || currentFilters.status) === 'Tất cả'
+              ? ''
+              : currentFilters.Status || currentFilters.status || ''
         })
 
-        const rawBundles = serverRes?.bundles || serverRes?.data || serverRes?.items || []
+        const rawBundles =
+          serverRes?.bundles || serverRes?.data || serverRes?.items || []
         if (Array.isArray(rawBundles)) {
-          serverList = rawBundles.map((b) => ({
-            regCode: b.reg_code || b.regCode,
-            factoryName: b.factory_name || b.factoryName,
-            applyDate: b.apply_date || b.applyDate,
-            productionTeam: b.production_team || b.productionTeam,
-            status: b.status || 'PUBLISHED',
-            version: b.version || '1.0',
-            totalRows: b.total_rows || b.totalRows || 0,
-            statReportRows: b.stat_report_rows || b.statReportRows || 0,
-            unfinishedOpRows: b.unfinished_op_rows || b.unfinishedOpRows || 0,
-            summaryOpRows: b.summary_op_rows || b.summaryOpRows || 0,
-            mesApprovalRows: b.mes_approval_rows || b.mesApprovalRows || 0,
-            registeredAt: b.created_at || b.registered_at || b.registeredAt || new Date().toISOString(),
-            registeredBy: b.created_by || b.registeredBy || 'Hệ thống DataHub',
-            remark: b.remark || (b.compressed_size_mb ? `Online [${b.compressed_size_mb}MB]` : ''),
-            isServerRecord: true
-          }))
+          serverList = rawBundles.map((b) => {
+            let fSummaries = {}
+            try {
+              if (typeof b.file_summaries === 'string' && b.file_summaries.startsWith('{')) {
+                fSummaries = JSON.parse(b.file_summaries)
+              } else if (
+                typeof b.fileSummaries === 'string' &&
+                b.fileSummaries.startsWith('{')
+              ) {
+                fSummaries = JSON.parse(b.fileSummaries)
+              } else if (typeof b.file_summaries === 'object') {
+                fSummaries = b.file_summaries || {}
+              } else if (typeof b.fileSummaries === 'object') {
+                fSummaries = b.fileSummaries || {}
+              }
+            } catch (_e) {
+              // ignore json parse error
+            }
+
+            const statRows =
+              b.stat_report_rows ||
+              b.statReportRows ||
+              fSummaries.stat_report?.rowCount ||
+              0
+            const unfinRows =
+              b.unfinished_op_rows ||
+              b.unfinishedOpRows ||
+              fSummaries.unfinished_op?.rowCount ||
+              0
+            const sumRows =
+              b.summary_op_rows ||
+              b.summaryOpRows ||
+              fSummaries.summary_op?.rowCount ||
+              0
+            const mesRows =
+              b.mes_approval_rows ||
+              b.mesApprovalRows ||
+              fSummaries.mes_approval?.rowCount ||
+              0
+
+            const total =
+              b.total_rows ||
+              b.totalRows ||
+              statRows + unfinRows + sumRows + mesRows
+
+            const formatRegisteredAt = (val) => {
+              if (!val) return ''
+              const d = dayjs(val)
+              return d.isValid() ? d.format('YYYY-MM-DD HH:mm:ss') : String(val)
+            }
+
+            const rawMb = Number(b.raw_size_mb || b.rawSizeMB || 0)
+            const compMb = Number(b.compressed_size_mb || b.compressedSizeMB || 0)
+            const ratio = b.compression_ratio || b.compressionRatio || ''
+
+            return {
+              regCode: b.reg_code || b.regCode,
+              factoryName: b.factory_name || b.factoryName,
+              applyDate: b.apply_date || b.applyDate,
+              productionTeam: b.production_team || b.productionTeam,
+              status: b.status || 'PUBLISHED',
+              version: b.version || '1.0',
+              totalRows: total,
+              rawSizeMB: rawMb,
+              compressedSizeMB: compMb,
+              compressionRatio: ratio,
+              statReportRows: statRows,
+              unfinishedOpRows: unfinRows,
+              summaryOpRows: sumRows,
+              mesApprovalRows: mesRows,
+              fileSummaries: fSummaries,
+              registeredAt: formatRegisteredAt(
+                b.created_at ||
+                b.createdAt ||
+                b.registered_at ||
+                b.registeredAt
+              ),
+              registeredBy:
+                b.created_by ||
+                b.createdBy ||
+                b.registeredBy ||
+                b.registered_by ||
+                'Admin',
+              remark: b.remark || '',
+              isServerRecord: true
+            }
+          })
         }
       } catch (serverErr) {
         console.warn('Không thể kết nối Server DataHub:', serverErr.message)
@@ -129,18 +204,94 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
       // 3. Hợp nhất danh sách (Server DB + Local DB)
       const mergedMap = new Map()
 
-      // Đưa danh sách Server DB vào trước
+      const formatRegisteredAt = (val) => {
+        if (!val) return ''
+        const d = dayjs(val)
+        return d.isValid() ? d.format('YYYY-MM-DD HH:mm:ss') : String(val)
+      }
+
+      const isUuidStr = (str) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(str || ''))
+
+      const resolveUserDisplayName = (val, existingVal) => {
+        if (existingVal && !isUuidStr(existingVal)) {
+          return existingVal
+        }
+        if (val && !isUuidStr(val)) {
+          return val
+        }
+        try {
+          const curUser = JSON.parse(localStorage.getItem('userInfo') || '{}')
+          const curSeq = curUser.UserSeq || curUser.UserId || ''
+          if (curSeq && (curSeq === val || curSeq === existingVal)) {
+            return curUser.UserName || curUser.EmpName || curUser.UserId || 'Admin'
+          }
+        } catch {}
+        return (existingVal && !isUuidStr(existingVal))
+          ? existingVal
+          : (val && !isUuidStr(val))
+          ? val
+          : 'Admin'
+      }
+
+      const compareVersions = (v1, v2) => {
+        if (!v1 && !v2) return 0
+        if (!v1) return -1
+        if (!v2) return 1
+        const clean1 = String(v1).replace(/^[^\d]*/, '').trim()
+        const clean2 = String(v2).replace(/^[^\d]*/, '').trim()
+        const parts1 = clean1.split('.').map((p) => parseInt(p, 10) || 0)
+        const parts2 = clean2.split('.').map((p) => parseInt(p, 10) || 0)
+        for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+          const num1 = parts1[i] || 0
+          const num2 = parts2[i] || 0
+          if (num1 > num2) return 1
+          if (num1 < num2) return -1
+        }
+        return 0
+      }
+
+      const resolveLatestVersion = (v1, v2) => {
+        return compareVersions(v1, v2) >= 0 ? (v1 || '1.0') : (v2 || '1.0')
+      }
+
+      // Đưa danh sách Server DB vào trước (giữ bản ghi có version cao nhất)
       serverList.forEach((s) => {
-        if (s.regCode) mergedMap.set(s.regCode, s)
+        if (s.regCode) {
+          const existing = mergedMap.get(s.regCode)
+          const chosenVersion = existing ? resolveLatestVersion(s.version, existing.version) : (s.version || '1.0')
+          const isPublished = (s.status === 'PUBLISHED' || existing?.status === 'PUBLISHED')
+          mergedMap.set(s.regCode, {
+            ...(existing || {}),
+            ...s,
+            rawSizeMB: Number(s.rawSizeMB || existing?.rawSizeMB || 0),
+            compressedSizeMB: Number(s.compressedSizeMB || existing?.compressedSizeMB || 0),
+            compressionRatio: s.compressionRatio || existing?.compressionRatio || '',
+            status: isPublished ? 'PUBLISHED' : (s.status || existing?.status || 'DRAFT'),
+            version: chosenVersion,
+            registeredAt: formatRegisteredAt(s.registeredAt || existing?.registeredAt),
+            registeredBy: resolveUserDisplayName(s.registeredBy, s.registeredByName || s.createdByName || existing?.registeredBy)
+          })
+        }
       })
 
-      // Đưa danh sách Local DB vào (nếu có bản local mới hơn thì update)
+      // Đưa danh sách Local DB vào (đồng bộ trạng thái và ưu tiên version mới nhất)
       localList.forEach((l) => {
         if (l.regCode) {
           const existing = mergedMap.get(l.regCode)
+          const latestVer = resolveLatestVersion(l.version, existing?.version)
+          const isServerPublished = existing?.status === 'PUBLISHED'
           mergedMap.set(l.regCode, {
             ...existing,
             ...l,
+            rawSizeMB: Number(l.rawSizeMB || l.raw_size_mb || existing?.rawSizeMB || 0),
+            compressedSizeMB: Number(l.compressedSizeMB || l.compressed_size_mb || existing?.compressedSizeMB || 0),
+            compressionRatio: l.compressionRatio || l.compression_ratio || existing?.compressionRatio || '',
+            status: isServerPublished ? 'PUBLISHED' : (l.status || existing?.status || 'DRAFT'),
+            version: latestVer,
+            registeredAt: formatRegisteredAt(l.registeredAt || existing?.registeredAt || new Date()),
+            registeredBy: resolveUserDisplayName(l.registeredBy || l.registered_by || l.createdBy, existing?.registeredBy),
+            remark: l.remark || existing?.remark || '',
             isLocalCached: true
           })
         }
@@ -151,121 +302,154 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
 
       // Áp dụng bộ lọc tìm kiếm
       const filtered = combined.filter((item) => {
+        const factoryFilter = currentFilters.FactoryName || currentFilters.factory
         if (
-          filters.factory &&
-          filters.factory !== 'Tất cả' &&
-          item.factoryName !== filters.factory
+          factoryFilter &&
+          factoryFilter !== 'Tất cả' &&
+          factoryFilter !== '' &&
+          item.factoryName !== factoryFilter
         ) {
           return false
         }
+        const teamFilter = currentFilters.ProductionTeam || currentFilters.team
         if (
-          filters.team &&
-          filters.team !== 'Tất cả' &&
+          teamFilter &&
+          teamFilter !== 'Tất cả' &&
+          teamFilter !== '' &&
           item.productionTeam &&
-          item.productionTeam !== filters.team
+          item.productionTeam !== teamFilter
         ) {
           return false
         }
+        const regCodeFilter = currentFilters.RegCode || currentFilters.regCode
         if (
-          filters.regCode &&
+          regCodeFilter &&
+          regCodeFilter.trim() &&
           !String(item.regCode || '')
             .toLowerCase()
-            .includes(filters.regCode.toLowerCase())
+            .includes(regCodeFilter.trim().toLowerCase())
         ) {
           return false
         }
-        if (filters.status && filters.status !== 'Tất cả' && item.status !== filters.status) {
+        const statusFilter = currentFilters.Status || currentFilters.status
+        if (
+          statusFilter &&
+          statusFilter !== 'Tất cả' &&
+          statusFilter !== '' &&
+          item.status !== statusFilter
+        ) {
           return false
         }
-        if (item.applyDate && filters.fromDate && filters.toDate) {
-          if (item.applyDate < filters.fromDate || item.applyDate > filters.toDate) {
+        const versionFilter = currentFilters.Version || currentFilters.version
+        if (
+          versionFilter &&
+          versionFilter.trim() &&
+          !String(item.version || '')
+            .toLowerCase()
+            .includes(versionFilter.trim().toLowerCase())
+        ) {
+          return false
+        }
+        const applyDateFilter = currentFilters.ApplyDate || currentFilters.applyDate
+        if (applyDateFilter && item.applyDate && item.applyDate !== applyDateFilter) {
+          return false
+        }
+        const fromDate = currentFilters.FromDate || currentFilters.fromDate
+        const toDate = currentFilters.ToDate || currentFilters.toDate
+        if (item.applyDate && fromDate && toDate) {
+          if (item.applyDate < fromDate || item.applyDate > toDate) {
             return false
           }
         }
-        if (filters.keyword) {
-          const kw = filters.keyword.toLowerCase()
+        const userFilter = currentFilters.RegisteredBy || currentFilters.registeredBy || currentFilters.createdBy
+        if (
+          userFilter &&
+          userFilter.trim() &&
+          !String(item.registeredBy || '')
+            .toLowerCase()
+            .includes(userFilter.trim().toLowerCase())
+        ) {
+          return false
+        }
+        const remarkFilter = currentFilters.Remark || currentFilters.remark
+        if (
+          remarkFilter &&
+          remarkFilter.trim() &&
+          !String(item.remark || '')
+            .toLowerCase()
+            .includes(remarkFilter.trim().toLowerCase())
+        ) {
+          return false
+        }
+        const keyword = currentFilters.Keyword || currentFilters.keyword
+        if (keyword && keyword.trim()) {
+          const kw = keyword.trim().toLowerCase()
           const match =
             String(item.regCode || '').toLowerCase().includes(kw) ||
             String(item.remark || '').toLowerCase().includes(kw) ||
             String(item.factoryName || '').toLowerCase().includes(kw) ||
-            String(item.productionTeam || '').toLowerCase().includes(kw)
+            String(item.productionTeam || '').toLowerCase().includes(kw) ||
+            String(item.registeredBy || '').toLowerCase().includes(kw) ||
+            String(item.version || '').toLowerCase().includes(kw) ||
+            String(item.status || '').toLowerCase().includes(kw)
           if (!match) return false
         }
         return true
       })
 
       setQueriedRows(filtered)
-      notify(
-        'success',
-        `Đã nạp ${filtered.length.toLocaleString('vi-VN')} phiếu (Server DataHub + Local CSDL)`
-      )
+      notify('success', `Đã nạp ${filtered.length.toLocaleString('vi-VN')} phiếu kế hoạch`)
     } catch (err) {
       console.error('Lỗi truy vấn master:', err)
-      notify('error', `Lỗi truy vấn CSDL: ${err.message}`)
+      notify('error', `Lỗi truy vấn dữ liệu: ${err.message}`)
     } finally {
       setIsLoading(false)
     }
-  }, [filters, notify])
+  }, [notify])
 
-  // Tự động nạp khi mount hoặc khi cửa sổ active
-  useEffect(() => {
-    fetchMasterList()
-
-    const handleWindowFocus = () => {
-      fetchMasterList()
+  const handleResetFilters = useCallback(() => {
+    const emptyFilters = {
+      FactoryName: '',
+      RegCode: '',
+      ApplyDate: '',
+      FromDate: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
+      ToDate: dayjs().format('YYYY-MM-DD'),
+      Status: '',
+      Version: '',
+      ProductionTeam: '',
+      RegisteredBy: '',
+      Remark: '',
+      Keyword: ''
     }
-    window.addEventListener('focus', handleWindowFocus)
-    window.addEventListener('storage', handleWindowFocus)
-    return () => {
-      window.removeEventListener('focus', handleWindowFocus)
-      window.removeEventListener('storage', handleWindowFocus)
-    }
-  }, [fetchMasterList])
+    setFilters(emptyFilters)
+    setRawMasters([])
+    setQueriedRows([])
+    setSelectedRegCode(null)
+    notify('info', 'Đã đặt lại bộ lọc tìm kiếm')
+  }, [notify])
 
-  // Mở cửa sổ xem chi tiết 4 bảng (tự động đồng bộ từ Server DataHub nếu chưa có trong Local Cache)
+  // Mở cửa sổ xem chi tiết (Tự động đồng bộ và giải nén có modal tại cửa sổ chi tiết)
   const handleNavigateToDetail = useCallback(
-    async (regCode) => {
+    (regCode) => {
       const code = regCode || selectedRegCode
       if (!code) {
-        notify('warning', 'Vui lòng chọn 1 phiếu đăng ký để xem chi tiết 4 bảng dữ liệu')
+        notify('warning', 'Vui lòng chọn 1 phiếu đăng ký để xem chi tiết')
         return
       }
 
-      // Kiểm tra nếu phiếu này chỉ có trên Server mà chưa cache local thì tự động tải về
-      const targetRecord = rawMasters.find((m) => m.regCode === code)
-      if (targetRecord && !targetRecord.isLocalCached) {
-        setIsSyncing(true)
-        notify('info', `Đang tự động đồng bộ dữ liệu [${code}] từ Server DataHub về máy...`)
-        try {
-          const binaryBuffer = await downloadProductionBundleOnline(code)
-          if (binaryBuffer && binaryBuffer.length > 0) {
-            const unpacked = unpackProductionBundle(binaryBuffer)
-            if (unpacked?.filesData) {
-              await storageAdapter.saveAllFilesData(code, unpacked.filesData)
-              await storageAdapter.saveMasterRegistration(unpacked.masterInfo || targetRecord)
-              notify('success', `Đã đồng bộ xong dữ liệu [${code}] về DB Cache!`)
-            }
-          }
-        } catch (syncErr) {
-          console.warn('Lỗi đồng bộ ngầm gói online:', syncErr)
-        } finally {
-          setIsSyncing(false)
-        }
-      }
-
-      notify('info', `Đang mở cửa sổ chi tiết 4 bảng cho phiếu [${code}]...`)
+      notify('info', `Đang mở cửa sổ chi tiết cho phiếu [${code}]...`)
       openChildWindow({
         path: `/sub/report/calc-production-query/detail/${encodeURIComponent(code)}`,
-        title: `Chi tiết 4 bảng KHSX & TKSX - [${code}]`,
+        title: `Chi tiết KHSX & TKSX - [${code}]`,
         width: 1400,
         height: 850,
         id: `calc_detail_${code}`
       })
     },
-    [selectedRegCode, rawMasters, notify]
+    [selectedRegCode, notify]
   )
 
-  // Xóa 1 phiếu đăng ký (Xóa cả Local DB và Server DataHub)
+  // Xóa 1 phiếu đăng ký trên toàn bộ hệ thống (Local DB, Cache & Server DataHub)
   const handleDeleteMaster = useCallback(
     async (regCode) => {
       const code = regCode || selectedRegCode
@@ -273,25 +457,73 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
         notify('warning', 'Vui lòng chọn 1 phiếu đăng ký để xóa')
         return
       }
-      try {
-        await storageAdapter.deleteMasterRegistration(code)
-        localStorage.removeItem(`S_MASTER_REG_${code}`)
 
-        // Xóa trên Server DataHub
+      setIsLoading(true)
+      notify('info', `Đang tiến hành xóa phiếu [${code}] trên toàn bộ hệ thống...`)
+
+      try {
+        // 1. Xóa toàn bộ tầng Local (IndexedDB, SQLite, localStorage)
+        try {
+          await storageAdapter.deleteMasterRegistration(code)
+        } catch (_storageErr) {
+          console.warn('Lỗi xóa local storage adapter:', _storageErr)
+        }
+
+        try {
+          localStorage.removeItem(`S_MASTER_REG_${code}`)
+          localStorage.removeItem(`S_CALC_RESULTS_${code}`)
+          sessionStorage.removeItem(`S_MASTER_REG_${code}`)
+          sessionStorage.removeItem(`S_CALC_RESULTS_${code}`)
+          if (localStorage.getItem('GS_ACTIVE_DETAIL_REG_CODE') === code) {
+            localStorage.removeItem('GS_ACTIVE_DETAIL_REG_CODE')
+          }
+        } catch (_lsErr) {}
+
+        // 2. Xóa in-memory SWR cache
+        try {
+          clearReportCache(code)
+          clearReportCache()
+        } catch (_cErr) {}
+
+        // 3. Xóa trên Server DataHub
         try {
           await deleteProductionBundleOnline(code)
         } catch (serverErr) {
           console.warn('Lỗi xóa trên server DataHub:', serverErr)
         }
 
-        notify('info', `Đã xóa phiếu đăng ký [${code}]`)
-        fetchMasterList()
+        // 4. Lập tức loại bỏ khỏi danh sách đang hiển thị trên giao diện (optimistic update)
+        setRawMasters((prev) =>
+          prev.filter((m) => String(m.regCode || m.RegCode || '').toUpperCase() !== String(code).toUpperCase())
+        )
+        setQueriedRows((prev) =>
+          prev.filter((m) => String(m.regCode || m.RegCode || '').toUpperCase() !== String(code).toUpperCase())
+        )
+        setSelectedRegCode(null)
+
+        notify('success', `Đã xóa thành công phiếu [${code}] trên Server DataHub và Cache nội bộ.`)
+
+        // 5. Tải lại danh sách mới nhất để đồng bộ hoàn toàn
+        await fetchMasterList()
       } catch (err) {
         notify('error', `Không thể xóa phiếu: ${err.message}`)
+      } finally {
+        setIsLoading(false)
       }
     },
     [selectedRegCode, fetchMasterList, notify]
   )
+
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [targetExportRegCode, setTargetExportRegCode] = useState('')
+  const [isExportProgressOpen, setIsExportProgressOpen] = useState(false)
+  const [exportProgressInfo, setExportProgressInfo] = useState({
+    percent: 10,
+    step: 'INIT',
+    message: 'Đang chuẩn bị xuất dữ liệu...',
+    detail: '',
+    statusTag: 'Xuất dữ liệu Excel'
+  })
 
   // Mở cửa sổ tính toán mới
   const handleOpenCalcProduction = useCallback(() => {
@@ -305,6 +537,99 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
     })
   }, [notify])
 
+  // Mở hộp thoại xuất Excel chuẩn ERP
+  const handleExportDataKhsx = useCallback(
+    (targetCode = null) => {
+      const regCodeToExport = targetCode || selectedRegCode
+      if (!regCodeToExport) {
+        notify('warning', 'Vui lòng chọn 1 dòng phiếu đăng ký trên bảng để xuất Data KHSX.')
+        return
+      }
+      setTargetExportRegCode(regCodeToExport)
+      setIsExportModalOpen(true)
+    },
+    [selectedRegCode, notify]
+  )
+
+  // Thực thi xuất toàn bộ dữ liệu KHSX (6 bảng) của phiếu được chọn ra 1 file Excel siêu nhẹ
+  const executeExportDataKhsx = useCallback(
+    async ({ fileName, saveDirectory } = {}) => {
+      const regCodeToExport = targetExportRegCode || selectedRegCode
+      if (!regCodeToExport) return
+
+      setIsExportModalOpen(false)
+      setIsExportProgressOpen(true)
+      setExportProgressInfo({
+        percent: 10,
+        step: 'DOWNLOAD',
+        message: `Đang nạp gói dữ liệu KHSX [${regCodeToExport}]...`,
+        detail: 'Đang truy vấn CSDL Server DataHub & Local Cache',
+        statusTag: 'Đang nạp dữ liệu'
+      })
+
+      try {
+        // 1. Lấy bundle binary từ hệ thống online hoặc đọc local
+        let binaryBuffer = null
+        try {
+          binaryBuffer = await downloadProductionBundleOnline(regCodeToExport)
+        } catch (err) {
+          console.warn('Tải online thất bại, thử đọc local:', err)
+        }
+
+        let unpacked = null
+        if (binaryBuffer && binaryBuffer.length > 0) {
+          unpacked = unpackProductionBundle(binaryBuffer)
+        }
+
+        // 2. Nếu chưa có unpacked từ online, đọc từ local storage adapter
+        let calcResults = unpacked?.calcResults || null
+        if (!calcResults) {
+          try {
+            calcResults = await storageAdapter.getCalcResults(regCodeToExport)
+          } catch (e) {}
+        }
+
+        const allFiles = unpacked?.filesData || (await storageAdapter.getAllFiles()) || {}
+
+        // Import động bộ xuất Excel chuẩn 6 bảng tiếng Việt
+        const { exportFull6TabsProductionExcel } = await import(
+          '../../calcProduction/engine/calcExcelExporter'
+        )
+
+        const finalFileName =
+          fileName ||
+          `DATA_KHSX_${regCodeToExport}_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`
+
+        await exportFull6TabsProductionExcel({
+          calcResults,
+          allFiles,
+          regCode: regCodeToExport,
+          fileName: finalFileName,
+          saveDirectory,
+          onProgress: (prog) => {
+            setExportProgressInfo((prev) => ({
+              ...prev,
+              ...prog
+            }))
+          }
+        })
+
+        notify('success', `Đã xuất thành công file: ${finalFileName}`)
+      } catch (err) {
+        console.error('Lỗi xuất Data KHSX:', err)
+        notify('error', `Không thể xuất Data KHSX: ${err.message}`)
+        setExportProgressInfo({
+          percent: 100,
+          isComplete: true,
+          message: `Lỗi xuất dữ liệu: ${err.message}`,
+          detail: 'Vui lòng kiểm tra lại đường truyền hoặc dữ liệu nguồn.',
+          statusTag: 'Xuất lỗi'
+        })
+      }
+    },
+    [targetExportRegCode, selectedRegCode, notify]
+  )
+
   return {
     filters,
     handleFilterChange,
@@ -313,6 +638,15 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
     handleNavigateToDetail,
     handleOpenCalcProduction,
     handleDeleteMaster,
+    handleExportDataKhsx,
+    executeExportDataKhsx,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    targetExportRegCode,
+    isExportProgressOpen,
+    setIsExportProgressOpen,
+    exportProgressInfo,
+    setExportProgressInfo,
     queriedRows,
     selectedRegCode,
     setSelectedRegCode,

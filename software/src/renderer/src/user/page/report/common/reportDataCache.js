@@ -58,6 +58,13 @@ export function clearReportCache(cacheKey) {
   if (cacheKey) {
     delete memoryCache.masters[cacheKey]
     delete memoryCache.activeMaster[cacheKey]
+    if (memoryCache.details) {
+      Object.keys(memoryCache.details).forEach((k) => {
+        if (k.startsWith(cacheKey) || k.includes(cacheKey)) {
+          delete memoryCache.details[k]
+        }
+      })
+    }
   } else {
     memoryCache.masters = {}
     memoryCache.details = {}

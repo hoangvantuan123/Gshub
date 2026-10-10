@@ -7,6 +7,9 @@ import * as XLSX from 'xlsx'
 import DataPageContainer from '@renderer/user/components/layout/DataPageContainer'
 import { usePageData } from '@renderer/context/PageDataContext'
 import { calculateSelectionStats } from '@renderer/user/hooks/useDataGridSheet'
+import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
+import CalculationProgressOverlay from '../calcProduction/components/CalculationProgressOverlay'
+import { FileSpreadsheet } from 'lucide-react'
 import { CALC_MASTER_COLUMNS } from './columns/calcMasterColumns'
 import CalcMasterQueryActions from './components/CalcMasterQueryActions'
 import CalcMasterQueryFilters from './components/CalcMasterQueryFilters'
@@ -33,8 +36,15 @@ export default function CalcProductionQueryPage({
     handleNavigateToDetail,
     handleOpenCalcProduction,
     handleDeleteMaster,
-    handleImportBundle,
-    handleExportBundle,
+    handleExportDataKhsx,
+    executeExportDataKhsx,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    targetExportRegCode,
+    isExportProgressOpen,
+    setIsExportProgressOpen,
+    exportProgressInfo,
+    setExportProgressInfo,
     queriedRows,
     selectedRegCode,
     setSelectedRegCode,
@@ -142,16 +152,21 @@ export default function CalcProductionQueryPage({
 
     try {
       const exportData = gridData.map((r) => ({
+        'Trạng thái': r.status,
         'Mã đăng ký': r.regCode,
         'Nhà máy': r.factoryName,
         'Ngày đăng ký': r.applyDate,
-        'Trạng thái': r.status,
+        'Phiên bản': r.version || '1.0',
         'Tổng số dòng': r.totalRows,
+        'Dung lượng gốc (MB)': r.rawSizeMB || 0,
+        'Dung lượng nén (MB)': r.compressedSizeMB || 0,
+        'Tỷ lệ nén (%)': r.compressionRatio || '',
         'Thống kê SX (Dòng)': r.statReportRows,
         'Lệnh TT chưa xong (Dòng)': r.unfinishedOpRows,
         'Tổng hợp lệnh TT (Dòng)': r.summaryOpRows,
         'Duyệt SL MES (Dòng)': r.mesApprovalRows,
         'Thời gian tạo': r.registeredAt,
+        'Người tạo': r.registeredBy || 'Admin',
         'Ghi chú': r.remark
       }))
 
@@ -179,46 +194,77 @@ export default function CalcProductionQueryPage({
   }, [gridData, setStatusMessage, t])
 
   return (
-    <DataPageContainer
-      loadingBarRef={loadingBarRef}
-      actions={
-        <CalcMasterQueryActions
-          onQuery={fetchMasterList}
-          onOpenCalcProduction={handleOpenCalcProduction}
-          onViewDetail={() => handleNavigateToDetail()}
-          onDeleteSelected={() => handleDeleteMaster()}
-          onExportExcel={handleExportExcel}
-          isLoading={isLoading}
-          isSyncing={isSyncing}
-          hasSelection={Boolean(selectedRegCode)}
-          totalRows={gridData.length}
-        />
-      }
-      query={
-        <CalcMasterQueryFilters
-          filters={filters}
-          onChangeFilter={handleFilterChange}
-          onEnterQuery={fetchMasterList}
-        />
-      }
-      queryTitle={t('Bộ Lọc & Tiêu Chí Truy Vấn Phiếu Đăng Ký Master')}
-      defaultOpenQuery={true}
-      table={
-        <CalcMasterQueryTable
-          tableTitle={`${t('Danh sách phiếu đăng ký')} (${(gridData.length || 0).toLocaleString('vi-VN')} phiếu)`}
-          cols={cols}
-          setCols={setCols}
-          defaultCols={CALC_MASTER_COLUMNS}
-          gridData={gridData}
-          setGridData={setGridData}
-          numRows={gridData.length}
-          selection={selection}
-          setSelection={setSelection}
-          showSearch={showSearch}
-          setShowSearch={setShowSearch}
-          onRowDoubleClick={(row) => handleNavigateToDetail(row.regCode)}
-        />
-      }
-    />
+    <>
+      <DataPageContainer
+        loadingBarRef={loadingBarRef}
+        actions={
+          <CalcMasterQueryActions
+            onQuery={fetchMasterList}
+            onOpenCalcProduction={handleOpenCalcProduction}
+            onViewDetail={() => handleNavigateToDetail()}
+            onExportDataKhsx={() => handleExportDataKhsx()}
+            onDeleteSelected={() => handleDeleteMaster()}
+            isLoading={isLoading}
+            isSyncing={isSyncing}
+            hasSelection={Boolean(selectedRegCode)}
+          />
+        }
+        query={
+          <CalcMasterQueryFilters
+            filters={filters}
+            onChangeFilter={handleFilterChange}
+            onEnterQuery={fetchMasterList}
+            onResetFilters={handleResetFilters}
+          />
+        }
+        queryTitle={t('Bộ Lọc & Tiêu Chí Truy Vấn Phiếu Đăng Ký Master')}
+        defaultOpenQuery={true}
+        table={
+          <CalcMasterQueryTable
+            tableTitle={`${t('Danh sách phiếu đăng ký')} (${(gridData.length || 0).toLocaleString('vi-VN')} phiếu)`}
+            cols={cols}
+            setCols={setCols}
+            defaultCols={CALC_MASTER_COLUMNS}
+            gridData={gridData}
+            setGridData={setGridData}
+            numRows={gridData.length}
+            selection={selection}
+            setSelection={setSelection}
+            showSearch={showSearch}
+            setShowSearch={setShowSearch}
+            onRowDoubleClick={(row) => handleNavigateToDetail(row.regCode)}
+          />
+        }
+      />
+
+      {/* Modal Cấu hình & Chọn đường dẫn xuất Excel chuẩn ERP */}
+      <ExportExcelModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title={`Xuất Toàn Bộ Dữ Liệu KHSX (${targetExportRegCode || selectedRegCode})`}
+        reportName={`DATA_KHSX_${targetExportRegCode || selectedRegCode || 'EXPORT'}`}
+        totalRows={6}
+        loadedCount={6}
+        selectedCount={1}
+        defaultFileName={`DATA_KHSX_${targetExportRegCode || selectedRegCode || 'ALL'}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`}
+        onConfirmExport={executeExportDataKhsx}
+      />
+
+      {/* Modal Hiển thị Tiến trình Xuất 6 Bảng & Đồng Hồ Đếm Thời Gian Chạy Thực Tế */}
+      <CalculationProgressOverlay
+        isCalculating={isExportProgressOpen}
+        progressInfo={exportProgressInfo}
+        title="TIẾN TRÌNH XUẤT DỮ LIỆU EXCEL KHSX (6 BẢNG)"
+        icon={FileSpreadsheet}
+        steps={[
+          '1. Nạp gói dữ liệu',
+          '2. Tổng hợp 6 Bảng',
+          '3. Định dạng Header',
+          '4. Xuất file hoàn tất'
+        ]}
+        subMessage="Đang tổng hợp trọn bộ 6 bảng dữ liệu KHSX với tiêu đề tiếng Việt chuẩn ERP."
+        onClose={() => setIsExportProgressOpen(false)}
+      />
+    </>
   )
 }

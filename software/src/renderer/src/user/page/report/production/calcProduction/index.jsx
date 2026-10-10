@@ -17,6 +17,9 @@ import CalcProductionQuery from './components/CalcProductionQuery'
 import ImportLoadingOverlay from './components/ImportLoadingOverlay'
 import CalculationProgressOverlay from './components/CalculationProgressOverlay'
 import ExcelMappingModal from './components/ExcelMappingModal'
+import PlanRegistrationPushModal from './components/PlanRegistrationPushModal'
+import { usePageHotkeys } from '@renderer/user/hooks/usePageHotkeys'
+import { Send } from 'lucide-react'
 
 export default function CalcProductionPage({
   permissions,
@@ -58,11 +61,19 @@ export default function CalcProductionPage({
     handleRunCalculation,
     handleRegisterMaster,
     handlePublishReport,
+    handleUnlockForEdit,
     handleExportBundle,
     isPublishing,
+    setIsPublishing,
+    publishProgress,
     isExporting,
+    isPushingRegistration,
+    pushRegistrationProgress,
+    handleRegisterReportsToSystem,
+    closePushRegistrationModal,
     clearAllFiles,
-    refreshFiles
+    refreshFiles,
+    setCalcResults
   } = useCalcProductionLogic({
     setStatusMessage
   })
@@ -91,11 +102,48 @@ export default function CalcProductionPage({
   const [gridData, setGridData] = useState(() => currentData || [])
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [dynamicFilterFields, setDynamicFilterFields] = useState([])
+  const [filterValues, setFilterValues] = useState({})
   const [showSearch, setShowSearch] = useState(false)
   const [selection, setSelection] = useState({
     columns: CompactSelection.empty(),
     rows: CompactSelection.empty()
   })
+
+  const handleAddQueryField = useCallback(
+    (columnKey, colTitle) => {
+      if (!columnKey) return
+      const title = colTitle || columnKey
+
+      setDynamicFilterFields((prev) => {
+        if (prev.some((f) => f.key === columnKey)) return prev
+        return [...prev, { key: columnKey, label: title, type: 'text' }]
+      })
+
+      setStatusMessage?.({
+        type: 'info',
+        text: `Đã thêm bộ lọc tìm kiếm cho cột "${title}". Bạn có thể nhập giá trị để tìm kiếm ngay.`
+      })
+
+      setTimeout(() => {
+        const input =
+          document.getElementById(`query-input-${columnKey}`) ||
+          document.querySelector(`[data-query-key="${String(columnKey).toLowerCase()}"]`)
+        if (input) {
+          input.focus()
+          input.select?.()
+        }
+      }, 50)
+    },
+    [setStatusMessage]
+  )
+
+  const handleDynamicFilterChange = useCallback((fieldKey, value) => {
+    setFilterValues((prev) => ({
+      ...prev,
+      [fieldKey]: value
+    }))
+  }, [])
 
   // Cột động cho Grid theo từng Tab
   const defaultCols = useMemo(() => {
@@ -119,6 +167,7 @@ export default function CalcProductionPage({
     setCols(newCols)
     setSearchText('')
     setStatusFilter('ALL')
+    setFilterValues({})
     setSelection({
       columns: CompactSelection.empty(),
       rows: CompactSelection.empty()
@@ -157,7 +206,7 @@ export default function CalcProductionPage({
     t
   ])
 
-  // Lọc dữ liệu thời gian thực theo từ khóa tìm kiếm & trạng thái
+  // Lọc dữ liệu thời gian thực theo từ khóa tìm kiếm & trạng thái (Hỗ trợ tìm nhiều mã / nhiều bản ghi cùng lúc)
   const filteredGridData = useMemo(() => {
     let result = gridData || []
 
@@ -170,25 +219,148 @@ export default function CalcProductionPage({
             row['Trạng thái ĐP - SX'] ??
             row.CheckKhsx ??
             row['CHECK KHSX'] ??
+            row.OpInfoStatus ??
+            row['Trạng thái LTT'] ??
+            row['Trạng thái thông tin lệnh'] ??
             ''
         )
         return st === statusFilter
       })
     }
 
+    // 1. Lọc theo ô tìm kiếm chung SearchText (Phân tách nhiều bản ghi bằng dấu phẩy, chấm phẩy, xuống dòng, tab, pipe)
     if (searchText && searchText.trim()) {
-      const q = searchText.trim().toLowerCase()
+      const tokens = String(searchText)
+        .split(/[,;\n\r\t|]+/)
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean)
+
+      if (tokens.length > 0) {
+        result = result.filter((row) => {
+          if (!row) return false
+          return Object.values(row).some((val) => {
+            if (val === undefined || val === null) return false
+            const strVal = String(val).toLowerCase()
+            return tokens.some((token) => strVal.includes(token))
+          })
+        })
+      }
+    }
+
+    // 2. Lọc theo các trường tìm kiếm động sinh ra từ Ctrl + F (Phân tách nhiều mã bằng dấu phẩy, chấm phẩy, xuống dòng, tab, pipe)
+    const activeFilters = Object.entries(filterValues).filter(
+      ([, val]) => val !== undefined && val !== null && String(val).trim() !== ''
+    )
+
+    if (activeFilters.length > 0) {
       result = result.filter((row) => {
         if (!row) return false
-        return Object.values(row).some((val) => {
-          if (val === undefined || val === null) return false
-          return String(val).toLowerCase().includes(q)
+        return activeFilters.every(([key, filterVal]) => {
+          const tokens = String(filterVal)
+            .split(/[,;\n\r\t|]+/)
+            .map((t) => t.trim().toLowerCase())
+            .filter(Boolean)
+
+          if (tokens.length === 0) return true
+
+          const rowVal =
+            row[key] !== undefined
+              ? row[key]
+              : row[key.toLowerCase()] !== undefined
+              ? row[key.toLowerCase()]
+              : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
+
+          if (rowVal === null || rowVal === undefined) return false
+          const rowValStr = String(rowVal).toLowerCase()
+          return tokens.some((token) => rowValStr.includes(token))
         })
       })
     }
 
     return result
-  }, [gridData, searchText, statusFilter])
+  }, [gridData, searchText, statusFilter, filterValues])
+
+  // Xử lý chỉnh sửa trực tiếp ô trên bảng tính (hỗ trợ nhập tay PIC ĐP, họ tên, hoặc trạng thái)
+  const handleCellEdited = useCallback(
+    (cell, newValue) => {
+      const [col, row] = cell
+      const targetRowData = filteredGridData[row]
+      if (!targetRowData) return
+
+      const targetCol = cols[col]
+      if (!targetCol || targetCol.readonly) return
+
+      const colKey = targetCol.id || targetCol.key
+      const colTitle = targetCol.title
+      const val = newValue.kind === GridCellKind.Number ? newValue.data : (newValue.data ?? '')
+
+      setGridData((prevGrid) => {
+        const nextGrid = [...prevGrid]
+        const targetIndex = nextGrid.findIndex(
+          (r) =>
+            r === targetRowData ||
+            (r.OperationOrderNo && r.OperationOrderNo === targetRowData.OperationOrderNo) ||
+            (r['Số lệnh thao tác'] && r['Số lệnh thao tác'] === targetRowData['Số lệnh thao tác'])
+        )
+        const editIdx = targetIndex >= 0 ? targetIndex : row
+        if (!nextGrid[editIdx]) return prevGrid
+
+        const updatedRow = { ...nextGrid[editIdx] }
+        updatedRow[colKey] = val
+        if (colTitle && colTitle !== colKey) {
+          updatedRow[colTitle] = val
+        }
+
+        // Tự động cập nhật Trạng thái LTT khi sửa PIC ĐP / Họ tên
+        if (colKey === 'PicCoordinator' || colKey === 'PIC ĐP') {
+          const hasVal = Boolean(val && String(val).trim())
+          const newStatus = hasVal ? 'Đã bổ sung' : 'Thiếu họ tên LTT'
+          updatedRow['OpInfoStatus'] = newStatus
+          updatedRow['Trạng thái LTT'] = newStatus
+          updatedRow['Trạng thái thông tin lệnh'] = newStatus
+        }
+
+        nextGrid[editIdx] = updatedRow
+        return nextGrid
+      })
+
+      // Đồng bộ trực tiếp vào calcResults nếu đang đứng tại Tab Kết quả KHSX
+      if (activeTab === 'result_khsx' && setCalcResults) {
+        setCalcResults((prev) => {
+          if (!prev?.plan?.calculatedRows) return prev
+          const calcRows = [...prev.plan.calculatedRows]
+          const targetIndex = calcRows.findIndex(
+            (r) =>
+              r === targetRowData ||
+              (r.OperationOrderNo && r.OperationOrderNo === targetRowData.OperationOrderNo) ||
+              (r['Số lệnh thao tác'] && r['Số lệnh thao tác'] === targetRowData['Số lệnh thao tác'])
+          )
+          if (targetIndex >= 0) {
+            const updatedRow = { ...calcRows[targetIndex] }
+            updatedRow[colKey] = val
+            if (colTitle && colTitle !== colKey) updatedRow[colTitle] = val
+            if (colKey === 'PicCoordinator' || colKey === 'PIC ĐP') {
+              const hasVal = Boolean(val && String(val).trim())
+              const newStatus = hasVal ? 'Đã bổ sung' : 'Thiếu họ tên LTT'
+              updatedRow['OpInfoStatus'] = newStatus
+              updatedRow['Trạng thái LTT'] = newStatus
+              updatedRow['Trạng thái thông tin lệnh'] = newStatus
+            }
+            calcRows[targetIndex] = updatedRow
+            return {
+              ...prev,
+              plan: {
+                ...prev.plan,
+                calculatedRows: calcRows
+              }
+            }
+          }
+          return prev
+        })
+      }
+    },
+    [filteredGridData, cols, activeTab, setCalcResults]
+  )
 
   // Cleanup khi unmount trang (rời khỏi menu sang menu khác)
   useEffect(() => {
@@ -324,6 +496,12 @@ export default function CalcProductionPage({
     handleDeleteSelectedRows(selectedRowsIndices)
   }, [handleDeleteSelectedRows, selectedRowsIndices])
 
+  usePageHotkeys({
+    onDelete: handleDeleteRows,
+    onSave: handleRegisterMaster,
+    onSearch: () => setShowSearch(true)
+  })
+
   return (
     <>
       <DataPageContainer
@@ -336,6 +514,7 @@ export default function CalcProductionPage({
             isCalculating={isCalculating}
             isRegistering={isRegistering}
             isPublishing={isPublishing}
+            isPublished={Boolean(masterInfo.isPublished || masterInfo.status === 'PUBLISHED')}
             isExporting={isExporting}
             masterInfo={masterInfo}
             storageMode={storageMode}
@@ -349,6 +528,9 @@ export default function CalcProductionPage({
             onRunCalculation={handleRunCalculation}
             onRegisterMaster={handleRegisterMaster}
             onPublishReport={handlePublishReport}
+            onUnlockForEdit={handleUnlockForEdit}
+            onPushRegistration={handleRegisterReportsToSystem}
+            isPushingRegistration={isPushingRegistration}
             onExportBundle={handleExportBundle}
           />
         }
@@ -364,6 +546,9 @@ export default function CalcProductionPage({
             setSearchText={setSearchText}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
+            dynamicFilterFields={dynamicFilterFields}
+            filterValues={filterValues}
+            onDynamicFilterChange={handleDynamicFilterChange}
             totalRowsCount={gridData.length}
             filteredRowsCount={filteredGridData.length}
           />
@@ -383,6 +568,9 @@ export default function CalcProductionPage({
             setSelection={setSelection}
             showSearch={showSearch}
             setShowSearch={setShowSearch}
+            onAddQueryField={handleAddQueryField}
+            onCellEdited={handleCellEdited}
+            canEdit={true}
           />
         }
       />
@@ -406,6 +594,32 @@ export default function CalcProductionPage({
         subMessage={t(
           'Thao tác chuột và bàn phím đang được tạm khóa để đảm bảo tính toán đồng bộ và toàn vẹn dữ liệu. Vui lòng không tắt trang.'
         )}
+        onClose={() => setIsCalculating(false)}
+      />
+
+      {/* Modal Tiến trình Công Bố Báo Cáo */}
+      <CalculationProgressOverlay
+        isCalculating={isPublishing}
+        progressInfo={publishProgress}
+        title={t('TIẾN TRÌNH CÔNG BỐ BÁO CÁO')}
+        icon={Send}
+        steps={[
+          t('1. Chuẩn bị dữ liệu'),
+          t('2. Tổng hợp kết quả'),
+          t('3. Lưu trữ hệ thống'),
+          t('4. Hoàn tất công bố')
+        ]}
+        subMessage={t(
+          'Thao tác chuột và bàn phím đang được tạm khóa để bảo đảm dữ liệu công bố chính xác và an toàn.'
+        )}
+        onClose={() => setIsPublishing(false)}
+      />
+
+      {/* Modal Theo Dõi Tiến Trình Đăng Ký 2 Báo Cáo KHSX & TKSX Lên Hệ Thống */}
+      <PlanRegistrationPushModal
+        isOpen={pushRegistrationProgress.isOpen}
+        progressInfo={pushRegistrationProgress}
+        onClose={closePushRegistrationModal}
       />
 
       {/* Modal Cấu hình Dòng Tiêu đề và Ánh xạ Cột khi phát hiện file bất thường hoặc người dùng chủ động chỉnh */}

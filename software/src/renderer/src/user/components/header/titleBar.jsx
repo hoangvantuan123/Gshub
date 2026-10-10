@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Minus, Square, Copy, X } from 'lucide-react'
 import Logo from '../../../assets/goldusn_light_theme_favicon.png'
+import { usePageData } from '@renderer/context/PageDataContext'
 
 export default function TitleBar({ title }) {
+  const { requestWindowClose } = usePageData() || {}
   const [isMax, setIsMax] = useState(false)
   const [envSelection, setEnvSelection] = useState(
     () => localStorage.getItem('envSelection') || 'official'
@@ -96,6 +98,11 @@ export default function TitleBar({ title }) {
   }, [])
 
   const handleClose = useCallback(() => {
+    if (typeof requestWindowClose === 'function') {
+      requestWindowClose()
+      return
+    }
+
     try {
       if (window.electron?.close) {
         window.electron.close()
@@ -110,7 +117,7 @@ export default function TitleBar({ title }) {
         window.close()
       } catch {}
     }
-  }, [])
+  }, [requestWindowClose])
 
   if (!isElectron) return null
 

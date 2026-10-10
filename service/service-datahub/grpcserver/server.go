@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"service-datahub/handlers"
 	"service-datahub/models"
 	reportmodels "service-datahub/models/report"
 	pb "service-datahub/pb/datahub"
@@ -929,6 +932,7 @@ func (s *Server) SavePlanRegistration(ctx context.Context, req *pb.PlanRegistrat
 	if rowsErr != nil {
 		return &pb.PlanRegistrationSaveProtoResponse{
 			Success:      false,
+			Message:      rowsErr.Error(),
 			ErrorMessage: rowsErr.Error(),
 		}, nil
 	}
@@ -946,23 +950,17 @@ func (s *Server) SavePlanRegistration(ctx context.Context, req *pb.PlanRegistrat
 	var createdMaster reportmodels.ERPPlanMaster
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Kiá»ƒm tra tÃ­nh duy nháº¥t
-		var existingCount int64
+		// Tự động tìm và dọn dẹp các đợt cũ cùng RegCode hoặc cùng (FactoryCode + ReportType + ApplyDate) để ghi đè dữ liệu mới nhất
+		var existingMasters []reportmodels.ERPPlanMaster
 		if reportType == "statistics" || reportType == "tksx" {
-			tx.Model(&reportmodels.ERPPlanMaster{}).
-				Where(`"FactoryCode" = ? AND ("ReportType" = 'statistics' OR "ReportType" = 'tksx') AND "ApplyDate" = ?`, factoryCode, applyDate).
-				Count(&existingCount)
+			tx.Where(`"RegCode" = ? OR ("FactoryCode" = ? AND ("ReportType" = 'statistics' OR "ReportType" = 'tksx') AND "ApplyDate" = ?)`, regCode, factoryCode, applyDate).Find(&existingMasters)
 		} else {
-			tx.Model(&reportmodels.ERPPlanMaster{}).
-				Where(`"FactoryCode" = ? AND ("ReportType" = 'plan' OR "ReportType" = 'khsx') AND "ApplyDate" = ?`, factoryCode, applyDate).
-				Count(&existingCount)
+			tx.Where(`"RegCode" = ? OR ("FactoryCode" = ? AND ("ReportType" = 'plan' OR "ReportType" = 'khsx') AND "ApplyDate" = ?)`, regCode, factoryCode, applyDate).Find(&existingMasters)
 		}
-		if existingCount > 0 {
-			repTypeName := "Káº¿ hoáº¡ch sáº£n xuáº¥t"
-			if reportType == "statistics" || reportType == "tksx" {
-				repTypeName = "Thá»‘ng kÃª sáº£n xuáº¥t"
-			}
-			return fmt.Errorf("nhÃ  mÃ¡y %s Ä‘Ã£ cÃ³ Ä‘á»£t Ä‘Äƒng kÃ½ %s cho ngÃ y %s (má»—i nhÃ  mÃ¡y chá»‰ Ä‘Æ°á»£c Ä‘Äƒng kÃ½ tá»‘i Ä‘a 1 Ä‘á»£t trong 1 ngÃ y)", factoryName, repTypeName, applyDate)
+		for _, em := range existingMasters {
+			tx.Where(`"MasterSeq" = ? OR "RegCode" = ?`, em.IdSeq, em.RegCode).Delete(&reportmodels.ERPProdStatsDetail{})
+			tx.Where(`"MasterSeq" = ? OR "RegCode" = ?`, em.IdSeq, em.RegCode).Delete(&reportmodels.ERPPlanDetail{})
+			tx.Where(`"IdSeq" = ?`, em.IdSeq).Delete(&reportmodels.ERPPlanMaster{})
 		}
 
 		now := time.Now()
@@ -1063,6 +1061,7 @@ func (s *Server) SavePlanRegistration(ctx context.Context, req *pb.PlanRegistrat
 	if err != nil {
 		return &pb.PlanRegistrationSaveProtoResponse{
 			Success:      false,
+			Message:      err.Error(),
 			ErrorMessage: err.Error(),
 		}, nil
 	}
@@ -2215,13 +2214,68 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 		version = "1.0"
 	}
 
+	status := req.Status
+	if status == "" {
+		status = "PUBLISHED"
+	}
+
+	// 1. Sinh tên file & đường dẫn phân cấp theo Năm/Tháng/Ngày
+	now := time.Now()
+	year := fmt.Sprintf("%04d", now.Year())
+	month := fmt.Sprintf("%02d", int(now.Month()))
+	day := fmt.Sprintf("%02d", now.Day())
+
+	if req.ApplyDate != "" {
+		cleaned := strings.ReplaceAll(req.ApplyDate, "-", "")
+		cleaned = strings.ReplaceAll(cleaned, "/", "")
+		if len(cleaned) >= 8 {
+			year = cleaned[0:4]
+			month = cleaned[4:6]
+			day = cleaned[6:8]
+		}
+	}
+
+	factoryClean := handlers.CleanStorageSlug(req.FactoryName)
+	teamClean := handlers.CleanStorageSlug(req.ProductionTeam)
+	regCodeClean := handlers.CleanStorageSlug(req.RegCode)
+	dateClean := year + month + day
+
+	versionClean := strings.TrimPrefix(version, "v")
+	versionClean = strings.TrimPrefix(versionClean, "V")
+
+	// Đọc STORAGE_ROOT_PATH từ biến môi trường .env (mặc định "storage")
+	rootPath := os.Getenv("STORAGE_ROOT_PATH")
+	if rootPath == "" {
+		rootPath = "storage"
+	}
+	rootPath = filepath.Clean(rootPath)
+
+	fileName := fmt.Sprintf("KHSX_%s_%s_%s_%s_v%s.gsprod", factoryClean, teamClean, dateClean, regCodeClean, versionClean)
+	// relPath luôn dùng chuẩn POSIX "/" để lưu vào Database đồng nhất trên mọi OS
+	relPath := fmt.Sprintf("/ke_hoach_san_xuat/%s/%s/%s/%s/%s/%s", factoryClean, year, month, day, teamClean, fileName)
+	dirPath := filepath.Join(rootPath, "ke_hoach_san_xuat", factoryClean, year, month, day, teamClean)
+	fullPath := filepath.Join(dirPath, fileName)
+
+	// 2. Ghi file vật lý ra ổ đĩa (tương thích cả Windows, MacOS và Linux Server)
+	if len(bundleBytes) > 0 {
+		dir := filepath.Dir(fullPath)
+		if err := os.MkdirAll(dir, 0755); err == nil {
+			if writeErr := os.WriteFile(fullPath, bundleBytes, 0644); writeErr != nil {
+				s.logger.Warn("[gRPC] Không thể ghi file ra ổ đĩa", zap.String("path", fullPath), zap.Error(writeErr))
+			}
+		}
+	}
+
 	bundle := reportmodels.CalcProductionBundle{
 		RegCode:          req.RegCode,
+		Version:          version,
+		FileName:         fileName,
+		FilePath:         relPath,
+		StorageDisk:      "local",
 		FactoryName:      req.FactoryName,
 		ApplyDate:        req.ApplyDate,
 		ProductionTeam:   req.ProductionTeam,
-		Status:           "PUBLISHED",
-		Version:          version,
+		Status:           status,
 		TotalRows:        int(req.TotalRows),
 		RawSizeMB:        req.RawSizeMb,
 		CompressedSizeMB: req.CompressedSizeMb,
@@ -2233,12 +2287,13 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 		CreatedBy:        req.CreatedBy,
 	}
 
+	// 3. Upsert vào PostgreSQL trên cặp khóa (RegCode, Version) để lưu vết lịch sử nhiều version
 	err := s.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "reg_code"}},
+		Columns: []clause.Column{{Name: "RegCode"}, {Name: "Version"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"factory_name", "apply_date", "production_team", "status", "version",
-			"total_rows", "raw_size_mb", "compressed_size_mb", "compression_ratio",
-			"bundle_data", "file_summaries", "calc_summary", "remark", "updated_at",
+			"FileName", "FilePath", "StorageDisk", "FactoryName", "ApplyDate", "ProductionTeam", "Status",
+			"TotalRows", "RawSizeMB", "CompressedSizeMB", "CompressionRatio",
+			"BundleData", "FileSummaries", "CalcSummary", "Remark", "UpdatedAt",
 		}),
 	}).Create(&bundle).Error
 
@@ -2254,6 +2309,7 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 	s.logger.Info("[gRPC] Đã công bố thành công gói production bundle",
 		zap.String("reg_code", bundle.RegCode),
 		zap.String("version", bundle.Version),
+		zap.String("file_path", bundle.FilePath),
 		zap.Int("bytes", len(bundle.BundleData)),
 	)
 
@@ -2277,34 +2333,40 @@ func (s *Server) QueryProductionBundles(ctx context.Context, req *pb.QueryProduc
 		pageSize = 50
 	}
 
-	query := s.db.WithContext(ctx).Model(&reportmodels.CalcProductionBundle{}).
-		Select("id, reg_code, factory_name, apply_date, production_team, status, version, total_rows, raw_size_mb, compressed_size_mb, compression_ratio, file_summaries, calc_summary, remark, created_by, created_at, updated_at")
+	type bundleQueryResult struct {
+		reportmodels.CalcProductionBundle
+		CreatedByName string `gorm:"column:CreatedByName"`
+	}
+
+	query := s.db.WithContext(ctx).Table(`"_ERPProductionBundle" AS b`).
+		Select(`b."Id", b."RegCode", b."FactoryName", b."ApplyDate", b."ProductionTeam", b."Status", b."Version", b."FileName", b."FilePath", b."StorageDisk", b."TotalRows", b."RawSizeMB", b."CompressedSizeMB", b."CompressionRatio", b."FileSummaries", b."CalcSummary", b."Remark", b."CreatedBy", COALESCE(NULLIF(u."UserName", ''), NULLIF(u."EmpName", ''), NULLIF(u."UserId", ''), b."CreatedBy") AS "CreatedByName", b."CreatedAt", b."UpdatedAt"`).
+		Joins(`LEFT JOIN "_ERPUsers" AS u ON u."UserSeq"::text = b."CreatedBy" OR LOWER(u."UserId") = LOWER(b."CreatedBy")`)
 
 	if req.GetFactoryName() != "" && req.GetFactoryName() != "Tất cả" {
-		query = query.Where("factory_name = ?", req.GetFactoryName())
+		query = query.Where(`b."FactoryName" = ?`, req.GetFactoryName())
 	}
 	if req.GetProductionTeam() != "" && req.GetProductionTeam() != "Tất cả" {
-		query = query.Where("production_team = ?", req.GetProductionTeam())
+		query = query.Where(`b."ProductionTeam" = ?`, req.GetProductionTeam())
 	}
 	if req.GetStatus() != "" && req.GetStatus() != "Tất cả" {
-		query = query.Where("status = ?", req.GetStatus())
+		query = query.Where(`b."Status" = ?`, req.GetStatus())
 	}
 	if req.GetApplyDateFrom() != "" {
-		query = query.Where("apply_date >= ?", req.GetApplyDateFrom())
+		query = query.Where(`b."ApplyDate" >= ?`, req.GetApplyDateFrom())
 	}
 	if req.GetApplyDateTo() != "" {
-		query = query.Where("apply_date <= ?", req.GetApplyDateTo())
+		query = query.Where(`b."ApplyDate" <= ?`, req.GetApplyDateTo())
 	}
 	if req.GetKeyword() != "" {
 		like := "%" + req.GetKeyword() + "%"
-		query = query.Where("(reg_code ILIKE ? OR remark ILIKE ? OR created_by ILIKE ?)", like, like, like)
+		query = query.Where(`(b."RegCode" ILIKE ? OR b."Remark" ILIKE ? OR b."CreatedBy" ILIKE ? OR u."UserName" ILIKE ? OR u."EmpName" ILIKE ? OR u."UserId" ILIKE ?)`, like, like, like, like, like, like)
 	}
 
 	var totalRecords int64
 	query.Count(&totalRecords)
 
-	var items []reportmodels.CalcProductionBundle
-	err := query.Order("created_at DESC").
+	var items []bundleQueryResult
+	err := query.Order(`b."CreatedAt" DESC`).
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&items).Error
@@ -2319,6 +2381,14 @@ func (s *Server) QueryProductionBundles(ctx context.Context, req *pb.QueryProduc
 
 	protoItems := make([]*pb.ProductionBundleProtoItem, len(items))
 	for i, it := range items {
+		displayName := it.CreatedByName
+		if displayName == "" {
+			displayName = it.CreatedBy
+		}
+		if displayName == "" {
+			displayName = "Admin"
+		}
+
 		protoItems[i] = &pb.ProductionBundleProtoItem{
 			Id:               uint32(it.ID),
 			RegCode:          it.RegCode,
@@ -2334,7 +2404,7 @@ func (s *Server) QueryProductionBundles(ctx context.Context, req *pb.QueryProduc
 			FileSummaries:    it.FileSummaries,
 			CalcSummary:      it.CalcSummary,
 			Remark:           it.Remark,
-			CreatedBy:        it.CreatedBy,
+			CreatedBy:        displayName,
 			CreatedAt:        it.CreatedAt.Format("2006-01-02 15:04:05"),
 			UpdatedAt:        it.UpdatedAt.Format("2006-01-02 15:04:05"),
 		}
@@ -2359,8 +2429,29 @@ func (s *Server) GetProductionBundleData(ctx context.Context, req *pb.GetProduct
 		}, nil
 	}
 
+	rawRegCode := req.GetRegCode()
+	regCode := rawRegCode
+	version := ""
+
+	if strings.Contains(rawRegCode, "@v") {
+		parts := strings.Split(rawRegCode, "@v")
+		regCode = parts[0]
+		version = parts[1]
+	} else if strings.Contains(rawRegCode, "@") {
+		parts := strings.Split(rawRegCode, "@")
+		regCode = parts[0]
+		version = parts[1]
+	}
+
 	var bundle reportmodels.CalcProductionBundle
-	err := s.db.WithContext(ctx).Where("reg_code = ?", req.RegCode).First(&bundle).Error
+	query := s.db.WithContext(ctx).Where("\"RegCode\" = ?", regCode)
+	if version != "" {
+		query = query.Where("\"Version\" = ?", version)
+	} else {
+		query = query.Order("\"Version\" DESC, \"CreatedAt\" DESC")
+	}
+
+	err := query.First(&bundle).Error
 	if err != nil {
 		return &pb.GetProductionBundleDataProtoResponse{
 			Success:      false,
@@ -2369,12 +2460,30 @@ func (s *Server) GetProductionBundleData(ctx context.Context, req *pb.GetProduct
 		}, nil
 	}
 
+	bundleBytes := bundle.BundleData
+	if len(bundleBytes) == 0 && bundle.FilePath != "" {
+		rootPath := os.Getenv("STORAGE_ROOT_PATH")
+		if rootPath == "" {
+			rootPath = "storage"
+		}
+		rootPath = filepath.Clean(rootPath)
+
+		// Chuẩn hóa đường dẫn từ DB sang hệ điều hành hiện tại (Windows / macOS / Linux)
+		cleanRel := strings.TrimPrefix(bundle.FilePath, "/")
+		cleanRel = strings.TrimPrefix(cleanRel, "\\")
+		diskPath := filepath.Join(rootPath, filepath.FromSlash(cleanRel))
+
+		if data, readErr := os.ReadFile(diskPath); readErr == nil && len(data) > 0 {
+			bundleBytes = data
+		}
+	}
+
 	return &pb.GetProductionBundleDataProtoResponse{
 		Success:    true,
 		Message:    "Lấy gói dữ liệu thành công",
 		RegCode:    bundle.RegCode,
 		Version:    bundle.Version,
-		BundleData: bundle.BundleData,
+		BundleData: bundleBytes,
 		TotalRows:  int32(bundle.TotalRows),
 	}, nil
 }
@@ -2388,7 +2497,8 @@ func (s *Server) DeleteProductionBundle(ctx context.Context, req *pb.DeleteProdu
 		}, nil
 	}
 
-	res := s.db.WithContext(ctx).Where("reg_code = ?", req.RegCode).Delete(&reportmodels.CalcProductionBundle{})
+	cleanCode := strings.TrimSpace(req.RegCode)
+	res := s.db.WithContext(ctx).Exec(`DELETE FROM "_ERPProductionBundle" WHERE LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode)
 	if res.Error != nil {
 		return &pb.DeleteProductionBundleProtoResponse{
 			Success:      false,
@@ -2396,6 +2506,12 @@ func (s *Server) DeleteProductionBundle(ctx context.Context, req *pb.DeleteProdu
 			ErrorMessage: res.Error.Error(),
 		}, nil
 	}
+
+	// Đồng thời dọn dẹp các bản ghi tương ứng trong các bảng liên quan nếu có
+	s.db.WithContext(ctx).Exec(`DELETE FROM plan_master WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+	s.db.WithContext(ctx).Exec(`DELETE FROM plan_registration WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+	s.db.WithContext(ctx).Exec(`DELETE FROM plan_detail WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+	s.db.WithContext(ctx).Exec(`DELETE FROM prod_stats_detail WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
 
 	return &pb.DeleteProductionBundleProtoResponse{
 		Success:     true,

@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types, no-unused-vars */
 import { usePageData } from '../../../context/PageDataContext'
 import BreadcrumbRouter from '../sildebar/breadcrumb'
 import { useState, useEffect, memo, useCallback } from 'react'
@@ -125,6 +126,8 @@ const StatusBar = ({ rootMenu, menuTransForm, userName }) => {
     updatedBy = '',
     updatedAt = '',
     statusMessage = null,
+    selectionStats = null,
+    calcSummary = null,
     rowStatusCounts = { aCount: 0, uCount: 0, dCount: 0, eCount: 0 }
   } = pageData || {}
   const { aCount = 0, uCount = 0, dCount = 0, eCount = 0 } = rowStatusCounts || {}
@@ -200,8 +203,10 @@ const StatusBar = ({ rootMenu, menuTransForm, userName }) => {
         )}
       </div>
 
-      {/* Khối bên phải: Thống kê trạng thái A U E + Chỉ số dữ liệu & Hệ thống */}
+      {/* Khối bên phải: Thống kê lựa chọn Excel / Chỉ số SX + Trạng thái A U E + Chỉ số dữ liệu & Hệ thống */}
       <div className="flex items-center text-[9px] font-medium uppercase h-full shrink-0 ml-2">
+
+
         {/* Thống kê trạng thái dòng dữ liệu trên bảng (A, U, E) */}
         <div className="flex items-center gap-2 px-2.5 h-full border-l border-gray-200 select-none text-[9.5px]">
           <span

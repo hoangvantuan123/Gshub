@@ -679,10 +679,10 @@ export const SUMMARY_OP_COLUMN_SCHEMA = [
   },
   {
     group: 'THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC',
-    title: 'Ngày phát hành lệnh thao tác',
-    key: 'OpOrderReleaseDate',
+    title: 'Người phát hành lệnh thao tác',
+    key: 'OrderIssuer',
     kind: 'Text',
-    width: 140
+    width: 170
   },
   {
     group: 'THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC',
@@ -1395,7 +1395,8 @@ export const MES_APPROVAL_COLUMN_SCHEMA = [
 ]
 
 export const RESULT_KHSX_COLUMN_SCHEMA = [
-  { title: 'PIC ĐP', key: 'PicCoordinator', kind: 'Text', width: 170 },
+  { title: 'PIC ĐP', key: 'PicCoordinator', kind: 'Text', width: 170, readonly: false },
+  { title: 'Trạng thái LTT', key: 'OpInfoStatus', kind: 'Text', width: 150, readonly: false },
   { title: 'Số lệnh thao tác', key: 'OperationOrderNo', kind: 'Text', width: 160 },
   { title: 'Ngày thực hiện thao tác', key: 'OperationDate', kind: 'Text', width: 140 },
   { title: 'Số lệnh công đoạn', key: 'StageOrderNo', kind: 'Text', width: 160 },
@@ -1475,3 +1476,55 @@ export const TAB_DEFINITIONS = [
     isResultTab: true
   }
 ]
+
+/**
+ * Tự động tăng phiên bản khi người dùng bấm "Chỉnh sửa bản mới"
+ * Hỗ trợ các định dạng phổ biến: '1.0' -> '2.0', 'V1' -> 'V2', '1' -> '2', '1.1' -> '1.2'
+ */
+export function getNextVersion(currentVersion) {
+  if (!currentVersion) return '2.0'
+  const str = String(currentVersion).trim()
+
+  // Dạng V1, V2, v1, v2...
+  const vMatch = str.match(/^([Vv])(\d+)$/)
+  if (vMatch) {
+    const prefix = vMatch[1]
+    const num = parseInt(vMatch[2], 10) + 1
+    return `${prefix}${num}`
+  }
+
+  // Dạng V1.0, v1.0, V1.2...
+  const vDecMatch = str.match(/^([Vv])(\d+)\.(\d+)$/)
+  if (vDecMatch) {
+    const prefix = vDecMatch[1]
+    const major = parseInt(vDecMatch[2], 10)
+    const minor = parseInt(vDecMatch[3], 10)
+    if (minor === 0) {
+      return `${prefix}${major + 1}.0`
+    }
+    return `${prefix}${major}.${minor + 1}`
+  }
+
+  // Dạng số thập phân 1.0 -> 2.0, 1.1 -> 1.2
+  const decMatch = str.match(/^(\d+)\.(\d+)$/)
+  if (decMatch) {
+    const major = parseInt(decMatch[1], 10)
+    const minor = parseInt(decMatch[2], 10)
+    if (minor === 0) {
+      return `${major + 1}.0`
+    }
+    return `${major}.${minor + 1}`
+  }
+
+  // Dạng số nguyên 1 -> 2
+  if (/^\d+$/.test(str)) {
+    return String(parseInt(str, 10) + 1)
+  }
+
+  const digits = str.replace(/\D/g, '')
+  if (digits) {
+    return `V${parseInt(digits, 10) + 1}`
+  }
+
+  return `${str}.1`
+}

@@ -5,6 +5,14 @@ import { GridCellKind } from '@glideapps/glide-data-grid'
 
 export const CALC_MASTER_COLUMNS = [
   {
+    id: 'status',
+    title: 'Trạng thái',
+    width: 140,
+    kind: GridCellKind.Text,
+    hasMenu: true,
+    readonly: true
+  },
+  {
     id: 'regCode',
     title: 'Mã đăng ký',
     width: 170,
@@ -29,14 +37,6 @@ export const CALC_MASTER_COLUMNS = [
     readonly: true
   },
   {
-    id: 'status',
-    title: 'Trạng thái',
-    width: 130,
-    kind: GridCellKind.Text,
-    hasMenu: true,
-    readonly: true
-  },
-  {
     id: 'version',
     title: 'Phiên bản',
     width: 100,
@@ -49,6 +49,30 @@ export const CALC_MASTER_COLUMNS = [
     title: 'Tổng số dòng',
     width: 120,
     kind: GridCellKind.Number,
+    hasMenu: true,
+    readonly: true
+  },
+  {
+    id: 'rawSizeMB',
+    title: 'Dung lượng gốc (MB)',
+    width: 150,
+    kind: GridCellKind.Number,
+    hasMenu: true,
+    readonly: true
+  },
+  {
+    id: 'compressedSizeMB',
+    title: 'Dung lượng nén (MB)',
+    width: 150,
+    kind: GridCellKind.Number,
+    hasMenu: true,
+    readonly: true
+  },
+  {
+    id: 'compressionRatio',
+    title: 'Tỷ lệ nén (%)',
+    width: 110,
+    kind: GridCellKind.Text,
     hasMenu: true,
     readonly: true
   },

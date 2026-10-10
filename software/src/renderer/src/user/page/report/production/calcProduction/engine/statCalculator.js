@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import customParseFormat from 'dayjs/plugin/customParseFormat'
 import { STAT_REPORT_COLUMN_SCHEMA } from '../constants/calcConstants'
+import { normalizeRowOperationalTimePair } from './fileParsers'
 
 dayjs.extend(customParseFormat)
 
@@ -34,12 +35,17 @@ function parseTimeToMinutesInDay(val) {
     }
   }
 
-  // Format "HH:mm" hoặc "H:mm" hoặc "HH:mm:ss"
-  const timeMatch = str.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+  // Format "HH:mm" hoặc "H:mm" hoặc "HH:mm:ss" (kèm AM/PM/SA/CH)
+  const timeMatch = str.match(
+    /(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?/i
+  )
   if (timeMatch) {
-    const hours = parseInt(timeMatch[1], 10)
+    let hours = parseInt(timeMatch[1], 10)
     const minutes = parseInt(timeMatch[2], 10)
     const seconds = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0
+    const ampm = timeMatch[4] ? timeMatch[4].toUpperCase() : ''
+    if ((ampm === 'PM' || ampm === 'CH') && hours < 12) hours += 12
+    if ((ampm === 'AM' || ampm === 'SA') && hours === 12) hours = 0
     return hours * 60 + minutes + seconds / 60
   }
 
@@ -61,9 +67,9 @@ function parseFullDateTime(val) {
   const str = String(val).trim()
   if (!str) return null
 
-  // Custom regex parse đa dạng định dạng ngày giờ Việt Nam & ERP (kèm AM/PM)
+  // Custom regex parse đa dạng định dạng ngày giờ Việt Nam & ERP (kèm AM/PM/SA/CH)
   const m = str.match(
-    /(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?/i
+    /(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|SA|CH)?)?/i
   )
   if (m) {
     const day = parseInt(m[1], 10)
@@ -74,8 +80,8 @@ function parseFullDateTime(val) {
     const mins = m[5] ? parseInt(m[5], 10) : 0
     const secs = m[6] ? parseInt(m[6], 10) : 0
     const ampm = m[7] ? m[7].toUpperCase() : ''
-    if (ampm === 'PM' && hours < 12) hours += 12
-    if (ampm === 'AM' && hours === 12) hours = 0
+    if ((ampm === 'PM' || ampm === 'CH') && hours < 12) hours += 12
+    if ((ampm === 'AM' || ampm === 'SA') && hours === 12) hours = 0
 
     return new Date(year, month - 1, day, hours, mins, secs).getTime()
   }
@@ -102,10 +108,79 @@ function parseFullDateTime(val) {
 }
 
 /**
+ * Ghép chuỗi ngày và giờ thành định dạng hoàn chỉnh dd/MM/yy HH:mm:ss
+ */
+export function combineDateAndTime(dateVal, timeVal) {
+  const dStr = dateVal !== undefined && dateVal !== null ? String(dateVal).trim() : ''
+  const tStr = timeVal !== undefined && timeVal !== null ? String(timeVal).trim() : ''
+
+  if (!dStr && !tStr) return ''
+  if (!dStr) return tStr
+  if (!tStr) return dStr
+
+  // Nếu tStr đã bao gồm ngày tháng (chứa '/' hoặc '-' cùng khoảng trắng và giờ)
+  if (/\d{1,4}[-/]\d{1,2}[-/]\d{2,4}\s+\d{1,2}:\d{2}/.test(tStr)) {
+    return tStr
+  }
+
+  // Nếu dStr đã bao gồm cả giờ
+  if (/\d{1,4}[-/]\d{1,2}[-/]\d{2,4}\s+\d{1,2}:\d{2}/.test(dStr)) {
+    return dStr
+  }
+
+  return `${dStr} ${tStr}`
+}
+
+/**
+ * Tính tổng thời gian sản xuất thực tế (phút) = (Ngày kết thúc + Giờ kết thúc) - (Ngày bắt đầu + Giờ bắt đầu) - Hao phí
+ */
+export function calcTotalProductionMinutes(
+  startDateVal,
+  startTimeVal,
+  endDateVal,
+  endTimeVal,
+  downtime = 0
+) {
+  const startFull = combineDateAndTime(startDateVal, startTimeVal)
+  const endFull = combineDateAndTime(endDateVal, endTimeVal)
+
+  const startTs = parseFullDateTime(startFull)
+  const endTs = parseFullDateTime(endFull)
+
+  let diffMin = null
+  if (startTs !== null && endTs !== null) {
+    diffMin = (endTs - startTs) / 60000
+    if (diffMin < 0) {
+      diffMin += 1440
+    }
+  } else {
+    const sMin = parseTimeToMinutesInDay(startTimeVal)
+    const eMin = parseTimeToMinutesInDay(endTimeVal)
+    if (sMin !== null && eMin !== null) {
+      diffMin = eMin - sMin
+      if (diffMin < 0) diffMin += 1440
+    }
+  }
+
+  if (diffMin !== null) {
+    const dt = parseFloat(String(downtime ?? 0).replace(/,/g, '')) || 0
+    const rawRunTime = diffMin - dt
+    return Math.max(0, Number(rawRunTime.toFixed(2)))
+  }
+
+  return null
+}
+
+/**
  * Định dạng số giây chênh lệch thành chuỗi "hh:mm:ss" (luôn lấy giá trị dương)
  */
 function formatSecondsToHms(diffSec) {
-  if (diffSec === null || diffSec === undefined || isNaN(diffSec) || diffSec === '') return ''
+  if (diffSec === null || diffSec === undefined || diffSec === '') return ''
+  if (typeof diffSec === 'string') {
+    const s = diffSec.trim()
+    if (s.includes(':')) return s
+  }
+  if (isNaN(diffSec)) return ''
 
   const absSec = Math.abs(Math.round(diffSec))
 
@@ -309,40 +384,52 @@ export function extractMesApprovedTime(row) {
 /**
  * Module tính toán TKSX (Thống kê sản xuất) và đối soát với Duyệt sản lượng MES & KHSX Lệnh thao tác
  */
-export const calculateTKSX = (files = {}) => {
+export const calculateTKSX = (files = {}, masterInfo = {}, planResult = null) => {
+  const calcVersion = masterInfo.calcVersion || masterInfo.version || masterInfo.Version || 'V1'
+  const regCode = masterInfo.regCode || masterInfo.RegCode || files.masterInfo?.regCode || ''
   const statReportData = files.stat_report?.data || []
   const summaryOpData = files.summary_op?.data || []
   const unfinishedOpData = files.unfinished_op?.data || []
   const mesApprovalData = files.mes_approval?.data || []
 
-  // ── 1. TẠO TỪ ĐIỂN TRA CỨU KẾ HOẠCH LỆNH THAO TÁC (TỪ FILE 3 VÀ FILE 2) ──
+  // ── 1. TẠO TỪ ĐIỂN TRA CỨU KẾ HOẠCH LỆNH THAO TÁC (TỪ KẾT QUẢ KHSX) ──
   const opOrderPlanMap = new Map()
 
-  summaryOpData.forEach((row) => {
-    const code = normalizeCode(
-      row.OperationOrderNo ??
-        row['Lệnh thao tác'] ??
-        row['Số lệnh thao tác'] ??
-        row.OperationOrder ??
-        ''
-    )
-    if (code) {
-      const keys = getLookupKeys(code)
-      keys.forEach((k) => opOrderPlanMap.set(k, 'KHSX'))
-    }
-  })
-
-  unfinishedOpData.forEach((row) => {
-    const code = normalizeCode(
-      row.OperationOrderNo ?? row['Số lệnh thao tác'] ?? row['Lệnh thao tác'] ?? ''
-    )
-    if (code) {
-      const keys = getLookupKeys(code)
-      keys.forEach((k) => {
-        if (!opOrderPlanMap.has(k)) opOrderPlanMap.set(k, 'KHSX')
-      })
-    }
-  })
+  if (planResult && typeof planResult === 'object') {
+    // Khi đã có kết quả tính KHSX (kể cả khi 0 dòng) -> chỉ lấy đúng các lệnh có trong KHSX của ngày báo cáo đó
+    const planRows = planResult.calculatedRows || []
+    planRows.forEach((row) => {
+      const code = normalizeCode(
+        row.OperationOrderNo ??
+          row['Số lệnh thao tác'] ??
+          row['Số lệnh TT'] ??
+          row['Lệnh thao tác'] ??
+          row.OperationOrder ??
+          row.OperationNo ??
+          ''
+      )
+      if (code) {
+        const keys = getLookupKeys(code)
+        keys.forEach((k) => opOrderPlanMap.set(k, 'Có trong KHSX'))
+      }
+    })
+  } else {
+    // Chỉ khi không có đối tượng planResult truyền vào mới tra cứu từ dữ liệu thô
+    summaryOpData.forEach((row) => {
+      const code = normalizeCode(
+        row.OperationOrderNo ??
+          row['Lệnh thao tác'] ??
+          row['Số lệnh thao tác'] ??
+          row['Số lệnh TT'] ??
+          row.OperationOrder ??
+          ''
+      )
+      if (code) {
+        const keys = getLookupKeys(code)
+        keys.forEach((k) => opOrderPlanMap.set(k, 'Có trong KHSX'))
+      }
+    })
+  }
 
   // ── 2. TẠO TỪ ĐIỂN TRA CỨU THỜI GIAN DUYỆT MES (TỪ FILE 4) ──
   // Mục đích: Phục vụ Cột 94 (Thời gian duyệt phiếu ở MES) theo Phiếu TK / Mã thống kê
@@ -418,50 +505,80 @@ export const calculateTKSX = (files = {}) => {
 
   const calculatedRows = statReportData.map((row, index) => {
     const rowObj = { ...row }
+    normalizeRowOperationalTimePair(rowObj)
 
     // Lấy các trường dữ liệu cơ bản
     const produced =
       parseFloat(
         String(
-          row.ProducedQty ?? row['Số lượng sản xuất'] ?? row['Số lượng thực hiện'] ?? 0
+          rowObj.ProducedQty ?? rowObj['Số lượng sản xuất'] ?? rowObj['Số lượng thực hiện'] ?? 0
         ).replace(/,/g, '')
       ) || 0
     const qualified =
-      parseFloat(String(row.QualifiedQty ?? row['Số lượng đạt'] ?? 0).replace(/,/g, '')) || 0
+      parseFloat(String(rowObj.QualifiedQty ?? rowObj['Số lượng đạt'] ?? 0).replace(/,/g, '')) || 0
     const defect =
-      parseFloat(String(row.DefectQty ?? row['Số lượng lỗi'] ?? 0).replace(/,/g, '')) || 0
+      parseFloat(String(rowObj.DefectQty ?? rowObj['Số lượng lỗi'] ?? 0).replace(/,/g, '')) || 0
     const downtime =
       parseFloat(
         String(
-          row.TotalDowntimeMinutes ??
-            row['Tổng tg hao phí\r\n(5)=1+2+3+4'] ??
-            row['Tổng tg hao phí\n(5)=1+2+3+4'] ??
-            row['Tổng tg hao phí (5)=1+2+3+4'] ??
-            row['Tổng tg hao phí'] ??
+          rowObj.TotalDowntimeMinutes ??
+            rowObj['Tổng tg hao phí\r\n(5)=1+2+3+4'] ??
+            rowObj['Tổng tg hao phí\n(5)=1+2+3+4'] ??
+            rowObj['Tổng tg hao phí (5)=1+2+3+4'] ??
+            rowObj['Tổng tg hao phí'] ??
             0
         ).replace(/,/g, '')
       ) || 0
 
     // Cột 26 (Z): Bắt đầu & Cột 27 (AA): Kết thúc
-    const startVal = row.StartTime ?? row['Bắt đầu'] ?? row['Thời gian bắt đầu'] ?? ''
-    const endVal = row.EndTime ?? row['Kết thúc'] ?? row['Thời gian kết thúc'] ?? ''
+    const startVal =
+      rowObj.StartTime ??
+      rowObj['Bắt đầu'] ??
+      rowObj['Thời gian bắt đầu'] ??
+      rowObj['Thời gian bắt đầu (5)'] ??
+      rowObj['Thời gian bắt đầu\r\n(5)'] ??
+      rowObj['Thời gian bắt đầu\n(5)'] ??
+      rowObj['TG bắt đầu'] ??
+      rowObj['Bat dau'] ??
+      ''
+    const endVal =
+      rowObj.EndTime ??
+      rowObj['Kết thúc'] ??
+      rowObj['Thời gian kết thúc'] ??
+      rowObj['Thời gian kết thúc (6)'] ??
+      rowObj['Thời gian kết thúc\r\n(6)'] ??
+      rowObj['Thời gian kết thúc\n(6)'] ??
+      rowObj['TG kết thúc'] ??
+      rowObj['Ket thuc'] ??
+      ''
 
-    const startMin = parseTimeToMinutesInDay(startVal)
-    const endMin = parseTimeToMinutesInDay(endVal)
+    const startDateVal =
+      rowObj.StartDate ??
+      rowObj['Ngày bắt đầu'] ??
+      rowObj['Ngay bat dau'] ??
+      ''
+    const endDateVal =
+      rowObj.EndDate ??
+      rowObj['Ngày kết thúc'] ??
+      rowObj['Ngay ket thuc'] ??
+      rowObj.StatDate ??
+      rowObj['Ngày thống kê'] ??
+      ''
 
-    // ── CỘT 91 (CM): Thời gian chạy thực tế (phút) ──
-    // Giữ chính xác số phút (không làm tròn số nguyên, ví dụ: 0.9 phút, 12.5 phút)
-    let actualRunTime = ''
-    if (startMin !== null && endMin !== null) {
-      let diffMin = endMin - startMin
-      if (diffMin < 0) {
-        // Làm việc qua đêm (qua 24h)
-        diffMin += 1440
+    // ── CỘT 91 (CM): Thời gian chạy thực tế (phút) = (Ngày kết thúc + Giờ kết thúc) - (Ngày bắt đầu + Giờ bắt đầu) - Hao phí ──
+    let actualRunTime = calcTotalProductionMinutes(
+      startDateVal,
+      startVal,
+      endDateVal,
+      endVal,
+      downtime
+    )
+    if (actualRunTime === null) {
+      if (row.ActualRunTime !== undefined && row.ActualRunTime !== '') {
+        actualRunTime = parseFloat(String(row.ActualRunTime).replace(/,/g, '')) || 0
+      } else {
+        actualRunTime = ''
       }
-      const rawRunTime = diffMin - downtime
-      actualRunTime = Math.max(0, Number(rawRunTime.toFixed(2)))
-    } else if (row.ActualRunTime !== undefined && row.ActualRunTime !== '') {
-      actualRunTime = parseFloat(String(row.ActualRunTime).replace(/,/g, '')) || 0
     }
 
     // ── CỘT 92 (CN): capa thực tế (Năng suất / giờ) ──
@@ -477,18 +594,26 @@ export const calculateTKSX = (files = {}) => {
       actualCapa = parseFloat(String(row.ActualCapa).replace(/,/g, '')) || 0
     }
 
-    // ── CỘT 93 (CO): CHECK KHSX ('KHSX' hoặc 'Khác KHSX') ──
+    // ── CỘT 93 (CO): CHECK KHSX (So sánh với kết quả KHSX: 'Có trong KHSX' hoặc 'Khác KHSX') ──
     const opOrderNo = normalizeCode(
-      row.OperationOrderNo ?? row['Số lệnh thao tác'] ?? row['Lệnh thao tác'] ?? ''
+      row.OperationOrderNo ??
+        row['Số lệnh thao tác'] ??
+        row['Số lệnh TT'] ??
+        row['Lệnh thao tác'] ??
+        row['Lệnh TT'] ??
+        row.OpOrderNo ??
+        row.OperationNo ??
+        ''
     )
     let checkKhsx = 'Khác KHSX'
     if (opOrderNo) {
       const keys = getLookupKeys(opOrderNo)
       const isPlan = keys.some((k) => opOrderPlanMap.has(k))
       if (isPlan) {
-        checkKhsx = 'KHSX'
+        checkKhsx = 'Có trong KHSX'
         insidePlanCount++
       } else {
+        checkKhsx = 'Khác KHSX'
         outsidePlanCount++
       }
     } else {
@@ -527,15 +652,47 @@ export const calculateTKSX = (files = {}) => {
     let syncLatencySeconds = ''
     if (slipCreatedDate && mesApprovedTime) {
       const createdTs = parseFullDateTime(slipCreatedDate)
-      const approvedTs = parseFullDateTime(mesApprovedTime)
+      let approvedTs = parseFullDateTime(mesApprovedTime)
       if (createdTs && approvedTs) {
-        const diffSec = Math.abs(Math.round((approvedTs - createdTs) / 1000))
+        let diffSec = Math.abs(Math.round((approvedTs - createdTs) / 1000))
+        // Tự động phát hiện & sửa lỗi đảo ngày/tháng (MM/DD <-> DD/MM) trong file xuất từ MES
+        if (diffSec > 86400) {
+          const m = String(mesApprovedTime)
+            .trim()
+            .match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})(.*)/)
+          if (m) {
+            const swappedStr = `${m[2]}/${m[1]}/${m[3]}${m[4]}`
+            const swappedTs = parseFullDateTime(swappedStr)
+            if (swappedTs) {
+              const swappedDiff = Math.abs(Math.round((swappedTs - createdTs) / 1000))
+              if (swappedDiff < diffSec) {
+                approvedTs = swappedTs
+                diffSec = swappedDiff
+                mesApprovedTime = swappedStr
+              }
+            }
+          }
+        }
         syncLatencySeconds = formatSecondsToHms(diffSec)
         totalSyncDelaySec += diffSec
         syncCount++
       }
-    } else if (row.SyncLatencySeconds || row['Độ trễ thời gian đồng bộ 2 hệ thống']) {
-      syncLatencySeconds = formatSecondsToHms(row.SyncLatencySeconds || row['Độ trễ thời gian đồng bộ 2 hệ thống'])
+    } else if (
+      row.SyncLatencySeconds ||
+      row.SyncDelayMinutes ||
+      row.syncDelayMinutes ||
+      row.syncLatencySeconds ||
+      row['Độ trễ thời gian đồng bộ 2 hệ thống'] ||
+      row['Độ trễ thời gian đồng bộ']
+    ) {
+      syncLatencySeconds = formatSecondsToHms(
+        row.SyncLatencySeconds ??
+          row.SyncDelayMinutes ??
+          row.syncDelayMinutes ??
+          row.syncLatencySeconds ??
+          row['Độ trễ thời gian đồng bộ 2 hệ thống'] ??
+          row['Độ trễ thời gian đồng bộ']
+      )
     }
 
     // ── CỘT 96 (CR): Phiếu sinh trùng (0: không trùng, 1: trùng) ──
@@ -594,7 +751,33 @@ export const calculateTKSX = (files = {}) => {
       autoExportImportGenerated = parts.join(', ') || 'Không sử dụng NVL'
     }
 
+    // Đồng bộ 2 chiều thời gian thực hiện & ngày tháng
+    const statDateVal = rowObj.StatDate ?? rowObj['Ngày thống kê'] ?? ''
+
+    rowObj.StartTime = startVal
+    rowObj['Bắt đầu'] = startVal
+    rowObj['Thời gian bắt đầu'] = startVal
+
+    rowObj.EndTime = endVal
+    rowObj['Kết thúc'] = endVal
+    rowObj['Thời gian kết thúc'] = endVal
+
+    rowObj.StartDate = startDateVal
+    rowObj['Ngày bắt đầu'] = startDateVal
+
+    rowObj.EndDate = endDateVal
+    rowObj['Ngày kết thúc'] = endDateVal
+
+    rowObj.StatDate = statDateVal
+    rowObj['Ngày thống kê'] = statDateVal
+
     // Gán lại đầy đủ cả key tiếng Anh & key tiếng Việt để hỗ trợ hiển thị 100% linh hoạt
+    rowObj.CalcVersion = calcVersion
+    rowObj['Version tính toán'] = calcVersion
+    rowObj['Phiên bản'] = calcVersion
+    rowObj.RegCode = regCode
+    rowObj['Mã đăng ký'] = regCode
+
     rowObj.ActualRunTime = actualRunTime
     rowObj['Thời gian chạy thực tế'] = actualRunTime
 
@@ -603,23 +786,32 @@ export const calculateTKSX = (files = {}) => {
 
     rowObj.CheckKhsx = checkKhsx
     rowObj['CHECK KHSX'] = checkKhsx
+    rowObj['Check KHSX'] = checkKhsx
     rowObj['Cột 93'] = checkKhsx
 
     rowObj.MesApprovedTime = mesApprovedTime
+    rowObj.MesApprovalTime = mesApprovedTime
     rowObj['Thời gian duyệt phiếu ở MES'] = mesApprovedTime
     rowObj['Thời gian duyệt ở MES'] = mesApprovedTime
     rowObj['Thời gian duyệt'] = mesApprovedTime
 
     rowObj.SyncLatencySeconds = syncLatencySeconds
+    rowObj.SyncDelayMinutes = syncLatencySeconds
+    rowObj.syncDelayMinutes = syncLatencySeconds
+    rowObj.syncLatencySeconds = syncLatencySeconds
     rowObj['Độ trễ thời gian đồng bộ 2 hệ thống'] = syncLatencySeconds
+    rowObj['Độ trễ thời gian đồng bộ'] = syncLatencySeconds
 
     rowObj.IsDuplicateSlip = isDuplicateSlip
+    rowObj.IsDuplicateTicket = isDuplicateSlip
     rowObj['Phiếu sinh trùng'] = isDuplicateSlip
 
     rowObj.CreatedLocation = createdLocation
+    rowObj.TicketCreationLocation = createdLocation
     rowObj['Vị trí tạo phiếu tk'] = createdLocation
 
     rowObj.AutoExportImportGenerated = autoExportImportGenerated
+    rowObj.AutoIoStatus = autoExportImportGenerated
     rowObj['Sinh phiếu xuất/nhập tự động'] = autoExportImportGenerated
 
     // Thống kê tổng
@@ -713,6 +905,9 @@ export const calculateTKSX = (files = {}) => {
   const avgSyncDelay = syncCount > 0 ? Number((totalSyncDelaySec / syncCount).toFixed(1)) : 0
 
   return {
+    version: calcVersion,
+    calcVersion,
+    regCode,
     totalProducedQty,
     totalQualifiedQty,
     totalDefectQty,
@@ -741,6 +936,6 @@ export const calculateTKSX = (files = {}) => {
     ),
     // Bảng dữ liệu kết quả TKSX hoàn chỉnh
     calculatedRows,
-    columns: STAT_REPORT_COLUMN_SCHEMA
+    columns: files.stat_report?.columns || STAT_REPORT_COLUMN_SCHEMA
   }
 }

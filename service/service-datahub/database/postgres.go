@@ -101,6 +101,21 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		log.Warn("Failed to run pre-migration cleanup/drop FK", zap.Error(err))
 	}
 
+	// Đảm bảo các cột đo lường dung lượng luôn tồn tại trên bảng _ERPProductionBundle trong PostgreSQL
+	ensureBundleColumnsSQL := `
+	DO $$
+	BEGIN
+	    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '_ERPProductionBundle') THEN
+	        ALTER TABLE "_ERPProductionBundle" ADD COLUMN IF NOT EXISTS "RawSizeMB" numeric(8,3) DEFAULT 0;
+	        ALTER TABLE "_ERPProductionBundle" ADD COLUMN IF NOT EXISTS "CompressedSizeMB" numeric(8,3) DEFAULT 0;
+	        ALTER TABLE "_ERPProductionBundle" ADD COLUMN IF NOT EXISTS "CompressionRatio" varchar(20) DEFAULT '';
+	    END IF;
+	END $$;
+	`
+	if err := db.Exec(ensureBundleColumnsSQL).Error; err != nil {
+		log.Warn("Failed to ensure bundle size columns", zap.Error(err))
+	}
+
 	// 2. Chạy GORM AutoMigrate chuẩn hóa các Entity models
 	err := db.AutoMigrate(
 		&models.ErpConfig{},

@@ -1302,7 +1302,7 @@ export default function CalcProductionDetailView() {
           if (results) {
             await storageAdapter.saveCalcResults(targetRegCode, results)
             if (typeof window !== 'undefined') {
-              localStorage.setItem(`S_CALC_RESULTS_${targetRegCode}`, JSON.stringify(results))
+              try { localStorage.setItem(`S_CALC_RESULTS_${targetRegCode}`, JSON.stringify(results)) } catch (e) { console.warn('[LocalStorage] Quota exceeded (>5MB), data saved in SQLite/IndexedDB:', e) }
             }
           }
         } catch (e) {
@@ -1541,9 +1541,7 @@ export default function CalcProductionDetailView() {
         if (unpacked?.calcResults) {
           setCalcResults(unpacked.calcResults)
           await storageAdapter.saveCalcResults(targetRegCode, unpacked.calcResults)
-          try {
-            localStorage.setItem(`S_CALC_RESULTS_${targetRegCode}`, JSON.stringify(unpacked.calcResults))
-          } catch {}
+          // Đã lưu qua storageAdapter
         }
 
         // Xóa cache và nạp lại tab hiện tại
@@ -1748,7 +1746,7 @@ export default function CalcProductionDetailView() {
         setCalcResults(publishedCalc)
         await storageAdapter.saveCalcResults(targetRegCode, publishedCalc)
         if (typeof window !== 'undefined') {
-          localStorage.setItem(`S_CALC_RESULTS_${targetRegCode}`, JSON.stringify(publishedCalc))
+          try { localStorage.setItem(`S_CALC_RESULTS_${targetRegCode}`, JSON.stringify(publishedCalc)) } catch (e) { console.warn('[LocalStorage] Quota exceeded (>5MB), data saved in SQLite/IndexedDB:', e) }
         }
       }
 
@@ -2022,9 +2020,7 @@ export default function CalcProductionDetailView() {
       if (calcResults) {
         await storageAdapter.saveCalcResults(masterInfo.regCode, calcResults)
         await storageAdapter.saveCalcResults('CURRENT_CALC', calcResults)
-        try {
-          localStorage.setItem(`S_CALC_RESULTS_${masterInfo.regCode}`, JSON.stringify(calcResults))
-        } catch {}
+        // Đã lưu qua storageAdapter
       }
 
       setStatusMessage?.({
@@ -2288,9 +2284,7 @@ export default function CalcProductionDetailView() {
 
         if (targetRegCode) {
           await storageAdapter.saveCalcResults(targetRegCode, updatedCalc)
-          try {
-            localStorage.setItem(`S_CALC_RESULTS_${targetRegCode}`, JSON.stringify(updatedCalc))
-          } catch {}
+          // Đã lưu qua storageAdapter
         }
 
         setSelection?.({
@@ -2356,9 +2350,7 @@ export default function CalcProductionDetailView() {
 
         if (targetRegCode) {
           await storageAdapter.saveCalcResults(targetRegCode, updatedCalc)
-          try {
-            localStorage.setItem(`S_CALC_RESULTS_${targetRegCode}`, JSON.stringify(updatedCalc))
-          } catch {}
+          // Đã lưu qua storageAdapter
         }
 
         setSelection?.({

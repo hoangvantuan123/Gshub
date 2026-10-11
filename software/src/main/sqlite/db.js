@@ -143,12 +143,32 @@ export function initSqliteDatabase() {
     try {
       const module = require('better-sqlite3')
       DatabaseClass = module.default || module
-    } catch {
+    } catch (e1) {
       try {
-        const module = require('sqlite3')
-        console.log('[SQLite] Sử dụng sqlite3 fallback')
-      } catch (err) {
-        console.warn('[SQLite] Không nạp được native module better-sqlite3/sqlite3:', err?.message)
+        if (app.isPackaged && process.resourcesPath) {
+          const unpackedPath = path.join(
+            process.resourcesPath,
+            'app.asar.unpacked',
+            'node_modules',
+            'better-sqlite3'
+          )
+          if (fs.existsSync(unpackedPath)) {
+            const module = require(unpackedPath)
+            DatabaseClass = module.default || module
+          }
+        }
+      } catch (e2) {
+        console.warn('[SQLite] Lỗi nạp better-sqlite3 từ unpacked:', e2?.message)
+      }
+
+      if (!DatabaseClass) {
+        try {
+          const module = require('sqlite3')
+          DatabaseClass = module.default || module
+          console.log('[SQLite] Sử dụng sqlite3 fallback')
+        } catch (err) {
+          console.warn('[SQLite] Không nạp được native module better-sqlite3/sqlite3:', err?.message || e1?.message)
+        }
       }
     }
 

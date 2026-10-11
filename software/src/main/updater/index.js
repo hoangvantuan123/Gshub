@@ -436,9 +436,18 @@ export async function initNativeAutoUpdater() {
       ) {
         return
       }
+      const msg = err?.message || ''
+      if (msg.includes('No published versions') || msg.includes('404')) {
+        console.log('[Native Updater] Chưa có bản release công khai trên GitHub:', msg)
+        broadcastStatus({
+          status: 'up-to-date',
+          message: 'Phần mềm đang ở phiên bản mới nhất.'
+        })
+        return
+      }
       broadcastStatus({
         status: 'error',
-        message: `Lỗi cập nhật phần mềm: ${err.message}`
+        message: `Lỗi cập nhật phần mềm: ${msg}`
       })
     })
   } catch (e) {
@@ -485,9 +494,13 @@ export async function checkNativeUpdate() {
       try {
         await autoUpdaterInstance.checkForUpdates()
       } catch (e) {
-        console.warn('[electron-updater check error]:', e.message)
+        if (!e?.message?.includes('No published versions')) {
+          console.warn('[electron-updater check error]:', e.message)
+        }
       }
-    } else {
+    }
+
+    if (updateState.status === 'checking') {
       broadcastStatus({
         status: 'up-to-date',
         message: 'Phần mềm đang ở phiên bản mới nhất.'

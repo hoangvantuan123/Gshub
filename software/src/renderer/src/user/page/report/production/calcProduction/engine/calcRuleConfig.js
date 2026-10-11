@@ -126,9 +126,9 @@ export function evaluateTimeStatus(
 /**
  * Đánh giá Trạng thái Capa động (CapaStatus)
  * - Trả về rỗng ("") nếu Trạng thái ĐP-SX là 'Trượt KH' hoặc thiếu dữ liệu (actualCapa <= 0 || standardMin <= 0 || standardCapa <= 0)
- * - Trả về 'Chậm hơn ĐM' nếu actualCapa > standardCapa
+ * - Trả về 'Nhanh hơn ĐM' nếu actualCapa > standardCapa (năng suất cao hơn định mức)
  * - Trả về 'Đúng ĐM' nếu actualCapa === standardCapa
- * - Trả về 'Nhanh hơn ĐM' nếu actualCapa < standardCapa
+ * - Trả về 'Chậm hơn ĐM' nếu actualCapa < standardCapa (năng suất thấp hơn định mức)
  */
 export function evaluateCapaStatus(
   standardCapa,
@@ -152,9 +152,9 @@ export function evaluateCapaStatus(
     return ''
   }
 
-  if (aCapa > sCapa) return cfg.slowLabel
+  if (aCapa > sCapa) return cfg.fastLabel
   if (aCapa === sCapa) return cfg.exactLabel
-  return cfg.fastLabel
+  return cfg.slowLabel
 }
 
 /**

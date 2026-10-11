@@ -11,6 +11,9 @@ files:
   - "templates/**"
   - "docx/**"
   - "!node_modules/**"
+  - "node_modules/better-sqlite3/**"
+  - "node_modules/bindings/**"
+  - "node_modules/file-uri-to-path/**"
 
 asar: true
 
@@ -18,6 +21,7 @@ asarUnpack:
   - resources/**
   - templates/**
   - docx/**
+  - "node_modules/better-sqlite3/**"
 win:
   executableName: GsHub ERP
   requestedExecutionLevel: asInvoker

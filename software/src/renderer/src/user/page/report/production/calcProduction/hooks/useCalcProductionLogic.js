@@ -529,13 +529,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       if (calcResults) {
         await storageAdapter.saveCalcResults(masterInfo.regCode, calcResults)
         await storageAdapter.saveCalcResults('CURRENT_CALC', calcResults)
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem(`S_CALC_RESULTS_${masterInfo.regCode}`, JSON.stringify(calcResults))
-          } catch (e) {
-            console.warn('[LocalStorage] Payload lớn, đã lưu vào SQLite/IndexedDB:', e)
-          }
-        }
+        // Đã lưu trong IndexedDB/SQLite qua storageAdapter
       }
 
       // Fallback lưu localStorage & đồng bộ
@@ -730,9 +724,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
             }
             setCalcResults(publishedCalcResults)
             await storageAdapter.saveCalcResults(masterInfo.regCode, publishedCalcResults)
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(`S_CALC_RESULTS_${masterInfo.regCode}`, JSON.stringify(publishedCalcResults))
-            }
+            // Đã lưu kết quả công bố vào IndexedDB/SQLite qua storageAdapter
           }
 
           // Bước 4: Hoàn tất 100%
@@ -984,9 +976,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
 
       try {
         await storageAdapter.saveCalcResults(calcRegCode, results)
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(`S_CALC_RESULTS_${calcRegCode}`, JSON.stringify(results))
-        }
+        // Đã lưu trong IndexedDB/SQLite qua storageAdapter
       } catch (saveErr) {
         console.warn('Lỗi lưu kết quả tính toán:', saveErr)
       }

@@ -1372,18 +1372,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         runTimeMin: 0
       }
 
-    const picCoordinator = extractPicCoordinator(code, {}, unfinRow, statRow)
-
-    const opDate = String(
-      statRow.StatDate ??
-        statRow.StartDate ??
-        statRow['Ngày thống kê'] ??
-        statRow['Ngày bắt đầu'] ??
-        unfinRow.ExecuteDate ??
-        ''
-    ).trim()
-
-    const stageOrderNo = String(
+    const rawStageOrderNo = String(
       statRow.StageOrderNo ??
         statRow.OrderNo ??
         statRow['Số đơn hàng'] ??
@@ -1392,10 +1381,9 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         ''
     ).trim()
 
-    const stageOrderCreatedDate = extractStageOrderCreatedDate(code, {}, unfinRow, statRow)
-
     // Kiểm tra thông tin lệnh thao tác và họ tên người phát hành (PIC ĐP)
-    const sumRow = findSummaryOpRow(code, stageOrderNo)
+    const sumRow = findSummaryOpRow(code, rawStageOrderNo) || {}
+    const picCoordinator = extractPicCoordinator(code, sumRow, unfinRow, statRow)
     const hasSumRow = Boolean(sumRow && Object.keys(sumRow).length > 0)
     const hasPicCoordinator = Boolean(picCoordinator && String(picCoordinator).trim())
 
@@ -1416,100 +1404,201 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       })
     }
 
+    const stageOrderNo = String(
+      sumRow.StageOrderNo ??
+        sumRow['Lệnh công đoạn'] ??
+        sumRow['Số lệnh công đoạn'] ??
+        unfinRow.StageOrderNo ??
+        rawStageOrderNo
+    ).trim()
+
+    const stageOrderCreatedDate = extractStageOrderCreatedDate(code, sumRow, unfinRow, statRow)
+
     const matCode = String(
-      statRow.MaterialCode ??
+      sumRow.MaterialCode ??
+        sumRow['Mã vật tư'] ??
+        sumRow['Mã hàng'] ??
+        unfinRow.ProductCode ??
+        statRow.MaterialCode ??
         statRow['Mã vật tư'] ??
         statRow['Mã hàng'] ??
-        unfinRow.ProductCode ??
         ''
     ).trim()
 
     const matName = String(
-      statRow.MaterialName ??
+      sumRow.MaterialName ??
+        sumRow['Tên vật tư'] ??
+        sumRow['Tên hàng'] ??
+        unfinRow.ProductName ??
+        statRow.MaterialName ??
         statRow['Tên vật tư'] ??
         statRow['Tên hàng'] ??
-        unfinRow.ProductName ??
         ''
     ).trim()
 
     const opName = String(
-      statRow.OperationTypeName ??
+      sumRow.OperationName ??
+        sumRow.PlannedOperationTypeName ??
+        sumRow['Thao tác'] ??
+        sumRow['Tên thao tác'] ??
+        unfinRow.OperationName ??
+        statRow.OperationTypeName ??
         statRow.StageCode ??
         statRow['Công đoạn'] ??
         statRow['Phân loại thao tác'] ??
-        unfinRow.OperationName ??
         ''
     ).trim()
 
     const opTypeName = String(
-      statRow.OperationTypeName ??
-        statRow['Phân loại thao tác'] ??
+      sumRow.PlannedOperationTypeName ??
+        sumRow.OperationTypeName ??
+        sumRow['Tên phân loại thao tác'] ??
+        sumRow['Phân loại thao tác'] ??
         unfinRow.OperationType ??
+        statRow.OperationTypeName ??
+        statRow['Phân loại thao tác'] ??
         'Ngoài KH'
     ).trim()
 
     const machineName = String(
-      statRow.MachineName ??
+      sumRow.PlannedMachineName ??
+        sumRow.MachineName ??
+        sumRow['Tên máy'] ??
+        sumRow['Máy sản xuất'] ??
+        unfinRow.MachineName ??
+        statRow.MachineName ??
         statRow['Tên máy sản xuất'] ??
         statRow.MachineCode ??
         statRow['Mã máy sản xuất'] ??
-        unfinRow.MachineName ??
         ''
     ).trim()
 
     const unit = String(
-      statRow.Unit ?? statRow['Đvt'] ?? statRow['ĐVT'] ?? unfinRow.Unit ?? 'Pcs'
+      sumRow.Unit ??
+        sumRow['Đvt'] ??
+        sumRow['ĐVT'] ??
+        unfinRow.Unit ??
+        statRow.Unit ??
+        statRow['Đvt'] ??
+        statRow['ĐVT'] ??
+        'Pcs'
     ).trim()
 
     const targetQty =
       parseNum(
-        unfinRow.TargetQuantity ??
+        sumRow.TargetQty ??
+          sumRow.OpTargetQty ??
+          sumRow['Số lượng cần đạt (2)'] ??
+          sumRow['Số lượng cần đạt\r\n(2)'] ??
+          sumRow['Số lượng cần đạt\n(2)'] ??
+          sumRow['Số lượng cần đạt LTT'] ??
+          sumRow['Số lượng cần đạt'] ??
+          unfinRow.TargetQuantity ??
+          unfinRow.TargetQty ??
           unfinRow['Số lượng cần đạt'] ??
+          statRow.OpTargetQty ??
+          statRow['SL cần đạt (TT)'] ??
           statRow.TargetQuantity ??
           statRow['Số lượng cần đạt'] ??
           0
       ) || 0
+
     const plannedQty =
       parseNum(
-        unfinRow.PlannedQuantity ??
+        sumRow.PlannedQty ??
+          sumRow.OpPlannedQty ??
+          sumRow['Số lượng cần sx (1)'] ??
+          sumRow['Số lượng cần sx\r\n(1)'] ??
+          sumRow['Số lượng cần sx\n(1)'] ??
+          sumRow['Số lượng cần sản xuất'] ??
+          unfinRow.PlannedQuantity ??
+          unfinRow.PlannedQty ??
           unfinRow['Số lượng cần sản xuất'] ??
+          statRow.OpPlannedQty ??
+          statRow['SL cần sản xuất (TT)'] ??
           statRow.PlannedQuantity ??
           statRow['Số lượng cần sản xuất'] ??
           0
       ) || 0
+
     const actualQualified =
       actual.qualified || parseNum(statRow.QualifiedQty ?? statRow['Số lượng đạt'] ?? 0)
+
     const startTime = String(
-      statRow.StartTime ?? statRow['Bắt đầu'] ?? statRow['Thời gian bắt đầu'] ?? ''
-    ).trim()
-    const endTime = String(
-      statRow.EndTime ?? statRow['Kết thúc'] ?? statRow['Thời gian kết thúc'] ?? ''
-    ).trim()
-    const startDate = String(
-      statRow.StartDate ??
-        statRow['Ngày bắt đầu'] ??
-        unfinRow.ExecuteDate ??
-        unfinRow['Ngày thực hiện'] ??
-        ''
-    ).trim()
-    const endDate = String(
-      statRow.EndDate ??
-        statRow['Ngày kết thúc'] ??
-        statRow.StatDate ??
-        statRow['Ngày thống kê'] ??
-        unfinRow.ExecuteDate ??
+      sumRow.PlannedStartTime ??
+        sumRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian bắt đầu (5)'] ??
+        sumRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian bắt đầu\r\n(5)'] ??
+        sumRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian bắt đầu\n(5)'] ??
+        unfinRow.PlannedStartTime ??
+        unfinRow['Thời gian bắt đầu (5)'] ??
+        unfinRow.StartTime ??
+        sumRow['Thời gian bắt đầu (5)'] ??
+        sumRow.StartTime ??
+        statRow.StartTime ??
+        statRow['Bắt đầu'] ??
+        statRow['Thời gian bắt đầu'] ??
         ''
     ).trim()
 
-    const finalStartTime = formatFullDateTime(startTime, startDate || opDate || applyDate, false)
-    const finalEndTime = formatFullDateTime(endTime, endDate || startDate || opDate || applyDate, true, startTime)
+    const endTime = String(
+      sumRow.PlannedEndTime ??
+        sumRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian kết thúc (6)'] ??
+        sumRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian kết thúc\r\n(6)'] ??
+        sumRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian kết thúc\n(6)'] ??
+        unfinRow.PlannedEndTime ??
+        unfinRow['Thời gian kết thúc (6)'] ??
+        unfinRow.EndTime ??
+        sumRow['Thời gian kết thúc (6)'] ??
+        sumRow.EndTime ??
+        statRow.EndTime ??
+        statRow['Kết thúc'] ??
+        statRow['Thời gian kết thúc'] ??
+        ''
+    ).trim()
+
+    const checks = computeKhsxChecks(startTime, endTime, applyDate, rules)
+
+    const opDate = formatDateOnly(
+      checks.opDateKhsx ||
+      sumRow.OperationDate ||
+      sumRow.OpOrderReleaseDate ||
+      sumRow['Ngày phát hành lệnh TT'] ||
+      sumRow['Ngày phát hành lệnh thao tác'] ||
+      sumRow['Ngày thực hiện thao tác'] ||
+      unfinRow.ExecuteDate ||
+      statRow.StatDate ||
+      statRow.StartDate ||
+      statRow['Ngày thống kê'] ||
+      statRow['Ngày bắt đầu'] ||
+      applyDate ||
+      ''
+    )
+
+    const finalStartTime = formatFullDateTime(startTime, opDate || applyDate, false)
+    const finalEndTime = formatFullDateTime(endTime, opDate || applyDate, true, startTime)
 
     let standardRunMin = 0
-    if (startTime && endTime) {
+    if (finalStartTime && finalEndTime) {
+      const sDjs = parseDateTimeFlexible(finalStartTime)
+      const eDjs = parseDateTimeFlexible(finalEndTime)
+      if (sDjs && eDjs && sDjs.isValid() && eDjs.isValid()) {
+        let diffMs = eDjs.diff(sDjs)
+        if (diffMs < 0) {
+          diffMs += 24 * 3600 * 1000
+        }
+        if (diffMs > 0) {
+          standardRunMin = Math.round(diffMs / 60000)
+        }
+      }
+    }
+    if (standardRunMin === 0 && startTime && endTime) {
       const sDjs = parseDateTimeFlexible(startTime)
       const eDjs = parseDateTimeFlexible(endTime)
-      if (sDjs && eDjs && eDjs.isValid() && sDjs.isValid()) {
-        const diffMs = eDjs.diff(sDjs)
+      if (sDjs && eDjs && sDjs.isValid() && eDjs.isValid()) {
+        let diffMs = eDjs.diff(sDjs)
+        if (diffMs < 0) {
+          diffMs += 24 * 3600 * 1000
+        }
         if (diffMs > 0) {
           standardRunMin = Math.round(diffMs / 60000)
         }
@@ -1517,6 +1606,29 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     }
     if (standardRunMin === 0) {
       if (
+        sumRow.StandardRunMinutes !== undefined &&
+        sumRow.StandardRunMinutes !== null &&
+        sumRow.StandardRunMinutes !== ''
+      ) {
+        standardRunMin = parseFloat(String(sumRow.StandardRunMinutes).replace(/,/g, '')) || 0
+      } else if (
+        sumRow.PlannedTotalHours !== undefined &&
+        sumRow.PlannedTotalHours !== null &&
+        sumRow.PlannedTotalHours !== ''
+      ) {
+        const pthStr = String(sumRow.PlannedTotalHours).trim()
+        if (pthStr.includes(':')) {
+          const parts = pthStr.split(':')
+          const h = parseInt(parts[0], 10) || 0
+          const m = parseInt(parts[1], 10) || 0
+          const s = parseInt(parts[2], 10) || 0
+          standardRunMin = h * 60 + m + Math.round(s / 60)
+        } else {
+          standardRunMin = Math.round(
+            (parseFloat(pthStr.replace(/,/g, '')) || 0) * 60
+          )
+        }
+      } else if (
         unfinRow.ProductionDurationMinutes !== undefined &&
         unfinRow.ProductionDurationMinutes !== null &&
         unfinRow.ProductionDurationMinutes !== ''
@@ -1534,6 +1646,20 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     if (standardRunMin > 0 && targetQty > 0) {
       standardCapa = Number(((targetQty / standardRunMin) * 60).toFixed(2))
     } else if (
+      sumRow.StandardCapa !== undefined &&
+      sumRow.StandardCapa !== null &&
+      sumRow.StandardCapa !== ''
+    ) {
+      const rawCapa =
+        sumRow.StandardCapa ??
+        sumRow['Capa định mức (20)'] ??
+        sumRow['Capa định mức'] ??
+        sumRow['Capa ĐM'] ??
+        ''
+      if (rawCapa !== undefined && rawCapa !== null && rawCapa !== '') {
+        standardCapa = parseFloat(String(rawCapa).replace(/,/g, '')) || 0
+      }
+    } else if (
       unfinRow.StandardCapa !== undefined &&
       unfinRow.StandardCapa !== null &&
       unfinRow.StandardCapa !== ''
@@ -1541,13 +1667,16 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       standardCapa = parseFloat(String(unfinRow.StandardCapa).replace(/,/g, '')) || 0
     }
 
+    if (standardRunMin === 0 && standardCapa > 0 && targetQty > 0) {
+      standardRunMin = Math.round((targetQty / standardCapa) * 60)
+    }
+
     const actualCapa =
       actualRunMin > 0 && actualQualified > 0
         ? Number(((actualQualified * 60) / actualRunMin).toFixed(2))
         : 0
 
-    const checks = computeKhsxChecks(startTime, endTime, applyDate, rules)
-    const khsxStatus = checks.checkKhsxFull || rules.coordinatorStatus.outsidePlan
+    const khsxStatus = rules.coordinatorStatus.outsidePlan
     const coordinatorStatus = rules.coordinatorStatus.outsidePlan
 
     // 22. Trạng thái thời gian

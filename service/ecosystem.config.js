@@ -126,8 +126,8 @@ module.exports = {
         JWT_SECRET: 'syscore_gshub_super_secret_jwt_key_2026',
         JWT_EXPIRE_HOURS: '72',
 
-        // Đường dẫn Storage lưu file vật lý (.gsprod, báo cáo) - Đặt NGOÀI source code
-        STORAGE_ROOT_PATH: process.env.STORAGE_ROOT_PATH || path.join(__dirname, '..', 'storage'),
+        // Thư mục Storage lưu file vật lý (.gsprod, báo cáo) - Cố định ngoài source code
+        STORAGE_ROOT_PATH: process.platform === 'win32' ? 'C:/gshub_storage' : '/var/gshub/storage',
 
         // Bravo ERP Integration
         BRAVO_AUTH_URL: 'https://bravo.goldsunpackaging.vn:5051/fa837234b0b27bc02365a940995bdc24',
@@ -159,8 +159,8 @@ module.exports = {
         JWT_SECRET: 'syscore_gshub_dev_jwt_key_2026',
         JWT_EXPIRE_HOURS: '72',
 
-        // Đường dẫn Storage lưu file vật lý (.gsprod, báo cáo) - Đặt NGOÀI source code
-        STORAGE_ROOT_PATH: process.env.STORAGE_ROOT_PATH || path.join(__dirname, '..', 'storage'),
+        // Thư mục Storage lưu file vật lý (.gsprod, báo cáo) - Cố định ngoài source code
+        STORAGE_ROOT_PATH: process.platform === 'win32' ? 'C:/gshub_storage' : '/var/gshub/storage',
 
         BRAVO_AUTH_URL: 'https://bravo.goldsunpackaging.vn:5051/fa837234b0b27bc02365a940995bdc24',
         BRAVO_BASE_API_URL: 'https://bravo.goldsunpackaging.vn:5051',

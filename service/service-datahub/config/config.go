@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/joho/godotenv"
@@ -70,12 +71,17 @@ func LoadConfig() (*Config, error) {
 	jwtExpire, _ := strconv.Atoi(getEnv("JWT_EXPIRE_HOURS", "72"))
 	bravoInsecure, _ := strconv.ParseBool(getEnv("BRAVO_INSECURE_SKIP_VERIFY", "true"))
 
+	defaultStorage := "/var/gshub/storage"
+	if runtime.GOOS == "windows" {
+		defaultStorage = "C:/gshub_storage"
+	}
+
 	cfg := &Config{
 		Server: ServerConfig{
 			Port:            getEnv("PORT", "9645"),
 			GRPCPort:        getEnv("GRPC_PORT", "60052"),
 			Env:             getEnv("APP_ENV", "development"),
-			StorageRootPath: getEnv("STORAGE_ROOT_PATH", "../../storage"),
+			StorageRootPath: getEnv("STORAGE_ROOT_PATH", defaultStorage),
 		},
 		DB: DBConfig{
 			Host:               getEnv("DB_HOST", "127.0.0.1"),

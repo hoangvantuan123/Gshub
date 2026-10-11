@@ -18,6 +18,7 @@ import ImportLoadingOverlay from './components/ImportLoadingOverlay'
 import CalculationProgressOverlay from './components/CalculationProgressOverlay'
 import ExcelMappingModal from './components/ExcelMappingModal'
 import PlanRegistrationPushModal from './components/PlanRegistrationPushModal'
+import PlanRegistrationSelectModal from './components/PlanRegistrationSelectModal'
 import { usePageHotkeys } from '@renderer/user/hooks/usePageHotkeys'
 import { Send } from 'lucide-react'
 
@@ -70,6 +71,10 @@ export default function CalcProductionPage({
     isPushingRegistration,
     pushRegistrationProgress,
     handleRegisterReportsToSystem,
+    isSelectRegistrationOpen,
+    registrationSelectInfo,
+    closeSelectRegistrationModal,
+    handleConfirmPushRegistration,
     closePushRegistrationModal,
     clearAllFiles,
     refreshFiles,
@@ -613,6 +618,17 @@ export default function CalcProductionPage({
           'Thao tác chuột và bàn phím đang được tạm khóa để bảo đảm dữ liệu công bố chính xác và an toàn.'
         )}
         onClose={() => setIsPublishing(false)}
+      />
+
+      {/* Modal Tùy chọn báo cáo KHSX / TKSX trước khi đẩy */}
+      <PlanRegistrationSelectModal
+        isOpen={isSelectRegistrationOpen}
+        onClose={closeSelectRegistrationModal}
+        onConfirm={handleConfirmPushRegistration}
+        masterInfo={masterInfo}
+        khsxRowsCount={registrationSelectInfo?.khsxRowsCount || 0}
+        statRowsCount={registrationSelectInfo?.statRowsCount || 0}
+        isLoading={isPushingRegistration}
       />
 
       {/* Modal Theo Dõi Tiến Trình Đăng Ký 2 Báo Cáo KHSX & TKSX Lên Hệ Thống */}

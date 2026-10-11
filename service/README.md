@@ -1,8 +1,8 @@
 # GSHUB Microservices Orchestration
 
 Thư mục tổng điều khiển toàn bộ backend microservices của hệ thống **GsHub**, bao gồm:
-1. **`server-core`**: Core Engine, Authentication, Role & User management (gRPC `:5051`).
-2. **`service-datahub`**: Bravo ERP Integration & Production/Report calculation engine (gRPC `:5052`, HTTP `:9645`).
+1. **`server-core`**: Core Engine, Authentication, Role & User management (gRPC `:60051`).
+2. **`service-datahub`**: Bravo ERP Integration & Production/Report calculation engine (gRPC `:60052`, HTTP `:9645`).
 3. **`api-gateway`**: REST Gateway & JWT Authentication Middleware (`:9643`).
 
 ---
@@ -86,8 +86,8 @@ chmod +x build.sh
 
 | Dịch vụ | Giao thức / Port | File Binary Windows | File Binary Linux |
 | :--- | :--- | :--- | :--- |
-| **GSHUB Server-Core** | gRPC `:5051` | `server-core.exe` | `server-core` |
-| **GSHUB Service-Datahub** | gRPC `:5052` / HTTP `:9645` | `service-datahub.exe` | `service-datahub` |
+| **GSHUB Server-Core** | gRPC `:60051` | `server-core.exe` | `server-core` |
+| **GSHUB Service-Datahub** | gRPC `:60052` / HTTP `:9645` | `service-datahub.exe` | `service-datahub` |
 | **GSHUB API-Gateway** | REST `:9643` | `api-gateway.exe` | `api-gateway` |
 
 ---

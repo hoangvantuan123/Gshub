@@ -415,42 +415,79 @@ export function normalizeRowOperationalTimePair(rowObj) {
   const endVal = foundEndKey ? String(rowObj[foundEndKey]).trim() : ''
 
   const sMatch = startVal.match(
-    /^(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/
+    /^(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?/i
   )
   const eMatch = endVal.match(
-    /^(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/
+    /^(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?/i
   )
 
   const pad = (n) => String(n).padStart(2, '0')
+
+  const shift = String(rowObj.PlannedShift || rowObj['Ca SX'] || rowObj['Ca'] || '').trim()
+  const isNightOrShift2 = /c2|ca\s*2|chiều|chieu|tối|toi|đêm|dem/i.test(shift)
 
   if (sMatch && eMatch) {
     const sDate = sMatch[1]
     let sH = parseInt(sMatch[2], 10)
     const sM = sMatch[3]
     const sS = sMatch[4] || '00'
+    const sAmpm = sMatch[5] ? sMatch[5].toUpperCase() : ''
 
-    const eDate = eMatch[1]
+    let eDate = eMatch[1]
     let eH = parseInt(eMatch[2], 10)
     const eM = eMatch[3]
     const eS = eMatch[4] || '00'
+    const eAmpm = eMatch[5] ? eMatch[5].toUpperCase() : ''
 
     let changed = false
 
-    // TH1: Cùng ngày, StartTime có giờ [1..6] và EndTime có giờ >= 12 (VD: 04:59:55 và 19:41:35)
-    if (sDate === eDate && sH >= 1 && sH <= 6 && eH >= 12) {
-      if (sH + 12 <= eH) {
-        sH += 12
-        changed = true
-      }
-    }
-    // TH2: Cùng ngày, cả StartTime và EndTime đều có giờ [1..6] (VD: 05:00 và 05:32)
-    else if (sDate === eDate && sH >= 1 && sH <= 6 && eH >= 1 && eH <= 6 && sH <= eH) {
+    // AM/PM conversion
+    if ((sAmpm === 'PM' || sAmpm === 'CH') && sH < 12) {
       sH += 12
+      changed = true
+    }
+    if ((sAmpm === 'AM' || sAmpm === 'SA') && sH === 12) {
+      sH = 0
+      changed = true
+    }
+    if ((eAmpm === 'PM' || eAmpm === 'CH') && eH < 12) {
       eH += 12
       changed = true
     }
+    if ((eAmpm === 'AM' || eAmpm === 'SA') && eH === 12) {
+      eH = 0
+      changed = true
+    }
 
-    if (changed) {
+    // Nếu thuộc Ca 2 / ca tối / ca đêm mà giờ đang là [1..11] (do ERP xuất 12h thiếu nhãn PM)
+    if (isNightOrShift2) {
+      if (sH >= 1 && sH <= 11) {
+        sH += 12
+        changed = true
+      }
+      if (eH >= 1 && eH <= 11) {
+        if (sH > eH && eH + 12 <= 23) {
+          eH += 12
+          changed = true
+        }
+      }
+    } else {
+      // TH1: Cùng ngày, StartTime có giờ [1..6] và EndTime có giờ >= 12 (VD: 04:59:55 và 19:41:35)
+      if (sDate === eDate && sH >= 1 && sH <= 6 && eH >= 12) {
+        if (sH + 12 <= eH) {
+          sH += 12
+          changed = true
+        }
+      }
+      // TH2: Cùng ngày, cả StartTime và EndTime đều có giờ [1..6] (VD: 05:00 và 05:32)
+      else if (sDate === eDate && sH >= 1 && sH <= 6 && eH >= 1 && eH <= 6 && sH <= eH) {
+        sH += 12
+        eH += 12
+        changed = true
+      }
+    }
+
+    if (changed || sAmpm || eAmpm) {
       const newStartVal = `${sDate} ${pad(sH)}:${sM}:${sS}`
       const newEndVal = `${eDate} ${pad(eH)}:${eM}:${eS}`
 
@@ -466,14 +503,20 @@ export function normalizeRowOperationalTimePair(rowObj) {
     let sH = parseInt(sMatch[2], 10)
     const sM = sMatch[3]
     const sS = sMatch[4] || '00'
+    const sAmpm = sMatch[5] ? sMatch[5].toUpperCase() : ''
 
-    if (sH >= 1 && sH <= 6) {
+    if ((sAmpm === 'PM' || sAmpm === 'CH') && sH < 12) sH += 12
+    if ((sAmpm === 'AM' || sAmpm === 'SA') && sH === 12) sH = 0
+
+    if (isNightOrShift2 && sH >= 1 && sH <= 11) {
       sH += 12
-      const newStartVal = `${sDate} ${pad(sH)}:${sM}:${sS}`
-      startKeys.forEach((k) => {
-        if (rowObj[k] !== undefined) rowObj[k] = newStartVal
-      })
+    } else if (sH >= 1 && sH <= 6) {
+      sH += 12
     }
+    const newStartVal = `${sDate} ${pad(sH)}:${sM}:${sS}`
+    startKeys.forEach((k) => {
+      if (rowObj[k] !== undefined) rowObj[k] = newStartVal
+    })
   }
 
   return rowObj
@@ -593,15 +636,15 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
     }
   }
 
-  // 2. Xử lý Date Object (Lấy theo UTC getters do SheetJS lưu date serial ở UTC)
+  // 2. Xử lý Date Object (Dùng local getters để giữ đúng giờ người dùng nhập, triệt tiêu hoàn toàn lệch 7 tiếng múi giờ)
   if (val instanceof Date) {
     if (isNaN(val.getTime())) return ''
-    const year = val.getUTCFullYear()
-    const month = pad(val.getUTCMonth() + 1)
-    const day = pad(val.getUTCDate())
-    const hours = pad(val.getUTCHours())
-    const minutes = pad(val.getUTCMinutes())
-    const seconds = pad(val.getUTCSeconds())
+    const year = val.getFullYear()
+    const month = pad(val.getMonth() + 1)
+    const day = pad(val.getDate())
+    const hours = pad(val.getHours())
+    const minutes = pad(val.getMinutes())
+    const seconds = pad(val.getSeconds())
     const yearShort = String(year).slice(-2)
     const timeStr = seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}:00`
 
@@ -1600,6 +1643,16 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
                 titleLower.includes('chờ nvl') ||
                 titleLower.includes('chuẩn bị') ||
                 titleLower.includes('sửa file') ||
+                titleLower.includes('tổng thời gian') ||
+                titleLower.includes('thời gian sx đm') ||
+                titleLower.includes('thời gian thay bài') ||
+                titleLower.includes('thời gian chỉnh bài') ||
+                titleLower.includes('năng suất') ||
+                titleLower.includes('capa') ||
+                titleLower.includes('downtime') ||
+                titleLower.includes('định mức') ||
+                titleLower.includes('phút') ||
+                titleLower.includes('(phút)') ||
                 keyLower.includes('qty') ||
                 keyLower.includes('count') ||
                 keyLower.includes('weight') ||
@@ -1608,7 +1661,9 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
                 keyLower.includes('width') ||
                 keyLower.includes('length') ||
                 keyLower.includes('height') ||
-                keyLower.includes('minutes')
+                keyLower.includes('minutes') ||
+                keyLower.includes('hours') ||
+                keyLower.includes('capa')
 
               const isDateOrTimeCol =
                 !isNumericOrQtyCol &&
@@ -1636,11 +1691,15 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
 
             const nonUniqueTitles = ['Họ tên', 'Mã thợ']
             if (title && title !== key && !nonUniqueTitles.includes(title)) {
-              rowObj[title] = val
+              if (rowObj[title] === undefined) {
+                rowObj[title] = val
+              }
             }
-            if (group && (title === 'Họ tên' || title === 'Mã thợ')) {
-              rowObj[group] = val
+            if (group && title) {
               rowObj[`${group} - ${title}`] = val
+              if (title === 'Họ tên' || title === 'Mã thợ') {
+                rowObj[group] = val
+              }
             }
           }
 

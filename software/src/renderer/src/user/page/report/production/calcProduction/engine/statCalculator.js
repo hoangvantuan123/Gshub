@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
-import customParseFormat from 'dayjs/plugin/customParseFormat'
-import { STAT_REPORT_COLUMN_SCHEMA } from '../constants/calcConstants'
-import { normalizeRowOperationalTimePair } from './fileParsers'
+import customParseFormat from 'dayjs/plugin/customParseFormat.js'
+import { STAT_REPORT_COLUMN_SCHEMA } from '../constants/calcConstants.js'
+import { normalizeRowOperationalTimePair } from './fileParsers.js'
 
 dayjs.extend(customParseFormat)
 

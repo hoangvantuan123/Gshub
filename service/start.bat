@@ -56,12 +56,12 @@ echo =========================================================================
 echo  ĐANG KHỞI ĐỘNG CÁC DỊCH VỤ Ở CHẾ ĐỘ DEV (GO RUN)...
 echo =========================================================================
 echo.
-echo 1. Khởi động GSHUB SERVER-CORE (gRPC Port :5051)...
-start "GSHUB-SERVER-CORE (:5051)" cmd /k "cd /d %ROOT_DIR%server-core && echo [GSHUB-CORE] Starting... && go run ./cmd/server"
+echo 1. Khởi động GSHUB SERVER-CORE (gRPC Port :60051)...
+start "GSHUB-SERVER-CORE (:60051)" cmd /k "cd /d %ROOT_DIR%server-core && echo [GSHUB-CORE] Starting... && go run ./cmd/server"
 timeout /t 2 /nobreak >nul
 
-echo 2. Khởi động GSHUB SERVICE-DATAHUB (gRPC :5052 / HTTP :9645)...
-start "GSHUB-SERVICE-DATAHUB (:5052)" cmd /k "cd /d %ROOT_DIR%service-datahub && echo [GSHUB-DATAHUB] Starting... && go run ."
+echo 2. Khởi động GSHUB SERVICE-DATAHUB (gRPC :60052 / HTTP :9645)...
+start "GSHUB-SERVICE-DATAHUB (:60052)" cmd /k "cd /d %ROOT_DIR%service-datahub && echo [GSHUB-DATAHUB] Starting... && go run ."
 timeout /t 2 /nobreak >nul
 
 echo 3. Khởi động GSHUB API-GATEWAY (REST Entrypoint :9643)...
@@ -69,8 +69,8 @@ start "GSHUB-API-GATEWAY (:9643)" cmd /k "cd /d %ROOT_DIR%api-gateway && echo [G
 echo.
 echo [SUCCESS] Đã khởi chạy 3 cửa sổ dịch vụ!
 echo - API Gateway : http://127.0.0.1:9643
-echo - DataHub HTTP: http://127.0.0.1:9645 (gRPC :5052)
-echo - Server-Core : gRPC :5051
+echo - DataHub HTTP: http://127.0.0.1:9645 (gRPC :60052)
+echo - Server-Core : gRPC :60051
 goto END
 
 :MODE_PM2

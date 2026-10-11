@@ -1,15 +1,15 @@
 /* eslint-disable no-useless-escape */
 import dayjs from 'dayjs'
-import { RESULT_KHSX_COLUMN_SCHEMA } from '../constants/calcConstants'
+import { RESULT_KHSX_COLUMN_SCHEMA } from '../constants/calcConstants.js'
 import {
   getEffectiveCalcRules,
   createShiftWindowEvaluator,
   evaluateTimeStatus,
   evaluateCapaStatus,
   evaluateCoordinatorStatus
-} from './calcRuleConfig'
-import { normalizeRowOperationalTimePair } from './fileParsers'
-import { calcTotalProductionMinutes } from './statCalculator'
+} from './calcRuleConfig.js'
+import { normalizeRowOperationalTimePair } from './fileParsers.js'
+import { calcTotalProductionMinutes } from './statCalculator.js'
 
 function normalizeCode(val) {
   if (val === undefined || val === null) return ''
@@ -265,20 +265,26 @@ export function enrichSummaryOpDataWithKhsxChecks(
 
     const startTime =
       normalizedRow.PlannedStartTime ??
-      normalizedRow.StartTime ??
+      normalizedRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian bắt đầu (5)'] ??
+      normalizedRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian bắt đầu\r\n(5)'] ??
+      normalizedRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian bắt đầu\n(5)'] ??
       normalizedRow['Thời gian bắt đầu (5)'] ??
       normalizedRow['Thời gian bắt đầu\r\n(5)'] ??
       normalizedRow['Thời gian bắt đầu\n(5)'] ??
       normalizedRow['Thời gian bắt đầu'] ??
+      normalizedRow.StartTime ??
       normalizedRow['Bắt đầu'] ??
       ''
     const endTime =
       normalizedRow.PlannedEndTime ??
-      normalizedRow.EndTime ??
+      normalizedRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian kết thúc (6)'] ??
+      normalizedRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian kết thúc\r\n(6)'] ??
+      normalizedRow['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian kết thúc\n(6)'] ??
       normalizedRow['Thời gian kết thúc (6)'] ??
       normalizedRow['Thời gian kết thúc\r\n(6)'] ??
       normalizedRow['Thời gian kết thúc\n(6)'] ??
       normalizedRow['Thời gian kết thúc'] ??
+      normalizedRow.EndTime ??
       normalizedRow['Kết thúc'] ??
       ''
 
@@ -810,20 +816,26 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
 
     const startTime =
       row.PlannedStartTime ??
-      row.StartTime ??
+      row['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian bắt đầu (5)'] ??
+      row['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian bắt đầu\r\n(5)'] ??
+      row['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian bắt đầu\n(5)'] ??
       row['Thời gian bắt đầu (5)'] ??
       row['Thời gian bắt đầu\r\n(5)'] ??
       row['Thời gian bắt đầu\n(5)'] ??
       row['Thời gian bắt đầu'] ??
+      row.StartTime ??
       row['Bắt đầu'] ??
       ''
     const endTime =
       row.PlannedEndTime ??
-      row.EndTime ??
+      row['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian kết thúc (6)'] ??
+      row['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian kết thúc\r\n(6)'] ??
+      row['THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC - Thời gian kết thúc\n(6)'] ??
       row['Thời gian kết thúc (6)'] ??
       row['Thời gian kết thúc\r\n(6)'] ??
       row['Thời gian kết thúc\n(6)'] ??
       row['Thời gian kết thúc'] ??
+      row.EndTime ??
       row['Kết thúc'] ??
       ''
 
@@ -939,7 +951,10 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
 
     // Kiểm tra thông tin lệnh thao tác và họ tên người phát hành (PIC ĐP)
     const sumRow = findSummaryOpRow(code, stageOrderNo)
-    const hasSumRow = Boolean(sumRow && Object.keys(sumRow).length > 0)
+    const hasSumRow = Boolean(
+      (sumRow && Object.keys(sumRow).length > 0) ||
+      (row && (row.PlannedStartTime || row.PlannedQty || row.TargetQty || row.PlannedShift || row['Thời gian bắt đầu (5)']))
+    )
     const hasPicCoordinator = Boolean(picCoordinator && String(picCoordinator).trim())
 
     let opInfoStatus = 'Đầy đủ'
@@ -1096,13 +1111,29 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     const finalStartTime = formatFullDateTime(startTime, opDate || applyDate, false)
     const finalEndTime = formatFullDateTime(endTime, opDate || applyDate, true, startTime)
 
-    // 17. Thời gian sản xuất theo ĐM (phút) =+IF(OR(O3="";P3="");"";ROUND((P3-O3)*1440;0))
+    // 17. Thời gian sản xuất theo ĐM (phút) = Khoảng thời gian từ Bắt đầu đến Kết thúc (tính bằng phút)
     let standardRunMin = 0
-    if (startTime && endTime) {
+    if (finalStartTime && finalEndTime) {
+      const sDjs = parseDateTimeFlexible(finalStartTime)
+      const eDjs = parseDateTimeFlexible(finalEndTime)
+      if (sDjs && eDjs && sDjs.isValid() && eDjs.isValid()) {
+        let diffMs = eDjs.diff(sDjs)
+        if (diffMs < 0) {
+          diffMs += 24 * 3600 * 1000
+        }
+        if (diffMs > 0) {
+          standardRunMin = Math.round(diffMs / 60000)
+        }
+      }
+    }
+    if (standardRunMin === 0 && startTime && endTime) {
       const sDjs = parseDateTimeFlexible(startTime)
       const eDjs = parseDateTimeFlexible(endTime)
-      if (sDjs && eDjs && eDjs.isValid() && sDjs.isValid()) {
-        const diffMs = eDjs.diff(sDjs)
+      if (sDjs && eDjs && sDjs.isValid() && eDjs.isValid()) {
+        let diffMs = eDjs.diff(sDjs)
+        if (diffMs < 0) {
+          diffMs += 24 * 3600 * 1000
+        }
         if (diffMs > 0) {
           standardRunMin = Math.round(diffMs / 60000)
         }
@@ -1120,9 +1151,18 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         row.PlannedTotalHours !== null &&
         row.PlannedTotalHours !== ''
       ) {
-        standardRunMin = Math.round(
-          (parseFloat(String(row.PlannedTotalHours).replace(/,/g, '')) || 0) * 60
-        )
+        const pthStr = String(row.PlannedTotalHours).trim()
+        if (pthStr.includes(':')) {
+          const parts = pthStr.split(':')
+          const h = parseInt(parts[0], 10) || 0
+          const m = parseInt(parts[1], 10) || 0
+          const s = parseInt(parts[2], 10) || 0
+          standardRunMin = h * 60 + m + Math.round(s / 60)
+        } else {
+          standardRunMin = Math.round(
+            (parseFloat(pthStr.replace(/,/g, '')) || 0) * 60
+          )
+        }
       } else if (
         unfinRow.ProductionDurationMinutes !== undefined &&
         unfinRow.ProductionDurationMinutes !== null &&
@@ -1138,12 +1178,22 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     let standardCapa = 0
     if (standardRunMin > 0 && targetQty > 0) {
       standardCapa = Number(((targetQty / standardRunMin) * 60).toFixed(2))
-    } else if (
-      row.StandardCapa !== undefined &&
-      row.StandardCapa !== null &&
-      row.StandardCapa !== ''
-    ) {
-      standardCapa = parseFloat(String(row.StandardCapa).replace(/,/g, '')) || 0
+    }
+    if (standardCapa === 0) {
+      const rawCapa =
+        row.StandardCapa ??
+        row['Capa định mức (20)'] ??
+        row['Capa định mức'] ??
+        row['Capa ĐM'] ??
+        unfinRow.StandardCapa ??
+        ''
+      if (rawCapa !== undefined && rawCapa !== null && rawCapa !== '') {
+        standardCapa = parseFloat(String(rawCapa).replace(/,/g, '')) || 0
+      }
+    }
+    // Nếu có StandardCapa nhưng chưa có standardRunMin và có targetQty:
+    if (standardRunMin === 0 && standardCapa > 0 && targetQty > 0) {
+      standardRunMin = Math.round((targetQty / standardCapa) * 60)
     }
 
     // 20. Capa thực tế = (Tổng số lượng đạt / Tổng thời gian chạy thực tế phút) * 60 phút

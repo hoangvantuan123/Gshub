@@ -39,7 +39,7 @@ import { languages } from '../../i18n/langs'
 
 // --- Assets ---
 import ErpSoftBg from '../../assets/erpsoft.png'
-import Logo from '../../assets/gold-sun-logo.svg'
+import Logo from '../../assets/goldsun-logo.png'
 
 const ErrorAlert = memo(({ message: errMsg, t }) => {
   const displayMsg = typeof t === 'function' ? t(errMsg) : t?.[errMsg] || errMsg
@@ -506,8 +506,12 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
               localStorage.setItem('save_users_log', JSON.stringify(list2))
             } catch {}
 
-            // Tự động kiểm tra và tải ngầm phiên bản UI mới nhất khi đăng nhập
-            if (window.electron?.updater?.checkUi) {
+            // Tự động kiểm tra bản cập nhật phần mềm (GitHub Releases) và giao diện mới nhất khi đăng nhập
+            if (window.electron?.updater?.checkAll) {
+              window.electron.updater.checkAll().catch(() => {})
+            } else if (window.electron?.updater?.checkNative) {
+              window.electron.updater.checkNative().catch(() => {})
+            } else if (window.electron?.updater?.checkUi) {
               window.electron.updater.checkUi().catch(() => {})
             }
           }, 0)

@@ -277,7 +277,7 @@ export const MOCK_FLAT_MENUS_SQL = [
     SubmenuName: 'Đăng ký báo cáo',
     Type: 'menu',
     Key: 'report_calc_prod_query',
-    Label: 'Truy vấn tính KHSX & TKSX',
+    Label: 'Tính KHSX & TKSX',
     Link: '/erp/u/report/calc-production-query',
     View: true
   },

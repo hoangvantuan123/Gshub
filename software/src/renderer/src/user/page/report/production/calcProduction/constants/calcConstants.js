@@ -545,8 +545,20 @@ export const STAT_REPORT_COLUMN_SCHEMA = [
     key: 'SlipCreatedDate',
     kind: 'Text',
     width: 160
+  }
+]
+
+/**
+ * Cấu trúc các cột tính toán mở rộng chỉ dành riêng cho Bảng Kết Quả TKSX (Tab 5)
+ */
+export const RESULT_CALC_COLUMNS_SCHEMA = [
+  {
+    group: 'Kết quả tính toán TKSX',
+    title: 'Version tính toán',
+    key: 'CalcVersion',
+    kind: 'Text',
+    width: 110
   },
-  // Nhóm 15: Kết quả tính toán TKSX
   {
     group: 'Kết quả tính toán TKSX',
     title: 'Thời gian chạy thực tế',
@@ -603,6 +615,14 @@ export const STAT_REPORT_COLUMN_SCHEMA = [
     kind: 'Text',
     width: 170
   }
+]
+
+/**
+ * 5. Cấu trúc đầy đủ cho Tab 5: Kết quả Thống kê sản xuất (gồm dữ liệu thô + nhóm kết quả tính toán)
+ */
+export const RESULT_TKSX_COLUMN_SCHEMA = [
+  ...STAT_REPORT_COLUMN_SCHEMA,
+  ...RESULT_CALC_COLUMNS_SCHEMA
 ]
 
 /**
@@ -1462,7 +1482,7 @@ export const TAB_DEFINITIONS = [
     shortTitle: 'Kết quả TKSX',
     description:
       'Bảng dữ liệu Thống Kê Sản Xuất hoàn chỉnh 98 cột sau khi tính toán đối soát với Lệnh TT và MES',
-    columnsSchema: STAT_REPORT_COLUMN_SCHEMA,
+    columnsSchema: RESULT_TKSX_COLUMN_SCHEMA,
     isResultTab: true
   },
   {

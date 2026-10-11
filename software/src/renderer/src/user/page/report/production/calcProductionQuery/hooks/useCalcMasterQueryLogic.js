@@ -160,9 +160,9 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
               return d.isValid() ? d.format('YYYY-MM-DD HH:mm:ss') : String(val)
             }
 
-            const rawMb = Number(b.raw_size_mb || b.rawSizeMB || 0)
-            const compMb = Number(b.compressed_size_mb || b.compressedSizeMB || 0)
-            const ratio = b.compression_ratio || b.compressionRatio || ''
+            const rawMb = Number(b.raw_size_mb || b.rawSizeMb || b.rawSizeMB || b.RawSizeMB || 0)
+            const compMb = Number(b.compressed_size_mb || b.compressedSizeMb || b.compressedSizeMB || b.CompressedSizeMB || 0)
+            const ratio = b.compression_ratio || b.compressionRatio || b.CompressionRatio || ''
 
             return {
               regCode: b.reg_code || b.regCode,
@@ -255,43 +255,72 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
         return compareVersions(v1, v2) >= 0 ? (v1 || '1.0') : (v2 || '1.0')
       }
 
-      // Đưa danh sách Server DB vào trước (giữ bản ghi có version cao nhất)
+      // Đưa danh sách Server DB vào trước (giữ bản ghi có version cao nhất và đầy đủ số liệu nhất)
       serverList.forEach((s) => {
-        if (s.regCode) {
-          const existing = mergedMap.get(s.regCode)
-          const chosenVersion = existing ? resolveLatestVersion(s.version, existing.version) : (s.version || '1.0')
-          const isPublished = (s.status === 'PUBLISHED' || existing?.status === 'PUBLISHED')
+        if (!s.regCode) return
+        const existing = mergedMap.get(s.regCode)
+        if (!existing) {
+          mergedMap.set(s.regCode, s)
+        } else {
+          // So sánh version để ưu tiên bản ghi có version cao hơn
+          const isSNewer = compareVersions(s.version, existing.version) > 0
+          const chosen = isSNewer ? s : existing
+          const older = isSNewer ? existing : s
+          const isPublished = s.status === 'PUBLISHED' || existing.status === 'PUBLISHED'
+
           mergedMap.set(s.regCode, {
-            ...(existing || {}),
-            ...s,
-            rawSizeMB: Number(s.rawSizeMB || existing?.rawSizeMB || 0),
-            compressedSizeMB: Number(s.compressedSizeMB || existing?.compressedSizeMB || 0),
-            compressionRatio: s.compressionRatio || existing?.compressionRatio || '',
-            status: isPublished ? 'PUBLISHED' : (s.status || existing?.status || 'DRAFT'),
-            version: chosenVersion,
-            registeredAt: formatRegisteredAt(s.registeredAt || existing?.registeredAt),
-            registeredBy: resolveUserDisplayName(s.registeredBy, s.registeredByName || s.createdByName || existing?.registeredBy)
+            ...older,
+            ...chosen,
+            status: isPublished ? 'PUBLISHED' : chosen.status,
+            version: chosen.version || '1.0',
+            totalRows: (chosen.totalRows && chosen.totalRows > 0) ? chosen.totalRows : older.totalRows,
+            statReportRows: (chosen.statReportRows && chosen.statReportRows > 0) ? chosen.statReportRows : older.statReportRows,
+            unfinishedOpRows: (chosen.unfinishedOpRows && chosen.unfinishedOpRows > 0) ? chosen.unfinishedOpRows : older.unfinishedOpRows,
+            summaryOpRows: (chosen.summaryOpRows && chosen.summaryOpRows > 0) ? chosen.summaryOpRows : older.summaryOpRows,
+            mesApprovalRows: (chosen.mesApprovalRows && chosen.mesApprovalRows > 0) ? chosen.mesApprovalRows : older.mesApprovalRows,
+            rawSizeMB: chosen.rawSizeMB || older.rawSizeMB || 0,
+            compressedSizeMB: chosen.compressedSizeMB || older.compressedSizeMB || 0,
+            compressionRatio: chosen.compressionRatio || older.compressionRatio || '',
+            registeredAt: chosen.registeredAt || older.registeredAt,
+            registeredBy: resolveUserDisplayName(chosen.registeredBy, older.registeredBy)
           })
         }
       })
 
-      // Đưa danh sách Local DB vào (đồng bộ trạng thái và ưu tiên version mới nhất)
+      // Đưa danh sách Local DB vào (đồng bộ trạng thái nhưng TUYỆT ĐỐI không ghi đè số dòng = 0 lên dữ liệu server)
       localList.forEach((l) => {
-        if (l.regCode) {
-          const existing = mergedMap.get(l.regCode)
-          const latestVer = resolveLatestVersion(l.version, existing?.version)
-          const isServerPublished = existing?.status === 'PUBLISHED'
+        if (!l.regCode) return
+        const existing = mergedMap.get(l.regCode)
+        if (!existing) {
+          mergedMap.set(l.regCode, {
+            ...l,
+            rawSizeMB: Number(l.rawSizeMB || l.raw_size_mb || l.rawSizeMb || 0),
+            compressedSizeMB: Number(l.compressedSizeMB || l.compressed_size_mb || l.compressedSizeMb || 0),
+            compressionRatio: l.compressionRatio || l.compression_ratio || '',
+            registeredAt: formatRegisteredAt(l.registeredAt || new Date()),
+            registeredBy: resolveUserDisplayName(l.registeredBy || l.registered_by || l.createdBy),
+            isLocalCached: true
+          })
+        } else {
+          const isLocalNewer = compareVersions(l.version, existing.version) > 0
+          const isPublished = (existing.status === 'PUBLISHED' || l.status === 'PUBLISHED')
+          const hasLocalRows = Number(l.totalRows || 0) > 0
+
           mergedMap.set(l.regCode, {
             ...existing,
-            ...l,
-            rawSizeMB: Number(l.rawSizeMB || l.raw_size_mb || existing?.rawSizeMB || 0),
-            compressedSizeMB: Number(l.compressedSizeMB || l.compressed_size_mb || existing?.compressedSizeMB || 0),
-            compressionRatio: l.compressionRatio || l.compression_ratio || existing?.compressionRatio || '',
-            status: isServerPublished ? 'PUBLISHED' : (l.status || existing?.status || 'DRAFT'),
-            version: latestVer,
-            registeredAt: formatRegisteredAt(l.registeredAt || existing?.registeredAt || new Date()),
-            registeredBy: resolveUserDisplayName(l.registeredBy || l.registered_by || l.createdBy, existing?.registeredBy),
-            remark: l.remark || existing?.remark || '',
+            version: (isLocalNewer && hasLocalRows) ? l.version : existing.version,
+            status: isPublished ? 'PUBLISHED' : (existing.status || l.status || 'DRAFT'),
+            totalRows: (existing.totalRows && existing.totalRows > 0) ? existing.totalRows : (l.totalRows || 0),
+            statReportRows: (existing.statReportRows && existing.statReportRows > 0) ? existing.statReportRows : (l.statReportRows || 0),
+            unfinishedOpRows: (existing.unfinishedOpRows && existing.unfinishedOpRows > 0) ? existing.unfinishedOpRows : (l.unfinishedOpRows || 0),
+            summaryOpRows: (existing.summaryOpRows && existing.summaryOpRows > 0) ? existing.summaryOpRows : (l.summaryOpRows || 0),
+            mesApprovalRows: (existing.mesApprovalRows && existing.mesApprovalRows > 0) ? existing.mesApprovalRows : (l.mesApprovalRows || 0),
+            rawSizeMB: Number(existing.rawSizeMB || l.rawSizeMB || l.raw_size_mb || l.rawSizeMb || 0),
+            compressedSizeMB: Number(existing.compressedSizeMB || l.compressedSizeMB || l.compressed_size_mb || l.compressedSizeMb || 0),
+            compressionRatio: existing.compressionRatio || l.compressionRatio || l.compression_ratio || '',
+            registeredAt: existing.registeredAt || formatRegisteredAt(l.registeredAt),
+            registeredBy: resolveUserDisplayName(existing.registeredBy, l.registeredBy || l.registered_by || l.createdBy),
+            remark: existing.remark || l.remark || '',
             isLocalCached: true
           })
         }

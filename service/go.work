@@ -5,4 +5,3 @@ use (
 	./server-core
 	./service-datahub
 )
-

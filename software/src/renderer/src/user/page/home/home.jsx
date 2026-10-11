@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Input, Spin } from 'antd'
 import { SearchOutlined, FolderOpenOutlined, FileTextOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
-import Logo from '../../../assets/gold-sun-logo.svg'
+import Logo from '../../../assets/goldsun-logo.png'
 import { getMenuData } from '../../../IndexedDB/loadMenuData'
 
 const Home = ({ menuTransForm }) => {

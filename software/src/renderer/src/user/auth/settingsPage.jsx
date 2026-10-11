@@ -14,7 +14,7 @@ import {
   Trash2,
   RefreshCw
 } from 'lucide-react'
-import Logo from '../../assets/gold-sun-logo.svg'
+import Logo from '../../assets/goldsun-logo.png'
 import { getDefaultDataHubUrl, getEnvConfig, SERVER_ENVIRONMENTS } from '../../config/serverConfig'
 import { getApiServerEndpoint } from '../../services'
 import ApiConfigPanel from '../configs/ApiConfigPanel'

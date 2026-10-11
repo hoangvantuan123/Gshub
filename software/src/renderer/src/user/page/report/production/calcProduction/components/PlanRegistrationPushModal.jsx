@@ -75,8 +75,16 @@ export default function PlanRegistrationPushModal({
     ? 100
     : Math.min(100, Math.max(8, progressInfo?.percent || 10))
 
+  const pushKhsx = progressInfo?.pushKhsx !== false
+  const pushTksx = progressInfo?.pushTksx !== false
+
   const cleanMessage = () => {
-    if (isCompleted) return 'Đã đăng ký báo cáo KHSX và TKSX thành công!'
+    if (isCompleted) {
+      if (pushKhsx && pushTksx) return 'Đã đăng ký báo cáo KHSX và TKSX thành công!'
+      if (pushKhsx) return 'Đã đăng ký báo cáo KHSX thành công!'
+      if (pushTksx) return 'Đã đăng ký báo cáo TKSX thành công!'
+      return 'Đã đăng ký báo cáo thành công!'
+    }
     if (isError) return progressInfo?.message || 'Có lỗi xảy ra khi nạp báo cáo'
     if (progressInfo?.step === 'KHSX') return 'Đang nạp báo cáo Kế hoạch sản xuất (KHSX)...'
     if (progressInfo?.step === 'TKSX') return 'Đang nạp báo cáo Thống kê sản xuất (TKSX)...'
@@ -93,8 +101,8 @@ export default function PlanRegistrationPushModal({
 
   const steps = [
     { title: 'Kiểm tra số liệu', key: 'INIT' },
-    { title: 'Nạp Báo cáo KHSX', key: 'KHSX' },
-    { title: 'Nạp Báo cáo TKSX', key: 'TKSX' },
+    ...(pushKhsx ? [{ title: 'Nạp Báo cáo KHSX', key: 'KHSX' }] : []),
+    ...(pushTksx ? [{ title: 'Nạp Báo cáo TKSX', key: 'TKSX' }] : []),
     { title: 'Hoàn tất đăng ký', key: 'DONE' }
   ]
 
@@ -112,7 +120,7 @@ export default function PlanRegistrationPushModal({
       return 'DONE'
     }
     if (stepKey === 'TKSX') {
-      if (currentStep === 'INIT' || currentStep === 'KHSX' || currentStep === 'PUSHING_KHSX') return 'PENDING'
+      if (currentStep === 'INIT' || (pushKhsx && (currentStep === 'KHSX' || currentStep === 'PUSHING_KHSX'))) return 'PENDING'
       if (currentStep === 'TKSX' || currentStep === 'PUSHING_TKSX') return 'ACTIVE'
       return 'DONE'
     }
@@ -155,7 +163,11 @@ export default function PlanRegistrationPushModal({
               ) : (
                 <Send size={15} className="text-indigo-600 shrink-0" />
               )}
-              ĐĂNG KÝ BÁO CÁO KHSX & TKSX
+              {pushKhsx && pushTksx
+                ? 'ĐĂNG KÝ BÁO CÁO KHSX & TKSX'
+                : pushKhsx
+                ? 'ĐĂNG KÝ BÁO CÁO KHSX'
+                : 'ĐĂNG KÝ BÁO CÁO TKSX'}
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -204,15 +216,19 @@ export default function PlanRegistrationPushModal({
                 {message}
               </div>
 
-              {progressInfo?.khsxRows !== undefined && progressInfo?.statRows !== undefined && (
+              {(pushKhsx || pushTksx) && (
                 <div className="flex items-center gap-3 mt-2 text-[11px] font-medium text-slate-600 bg-white p-1.5 border border-slate-200">
-                  <span>
-                    KHSX: <strong className="text-blue-700">{progressInfo.khsxRows.toLocaleString('vi-VN')}</strong> dòng
-                  </span>
-                  <span className="text-slate-300">|</span>
-                  <span>
-                    TKSX: <strong className="text-emerald-700">{progressInfo.statRows.toLocaleString('vi-VN')}</strong> dòng
-                  </span>
+                  {pushKhsx && progressInfo?.khsxRows !== undefined && (
+                    <span>
+                      KHSX: <strong className="text-blue-700">{progressInfo.khsxRows.toLocaleString('vi-VN')}</strong> dòng
+                    </span>
+                  )}
+                  {pushKhsx && pushTksx && <span className="text-slate-300">|</span>}
+                  {pushTksx && progressInfo?.statRows !== undefined && (
+                    <span>
+                      TKSX: <strong className="text-emerald-700">{progressInfo.statRows.toLocaleString('vi-VN')}</strong> dòng
+                    </span>
+                  )}
                 </div>
               )}
             </div>

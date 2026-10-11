@@ -41,6 +41,7 @@ import { getEmployeeCode } from '@renderer/services/tokenService'
 import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import { exportFull6TabsProductionExcel } from '../../calcProduction/engine/calcExcelExporter'
 import PlanRegistrationPushModal from '../../calcProduction/components/PlanRegistrationPushModal'
+import PlanRegistrationSelectModal from '../../calcProduction/components/PlanRegistrationSelectModal'
 import { savePlanRegistration } from '@renderer/user/page/report/registration/services/planRegistrationService'
 import { CloudDownload, Send, FileSpreadsheet } from 'lucide-react'
 import { usePageHotkeys } from '@renderer/user/hooks/usePageHotkeys'
@@ -98,6 +99,14 @@ export default function CalcProductionDetailView() {
     isComplete: false
   })
 
+  // State Modal Tùy chọn báo cáo KHSX / TKSX trước khi đẩy
+  const [isSelectRegistrationOpen, setIsSelectRegistrationOpen] = useState(false)
+  const [registrationSelectInfo, setRegistrationSelectInfo] = useState({
+    khsxRowsCount: 0,
+    statRowsCount: 0,
+    freshCalc: null
+  })
+
   // State Modal Theo Dõi Tiến Trình Đăng Ký 2 Báo Cáo KHSX & TKSX lên /erp/u/report/registration
   const [isPushingRegistration, setIsPushingRegistration] = useState(false)
   const [pushRegistrationProgress, setPushRegistrationProgress] = useState({
@@ -110,6 +119,8 @@ export default function CalcProductionDetailView() {
     khsxRows: 0,
     statRows: 0,
     regCode: '',
+    pushKhsx: true,
+    pushTksx: true,
     isComplete: false,
     isError: false
   })
@@ -2659,7 +2670,7 @@ export default function CalcProductionDetailView() {
     }
   }, [gridData, currentTabDef, targetRegCode, setStatusMessage])
 
-  // Đẩy 2 file kết quả KHSX & TKSX lên module Đăng ký báo cáo (/erp/u/report/registration)
+  // BƯỚC 1: Khi bấm ĐĂNG KÝ BÁO CÁO -> Mở Modal tích chọn báo cáo (mặc định tích 2 báo cáo KHSX & TKSX nếu có dữ liệu)
   const handleRegisterReportsToSystem = useCallback(async () => {
     let freshCalc = calcResults
     if (!freshCalc?.plan?.calculatedRows || !freshCalc?.stat?.calculatedRows) {
@@ -2692,144 +2703,230 @@ export default function CalcProductionDetailView() {
       return
     }
 
-    setIsPushingRegistration(true)
-    const currentRegCode = targetRegCode || masterRecord?.regCode || 'REG-CALC'
-    setPushRegistrationProgress({
-      isOpen: true,
-      percent: 10,
-      step: 'INIT',
-      message: 'Đang chuẩn bị dữ liệu 2 báo cáo KHSX và TKSX...',
-      detail: `Mã đăng ký: ${currentRegCode} | Nhà máy: ${masterInfo.factoryName || 'GS1 Hà Nội'}`,
-      statusTag: 'Khởi tạo',
-      khsxRows: khsxRows.length,
-      statRows: statRows.length,
-      regCode: currentRegCode,
-      isComplete: false,
-      isError: false
+    setRegistrationSelectInfo({
+      khsxRowsCount: khsxRows.length,
+      statRowsCount: statRows.length,
+      freshCalc
     })
+    setIsSelectRegistrationOpen(true)
+  }, [calcResults, masterRecord?.regCode, setStatusMessage, targetRegCode])
 
-    await new Promise((r) => setTimeout(r, 200))
+  // BƯỚC 2: Người dùng xác nhận chọn báo cáo trên Modal rồi bấm Đồng ý mới thực hiện đẩy
+  const handleConfirmPushRegistration = useCallback(
+    async ({ pushKhsx = true, pushTksx = true } = {}) => {
+      setIsSelectRegistrationOpen(false)
 
-    try {
-      const factoryCode =
-        String(masterInfo.factoryName || '').includes('GS5') ||
-        String(masterInfo.factoryName || '').includes('Quế Võ')
-          ? 'GS5'
-          : 'GS1'
-      const factoryName =
-        masterInfo.factoryName || (factoryCode === 'GS5' ? 'GS5 Quế Võ 1B' : 'GS1 Hà Nội')
-      const applyDate = masterInfo.applyDate || new Date().toISOString().slice(0, 10)
-      const regCode = currentRegCode
-      const remark = masterInfo.remark || 'Nạp tự động từ Động cơ tính KHSX & TKSX GsHub'
-
-      const baseReg = String(regCode).replace(/-KHSX$|-TKSX$/i, '')
-      const khsxRegCode = `${baseReg}-KHSX`
-      const tksxRegCode = `${baseReg}-TKSX`
-
-      // BƯỚC 1: Đẩy Báo cáo Kế hoạch sản xuất (KHSX)
-      if (khsxRows.length > 0) {
-        setPushRegistrationProgress((prev) => ({
-          ...prev,
-          percent: 25,
-          step: 'KHSX',
-          message: `Đang nạp ${khsxRows.length.toLocaleString('vi-VN')} dòng Kế hoạch SX (KHSX)...`,
-          detail: '',
-          statusTag: 'Đang nạp KHSX'
-        }))
-
-        await savePlanRegistration(
-          {
-            reportType: 'plan',
-            factoryCode,
-            factoryName,
-            applyDate,
-            regCode: khsxRegCode,
-            remark,
-            status: 'published',
-            isDraft: false,
-            SheetData: khsxRows,
-            planData: khsxRows,
-            data: khsxRows
-          },
-          null,
-          (progress) => {
-            const p = Math.round(25 + progress.percent * 0.35)
-            setPushRegistrationProgress((prev) => ({
-              ...prev,
-              percent: Math.min(60, p),
-              detail: ''
-            }))
+      let freshCalc = registrationSelectInfo.freshCalc || calcResults
+      if (!freshCalc?.plan?.calculatedRows || !freshCalc?.stat?.calculatedRows) {
+        if (tabsCacheRef.current['result_khsx']?.data || tabsCacheRef.current['result_tksx']?.data) {
+          freshCalc = {
+            plan: {
+              calculatedRows: tabsCacheRef.current['result_khsx']?.data || [],
+              columns: RESULT_KHSX_COLUMN_SCHEMA
+            },
+            stat: {
+              calculatedRows: tabsCacheRef.current['result_tksx']?.data || [],
+              columns: STAT_REPORT_COLUMN_SCHEMA
+            }
           }
-        )
+        } else {
+          try {
+            freshCalc = await storageAdapter.getCalcResults(targetRegCode || masterRecord?.regCode)
+          } catch (e) {}
+        }
       }
 
-      // BƯỚC 2: Đẩy Báo cáo Thống kê sản xuất (TKSX)
-      if (statRows.length > 0) {
-        setPushRegistrationProgress((prev) => ({
-          ...prev,
-          percent: 65,
-          step: 'TKSX',
-          message: `Đang nạp ${statRows.length.toLocaleString('vi-VN')} dòng Thống kê SX (TKSX)...`,
-          detail: '',
-          statusTag: 'Đang nạp TKSX'
-        }))
+      const khsxRows = pushKhsx ? freshCalc?.plan?.calculatedRows || [] : []
+      const statRows = pushTksx ? freshCalc?.stat?.calculatedRows || [] : []
 
-        await savePlanRegistration(
-          {
-            reportType: 'statistics',
-            factoryCode,
-            factoryName,
-            applyDate,
-            regCode: tksxRegCode,
-            remark,
-            status: 'published',
-            isDraft: false,
-            SheetData: statRows,
-            statsData: statRows,
-            data: statRows
-          },
-          null,
-          (progress) => {
-            const p = Math.round(65 + progress.percent * 0.3)
-            setPushRegistrationProgress((prev) => ({
-              ...prev,
-              percent: Math.min(95, p),
-              detail: ''
-            }))
-          }
-        )
+      if (khsxRows.length === 0 && statRows.length === 0) {
+        setStatusMessage?.({
+          type: 'warning',
+          text: 'Không có báo cáo nào được chọn hoặc dữ liệu báo cáo được chọn đang trống!'
+        })
+        return
       }
 
-      // BƯỚC 3: Hoàn tất 100%
-      setPushRegistrationProgress((prev) => ({
-        ...prev,
-        percent: 100,
-        step: 'DONE',
-        message: 'Đã nạp thành công 2 báo cáo KHSX & TKSX!',
-        detail: '',
-        statusTag: 'Hoàn tất',
-        isComplete: true
-      }))
+      setIsPushingRegistration(true)
+      const currentRegCode = targetRegCode || masterRecord?.regCode || 'REG-CALC'
+      setPushRegistrationProgress({
+        isOpen: true,
+        percent: 10,
+        step: 'INIT',
+        message:
+          pushKhsx && pushTksx
+            ? 'Đang chuẩn bị dữ liệu 2 báo cáo KHSX và TKSX...'
+            : pushKhsx
+            ? 'Đang chuẩn bị dữ liệu báo cáo KHSX...'
+            : 'Đang chuẩn bị dữ liệu báo cáo TKSX...',
+        detail: `Mã đăng ký: ${currentRegCode} | Nhà máy: ${masterInfo.factoryName || 'GS1 Hà Nội'}`,
+        statusTag: 'Khởi tạo',
+        khsxRows: khsxRows.length,
+        statRows: statRows.length,
+        pushKhsx,
+        pushTksx,
+        regCode: currentRegCode,
+        isComplete: false,
+        isError: false
+      })
 
-      setStatusMessage?.({
-        type: 'success',
-        text: `Đã nạp thành công 2 báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng) và TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
-      })
-    } catch (err) {
-      console.error('[PushRegistration Error in DetailView]', err)
-      setPushRegistrationProgress((prev) => ({
-        ...prev,
-        isError: true,
-        message: `Lỗi khi nạp báo cáo: ${err?.message || err}`,
-        detail: 'Vui lòng kiểm tra kết nối mạng hoặc thử lại.',
-        statusTag: 'Lỗi nạp dữ liệu'
-      }))
-      setStatusMessage?.({
-        type: 'error',
-        text: `Lỗi đăng ký báo cáo: ${err?.message || err}`
-      })
-    }
-  }, [calcResults, masterInfo, masterRecord, setStatusMessage, targetRegCode])
+      await new Promise((r) => setTimeout(r, 200))
+
+      try {
+        const factoryCode =
+          String(masterInfo.factoryName || '').includes('GS5') ||
+          String(masterInfo.factoryName || '').includes('Quế Võ')
+            ? 'GS5'
+            : 'GS1'
+        const factoryName =
+          masterInfo.factoryName || (factoryCode === 'GS5' ? 'GS5 Quế Võ 1B' : 'GS1 Hà Nội')
+        const applyDate = masterInfo.applyDate || new Date().toISOString().slice(0, 10)
+        const regCode = currentRegCode
+        const remark = masterInfo.remark || 'Nạp tự động từ Động cơ tính KHSX & TKSX GsHub'
+
+        const baseReg = String(regCode).replace(/-KHSX$|-TKSX$/i, '')
+        const khsxRegCode = `${baseReg}-KHSX`
+        const tksxRegCode = `${baseReg}-TKSX`
+
+        const activeVersion =
+          masterInfo.version ||
+          masterRecord?.version ||
+          freshCalc?.version ||
+          '1.0'
+
+        // Nạp Báo cáo Kế hoạch sản xuất (KHSX) nếu được chọn
+        if (pushKhsx && khsxRows.length > 0) {
+          setPushRegistrationProgress((prev) => ({
+            ...prev,
+            percent: 25,
+            step: 'KHSX',
+            message: `Đang nạp ${khsxRows.length.toLocaleString('vi-VN')} dòng Kế hoạch SX (KHSX) v${activeVersion}...`,
+            detail: '',
+            statusTag: 'Đang nạp KHSX'
+          }))
+
+          const maxKhsxP = pushTksx && statRows.length > 0 ? 60 : 95
+          await savePlanRegistration(
+            {
+              reportType: 'plan',
+              factoryCode,
+              factoryName,
+              applyDate,
+              regCode: khsxRegCode,
+              version: activeVersion,
+              calcVersion: activeVersion,
+              remark,
+              status: 'published',
+              isDraft: false,
+              SheetData: khsxRows,
+              planData: khsxRows,
+              data: khsxRows
+            },
+            null,
+            (progress) => {
+              const startP = 25
+              const range = maxKhsxP - startP
+              const p = Math.round(startP + progress.percent * (range / 100))
+              setPushRegistrationProgress((prev) => ({
+                ...prev,
+                percent: Math.min(maxKhsxP, p),
+                detail: ''
+              }))
+            }
+          )
+        }
+
+        // Nạp Báo cáo Thống kê sản xuất (TKSX) nếu được chọn
+        if (pushTksx && statRows.length > 0) {
+          const startP = pushKhsx && khsxRows.length > 0 ? 65 : 25
+          const maxP = 95
+          const range = maxP - startP
+
+          setPushRegistrationProgress((prev) => ({
+            ...prev,
+            percent: startP,
+            step: 'TKSX',
+            message: `Đang nạp ${statRows.length.toLocaleString('vi-VN')} dòng Thống kê SX (TKSX) v${activeVersion}...`,
+            detail: '',
+            statusTag: 'Đang nạp TKSX'
+          }))
+
+          await savePlanRegistration(
+            {
+              reportType: 'statistics',
+              factoryCode,
+              factoryName,
+              applyDate,
+              regCode: tksxRegCode,
+              version: activeVersion,
+              calcVersion: activeVersion,
+              remark,
+              status: 'published',
+              isDraft: false,
+              SheetData: statRows,
+              statsData: statRows,
+              data: statRows
+            },
+            null,
+            (progress) => {
+              const p = Math.round(startP + progress.percent * (range / 100))
+              setPushRegistrationProgress((prev) => ({
+                ...prev,
+                percent: Math.min(maxP, p),
+                detail: ''
+              }))
+            }
+          )
+        }
+
+        // Hoàn tất 100%
+        const successMsg =
+          pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
+            ? 'Đã nạp thành công 2 báo cáo KHSX & TKSX!'
+            : pushKhsx && khsxRows.length > 0
+            ? 'Đã nạp thành công báo cáo KHSX!'
+            : 'Đã nạp thành công báo cáo TKSX!'
+
+        setPushRegistrationProgress((prev) => ({
+          ...prev,
+          percent: 100,
+          step: 'DONE',
+          message: successMsg,
+          detail: '',
+          statusTag: 'Hoàn tất',
+          isComplete: true
+        }))
+
+        const notifyMsg =
+          pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
+            ? `Đã nạp thành công 2 báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng) và TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
+            : pushKhsx && khsxRows.length > 0
+            ? `Đã nạp thành công báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng)!`
+            : `Đã nạp thành công báo cáo TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
+
+        setStatusMessage?.({
+          type: 'success',
+          text: notifyMsg
+        })
+      } catch (err) {
+        console.error('[PushRegistration Error in DetailView]', err)
+        setPushRegistrationProgress((prev) => ({
+          ...prev,
+          isError: true,
+          message: `Lỗi khi nạp báo cáo: ${err?.message || err}`,
+          detail: 'Vui lòng kiểm tra kết nối mạng hoặc thử lại.',
+          statusTag: 'Lỗi nạp dữ liệu'
+        }))
+        setStatusMessage?.({
+          type: 'error',
+          text: `Lỗi đăng ký báo cáo: ${err?.message || err}`
+        })
+      } finally {
+        setIsPushingRegistration(false)
+      }
+    },
+    [calcResults, masterInfo, masterRecord, registrationSelectInfo, setStatusMessage, targetRegCode]
+  )
 
   usePageHotkeys({
     onDelete: handleDeleteRows,
@@ -3076,6 +3173,17 @@ export default function CalcProductionDetailView() {
         ]}
         subMessage="Đang tổng hợp và đóng gói 6 bảng dữ liệu với tiêu đề tiếng Việt chuẩn ERP."
         onClose={() => setIsExportExcelProgressOpen(false)}
+      />
+
+      {/* Modal Tùy chọn báo cáo KHSX / TKSX trước khi đẩy */}
+      <PlanRegistrationSelectModal
+        isOpen={isSelectRegistrationOpen}
+        onClose={() => setIsSelectRegistrationOpen(false)}
+        onConfirm={handleConfirmPushRegistration}
+        masterInfo={masterInfo}
+        khsxRowsCount={registrationSelectInfo?.khsxRowsCount || 0}
+        statRowsCount={registrationSelectInfo?.statRowsCount || 0}
+        isLoading={isPushingRegistration}
       />
 
       {/* Modal Theo Dõi Tiến Trình Đăng Ký 2 Báo Cáo KHSX & TKSX Lên Hệ Thống */}

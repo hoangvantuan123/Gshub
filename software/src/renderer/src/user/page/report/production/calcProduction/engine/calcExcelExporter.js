@@ -4,7 +4,8 @@ import {
   UNFINISHED_OP_COLUMN_SCHEMA,
   SUMMARY_OP_COLUMN_SCHEMA,
   MES_APPROVAL_COLUMN_SCHEMA,
-  RESULT_KHSX_COLUMN_SCHEMA
+  RESULT_KHSX_COLUMN_SCHEMA,
+  RESULT_TKSX_COLUMN_SCHEMA
 } from '../constants/calcConstants'
 import { formatCellForExcel, saveWorkbookToFile } from '../../../../../../utils/exportExcelUtils'
 
@@ -154,7 +155,7 @@ export const FULL_6_TABS_EXPORT_SCHEMA = [
     id: 'result_tksx',
     sheetName: 'Kết quả TKSX',
     title: '2. Bảng Kết Quả Thống Kê Sản Xuất (98 Cột)',
-    schema: STAT_REPORT_COLUMN_SCHEMA,
+    schema: RESULT_TKSX_COLUMN_SCHEMA,
     getData: (calcResults) => calcResults?.stat?.calculatedRows || []
   },
   {

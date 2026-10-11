@@ -614,9 +614,9 @@ export function restartAndInstallNativeUpdate() {
 export function startAutoUpdateWatcher() {
   setTimeout(async () => {
     try {
-      const uiRes = await checkUiHotUpdate({ autoDownload: true })
-      if (!uiRes?.available) {
-        await checkNativeUpdate()
+      const nativeRes = await checkNativeUpdate()
+      if (!nativeRes?.available) {
+        await checkUiHotUpdate({ autoDownload: true })
       }
     } catch (e) {
       console.warn('[Auto Update Watcher Error]:', e.message)
@@ -681,11 +681,11 @@ export function setupUpdaterIpc() {
     return await checkNativeUpdate()
   })
 
-  // Kiểm tra cả 2 loại cập nhật
+  // Kiểm tra cả 2 loại cập nhật (Ưu tiên bản phần mềm Native trước, sau đó là giao diện OTA)
   ipcMain.handle('updater:check-all', async () => {
-    const uiRes = await checkUiHotUpdate({ autoDownload: true })
-    if (uiRes?.available) return uiRes
-    return await checkNativeUpdate()
+    const nativeRes = await checkNativeUpdate()
+    if (nativeRes?.available) return nativeRes
+    return await checkUiHotUpdate({ autoDownload: true })
   })
 
   // Thao tác cho Hot Update UI

@@ -9,75 +9,13 @@ import {
   SUMMARY_OP_COLUMN_SCHEMA,
   MES_APPROVAL_COLUMN_SCHEMA,
   RESULT_KHSX_COLUMN_SCHEMA,
+  RESULT_CALC_COLUMNS_SCHEMA,
+  RESULT_TKSX_COLUMN_SCHEMA,
   ARCHITECTURE_FILE_TYPES,
   TAB_DEFINITIONS
 } from '../constants/calcConstants'
 
-export const RESULT_CALC_COLUMNS_SCHEMA = [
-  {
-    group: 'Kết quả tính toán TKSX',
-    title: 'Version tính toán',
-    key: 'CalcVersion',
-    kind: 'Text',
-    width: 110
-  },
-  {
-    group: 'Kết quả tính toán TKSX',
-    title: 'Thời gian chạy thực tế',
-    key: 'ActualRunTime',
-    kind: 'Number',
-    width: 140
-  },
-  {
-    group: 'Kết quả tính toán TKSX',
-    title: 'Capa thực tế',
-    key: 'ActualCapa',
-    kind: 'Number',
-    width: 120
-  },
-  {
-    group: 'Kết quả tính toán TKSX',
-    title: 'CHECK KHSX',
-    key: 'CheckKhsx',
-    kind: 'Text',
-    width: 110
-  },
-  {
-    group: 'Kết quả tính toán TKSX',
-    title: 'Thời gian duyệt phiếu ở MES',
-    key: 'MesApprovedTime',
-    kind: 'Text',
-    width: 170
-  },
-  {
-    group: 'Kết quả tính toán TKSX',
-    title: 'Độ trễ thời gian đồng bộ 2 hệ thống',
-    key: 'SyncLatencySeconds',
-    kind: 'Text',
-    width: 180
-  },
-  {
-    group: 'Kết quả tính toán TKSX',
-    title: 'Phiếu sinh trùng',
-    key: 'IsDuplicateSlip',
-    kind: 'Text',
-    width: 110
-  },
-  {
-    group: 'Kết quả tính toán TKSX',
-    title: 'Vị trí tạo phiếu tk',
-    key: 'CreatedLocation',
-    kind: 'Text',
-    width: 130
-  },
-  {
-    group: 'Kết quả tính toán TKSX',
-    title: 'Sinh phiếu xuất/nhập tự động',
-    key: 'AutoExportImportGenerated',
-    kind: 'Text',
-    width: 170
-  }
-]
+export { RESULT_CALC_COLUMNS_SCHEMA, RESULT_TKSX_COLUMN_SCHEMA }
 
 // Bảng từ điển chuyển đổi tên cột Tiếng Anh sang Tiếng Việt chuẩn mực
 const ENGLISH_KEY_TO_VIETNAMESE = {
@@ -216,7 +154,19 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
     })
   }
 
-  // Nếu là Tab 5: Kết quả TKSX (result_tksx), ĐẢM BẢO luôn có đầy đủ 8 cột tính toán ở cuối bảng
+  // Nếu là Tab 1: Thống kê sản xuất (stat_report), TUYỆT ĐỐI LOẠI BỎ nhóm cột kết quả tính toán TKSX
+  if (fileType === 'stat_report' || fileType === ARCHITECTURE_FILE_TYPES.STAT_REPORT) {
+    const calcKeySet = new Set(RESULT_CALC_COLUMNS_SCHEMA.map((c) => String(c.key).toLowerCase()))
+    return baseCols.filter((col) => {
+      const colId = String(col.id || col.key || '').toLowerCase()
+      const colGroup = String(col.group || '').toLowerCase()
+      if (colGroup.includes('kết quả tính toán') || colGroup.includes('ket qua tinh toan')) return false
+      if (calcKeySet.has(colId)) return false
+      return true
+    })
+  }
+
+  // Nếu là Tab 5: Kết quả TKSX (result_tksx), ĐẢM BẢO luôn có đầy đủ các cột tính toán ở cuối bảng
   if (fileType === 'result_tksx' || fileType === ARCHITECTURE_FILE_TYPES.RESULT_TKSX) {
     const existingKeys = new Set(baseCols.map((c) => c.id || c.key || c.title))
     const calcColsToAdd = RESULT_CALC_COLUMNS_SCHEMA.filter(

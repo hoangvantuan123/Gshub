@@ -317,7 +317,7 @@ export const DEFAULT_SETTING_ITEMS = [
     MenuKey: 'report_calc_production_query',
     MenuSubRootId: 'sub_report_registration',
     MenuRootId: 'ROOT_REPORT',
-    MenuLabel: 'Truy vấn tính KHSX & TKSX',
+    MenuLabel: 'Tính KHSX & TKSX',
     MenuLink: '/erp/u/report/calc-production-query',
     MenuType: 'menu',
     Icon: 'Calculator',

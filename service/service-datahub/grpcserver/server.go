@@ -2329,6 +2329,16 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 		}
 	}
 
+	fileSummaries := strings.TrimSpace(req.FileSummaries)
+	if fileSummaries == "" || !json.Valid([]byte(fileSummaries)) {
+		fileSummaries = "{}"
+	}
+
+	calcSummary := strings.TrimSpace(req.CalcSummary)
+	if calcSummary == "" || !json.Valid([]byte(calcSummary)) {
+		calcSummary = "{}"
+	}
+
 	bundle := reportmodels.CalcProductionBundle{
 		RegCode:          cleanRegCode,
 		Version:          version,
@@ -2344,8 +2354,8 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 		CompressedSizeMB: req.CompressedSizeMb,
 		CompressionRatio: req.CompressionRatio,
 		BundleData:       nil, // Chuẩn kiến trúc: File nén đã lưu trên ổ đĩa FilePath, CSDL chỉ lưu metadata nhẹ (<5KB)
-		FileSummaries:    req.FileSummaries,
-		CalcSummary:      req.CalcSummary,
+		FileSummaries:    fileSummaries,
+		CalcSummary:      calcSummary,
 		Remark:           req.Remark,
 		CreatedBy:        creatorId, // Định danh User chính chủ từ Token
 	}
@@ -2677,8 +2687,8 @@ func RunGRPCServer(
 			MinTime:             20 * time.Second,
 			PermitWithoutStream: true,
 		}),
-		grpc.MaxRecvMsgSize(32 * 1024 * 1024), // 32MB payload support
-		grpc.MaxSendMsgSize(32 * 1024 * 1024),
+		grpc.MaxRecvMsgSize(128 * 1024 * 1024), // 128MB payload support (chống chặn gói siêu nén lớn)
+		grpc.MaxSendMsgSize(128 * 1024 * 1024),
 	}
 
 	grpcServer := grpc.NewServer(opts...)

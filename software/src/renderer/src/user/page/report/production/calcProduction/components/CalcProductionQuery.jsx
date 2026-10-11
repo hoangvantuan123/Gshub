@@ -416,7 +416,7 @@ export default function CalcProductionQuery({
         {/* ── GÓC PHẢI THANH TAB: BỘ LỌC ĐANG CHẠY & NÚT CẤU HÌNH QUY TẮC ICON BÁNH RĂNG ── */}
         <div className="ml-auto flex items-center gap-2 pr-1 shrink-0 text-[11px]">
           {hasFilterActive && (
-            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-blue-700 text-[10px] font-semibold">
+            <div className="flex items-center gap-1.5 b rounded text-blue-700 text-[10px] font-semibold">
               <span>
                 {t('Đang lọc')}: {filteredRowsCount}/{totalRowsCount} {t('dòng')}
               </span>
@@ -434,7 +434,7 @@ export default function CalcProductionQuery({
           {onOpenRuleConfig && (
             <button
               onClick={onOpenRuleConfig}
-              className="flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 border border-slate-300 text-slate-700 w-7 h-7 rounded transition cursor-pointer"
+              className="flex items-center justify-center   text-slate-700 w-7 h-7 rounded transition cursor-pointer"
               title={t('Cấu hình quy tắc tính toán (giờ ca kíp, dung sai, nhãn trạng thái)')}
             >
               <Settings

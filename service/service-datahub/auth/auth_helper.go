@@ -99,6 +99,7 @@ func AuthenticateUserWithToken(ctx context.Context, db *gorm.DB, tokenStr string
 		os.Getenv("JWT_SECRET"),
 		"syscore_datahub_super_secret_jwt_key_2026",
 		"P@5sW0rD!$R3c3nT@2024",
+		"P@5sW0rD!c3nT@2024", // Chuẩn hóa trường hợp .env unquoted biến $R3c3nT bị nội suy
 		"syscore_gshub_super_secret_jwt_key_2026",
 		"syscore_gshub_dev_jwt_key_2026",
 	}

@@ -83,9 +83,7 @@ const CalcMasterQueryActions = memo(function CalcMasterQueryActions({
           size="sm"
           onClick={onDeleteSelected}
           className={`uppercase text-[10.5px] font-semibold h-6 px-1.5 shrink-0 ${
-            isMyRecord
-              ? 'text-rose-600 hover:text-rose-700'
-              : 'text-amber-700 hover:text-amber-800'
+            isMyRecord ? 'text-rose-600 hover:text-rose-700' : 'text-amber-700 hover:text-amber-800'
           }`}
           title={
             isMyRecord

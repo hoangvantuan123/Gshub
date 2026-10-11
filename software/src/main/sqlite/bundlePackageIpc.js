@@ -359,15 +359,18 @@ export function setupBundlePackageIpc() {
     if (!db) return { success: false }
     try {
       const { bundleCode, regCode = '', version = '1.0', bundleData } = payload
-      if (!bundleCode || !bundleData) return { success: false, error: 'Thiếu bundleCode hoặc bundleData' }
+      if (!bundleCode || !bundleData)
+        return { success: false, error: 'Thiếu bundleCode hoặc bundleData' }
 
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO calc_versioned_bundles (bundle_code, reg_code, version, bundle_data, created_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(bundle_code) DO UPDATE SET
           bundle_data = excluded.bundle_data,
           created_at = excluded.created_at
-      `).run(bundleCode, regCode, version, bundleData, new Date().toISOString())
+      `
+      ).run(bundleCode, regCode, version, bundleData, new Date().toISOString())
 
       return { success: true }
     } catch (err) {

@@ -290,18 +290,28 @@ export default function CalcProductionQueryPage({
         cancelText={t('Hủy bỏ')}
         message={
           deleteModalState.isMyRecord
-            ? t('Bạn có chắc chắn muốn xóa dữ liệu làm việc của phiếu [{{code}}] trên máy tính này không?', {
-                code: deleteModalState.regCode
-              })
-            : t('Phiếu [{{code}}] do [{{creator}}] tạo. Bạn không thể xóa phiếu của người khác trên hệ thống.', {
-                code: deleteModalState.regCode,
-                creator: deleteModalState.creatorName
-              })
+            ? t(
+                'Bạn có chắc chắn muốn xóa dữ liệu làm việc của phiếu [{{code}}] trên máy tính này không?',
+                {
+                  code: deleteModalState.regCode
+                }
+              )
+            : t(
+                'Phiếu [{{code}}] do [{{creator}}] tạo. Bạn không thể xóa phiếu của người khác trên hệ thống.',
+                {
+                  code: deleteModalState.regCode,
+                  creator: deleteModalState.creatorName
+                }
+              )
         }
         subMessage={
           deleteModalState.isMyRecord
-            ? t('Lưu ý: Toàn bộ dữ liệu 6 bảng và kết quả tính toán cục bộ sẽ được dọn dẹp sạch sẽ. Bản nén (.gsprod) đã công bố trên Server DataHub vẫn được giữ lại an toàn.')
-            : t('Bạn có muốn xóa dữ liệu bộ nhớ đệm (cache) đã tải về trên máy tính này để giải phóng dung lượng bộ nhớ không? (Bản ghi của người tạo trên Server sẽ KHÔNG bị ảnh hưởng).')
+            ? t(
+                'Lưu ý: Toàn bộ dữ liệu 6 bảng và kết quả tính toán cục bộ sẽ được dọn dẹp sạch sẽ. Bản nén (.gsprod) đã công bố trên Server DataHub vẫn được giữ lại an toàn.'
+              )
+            : t(
+                'Bạn có muốn xóa dữ liệu bộ nhớ đệm (cache) đã tải về trên máy tính này để giải phóng dung lượng bộ nhớ không? (Bản ghi của người tạo trên Server sẽ KHÔNG bị ảnh hưởng).'
+              )
         }
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteModalState((prev) => ({ ...prev, isOpen: false }))}

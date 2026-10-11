@@ -57,7 +57,17 @@ export const getCalcProductionDB = async () => {
   }
 
   dbPromise = (async () => {
-    let db = await openWithVersion(STORAGE_KEYS.DB_VERSION)
+    let db
+    try {
+      db = await openWithVersion(STORAGE_KEYS.DB_VERSION)
+    } catch (verErr) {
+      console.warn(
+        '[IndexedDB] Phiên bản DB trình duyệt khác với cấu hình, đang kết nối theo version hiện tại:',
+        verErr?.message
+      )
+      db = await openDB(STORAGE_KEYS.DB_NAME)
+    }
+
     const missing = REQUIRED_STORES.some(({ name }) => !db.objectStoreNames.contains(name))
     if (missing) {
       console.warn('[IndexedDB] Database opened but missing stores. Forcing schema increment...')
@@ -325,10 +335,10 @@ export const getArchitectureFilePageIDB = async (
     const hasStatusFilter = Boolean(statusFilter && statusFilter !== 'ALL')
     const hasFilterValues = Boolean(
       filterValues &&
-        typeof filterValues === 'object' &&
-        Object.values(filterValues).some(
-          (v) => v !== undefined && v !== null && String(v).trim() !== ''
-        )
+      typeof filterValues === 'object' &&
+      Object.values(filterValues).some(
+        (v) => v !== undefined && v !== null && String(v).trim() !== ''
+      )
     )
     const hasFilter = hasSearchText || hasStatusFilter || hasFilterValues
 
@@ -803,4 +813,3 @@ export const saveVersionedBundleIDB = async (payload) => {
     return { success: false }
   }
 }
-

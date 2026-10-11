@@ -65,8 +65,6 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
           console.warn('Lỗi lấy local master registrations:', e)
         }
 
-
-
         // 2. Lấy trực tiếp từ Server DataHub DB qua gRPC Gateway
         let serverList = []
         try {

@@ -47,17 +47,34 @@ export async function publishProductionBundleOnline(payload) {
     const response = await axios.post(url, finalPayload, {
       headers: {
         'Content-Type': 'application/json',
+        'X-Request-Timeout': '180',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
-      timeout: 60000 // 60s
+      timeout: 180000 // 180s cho gói dữ liệu lớn tới 40MB-50MB
     })
+
+    if (response.data && response.data.success === false) {
+      const errMsg =
+        response.data.error_message ||
+        response.data.errorMessage ||
+        response.data.message ||
+        response.data.error ||
+        'Server DataHub từ chối công bố báo cáo'
+      throw new Error(errMsg)
+    }
+
     return response.data
   } catch (error) {
     if (isSessionExpiredError(error)) {
       triggerSessionExpired()
     }
     const msg =
-      error.response?.data?.message || error.message || 'Lỗi đẩy gói lên Server DataHub qua gRPC'
+      error.response?.data?.error_message ||
+      error.response?.data?.errorMessage ||
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      'Lỗi đẩy gói lên Server DataHub qua gRPC'
     throw new Error(msg)
   }
 }
@@ -92,13 +109,26 @@ export async function queryProductionBundlesOnline(params = {}) {
       },
       timeout: 15000
     })
+    if (response.data && response.data.success === false) {
+      const errMsg =
+        response.data.error_message ||
+        response.data.errorMessage ||
+        response.data.message ||
+        response.data.error ||
+        'Lỗi truy vấn gói từ Server DataHub'
+      throw new Error(errMsg)
+    }
     return response.data
   } catch (error) {
     if (isSessionExpiredError(error)) {
       triggerSessionExpired()
     }
     const msg =
-      error.response?.data?.message || error.message || 'Lỗi truy vấn gói từ Server DataHub'
+      error.response?.data?.error_message ||
+      error.response?.data?.errorMessage ||
+      error.response?.data?.message ||
+      error.message ||
+      'Lỗi truy vấn gói từ Server DataHub'
     throw new Error(msg)
   }
 }
@@ -128,6 +158,16 @@ export async function downloadProductionBundleOnline(regCode) {
     )
 
     const resData = response.data
+    if (resData && resData.success === false) {
+      const errMsg =
+        resData.error_message ||
+        resData.errorMessage ||
+        resData.message ||
+        resData.error ||
+        `Gói dữ liệu [${regCode}] không tồn tại trên hệ thống hoặc chưa được công bố.`
+      throw new Error(errMsg)
+    }
+
     let rawBundle =
       resData?.bundle_data ||
       resData?.bundleData ||
@@ -164,12 +204,21 @@ export async function downloadProductionBundleOnline(regCode) {
       return new Uint8Array(rawBundle)
     }
 
+    if (!rawBundle || (typeof rawBundle === 'object' && Object.keys(rawBundle).length === 0)) {
+      throw new Error(`Dữ liệu gói [${regCode}] rỗng hoặc chưa được công bố file nhị phân.`)
+    }
+
     return rawBundle
   } catch (error) {
     if (isSessionExpiredError(error)) {
       triggerSessionExpired()
     }
-    const msg = error.response?.data?.message || error.message || 'Lỗi tải dữ liệu từ hệ thống'
+    const msg =
+      error.response?.data?.error_message ||
+      error.response?.data?.errorMessage ||
+      error.response?.data?.message ||
+      error.message ||
+      'Lỗi tải dữ liệu từ hệ thống'
     throw new Error(msg)
   }
 }
@@ -197,12 +246,26 @@ export async function deleteProductionBundleOnline(regCode) {
         timeout: 15000
       }
     )
+    if (response.data && response.data.success === false) {
+      const errMsg =
+        response.data.error_message ||
+        response.data.errorMessage ||
+        response.data.message ||
+        response.data.error ||
+        'Lỗi xóa gói trên Server DataHub'
+      throw new Error(errMsg)
+    }
     return response.data
   } catch (error) {
     if (isSessionExpiredError(error)) {
       triggerSessionExpired()
     }
-    const msg = error.response?.data?.message || error.message || 'Lỗi xóa gói trên Server DataHub'
+    const msg =
+      error.response?.data?.error_message ||
+      error.response?.data?.errorMessage ||
+      error.response?.data?.message ||
+      error.message ||
+      'Lỗi xóa gói trên Server DataHub'
     throw new Error(msg)
   }
 }

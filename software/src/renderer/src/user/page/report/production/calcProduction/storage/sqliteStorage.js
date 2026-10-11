@@ -526,4 +526,3 @@ export const saveVersionedBundleSQLite = async (payload) => {
   }
   return { success: false }
 }
-

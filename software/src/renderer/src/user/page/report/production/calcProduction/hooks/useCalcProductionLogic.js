@@ -857,16 +857,17 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
 
           notify('success', `Đã công bố thành công báo cáo phiên bản v${pubVersion}!`)
         } catch (serverErr) {
-          console.warn('[DataHub Online] Không thể đẩy lên server:', serverErr)
+          console.error('[DataHub Online] Không thể đẩy lên server:', serverErr)
           setPublishProgress({
-            percent: 100,
-            step: 'COMPLETED',
-            message: 'Đã công bố báo cáo thành công!',
-            detail: `Báo cáo phiên bản v${res.version || '1.0'} đã được ghi nhận thành công.`,
-            statusTag: 'Hoàn tất thành công',
-            isComplete: true
+            percent: 85,
+            step: 'ERROR',
+            isError: true,
+            message: 'Công bố lên máy chủ DataHub thất bại!',
+            detail: serverErr.message || 'Lỗi xác thực Token hoặc không thể kết nối tới máy chủ.',
+            statusTag: 'Lỗi công bố',
+            isComplete: false
           })
-          notify('success', `Đã công bố thành công báo cáo phiên bản v${res.version || '1.0'}!`)
+          notify('error', `Công bố lên máy chủ thất bại: ${serverErr.message}`)
         }
       } else {
         notify('error', res?.error || 'Không thể công bố báo cáo')
@@ -1200,9 +1201,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       } else {
         const summaryItem = fileSummaries[tab.id]
         const hasValidReg =
-          !summaryItem?.regCode ||
-          !masterInfo.regCode ||
-          summaryItem.regCode === masterInfo.regCode
+          !summaryItem?.regCode || !masterInfo.regCode || summaryItem.regCode === masterInfo.regCode
         const isValidUploaded = Boolean(summaryItem && summaryItem.rowCount > 0 && hasValidReg)
         summary[tab.id] = {
           isUploaded: isValidUploaded,
@@ -1453,6 +1452,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     handleGenerateNewRegCode,
     activeTabFileData,
     fileSummaries,
+    filesDataMap,
     isStorageLoading,
     isParsing,
     isCalculating,

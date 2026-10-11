@@ -4,7 +4,7 @@
 
 export const STORAGE_KEYS = {
   DB_NAME: 'calcProductionDB',
-  DB_VERSION: 11,
+  DB_VERSION: 12,
   STORE_FILES: 'architecture_files',
   STORE_FILE_CHUNKS: 'calc_file_chunks',
   STORE_CALC_RESULTS: 'calc_results',

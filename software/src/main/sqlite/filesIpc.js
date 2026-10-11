@@ -125,7 +125,9 @@ export function setupFilesIpc() {
     if (!db) return []
     try {
       const regCode =
-        typeof payload === 'string' ? payload.trim() : (payload?.regCode || payload?.reg_code || '').trim()
+        typeof payload === 'string'
+          ? payload.trim()
+          : (payload?.regCode || payload?.reg_code || '').trim()
       let rows = []
       if (regCode) {
         const stmt = db.prepare(
@@ -155,7 +157,9 @@ export function setupFilesIpc() {
   ipcMain.handle('sqlite:get-calc-file', async (_, payload) => {
     const db = getDb()
     const fileType = typeof payload === 'string' ? payload : payload?.fileType
-    const regCode = (typeof payload === 'object' ? payload?.regCode || payload?.reg_code || '' : '').trim()
+    const regCode = (
+      typeof payload === 'object' ? payload?.regCode || payload?.reg_code || '' : ''
+    ).trim()
     if (!db || !fileType) return null
     try {
       let row = null
@@ -233,10 +237,10 @@ export function setupFilesIpc() {
         const hasStatusFilter = Boolean(statusFilter && statusFilter !== 'ALL')
         const hasFilterValues = Boolean(
           filterValues &&
-            typeof filterValues === 'object' &&
-            Object.values(filterValues).some(
-              (v) => v !== undefined && v !== null && String(v).trim() !== ''
-            )
+          typeof filterValues === 'object' &&
+          Object.values(filterValues).some(
+            (v) => v !== undefined && v !== null && String(v).trim() !== ''
+          )
         )
         const hasFilter = hasSearchText || hasStatusFilter || hasFilterValues
 

@@ -227,10 +227,34 @@ export default function CalcProductionDetailView() {
   // ── Cache dữ liệu toàn bộ 6 Tabs (Tải trước ngầm & Chuyển tab 0ms mượt mà) ──
   const tabsCacheRef = useRef({})
 
-  // ── Grid Data & Selection State ──
-  const [gridData, setGridData] = useState([])
+  // ── Mảng dữ liệu độc lập 100% cho từng Tab: Triệt tiêu hoàn toàn việc dùng chung/rò rỉ dữ liệu giữa các tab ──
+  const [tabDataMap, setTabDataMap] = useState({
+    stat_report: [],
+    unfinished_op: [],
+    summary_op: [],
+    mes_approval: [],
+    result_tksx: [],
+    result_khsx: []
+  })
+
+  const gridData = useMemo(() => {
+    return Array.isArray(tabDataMap[activeTab]) ? tabDataMap[activeTab] : []
+  }, [tabDataMap, activeTab])
+
   const gridDataRef = useRef([])
   gridDataRef.current = gridData
+
+  const setGridData = useCallback((updater) => {
+    const curTab = activeTabRef.current
+    setTabDataMap((prev) => {
+      const curRows = Array.isArray(prev[curTab]) ? prev[curTab] : []
+      const nextRows = typeof updater === 'function' ? updater(curRows) : updater
+      return {
+        ...prev,
+        [curTab]: Array.isArray(nextRows) ? nextRows : []
+      }
+    })
+  }, [])
 
   const [showSearch, setShowSearch] = useState(false)
   const [selection, setSelection] = useState({
@@ -333,11 +357,21 @@ export default function CalcProductionDetailView() {
     return getGridColumnsForTab(activeTab, tabCols)
   }, [activeTab, fileSummaries, calcResults])
 
-  const [cols, setCols] = useState(defaultCols)
+  const [tabColsMap, setTabColsMap] = useState({})
+  const cols = useMemo(() => {
+    return tabColsMap[activeTab] || defaultCols
+  }, [tabColsMap, activeTab, defaultCols])
 
-  useEffect(() => {
-    setCols(defaultCols)
-  }, [defaultCols])
+  const setCols = useCallback((updater) => {
+    setTabColsMap((prev) => {
+      const cur = prev[activeTabRef.current] || []
+      const nextVal = typeof updater === 'function' ? updater(cur) : updater
+      return {
+        ...prev,
+        [activeTabRef.current]: Array.isArray(nextVal) ? nextVal : []
+      }
+    })
+  }, [])
 
   // ── Helper lọc dữ liệu hàng theo điều kiện tìm kiếm chung, trạng thái & trường động ──
   const applyRowSearchFilters = useCallback((rowsList, filters) => {
@@ -497,8 +531,7 @@ export default function CalcProductionDetailView() {
           targetRegCode
         )
         const pagedRows = res?.rows || []
-        const total =
-          res?.total !== undefined ? res.total : archRowCount || pagedRows.length
+        const total = res?.total !== undefined ? res.total : archRowCount || pagedRows.length
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
         const offset = (pageNumber - 1) * PAGE_SIZE
 
@@ -527,13 +560,18 @@ export default function CalcProductionDetailView() {
           try {
             if (tabsCacheRef.current[tab.id]) return
             const res = await loadTabData(tab.id, 1, summaries, results)
+            const rows = Array.isArray(res?.rows) ? res.rows : []
             tabsCacheRef.current[tab.id] = {
-              rows: res.rows,
-              total: res.total,
-              page: res.page,
-              totalPages: res.totalPages,
-              hasMore: res.hasMore
+              rows,
+              total: res?.total || 0,
+              page: res?.page || 1,
+              totalPages: res?.totalPages || 1,
+              hasMore: Boolean(res?.hasMore)
             }
+            setTabDataMap((prev) => ({
+              ...prev,
+              [tab.id]: rows
+            }))
           } catch (e) {
             console.debug(`Preload tab ${tab.id}:`, e)
           }
@@ -735,12 +773,16 @@ export default function CalcProductionDetailView() {
         // 4. Nạp Trang 1 của Tab đầu tiên ngay lập tức
         const initialTab = activeTabRef.current || TAB_DEFINITIONS[0].id
         const dataRes = await loadTabData(initialTab, 1, mergedSummaries, results)
+        const initialRows = Array.isArray(dataRes?.rows) ? dataRes.rows : []
 
-        setGridData(dataRes.rows)
-        gridDataRef.current = dataRes.rows
+        setTabDataMap((prev) => ({
+          ...prev,
+          [initialTab]: initialRows
+        }))
+        gridDataRef.current = initialRows
 
         tabsCacheRef.current[initialTab] = {
-          rows: dataRes.rows,
+          rows: initialRows,
           total: dataRes.total,
           page: dataRes.page,
           totalPages: dataRes.totalPages,
@@ -887,17 +929,16 @@ export default function CalcProductionDetailView() {
         rows: CompactSelection.empty()
       })
 
-      // Cách ly dữ liệu tức thì: Xóa sạch dữ liệu của tab cũ ngay khi bấm chuyển tab
-      setGridData([])
-      gridDataRef.current = []
-
       loadingChunksRef.current.clear()
       isLoadingNextPageRef.current = false
 
       // 3. Nếu tab đã được nạp sẵn trong Cache: Chuyển tức thì 0ms không chờ đợi
       const cached = tabsCacheRef.current[tabId]
       if (cached && Array.isArray(cached.rows)) {
-        setGridData(cached.rows)
+        setTabDataMap((prev) => ({
+          ...prev,
+          [tabId]: cached.rows
+        }))
         gridDataRef.current = cached.rows
 
         const info = {
@@ -928,8 +969,11 @@ export default function CalcProductionDetailView() {
       loadingBarRef.current?.continuousStart?.()
       try {
         const dataRes = await loadTabData(tabId, 1)
-        const freshRows = dataRes?.rows || []
-        setGridData(freshRows)
+        const freshRows = Array.isArray(dataRes?.rows) ? dataRes.rows : []
+        setTabDataMap((prev) => ({
+          ...prev,
+          [tabId]: freshRows
+        }))
         gridDataRef.current = freshRows
 
         tabsCacheRef.current[tabId] = {
@@ -963,6 +1007,11 @@ export default function CalcProductionDetailView() {
         }))
       } catch (err) {
         console.warn('Lỗi đổi tab:', err)
+        setTabDataMap((prev) => ({
+          ...prev,
+          [tabId]: []
+        }))
+        gridDataRef.current = []
       } finally {
         loadingBarRef.current?.complete?.()
       }
@@ -993,8 +1042,12 @@ export default function CalcProductionDetailView() {
           calcResults,
           activeSearchFilters
         )
-        setGridData(dataRes.rows)
-        gridDataRef.current = dataRes.rows
+        const searchRows = Array.isArray(dataRes?.rows) ? dataRes.rows : []
+        setTabDataMap((prev) => ({
+          ...prev,
+          [currentTab]: searchRows
+        }))
+        gridDataRef.current = searchRows
 
         const info = {
           total: dataRes.total,
@@ -1076,7 +1129,10 @@ export default function CalcProductionDetailView() {
             if (newRows.length > 0 && currentTab === activeTabRef.current) {
               const updatedRows = [...gridDataRef.current, ...newRows]
               gridDataRef.current = updatedRows
-              setGridData(updatedRows)
+              setTabDataMap((prev) => ({
+                ...prev,
+                [currentTab]: updatedRows
+              }))
 
               const nextLoadedTotal = loadedCount + newRows.length
               const stillHasMore = nextLoadedTotal < total && newRows.length >= pageSize
@@ -1356,7 +1412,11 @@ export default function CalcProductionDetailView() {
 
       // Chuyển sang Tab Kết Quả TKSX và nạp ngay lên DataGrid
       const initialPageRows = tksxAllRows.slice(0, PAGE_SIZE)
-      setGridData(initialPageRows)
+      setTabDataMap((prev) => ({
+        ...prev,
+        result_tksx: initialPageRows,
+        result_khsx: khsxAllRows.slice(0, PAGE_SIZE)
+      }))
       gridDataRef.current = initialPageRows
       setIsDirty(true)
 
@@ -1422,7 +1482,7 @@ export default function CalcProductionDetailView() {
       setIsSyncingVersion(true)
 
       const bundleCode = `${targetRegCode}@v${newVersion}`
-      
+
       // 1. Kiểm tra trong bộ nhớ RAM hoặc trong CSDL cục bộ (SQLite / IndexedDB)
       let binaryBuffer = versionBundleCacheRef.current.get(bundleCode)
       let isLocal = Boolean(binaryBuffer)
@@ -1532,8 +1592,17 @@ export default function CalcProductionDetailView() {
 
           const curTab = activeTabRef.current || TAB_DEFINITIONS[0].id
           const res = await loadTabData(curTab, 1, summaries, unpacked?.calcResults)
-          setGridData(res.rows)
-          gridDataRef.current = res.rows
+          const curRows = Array.isArray(res?.rows) ? res.rows : []
+          setTabDataMap({
+            stat_report: [],
+            unfinished_op: [],
+            summary_op: [],
+            mes_approval: [],
+            result_tksx: [],
+            result_khsx: [],
+            [curTab]: curRows
+          })
+          gridDataRef.current = curRows
           tabsCacheRef.current[curTab] = res
 
           setSyncVersionProgress({
@@ -1646,8 +1715,17 @@ export default function CalcProductionDetailView() {
 
         const curTab = activeTabRef.current || TAB_DEFINITIONS[0].id
         const res = await loadTabData(curTab, 1, summaries, unpacked?.calcResults)
-        setGridData(res.rows)
-        gridDataRef.current = res.rows
+        const curRows = Array.isArray(res?.rows) ? res.rows : []
+        setTabDataMap({
+          stat_report: [],
+          unfinished_op: [],
+          summary_op: [],
+          mes_approval: [],
+          result_tksx: [],
+          result_khsx: [],
+          [curTab]: curRows
+        })
+        gridDataRef.current = curRows
         tabsCacheRef.current[curTab] = res
 
         setSyncVersionProgress({
@@ -1664,15 +1742,25 @@ export default function CalcProductionDetailView() {
           text: `Đã đồng bộ và khôi phục thành công dữ liệu báo cáo!`
         })
       } else {
-        throw new Error('Dữ liệu trên hệ thống rỗng hoặc không phản hồi.')
+        throw new Error(
+          `Dữ liệu báo cáo [${targetRegCode}] trên hệ thống rỗng hoặc chưa có file gói nhị phân.`
+        )
       }
     } catch (err) {
       console.error('Lỗi đồng bộ dữ liệu:', err)
+      setSyncVersionProgress({
+        percent: 60,
+        step: 'ERROR',
+        isError: true,
+        message: 'Đồng bộ dữ liệu báo cáo thất bại!',
+        detail: err.message || 'Không tìm thấy file gói dữ liệu trên hệ thống.',
+        statusTag: 'Lỗi đồng bộ',
+        isComplete: false
+      })
       setStatusMessage?.({
         type: 'error',
         text: `Không thể đồng bộ dữ liệu: ${err.message}`
       })
-      setIsSyncingVersion(false)
     } finally {
       loadingBarRef.current?.complete?.()
     }
@@ -1895,11 +1983,19 @@ export default function CalcProductionDetailView() {
       })
     } catch (err) {
       console.error('Lỗi công bố báo cáo:', err)
+      setPublishProgress({
+        percent: 85,
+        step: 'ERROR',
+        isError: true,
+        message: 'Công bố lên máy chủ DataHub thất bại!',
+        detail: err.message || 'Lỗi xác thực Token hoặc không thể kết nối tới máy chủ.',
+        statusTag: 'Lỗi công bố',
+        isComplete: false
+      })
       setStatusMessage?.({
         type: 'error',
         text: `Lỗi công bố báo cáo: ${err.message}`
       })
-      setIsPublishing(false)
     }
   }, [masterInfo, masterRecord, calcResults, fileSummaries, setStatusMessage, targetRegCode])
 
@@ -2179,10 +2275,12 @@ export default function CalcProductionDetailView() {
           hasMore: false
         }
         const summaries = await storageAdapter.getAllSummaries(targetRegCode)
-        setFileSummaries(summaries)
+        setTabDataMap((prev) => ({
+          ...prev,
+          [targetTab]: []
+        }))
 
         if (targetTab === activeTabRef.current) {
-          setGridData([])
           gridDataRef.current = []
           pageInfoRef.current = {
             total: 0,
@@ -2259,7 +2357,14 @@ export default function CalcProductionDetailView() {
         )
       }
       tabsCacheRef.current = {}
-      setGridData([])
+      setTabDataMap({
+        stat_report: [],
+        unfinished_op: [],
+        summary_op: [],
+        mes_approval: [],
+        result_tksx: [],
+        result_khsx: []
+      })
       gridDataRef.current = []
       setFileSummaries({})
       setCalcResults(null)

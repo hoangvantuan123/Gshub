@@ -91,28 +91,15 @@ const CalcProductionActions = memo(function CalcProductionActions({
       {!isPublished && typeof onRegisterMaster === 'function' && (
         <Button
           key="Register"
-          variant={isDirty ? 'default' : 'ghost'}
+          variant="ghost"
           size="sm"
           onClick={onRegisterMaster}
           disabled={isRegistering || isCalculating || !hasAnyData}
-          className={`uppercase text-[11px] font-bold h-7 px-2.5 shrink-0 transition-all duration-200 relative ${
-            isDirty
-              ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-500/25 ring-2 ring-amber-400 ring-offset-1 animate-pulse'
-              : 'text-indigo-700 hover:text-indigo-800'
-          }`}
-          title={
-            isDirty
-              ? t('⚠️ Có dữ liệu mới hoặc thay đổi chưa lưu! Bấm để Lưu đăng ký ngay.')
-              : t('Lưu thông tin đăng ký và dữ liệu báo cáo vào CSDL')
-          }
+          className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0"
+          title={t('Lưu thông tin đăng ký và dữ liệu báo cáo vào CSDL')}
         >
-          <Save size={13} className={isDirty ? 'text-white' : 'text-indigo-600'} />
+          <Save size={13} className="text-indigo-600" />
           <span>{t('LƯU ĐĂNG KÝ')}</span>
-          {isDirty && (
-            <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] bg-red-600 text-white font-extrabold shadow-sm">
-              ● Cần lưu
-            </span>
-          )}
         </Button>
       )}
 
@@ -263,8 +250,6 @@ const CalcProductionActions = memo(function CalcProductionActions({
           <span>{t('CHỈNH SỬA BẢN MỚI')}</span>
         </Button>
       )}
-
-
 
       {/* 8. NÚT XUẤT EXCEL (1 file đa Sheet hoặc bảng hiện tại) */}
       {(typeof onExportAllTabsExcel === 'function' || typeof onExportTabExcel === 'function') && (

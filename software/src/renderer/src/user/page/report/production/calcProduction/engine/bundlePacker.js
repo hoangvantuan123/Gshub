@@ -312,4 +312,3 @@ export function base64ToUint8Array(base64) {
   }
   return bytes
 }
-

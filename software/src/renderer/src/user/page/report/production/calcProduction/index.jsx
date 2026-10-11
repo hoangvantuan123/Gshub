@@ -9,8 +9,15 @@ import DataPageContainer from '@renderer/user/components/layout/DataPageContaine
 import { usePageData } from '@renderer/context/PageDataContext'
 import { calculateSelectionStats } from '@renderer/user/hooks/useDataGridSheet'
 import { useCalcProductionLogic } from './hooks/useCalcProductionLogic'
-import { TAB_DEFINITIONS } from './constants/calcConstants'
-import { getGridColumnsForTab } from './columns/calcGridColumns'
+import {
+  TAB_DEFINITIONS,
+  STAT_REPORT_COLUMN_SCHEMA,
+  UNFINISHED_OP_COLUMN_SCHEMA,
+  SUMMARY_OP_COLUMN_SCHEMA,
+  MES_APPROVAL_COLUMN_SCHEMA,
+  RESULT_KHSX_COLUMN_SCHEMA
+} from './constants/calcConstants'
+import { getGridColumnsForTab, RESULT_CALC_COLUMNS_SCHEMA } from './columns/calcGridColumns'
 import { openChildWindow } from '@renderer/utils/openChildWindow'
 import CalcDataGridTable from './components/CalcDataGridTable'
 import CalcProductionActions from './components/CalcProductionActions'
@@ -44,6 +51,7 @@ export default function CalcProductionPage({
     handleGenerateNewRegCode,
     activeTabFileData,
     fileSummaries,
+    filesDataMap,
     isParsing,
     isCalculating,
     setIsCalculating,

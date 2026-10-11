@@ -15,27 +15,21 @@ cd "$SCRIPT_DIR/server-core"
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o cmd/server/main.exe ./cmd/server
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o cmd/server/main ./cmd/server
 chmod +x cmd/server/main
-cp -f cmd/server/main.exe "$SCRIPT_DIR/server-core.exe"
-cp -f cmd/server/main "$SCRIPT_DIR/server-core"
-chmod +x "$SCRIPT_DIR/server-core"
+cp -f cmd/server/main.exe "$SCRIPT_DIR/server-core.exe" 2>/dev/null || true
 
 echo -e "\n[2/3] Building Service-Datahub (:60052)..."
 cd "$SCRIPT_DIR/service-datahub"
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o main.exe .
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o main .
 chmod +x main
-cp -f main.exe "$SCRIPT_DIR/service-datahub.exe"
-cp -f main "$SCRIPT_DIR/service-datahub"
-chmod +x "$SCRIPT_DIR/service-datahub"
+cp -f main.exe "$SCRIPT_DIR/service-datahub.exe" 2>/dev/null || true
 
 echo -e "\n[3/3] Building Api-Gateway (:9643)..."
 cd "$SCRIPT_DIR/api-gateway"
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o main.exe .
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o main .
 chmod +x main
-cp -f main.exe "$SCRIPT_DIR/api-gateway.exe"
-cp -f main "$SCRIPT_DIR/api-gateway"
-chmod +x "$SCRIPT_DIR/api-gateway"
+cp -f main.exe "$SCRIPT_DIR/api-gateway.exe" 2>/dev/null || true
 
 cd "$SCRIPT_DIR"
 echo -e "\n========================================================================="

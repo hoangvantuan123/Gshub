@@ -658,7 +658,8 @@ export const saveMasterRegistrationIDB = async (record) => {
 export const updateMasterRegistrationStatusIDB = async (
   regCode,
   status = 'PUBLISHED',
-  version = '1.0'
+  version = '1.0',
+  remark = null
 ) => {
   if (!regCode) return { success: false }
   try {
@@ -670,6 +671,7 @@ export const updateMasterRegistrationStatusIDB = async (
       version: version || existing?.version || '1.0',
       isPublished: status === 'PUBLISHED' ? 1 : 0,
       publishedAt: status === 'PUBLISHED' ? new Date().toISOString() : existing?.publishedAt,
+      remark: remark !== null && remark !== undefined ? remark : existing?.remark,
       updatedAt: new Date().toISOString()
     }
     await db.put(STORAGE_KEYS.STORE_MASTER, updated)

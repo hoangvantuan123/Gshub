@@ -572,3 +572,87 @@ func (h *CalcBundleHandler) DeleteBundle(c *gin.Context) {
 		"deleted_rows": result.RowsAffected,
 	})
 }
+
+// CancelBundle marks a bundle as CANCELLED
+func (h *CalcBundleHandler) CancelBundle(c *gin.Context) {
+	var body struct {
+		RegCode      string `json:"reg_code"`
+		CancelReason string `json:"cancel_reason"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	regCode := body.RegCode
+	if regCode == "" {
+		regCode = c.Param("regCode")
+	}
+	if regCode == "" {
+		regCode = c.Query("reg_code")
+	}
+
+	if regCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Mã đăng ký (reg_code) là bắt buộc"})
+		return
+	}
+
+	cleanCode := strings.TrimSpace(regCode)
+	cancelReason := strings.TrimSpace(body.CancelReason)
+	if cancelReason == "" {
+		cancelReason = "Người dùng hủy phiếu"
+	}
+
+	// 1. Xác thực Token chính chủ
+	rawAuth := c.GetHeader("Authorization")
+	if rawAuth == "" {
+		if t, ok := c.Get("access_token"); ok {
+			rawAuth = fmt.Sprint(t)
+		}
+	}
+	authUser, authErr := auth.AuthenticateUserWithToken(c.Request.Context(), h.db, rawAuth)
+	if authErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Từ chối quyền hủy phiếu: " + authErr.Error()})
+		return
+	}
+
+	// 2. Tra cứu bản ghi
+	var bundle reportModels.CalcProductionBundle
+	if err := h.db.Where(`LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode).First(&bundle).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Không tìm thấy gói dữ liệu trên server: " + cleanCode})
+		return
+	}
+
+	// 3. Kiểm tra quyền sở hữu chính chủ
+	allowed, reason := auth.CanUserModifyOrDeleteBundle(c.Request.Context(), h.db, authUser, bundle.CreatedBy)
+	if !allowed {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Từ chối quyền hủy phiếu: " + reason})
+		return
+	}
+
+	// 4. Cập nhật trạng thái CANCELLED
+	newRemark := bundle.Remark
+	if newRemark != "" {
+		newRemark = newRemark + " | [HỦY]: " + cancelReason
+	} else {
+		newRemark = "[HỦY]: " + cancelReason
+	}
+
+	result := h.db.Model(&reportModels.CalcProductionBundle{}).
+		Where(`LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode).
+		Updates(map[string]interface{}{
+			"Status":    "CANCELLED",
+			"Remark":    newRemark,
+			"UpdatedAt": time.Now(),
+		})
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Lỗi cập nhật trạng thái hủy phiếu: " + result.Error.Error()})
+		return
+	}
+
+	h.db.Exec(`UPDATE plan_master SET status = 'CANCELLED' WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+	h.db.Exec(`UPDATE "_ERPPlanMaster" SET "Status" = 'CANCELLED' WHERE LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode)
+	h.db.Exec(`UPDATE plan_registration SET status = 'CANCELLED' WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("Phiếu [%s] đã được chuyển sang trạng thái Bản hủy (CANCELLED) thành công.", cleanCode),
+	})
+}

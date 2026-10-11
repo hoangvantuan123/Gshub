@@ -247,6 +247,16 @@ export const storageAdapter = {
     return await updateMasterRegistrationStatusIDB(regCode, 'PUBLISHED', version)
   },
 
+  updateMasterStatus: async (regCode, status = 'CANCELLED', remark = '') => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { updateMasterStatusSQLite } = await import('./sqliteStorage')
+      return await updateMasterStatusSQLite(regCode, status, remark)
+    }
+    const { updateMasterRegistrationStatusIDB } = await import('./indexedDbStorage')
+    return await updateMasterRegistrationStatusIDB(regCode, status, '1.0', remark)
+  },
+
   saveTabSearchState: async (tabId, searchState) => {
     const { saveTabSearchStateIDB } = await import('./indexedDbStorage')
     return await saveTabSearchStateIDB(tabId, searchState)

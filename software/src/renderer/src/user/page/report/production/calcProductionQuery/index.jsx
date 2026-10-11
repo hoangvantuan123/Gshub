@@ -9,6 +9,8 @@ import { usePageData } from '@renderer/context/PageDataContext'
 import { calculateSelectionStats } from '@renderer/user/hooks/useDataGridSheet'
 import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import SystemConfirmModal from '@renderer/user/components/modal/SystemConfirmModal'
+import DeleteMasterModal from './components/DeleteMasterModal'
+import CancelMasterModal from './components/CancelMasterModal'
 import CalculationProgressOverlay from '../calcProduction/components/CalculationProgressOverlay'
 import { FileSpreadsheet } from 'lucide-react'
 import { CALC_MASTER_COLUMNS } from './columns/calcMasterColumns'
@@ -54,7 +56,12 @@ export default function CalcProductionQueryPage({
     deleteModalState,
     setDeleteModalState,
     handleConfirmDelete,
-    isMySelectedRecord
+    isMySelectedRecord,
+    isSelectedRecordCancelled,
+    cancelModalState,
+    setCancelModalState,
+    handleCancelMaster,
+    handleConfirmCancel
   } = useCalcMasterQueryLogic({ setStatusMessage })
 
   // ── Grid State ──
@@ -210,11 +217,13 @@ export default function CalcProductionQueryPage({
             onOpenCalcProduction={handleOpenCalcProduction}
             onViewDetail={() => handleNavigateToDetail()}
             onExportDataKhsx={() => handleExportDataKhsx()}
+            onCancelSelected={() => handleCancelMaster()}
             onDeleteSelected={() => handleDeleteMaster()}
             isLoading={isLoading}
             isSyncing={isSyncing}
             hasSelection={Boolean(selectedRegCode)}
             isMyRecord={isMySelectedRecord}
+            isCancelled={isSelectedRecordCancelled}
           />
         }
         query={
@@ -274,47 +283,29 @@ export default function CalcProductionQueryPage({
         onClose={() => setIsExportProgressOpen(false)}
       />
 
-      {/* Modal Xác nhận Xóa Phiếu (Của mình) / Xóa Cache (Người khác) */}
-      <SystemConfirmModal
+      {/* Modal Xác nhận & Tùy chọn Xóa Phiếu (Xóa Server / Xóa Cache) */}
+      <DeleteMasterModal
         isOpen={deleteModalState.isOpen}
-        title={
-          deleteModalState.isMyRecord
-            ? t('Xác nhận xóa dữ liệu cục bộ của phiếu')
-            : t('Xác nhận xóa bộ nhớ đệm (Cache) trên máy')
+        onClose={() => setDeleteModalState((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={(mode) => handleConfirmDelete(mode)}
+        regCode={deleteModalState.regCode}
+        isMyRecord={deleteModalState.isMyRecord}
+        creatorName={deleteModalState.creatorName}
+        recordTitle={deleteModalState.recordTitle}
+      />
+
+      {/* Modal Chuyển đổi trạng thái sang Bản hủy (CANCELLED) */}
+      <CancelMasterModal
+        isOpen={cancelModalState.isOpen}
+        onClose={() => setCancelModalState((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={handleConfirmCancel}
+        regCode={cancelModalState.regCode}
+        creatorName={cancelModalState.creatorName}
+        recordTitle={cancelModalState.recordTitle}
+        cancelReason={cancelModalState.cancelReason}
+        onChangeCancelReason={(reason) =>
+          setCancelModalState((prev) => ({ ...prev, cancelReason: reason }))
         }
-        type={deleteModalState.isMyRecord ? 'delete' : 'warning'}
-        confirmVariant={deleteModalState.isMyRecord ? 'danger' : 'primary'}
-        confirmText={
-          deleteModalState.isMyRecord ? t('Xác nhận xóa dữ liệu') : t('Xóa cache trên máy')
-        }
-        cancelText={t('Hủy bỏ')}
-        message={
-          deleteModalState.isMyRecord
-            ? t(
-                'Bạn có chắc chắn muốn xóa dữ liệu làm việc của phiếu [{{code}}] trên máy tính này không?',
-                {
-                  code: deleteModalState.regCode
-                }
-              )
-            : t(
-                'Phiếu [{{code}}] do [{{creator}}] tạo. Bạn không thể xóa phiếu của người khác trên hệ thống.',
-                {
-                  code: deleteModalState.regCode,
-                  creator: deleteModalState.creatorName
-                }
-              )
-        }
-        subMessage={
-          deleteModalState.isMyRecord
-            ? t(
-                'Lưu ý: Toàn bộ dữ liệu 6 bảng và kết quả tính toán cục bộ sẽ được dọn dẹp sạch sẽ. Bản nén (.gsprod) đã công bố trên Server DataHub vẫn được giữ lại an toàn.'
-              )
-            : t(
-                'Bạn có muốn xóa dữ liệu bộ nhớ đệm (cache) đã tải về trên máy tính này để giải phóng dung lượng bộ nhớ không? (Bản ghi của người tạo trên Server sẽ KHÔNG bị ảnh hưởng).'
-              )
-        }
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteModalState((prev) => ({ ...prev, isOpen: false }))}
       />
     </>
   )

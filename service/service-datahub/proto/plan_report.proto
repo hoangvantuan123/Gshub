@@ -679,3 +679,14 @@ message DeleteProductionBundleProtoResponse {
   string error_message = 4;
 }
 
+message CancelProductionBundleProtoRequest {
+  string reg_code = 1;
+  string cancel_reason = 2;
+}
+
+message CancelProductionBundleProtoResponse {
+  bool success = 1;
+  string message = 2;
+  string error_message = 3;
+}
+

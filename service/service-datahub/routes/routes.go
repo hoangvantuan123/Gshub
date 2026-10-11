@@ -153,6 +153,7 @@ func SetupRouter(
 			bundleGroup.POST("/query", calcBundleHandler.QueryBundles)
 			bundleGroup.POST("/get-data", calcBundleHandler.DownloadBundle)
 			bundleGroup.POST("/delete", calcBundleHandler.DeleteBundle)
+			bundleGroup.POST("/cancel", calcBundleHandler.CancelBundle)
 		}
 
 		// 1. Dynamic ERP Configurations Management (CRUD)

@@ -5785,6 +5785,118 @@ func (x *DeleteProductionBundleProtoResponse) GetErrorMessage() string {
 	return ""
 }
 
+type CancelProductionBundleProtoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RegCode       string                 `protobuf:"bytes,1,opt,name=reg_code,json=regCode,proto3" json:"reg_code,omitempty"`
+	CancelReason  string                 `protobuf:"bytes,2,opt,name=cancel_reason,json=cancelReason,proto3" json:"cancel_reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelProductionBundleProtoRequest) Reset() {
+	*x = CancelProductionBundleProtoRequest{}
+	mi := &file_plan_report_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelProductionBundleProtoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelProductionBundleProtoRequest) ProtoMessage() {}
+
+func (x *CancelProductionBundleProtoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelProductionBundleProtoRequest.ProtoReflect.Descriptor instead.
+func (*CancelProductionBundleProtoRequest) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *CancelProductionBundleProtoRequest) GetRegCode() string {
+	if x != nil {
+		return x.RegCode
+	}
+	return ""
+}
+
+func (x *CancelProductionBundleProtoRequest) GetCancelReason() string {
+	if x != nil {
+		return x.CancelReason
+	}
+	return ""
+}
+
+type CancelProductionBundleProtoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelProductionBundleProtoResponse) Reset() {
+	*x = CancelProductionBundleProtoResponse{}
+	mi := &file_plan_report_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelProductionBundleProtoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelProductionBundleProtoResponse) ProtoMessage() {}
+
+func (x *CancelProductionBundleProtoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plan_report_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelProductionBundleProtoResponse.ProtoReflect.Descriptor instead.
+func (*CancelProductionBundleProtoResponse) Descriptor() ([]byte, []int) {
+	return file_plan_report_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *CancelProductionBundleProtoResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *CancelProductionBundleProtoResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *CancelProductionBundleProtoResponse) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
 var File_plan_report_proto protoreflect.FileDescriptor
 
 const file_plan_report_proto_rawDesc = "" +
@@ -6443,7 +6555,14 @@ const file_plan_report_proto_rawDesc = "" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12!\n" +
 	"\fdeleted_rows\x18\x03 \x01(\x03R\vdeletedRows\x12#\n" +
-	"\rerror_message\x18\x04 \x01(\tR\ferrorMessageB\x1cZ\x1aservice-datahub/pb/datahubb\x06proto3"
+	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage\"d\n" +
+	"\"CancelProductionBundleProtoRequest\x12\x19\n" +
+	"\breg_code\x18\x01 \x01(\tR\aregCode\x12#\n" +
+	"\rcancel_reason\x18\x02 \x01(\tR\fcancelReason\"~\n" +
+	"#CancelProductionBundleProtoResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12#\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessageB\x1cZ\x1aservice-datahub/pb/datahubb\x06proto3"
 
 var (
 	file_plan_report_proto_rawDescOnce sync.Once
@@ -6457,7 +6576,7 @@ func file_plan_report_proto_rawDescGZIP() []byte {
 	return file_plan_report_proto_rawDescData
 }
 
-var file_plan_report_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
+var file_plan_report_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
 var file_plan_report_proto_goTypes = []any{
 	(*PlanMasterProtoItem)(nil),                  // 0: datahub.PlanMasterProtoItem
 	(*PlanMasterProtoRequest)(nil),               // 1: datahub.PlanMasterProtoRequest
@@ -6508,6 +6627,8 @@ var file_plan_report_proto_goTypes = []any{
 	(*GetProductionBundleDataProtoResponse)(nil), // 46: datahub.GetProductionBundleDataProtoResponse
 	(*DeleteProductionBundleProtoRequest)(nil),   // 47: datahub.DeleteProductionBundleProtoRequest
 	(*DeleteProductionBundleProtoResponse)(nil),  // 48: datahub.DeleteProductionBundleProtoResponse
+	(*CancelProductionBundleProtoRequest)(nil),   // 49: datahub.CancelProductionBundleProtoRequest
+	(*CancelProductionBundleProtoResponse)(nil),  // 50: datahub.CancelProductionBundleProtoResponse
 }
 var file_plan_report_proto_depIdxs = []int32{
 	0,  // 0: datahub.PlanMasterProtoResponse.data:type_name -> datahub.PlanMasterProtoItem
@@ -6556,7 +6677,7 @@ func file_plan_report_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_plan_report_proto_rawDesc), len(file_plan_report_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   49,
+			NumMessages:   51,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

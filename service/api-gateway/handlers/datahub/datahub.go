@@ -169,3 +169,7 @@ func DeleteProductionBundle(pool *grpcclient.Pool) gin.HandlerFunc {
 	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/DeleteProductionBundle")
 }
 
+func CancelProductionBundle(pool *grpcclient.Pool) gin.HandlerFunc {
+	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/CancelProductionBundle")
+}
+

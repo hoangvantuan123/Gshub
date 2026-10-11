@@ -1,18 +1,20 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@renderer/components/ui/button'
-import { Search, Calculator, SquareArrowOutUpRight, Trash2, FileSpreadsheet } from 'lucide-react'
+import { Search, Calculator, SquareArrowOutUpRight, Trash2, FileSpreadsheet, Ban } from 'lucide-react'
 
 const CalcMasterQueryActions = memo(function CalcMasterQueryActions({
   onQuery,
   onOpenCalcProduction,
   onViewDetail,
   onExportDataKhsx,
+  onCancelSelected,
   onDeleteSelected,
   isLoading,
   isSyncing,
   hasSelection,
-  isMyRecord = false
+  isMyRecord = false,
+  isCancelled = false
 }) {
   const { t } = useTranslation()
 
@@ -75,7 +77,31 @@ const CalcMasterQueryActions = memo(function CalcMasterQueryActions({
         </Button>
       )}
 
-      {/* 5. Xóa phiếu (của mình) hoặc Xóa Cache (của người khác) */}
+      {/* 5. Hủy phiếu (Chuyển trạng thái sang CANCELLED) */}
+      {hasSelection && typeof onCancelSelected === 'function' && isMyRecord && (
+        <Button
+          key="CancelSelected"
+          variant="ghost"
+          size="sm"
+          onClick={onCancelSelected}
+          disabled={isCancelled}
+          className={`uppercase text-[10.5px] font-semibold h-6 px-1.5 shrink-0 ${
+            isCancelled
+              ? 'text-slate-400 cursor-not-allowed'
+              : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'
+          }`}
+          title={
+            isCancelled
+              ? t('Phiếu này đã ở trạng thái Bản hủy (CANCELLED)')
+              : t('Chuyển đổi trạng thái phiếu này sang Bản hủy (CANCELLED)')
+          }
+        >
+          <Ban size={12} className={isCancelled ? 'text-slate-400' : 'text-rose-500'} />
+          <span>{isCancelled ? t('ĐÃ HỦY') : t('HỦY PHIẾU')}</span>
+        </Button>
+      )}
+
+      {/* 6. Xóa phiếu (của mình) hoặc Xóa Cache (của người khác) */}
       {hasSelection && (
         <Button
           key="DeleteSelected"
@@ -87,7 +113,7 @@ const CalcMasterQueryActions = memo(function CalcMasterQueryActions({
           }`}
           title={
             isMyRecord
-              ? t('Xóa dữ liệu làm việc của phiếu này trên máy tính')
+              ? t('Xóa phiếu này (tùy chọn xóa trên máy hoặc xóa vĩnh viễn trên Server)')
               : t('Xóa bộ nhớ đệm (cache) của phiếu này trên máy tính')
           }
         >

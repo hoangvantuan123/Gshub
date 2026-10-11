@@ -168,6 +168,7 @@ const api = {
     getMasterReg: (regCode) => ipcRenderer.invoke('sqlite:get-master-reg', regCode),
     getAllMasterRegs: () => ipcRenderer.invoke('sqlite:get-all-master-regs'),
     deleteMasterReg: (regCode) => ipcRenderer.invoke('sqlite:delete-master-reg', regCode),
+    updateMasterStatus: (payload) => ipcRenderer.invoke('sqlite:update-master-status', payload),
     exportBundlePackage: (payload) => ipcRenderer.invoke('sqlite:export-bundle-package', payload),
     importBundlePackage: (payload) => ipcRenderer.invoke('sqlite:import-bundle-package', payload),
     getVersionedBundle: (bundleCode) =>

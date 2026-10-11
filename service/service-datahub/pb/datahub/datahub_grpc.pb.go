@@ -50,6 +50,7 @@ const (
 	DataHubService_QueryProductionBundles_FullMethodName        = "/datahub.DataHubService/QueryProductionBundles"
 	DataHubService_GetProductionBundleData_FullMethodName       = "/datahub.DataHubService/GetProductionBundleData"
 	DataHubService_DeleteProductionBundle_FullMethodName        = "/datahub.DataHubService/DeleteProductionBundle"
+	DataHubService_CancelProductionBundle_FullMethodName        = "/datahub.DataHubService/CancelProductionBundle"
 )
 
 // DataHubServiceClient is the client API for DataHubService service.
@@ -96,6 +97,7 @@ type DataHubServiceClient interface {
 	QueryProductionBundles(ctx context.Context, in *QueryProductionBundlesProtoRequest, opts ...grpc.CallOption) (*QueryProductionBundlesProtoResponse, error)
 	GetProductionBundleData(ctx context.Context, in *GetProductionBundleDataProtoRequest, opts ...grpc.CallOption) (*GetProductionBundleDataProtoResponse, error)
 	DeleteProductionBundle(ctx context.Context, in *DeleteProductionBundleProtoRequest, opts ...grpc.CallOption) (*DeleteProductionBundleProtoResponse, error)
+	CancelProductionBundle(ctx context.Context, in *CancelProductionBundleProtoRequest, opts ...grpc.CallOption) (*CancelProductionBundleProtoResponse, error)
 }
 
 type dataHubServiceClient struct {
@@ -419,6 +421,16 @@ func (c *dataHubServiceClient) DeleteProductionBundle(ctx context.Context, in *D
 	return out, nil
 }
 
+func (c *dataHubServiceClient) CancelProductionBundle(ctx context.Context, in *CancelProductionBundleProtoRequest, opts ...grpc.CallOption) (*CancelProductionBundleProtoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelProductionBundleProtoResponse)
+	err := c.cc.Invoke(ctx, DataHubService_CancelProductionBundle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DataHubServiceServer is the server API for DataHubService service.
 // All implementations must embed UnimplementedDataHubServiceServer
 // for forward compatibility.
@@ -463,6 +475,7 @@ type DataHubServiceServer interface {
 	QueryProductionBundles(context.Context, *QueryProductionBundlesProtoRequest) (*QueryProductionBundlesProtoResponse, error)
 	GetProductionBundleData(context.Context, *GetProductionBundleDataProtoRequest) (*GetProductionBundleDataProtoResponse, error)
 	DeleteProductionBundle(context.Context, *DeleteProductionBundleProtoRequest) (*DeleteProductionBundleProtoResponse, error)
+	CancelProductionBundle(context.Context, *CancelProductionBundleProtoRequest) (*CancelProductionBundleProtoResponse, error)
 	mustEmbedUnimplementedDataHubServiceServer()
 }
 
@@ -565,6 +578,9 @@ func (UnimplementedDataHubServiceServer) GetProductionBundleData(context.Context
 }
 func (UnimplementedDataHubServiceServer) DeleteProductionBundle(context.Context, *DeleteProductionBundleProtoRequest) (*DeleteProductionBundleProtoResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteProductionBundle not implemented")
+}
+func (UnimplementedDataHubServiceServer) CancelProductionBundle(context.Context, *CancelProductionBundleProtoRequest) (*CancelProductionBundleProtoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelProductionBundle not implemented")
 }
 func (UnimplementedDataHubServiceServer) mustEmbedUnimplementedDataHubServiceServer() {}
 func (UnimplementedDataHubServiceServer) testEmbeddedByValue()                        {}
@@ -1134,6 +1150,24 @@ func _DataHubService_DeleteProductionBundle_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DataHubService_CancelProductionBundle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelProductionBundleProtoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataHubServiceServer).CancelProductionBundle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DataHubService_CancelProductionBundle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataHubServiceServer).CancelProductionBundle(ctx, req.(*CancelProductionBundleProtoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DataHubService_ServiceDesc is the grpc.ServiceDesc for DataHubService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1260,6 +1294,10 @@ var DataHubService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteProductionBundle",
 			Handler:    _DataHubService_DeleteProductionBundle_Handler,
+		},
+		{
+			MethodName: "CancelProductionBundle",
+			Handler:    _DataHubService_CancelProductionBundle_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

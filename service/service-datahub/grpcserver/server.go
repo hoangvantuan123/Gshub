@@ -2655,6 +2655,103 @@ func (s *Server) DeleteProductionBundle(ctx context.Context, req *pb.DeleteProdu
 	}, nil
 }
 
+func (s *Server) CancelProductionBundle(ctx context.Context, req *pb.CancelProductionBundleProtoRequest) (*pb.CancelProductionBundleProtoResponse, error) {
+	if req == nil || req.RegCode == "" {
+		return &pb.CancelProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Mã đăng ký (reg_code) là bắt buộc",
+			ErrorMessage: "Mã đăng ký (reg_code) là bắt buộc",
+		}, nil
+	}
+
+	cleanCode := strings.TrimSpace(req.RegCode)
+	cancelReason := strings.TrimSpace(req.CancelReason)
+	if cancelReason == "" {
+		cancelReason = "Người dùng hủy phiếu"
+	}
+
+	// 1. Xác thực Token chính chủ trên Server - CẤM tuyệt đối tin tưởng FE
+	authUser, authErr := auth.AuthenticateUser(ctx, s.db)
+	if authErr != nil {
+		s.logger.Warn("[gRPC] Từ chối CancelProductionBundle do Token không hợp lệ",
+			zap.String("reg_code", cleanCode),
+			zap.Error(authErr),
+		)
+		return &pb.CancelProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Từ chối quyền hủy phiếu: " + authErr.Error(),
+			ErrorMessage: authErr.Error(),
+		}, nil
+	}
+
+	// 2. Tìm bản ghi gói dữ liệu trong CSDL Server
+	var bundle reportmodels.CalcProductionBundle
+	errBundle := s.db.WithContext(ctx).Where(`LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode).First(&bundle).Error
+	if errBundle != nil {
+		return &pb.CancelProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Không tìm thấy gói dữ liệu trên server: " + cleanCode,
+			ErrorMessage: "Bản ghi không tồn tại trên hệ thống",
+		}, nil
+	}
+
+	// 3. Kiểm tra quyền sở hữu chính chủ (Ownership Check)
+	allowed, reason := auth.CanUserModifyOrDeleteBundle(ctx, s.db, authUser, bundle.CreatedBy)
+	if !allowed {
+		s.logger.Warn("[gRPC] Cố gắng hủy gói dữ liệu của người khác bị chặn",
+			zap.String("reg_code", cleanCode),
+			zap.String("bundle_creator", bundle.CreatedBy),
+			zap.String("caller_user_seq", authUser.UserSeq),
+			zap.String("caller_user_id", authUser.UserId),
+		)
+		return &pb.CancelProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Từ chối quyền hủy phiếu: " + reason,
+			ErrorMessage: reason,
+		}, nil
+	}
+
+	// 4. Cập nhật trạng thái thành 'CANCELLED' và ghi chú lý do hủy
+	newRemark := bundle.Remark
+	if newRemark != "" {
+		newRemark = newRemark + " | [HỦY]: " + cancelReason
+	} else {
+		newRemark = "[HỦY]: " + cancelReason
+	}
+
+	res := s.db.WithContext(ctx).Model(&reportmodels.CalcProductionBundle{}).
+		Where(`LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode).
+		Updates(map[string]interface{}{
+			"Status":    "CANCELLED",
+			"Remark":    newRemark,
+			"UpdatedAt": time.Now(),
+		})
+
+	if res.Error != nil {
+		return &pb.CancelProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Lỗi cập nhật trạng thái hủy phiếu: " + res.Error.Error(),
+			ErrorMessage: res.Error.Error(),
+		}, nil
+	}
+
+	// Cập nhật trạng thái trong các bảng master phụ trợ nếu có
+	s.db.WithContext(ctx).Exec(`UPDATE plan_master SET status = 'CANCELLED' WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+	s.db.WithContext(ctx).Exec(`UPDATE "_ERPPlanMaster" SET "Status" = 'CANCELLED' WHERE LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode)
+	s.db.WithContext(ctx).Exec(`UPDATE plan_registration SET status = 'CANCELLED' WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+
+	s.logger.Info("[gRPC] Đã chuyển đổi trạng thái phiếu sang CANCELLED (Bản hủy)",
+		zap.String("reg_code", cleanCode),
+		zap.String("cancel_reason", cancelReason),
+		zap.String("cancelled_by_user_seq", authUser.UserSeq),
+	)
+
+	return &pb.CancelProductionBundleProtoResponse{
+		Success: true,
+		Message: fmt.Sprintf("Phiếu [%s] đã được chuyển sang trạng thái Bản hủy (CANCELLED) thành công.", cleanCode),
+	}, nil
+}
+
 // RunGRPCServer launches the gRPC server listening on the specified port
 func RunGRPCServer(
 	port string,

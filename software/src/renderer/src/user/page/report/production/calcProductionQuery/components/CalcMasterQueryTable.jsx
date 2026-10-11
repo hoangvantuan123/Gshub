@@ -165,6 +165,14 @@ export default function CalcMasterQueryTable({
           displayStatus = 'Đã duyệt (APPROVED)'
           textColor = '#0f766e'
           bgColor = '#f0fdfa'
+        } else if (
+          strVal === 'CANCELLED' ||
+          strVal.includes('ĐÃ HỦY') ||
+          strVal.includes('BẢN HỦY')
+        ) {
+          displayStatus = 'Bản hủy (CANCELLED)'
+          textColor = '#b91c1c'
+          bgColor = '#fef2f2'
         }
 
         return {

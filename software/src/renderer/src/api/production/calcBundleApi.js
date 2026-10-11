@@ -269,3 +269,57 @@ export async function deleteProductionBundleOnline(regCode) {
     throw new Error(msg)
   }
 }
+
+/**
+ * 5. Chuyển đổi trạng thái gói sang Bản hủy (CANCELLED) trên Server DataHub
+ * @param {string} regCode
+ * @param {string} cancelReason
+ * @returns {Promise<Object>}
+ */
+export async function cancelProductionBundleOnline(regCode, cancelReason = '') {
+  if (!regCode) throw new Error('regCode là bắt buộc để hủy phiếu')
+
+  const url = `${getApiUrl()}/api/v1/production-calc/bundles/CancelProductionBundle`
+  const token = typeof accessToken === 'function' ? accessToken() : accessToken || ''
+
+  try {
+    const response = await axios.post(
+      url,
+      {
+        reg_code: regCode,
+        regCode,
+        cancel_reason: cancelReason,
+        cancelReason
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        timeout: 15000
+      }
+    )
+    if (response.data && response.data.success === false) {
+      const errMsg =
+        response.data.error_message ||
+        response.data.errorMessage ||
+        response.data.message ||
+        response.data.error ||
+        'Lỗi hủy phiếu trên Server DataHub'
+      throw new Error(errMsg)
+    }
+    return response.data
+  } catch (error) {
+    if (isSessionExpiredError(error)) {
+      triggerSessionExpired()
+    }
+    const msg =
+      error.response?.data?.error_message ||
+      error.response?.data?.errorMessage ||
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      'Lỗi hủy phiếu trên Server DataHub'
+    throw new Error(msg)
+  }
+}

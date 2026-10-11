@@ -171,12 +171,14 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 			bundlesV1.POST("/QueryProductionBundles", datahub.QueryProductionBundles(pool))
 			bundlesV1.POST("/GetProductionBundleData", datahub.GetProductionBundleData(pool))
 			bundlesV1.POST("/DeleteProductionBundle", datahub.DeleteProductionBundle(pool))
+			bundlesV1.POST("/CancelProductionBundle", datahub.CancelProductionBundle(pool))
 
 			// Aliases
 			bundlesV1.POST("/publish", datahub.PublishProductionBundle(pool))
 			bundlesV1.POST("/query", datahub.QueryProductionBundles(pool))
 			bundlesV1.POST("/get-data", datahub.GetProductionBundleData(pool))
 			bundlesV1.POST("/delete", datahub.DeleteProductionBundle(pool))
+			bundlesV1.POST("/cancel", datahub.CancelProductionBundle(pool))
 		}
 	}
 }

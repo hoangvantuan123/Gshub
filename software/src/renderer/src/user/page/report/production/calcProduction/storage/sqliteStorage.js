@@ -438,6 +438,26 @@ export const publishMasterRegistrationSQLite = async (regCode, version = '1.0') 
 }
 
 /**
+ * Cập nhật trạng thái phiếu (ví dụ: sang CANCELLED) trong SQLite
+ */
+export const updateMasterStatusSQLite = async (regCode, status = 'CANCELLED', remark = '') => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      const payload = { regCode, status, remark }
+      if (window?.electron?.sqlite?.updateMasterStatus) {
+        return await window.electron.sqlite.updateMasterStatus(payload)
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:update-master-status', payload)
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi updateMasterStatus:', error)
+    }
+  }
+  const { updateMasterRegistrationStatusIDB } = await import('./indexedDbStorage')
+  return await updateMasterRegistrationStatusIDB(regCode, status, '1.0', remark)
+}
+
+/**
  * Xuất gói siêu nén .gsprod (Columnar Matrix + Gzip Level 9)
  */
 export const exportBundlePackageSQLite = async (payload = {}) => {

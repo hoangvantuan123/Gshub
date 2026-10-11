@@ -5,7 +5,9 @@ import { openChildWindow } from '@renderer/utils/openChildWindow'
 import storageAdapter from '../storageAdapterProxy'
 import {
   queryProductionBundlesOnline,
-  downloadProductionBundleOnline
+  downloadProductionBundleOnline,
+  deleteProductionBundleOnline,
+  cancelProductionBundleOnline
 } from '@renderer/api/production/calcBundleApi'
 import { unpackProductionBundle } from '../../calcProduction/engine/bundlePacker'
 import { clearReportCache } from '../../../common/reportDataCache'
@@ -569,8 +571,20 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
     regCode: '',
     isMyRecord: false,
     creatorName: '',
-    recordTitle: ''
+    recordTitle: '',
+    deleteMode: 'server'
   })
+
+  // Trạng thái phiếu đang chọn có phải là CANCELLED không
+  const isSelectedRecordCancelled = useMemo(() => {
+    if (!selectedRegCode) return false
+    const target = rawMasters.find(
+      (m) =>
+        String(m.regCode || m.RegCode || '').toUpperCase() ===
+        String(selectedRegCode).toUpperCase()
+    )
+    return target?.status === 'CANCELLED'
+  }, [selectedRegCode, rawMasters])
 
   // Yêu cầu xóa: Bắt buộc mở Modal xác nhận thông báo rõ ràng
   const handleDeleteMaster = useCallback(
@@ -622,74 +636,208 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
         regCode: code,
         isMyRecord,
         creatorName,
-        recordTitle: targetMaster?.factoryName ? `${targetMaster.factoryName} - ${code}` : code
+        recordTitle: targetMaster?.factoryName ? `${targetMaster.factoryName} - ${code}` : code,
+        deleteMode: isMyRecord ? 'server' : 'local'
       })
     },
     [selectedRegCode, rawMasters, notify]
   )
 
   // Xác nhận thực hiện xóa sau khi người dùng bấm trong Modal
-  const handleConfirmDelete = useCallback(() => {
-    const { regCode: code, isMyRecord } = deleteModalState
-    setDeleteModalState((prev) => ({ ...prev, isOpen: false }))
+  const handleConfirmDelete = useCallback(
+    async (overrideMode = null) => {
+      const { regCode: code, isMyRecord, deleteMode } = deleteModalState
+      const finalMode = overrideMode || deleteMode || 'server'
+      setDeleteModalState((prev) => ({ ...prev, isOpen: false }))
+      if (!code) return
+
+      if (isMyRecord && finalMode === 'server') {
+        try {
+          await deleteProductionBundleOnline(code)
+          notify(
+            'success',
+            `Đã xóa vĩnh viễn phiếu [${code}] trên máy chủ DataHub thành công.`
+          )
+        } catch (err) {
+          console.error('Lỗi xóa trên server:', err)
+          notify('error', `Lỗi xóa phiếu trên Server: ${err.message}`)
+          return
+        }
+      } else if (isMyRecord) {
+        notify(
+          'success',
+          `Đã dọn dẹp dữ liệu cục bộ của phiếu [${code}] trên máy tính này (Bản nén trên Server được bảo lưu nguyên vẹn).`
+        )
+      } else {
+        notify('success', `Đã xóa bộ nhớ đệm (cache) của phiếu [${code}] trên máy tính này.`)
+      }
+
+      if (isMyRecord) {
+        setRawMasters((prev) =>
+          prev.filter(
+            (m) => String(m.regCode || m.RegCode || '').toUpperCase() !== String(code).toUpperCase()
+          )
+        )
+        setQueriedRows((prev) =>
+          prev.filter(
+            (m) => String(m.regCode || m.RegCode || '').toUpperCase() !== String(code).toUpperCase()
+          )
+        )
+        setSelectedRegCode(null)
+      } else {
+        setRawMasters((prev) =>
+          prev.map((m) =>
+            String(m.regCode || m.RegCode || '').toUpperCase() === String(code).toUpperCase()
+              ? { ...m, isLocalCached: false }
+              : m
+          )
+        )
+        setQueriedRows((prev) =>
+          prev.map((m) =>
+            String(m.regCode || m.RegCode || '').toUpperCase() === String(code).toUpperCase()
+              ? { ...m, isLocalCached: false }
+              : m
+          )
+        )
+      }
+
+      // 3. Dọn dẹp ngầm toàn bộ dữ liệu cục bộ trong nền (SQLite/IndexedDB/Cache)
+      Promise.allSettled([
+        storageAdapter.deleteMasterRegistration(code),
+        Promise.resolve().then(() => {
+          try {
+            localStorage.removeItem(`S_MASTER_REG_${code}`)
+            localStorage.removeItem(`S_CALC_RESULTS_${code}`)
+            sessionStorage.removeItem(`S_MASTER_REG_${code}`)
+            sessionStorage.removeItem(`S_CALC_RESULTS_${code}`)
+            if (localStorage.getItem('GS_ACTIVE_DETAIL_REG_CODE') === code) {
+              localStorage.removeItem('GS_ACTIVE_DETAIL_REG_CODE')
+            }
+            clearReportCache(code)
+            clearReportCache()
+          } catch {}
+        })
+      ]).catch((err) => {
+        console.warn('Lỗi dọn dẹp ngầm:', err)
+      })
+    },
+    [deleteModalState, notify]
+  )
+
+  // ── Quản lý Modal Hủy Phiếu (Chuyển đổi trạng thái sang CANCELLED) ──
+  const [cancelModalState, setCancelModalState] = useState({
+    isOpen: false,
+    regCode: '',
+    isMyRecord: false,
+    creatorName: '',
+    recordTitle: '',
+    cancelReason: ''
+  })
+
+  const handleCancelMaster = useCallback(
+    (regCode = null) => {
+      const code = regCode || selectedRegCode
+      if (!code) {
+        notify('warning', 'Vui lòng chọn 1 phiếu đăng ký để thao tác')
+        return
+      }
+
+      const targetMaster = rawMasters.find(
+        (m) => String(m.regCode || m.RegCode || '').toUpperCase() === String(code).toUpperCase()
+      )
+
+      if (targetMaster?.status === 'CANCELLED') {
+        notify('warning', `Phiếu [${code}] đã ở trạng thái Bản hủy (CANCELLED).`)
+        return
+      }
+
+      let isMyRecord = false
+      let creatorName = 'Người dùng khác'
+      try {
+        const curUser = JSON.parse(localStorage.getItem('userInfo') || '{}')
+        const myIdentifiers = [
+          curUser.UserId,
+          curUser.UserSeq,
+          curUser.UserCode,
+          curUser.UserName,
+          curUser.EmpName
+        ]
+          .filter(Boolean)
+          .map((x) => String(x).toLowerCase())
+
+        const recordCreators = [
+          targetMaster?.createdBy,
+          targetMaster?.CreatedBy,
+          targetMaster?.registeredBy,
+          targetMaster?.registered_by,
+          targetMaster?.UserSeq
+        ]
+          .filter(Boolean)
+          .map((x) => String(x).toLowerCase())
+
+        isMyRecord = recordCreators.some((creator) => myIdentifiers.includes(creator))
+        creatorName =
+          targetMaster?.registeredBy ||
+          targetMaster?.registered_by ||
+          targetMaster?.createdBy ||
+          'Người dùng khác'
+      } catch {}
+
+      setCancelModalState({
+        isOpen: true,
+        regCode: code,
+        isMyRecord,
+        creatorName,
+        recordTitle: targetMaster?.factoryName ? `${targetMaster.factoryName} - ${code}` : code,
+        cancelReason: ''
+      })
+    },
+    [selectedRegCode, rawMasters, notify]
+  )
+
+  const handleConfirmCancel = useCallback(async () => {
+    const { regCode: code, cancelReason } = cancelModalState
+    setCancelModalState((prev) => ({ ...prev, isOpen: false }))
     if (!code) return
 
-    if (isMyRecord) {
-      // 1. Phiếu của mình: Gỡ khỏi danh sách hiển thị trên máy
+    try {
+      const reason = (cancelReason || '').trim() || 'Người dùng hủy phiếu'
+      await cancelProductionBundleOnline(code, reason)
+      await storageAdapter.updateMasterStatus(code, 'CANCELLED', reason)
+
+      // Cập nhật trạng thái hiển thị trên bảng
       setRawMasters((prev) =>
-        prev.filter(
-          (m) => String(m.regCode || m.RegCode || '').toUpperCase() !== String(code).toUpperCase()
+        prev.map((m) =>
+          String(m.regCode || m.RegCode || '').toUpperCase() === String(code).toUpperCase()
+            ? {
+                ...m,
+                status: 'CANCELLED',
+                remark: m.remark ? `${m.remark} | [HỦY]: ${reason}` : `[HỦY]: ${reason}`
+              }
+            : m
         )
       )
       setQueriedRows((prev) =>
-        prev.filter(
-          (m) => String(m.regCode || m.RegCode || '').toUpperCase() !== String(code).toUpperCase()
+        prev.map((m) =>
+          String(m.regCode || m.RegCode || '').toUpperCase() === String(code).toUpperCase()
+            ? {
+                ...m,
+                status: 'CANCELLED',
+                remark: m.remark ? `${m.remark} | [HỦY]: ${reason}` : `[HỦY]: ${reason}`
+              }
+            : m
         )
       )
-      setSelectedRegCode(null)
+
       notify(
         'success',
-        `Đã dọn dẹp dữ liệu cục bộ của phiếu [${code}] (Bản nén trên Server được bảo lưu nguyên vẹn).`
+        `Đã chuyển đổi phiếu [${code}] sang trạng thái Bản hủy (CANCELLED) thành công.`
       )
-    } else {
-      // 2. Phiếu của người khác: CHỈ XÓA BỘ NHỚ ĐỆM (CACHE) TRÊN MÁY, KHÔNG XÓA DÒNG TRÊN BẢNG TRUY VẤN SERVER!
-      setRawMasters((prev) =>
-        prev.map((m) =>
-          String(m.regCode || m.RegCode || '').toUpperCase() === String(code).toUpperCase()
-            ? { ...m, isLocalCached: false }
-            : m
-        )
-      )
-      setQueriedRows((prev) =>
-        prev.map((m) =>
-          String(m.regCode || m.RegCode || '').toUpperCase() === String(code).toUpperCase()
-            ? { ...m, isLocalCached: false }
-            : m
-        )
-      )
-      notify('success', `Đã xóa bộ nhớ đệm (cache) của phiếu [${code}] trên máy tính này.`)
+    } catch (err) {
+      console.error('Lỗi hủy phiếu:', err)
+      notify('error', `Lỗi hủy phiếu: ${err.message}`)
     }
-
-    // 3. Dọn dẹp ngầm toàn bộ dữ liệu cục bộ trong nền (SQLite/IndexedDB/Cache)
-    Promise.allSettled([
-      storageAdapter.deleteMasterRegistration(code),
-      Promise.resolve().then(() => {
-        try {
-          localStorage.removeItem(`S_MASTER_REG_${code}`)
-          localStorage.removeItem(`S_CALC_RESULTS_${code}`)
-          sessionStorage.removeItem(`S_MASTER_REG_${code}`)
-          sessionStorage.removeItem(`S_CALC_RESULTS_${code}`)
-          if (localStorage.getItem('GS_ACTIVE_DETAIL_REG_CODE') === code) {
-            localStorage.removeItem('GS_ACTIVE_DETAIL_REG_CODE')
-          }
-          clearReportCache(code)
-          clearReportCache()
-        } catch {}
-      })
-    ]).catch((err) => {
-      console.warn('Lỗi dọn dẹp ngầm:', err)
-    })
-  }, [deleteModalState, notify])
+  }, [cancelModalState, notify])
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [targetExportRegCode, setTargetExportRegCode] = useState('')
@@ -831,6 +979,11 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
     deleteModalState,
     setDeleteModalState,
     handleConfirmDelete,
-    isMySelectedRecord
+    isMySelectedRecord,
+    isSelectedRecordCancelled,
+    cancelModalState,
+    setCancelModalState,
+    handleCancelMaster,
+    handleConfirmCancel
   }
 }

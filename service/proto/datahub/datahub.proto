@@ -68,4 +68,5 @@ service DataHubService {
   rpc QueryProductionBundles (QueryProductionBundlesProtoRequest) returns (QueryProductionBundlesProtoResponse);
   rpc GetProductionBundleData (GetProductionBundleDataProtoRequest) returns (GetProductionBundleDataProtoResponse);
   rpc DeleteProductionBundle (DeleteProductionBundleProtoRequest) returns (DeleteProductionBundleProtoResponse);
+  rpc CancelProductionBundle (CancelProductionBundleProtoRequest) returns (CancelProductionBundleProtoResponse);
 }

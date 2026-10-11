@@ -82,7 +82,8 @@ export default function CalcMasterQueryFilters({
           { value: 'PUBLISHED', label: 'Đã công bố (PUBLISHED)' },
           { value: 'REGISTERED', label: 'Đã lưu (REGISTERED)' },
           { value: 'DRAFT', label: 'Bản nháp (DRAFT)' },
-          { value: 'APPROVED', label: 'Đã duyệt (APPROVED)' }
+          { value: 'APPROVED', label: 'Đã duyệt (APPROVED)' },
+          { value: 'CANCELLED', label: 'Bản hủy (CANCELLED)' }
         ]
       },
       {

@@ -192,4 +192,31 @@ export function setupMasterIpc() {
       return { success: false, error: err.message }
     }
   })
+
+  // 6. Cập nhật trạng thái Master (ví dụ: chuyển sang CANCELLED)
+  ipcMain.handle('sqlite:update-master-status', async (_, payload) => {
+    const db = getDb()
+    if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    try {
+      const regCode = typeof payload === 'string' ? payload : payload?.regCode
+      const status = payload?.status || 'CANCELLED'
+      const remark = payload?.remark
+      if (!regCode) return { success: false, error: 'Thiếu regCode' }
+
+      if (remark !== undefined && remark !== null) {
+        db.prepare(
+          'UPDATE calc_master_registrations SET status = ?, remark = ? WHERE reg_code = ?'
+        ).run(status, remark, regCode)
+      } else {
+        db.prepare('UPDATE calc_master_registrations SET status = ? WHERE reg_code = ?').run(
+          status,
+          regCode
+        )
+      }
+      return { success: true }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi cập nhật trạng thái master reg:', err)
+      return { success: false, error: err.message }
+    }
+  })
 }

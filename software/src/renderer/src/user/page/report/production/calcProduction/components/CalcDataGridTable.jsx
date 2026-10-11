@@ -10,10 +10,12 @@ import { Drawer, Checkbox } from '@renderer/components/ui'
 import useOnFill from '@renderer/user/components/hooks/sheet/onFillHook'
 import useTableManager from '@renderer/user/components/hooks/sheet/useTableManager'
 import useTableConfig from '@renderer/user/components/hooks/sheet/useTableConfig'
+import { isNumericColumn } from '../columns/calcGridColumns'
 
 const EMPTY_ARRAY = []
 
 export default function CalcDataGridTable({
+  tableId = 'calc_production_table',
   tableTitle,
   setSelection,
   selection,
@@ -35,7 +37,7 @@ export default function CalcDataGridTable({
 
   const onFill = useOnFill(setGridData, cols)
   const onSearchClose = useCallback(() => setShowSearch(false), [setShowSearch])
-  const { freezeColumnsCount, handleFreezeColumn } = useTableConfig('calc_production_table')
+  const { freezeColumnsCount, handleFreezeColumn } = useTableConfig(tableId)
 
   const {
     showMenu,
@@ -64,7 +66,7 @@ export default function CalcDataGridTable({
     onCellContextMenu,
     onHeaderContextMenu
   } = useTableManager({
-    tableId: 'calc_production_table',
+    tableId,
     defaultCols,
     cols,
     setCols,
@@ -91,14 +93,19 @@ export default function CalcDataGridTable({
     return (cols || []).map((column) => {
       const columnKey = column.id || ''
       const columnTitle = column.title || ''
-      const isNum = column.kind === GridCellKind.Number
+      const isNum =
+        column.kind === GridCellKind.Number ||
+        column.kind === 'Number' ||
+        column.isNum === true ||
+        column.contentAlign === 'right' ||
+        isNumericColumn(columnKey, columnTitle, column.kind)
       const cellTheme = getCellTheme(columnKey, column)
       const isReadOnly = column.readonly === true || column.isReadOnly === true
       return {
         columnKey,
         columnTitle,
         isNum,
-        kind: column.kind,
+        kind: isNum ? GridCellKind.Number : column.kind,
         cellTheme,
         isReadOnly,
         hasMenu: column.hasMenu || true
@@ -123,7 +130,14 @@ export default function CalcDataGridTable({
 
         let value = item[meta.columnKey]
         if (value === undefined || value === null) {
-          const nonUniqueTitles = ['Họ tên', 'Mã thợ', 'Số lệnh', 'Ngày phát hành', 'SL cần đạt', 'SL cần sản xuất']
+          const nonUniqueTitles = [
+            'Họ tên',
+            'Mã thợ',
+            'Số lệnh',
+            'Ngày phát hành',
+            'SL cần đạt',
+            'SL cần sản xuất'
+          ]
           if (
             meta.columnTitle &&
             !nonUniqueTitles.includes(meta.columnTitle) &&
@@ -144,6 +158,7 @@ export default function CalcDataGridTable({
               readonly: meta.isReadOnly,
               allowOverlay: !meta.isReadOnly,
               hasMenu: meta.hasMenu,
+              contentAlign: 'right',
               themeOverride: meta.cellTheme
             }
           }
@@ -157,8 +172,39 @@ export default function CalcDataGridTable({
               readonly: meta.isReadOnly,
               allowOverlay: !meta.isReadOnly,
               hasMenu: meta.hasMenu,
+              contentAlign: 'right',
               themeOverride: meta.cellTheme
             }
+          }
+
+          const strVal = String(value)
+          return {
+            kind: GridCellKind.Text,
+            data: strVal,
+            displayData: strVal,
+            readonly: meta.isReadOnly,
+            allowOverlay: !meta.isReadOnly,
+            hasMenu: meta.hasMenu,
+            contentAlign: 'right',
+            themeOverride: meta.cellTheme
+          }
+        }
+
+        // Tự động nhận diện nếu dữ liệu thực tế là số trong cột số liệu
+        if (
+          typeof value === 'number' &&
+          !isNaN(value) &&
+          isNumericColumn(meta.columnKey, meta.columnTitle)
+        ) {
+          return {
+            kind: GridCellKind.Number,
+            data: value,
+            displayData: value.toLocaleString('vi-VN'),
+            readonly: meta.isReadOnly,
+            allowOverlay: !meta.isReadOnly,
+            hasMenu: meta.hasMenu,
+            contentAlign: 'right',
+            themeOverride: meta.cellTheme
           }
         }
 

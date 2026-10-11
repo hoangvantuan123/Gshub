@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"service-datahub/auth"
 	"service-datahub/handlers"
 	"service-datahub/models"
 	reportmodels "service-datahub/models/report"
@@ -1114,8 +1115,30 @@ func (s *Server) DeletePlanMaster(ctx context.Context, req *pb.DeletePlanMasterP
 	if len(masterSeqs) == 0 {
 		return &pb.DeletePlanMasterProtoResponse{
 			Success:      false,
-			ErrorMessage: "Danh sÃ¡ch mÃ£ hoáº·c IdSeq Ä‘á»£t Ä‘Äƒng kÃ½ cáº§n xÃ³a rá»—ng",
+			ErrorMessage: "Danh sách mã hoặc IdSeq đợt đăng ký cần xóa rỗng",
 		}, nil
+	}
+
+	// Xác thực danh tính từ Token và bảo vệ dữ liệu người khác
+	authUser, authErr := auth.AuthenticateUser(ctx, s.db)
+	if authErr == nil && authUser != nil {
+		userId = authUser.UserId
+		if !authUser.IsAdmin {
+			var masters []reportmodels.ERPPlanMaster
+			s.db.WithContext(ctx).Where(`"IdSeq" IN ? OR "RegCode" IN ?`, masterSeqs, masterSeqs).Find(&masters)
+			for _, m := range masters {
+				creator := ""
+				if m.CreatedBy != nil {
+					creator = *m.CreatedBy
+				}
+				if allowed, reason := auth.CanUserModifyOrDeleteBundle(ctx, s.db, authUser, creator); !allowed {
+					return &pb.DeletePlanMasterProtoResponse{
+						Success:      false,
+						ErrorMessage: fmt.Sprintf("Từ chối quyền xóa đợt đăng ký [%s]: %s", m.RegCode, reason),
+					}, nil
+				}
+			}
+		}
 	}
 
 	err := s.planMasterService.PlanMasterD(ctx, masterSeqs, userId)
@@ -1128,7 +1151,7 @@ func (s *Server) DeletePlanMaster(ctx context.Context, req *pb.DeletePlanMasterP
 
 	return &pb.DeletePlanMasterProtoResponse{
 		Success:     true,
-		Message:     "XÃ³a Ä‘á»£t Ä‘Äƒng kÃ½ bÃ¡o cÃ¡o vÃ  chi tiáº¿t thÃ nh cÃ´ng",
+		Message:     "Xóa đợt đăng ký báo cáo và chi tiết thành công",
 		DeletedRows: int64(len(masterSeqs)),
 	}, nil
 }
@@ -2202,6 +2225,46 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 		}, nil
 	}
 
+	// 1. Xác thực Token chính chủ trên Server - CẤM tuyệt đối tin tưởng FE gửi req.CreatedBy
+	authUser, authErr := auth.AuthenticateUser(ctx, s.db)
+	if authErr != nil {
+		s.logger.Warn("[gRPC] Từ chối PublishProductionBundle do không xác thực được Token", zap.Error(authErr))
+		return &pb.PublishProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Xác thực thất bại: " + authErr.Error(),
+			ErrorMessage: authErr.Error(),
+		}, nil
+	}
+
+	cleanRegCode := strings.TrimSpace(req.RegCode)
+
+	// 2. Kiểm tra nếu gói đã tồn tại trên Server -> chỉ chính chủ hoặc Admin mới được phép ghi đè/cập nhật
+	var existing reportmodels.CalcProductionBundle
+	if findErr := s.db.WithContext(ctx).Where(`LOWER(TRIM("RegCode")) = LOWER(?)`, cleanRegCode).First(&existing).Error; findErr == nil {
+		if allowed, reason := auth.CanUserModifyOrDeleteBundle(ctx, s.db, authUser, existing.CreatedBy); !allowed {
+			s.logger.Warn("[gRPC] Cố gắng ghi đè gói của người khác bị chặn",
+				zap.String("reg_code", cleanRegCode),
+				zap.String("existing_creator", existing.CreatedBy),
+				zap.String("caller_user_seq", authUser.UserSeq),
+				zap.String("caller_user_id", authUser.UserId),
+			)
+			return &pb.PublishProductionBundleProtoResponse{
+				Success:      false,
+				Message:      "Từ chối quyền cập nhật: " + reason,
+				ErrorMessage: reason,
+			}, nil
+		}
+	}
+
+	// 3. Chuẩn hóa định danh Creator chính chủ lấy từ Token đã ký bảo mật
+	creatorId := authUser.UserSeq
+	if creatorId == "" {
+		creatorId = authUser.UserId
+	}
+	if creatorId == "" {
+		creatorId = authUser.UserName
+	}
+
 	bundleBytes := req.BundleData
 	if len(bundleBytes) == 0 && req.BundleBase64 != "" {
 		if decoded, err := base64.StdEncoding.DecodeString(req.BundleBase64); err == nil {
@@ -2219,7 +2282,7 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 		status = "PUBLISHED"
 	}
 
-	// 1. Sinh tên file & đường dẫn phân cấp theo Năm/Tháng/Ngày
+	// 4. Sinh tên file & đường dẫn phân cấp theo Năm/Tháng/Ngày
 	now := time.Now()
 	year := fmt.Sprintf("%04d", now.Year())
 	month := fmt.Sprintf("%02d", int(now.Month()))
@@ -2237,7 +2300,7 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 
 	factoryClean := handlers.CleanStorageSlug(req.FactoryName)
 	teamClean := handlers.CleanStorageSlug(req.ProductionTeam)
-	regCodeClean := handlers.CleanStorageSlug(req.RegCode)
+	regCodeClean := handlers.CleanStorageSlug(cleanRegCode)
 	dateClean := year + month + day
 
 	versionClean := strings.TrimPrefix(version, "v")
@@ -2256,7 +2319,7 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 	dirPath := filepath.Join(rootPath, "ke_hoach_san_xuat", factoryClean, year, month, day, teamClean)
 	fullPath := filepath.Join(dirPath, fileName)
 
-	// 2. Ghi file vật lý ra ổ đĩa (tương thích cả Windows, MacOS và Linux Server)
+	// 5. Ghi file vật lý ra ổ đĩa (tương thích cả Windows, MacOS và Linux Server)
 	if len(bundleBytes) > 0 {
 		dir := filepath.Dir(fullPath)
 		if err := os.MkdirAll(dir, 0755); err == nil {
@@ -2267,7 +2330,7 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 	}
 
 	bundle := reportmodels.CalcProductionBundle{
-		RegCode:          req.RegCode,
+		RegCode:          cleanRegCode,
 		Version:          version,
 		FileName:         fileName,
 		FilePath:         relPath,
@@ -2280,14 +2343,14 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 		RawSizeMB:        req.RawSizeMb,
 		CompressedSizeMB: req.CompressedSizeMb,
 		CompressionRatio: req.CompressionRatio,
-		BundleData:       bundleBytes,
+		BundleData:       nil, // Chuẩn kiến trúc: File nén đã lưu trên ổ đĩa FilePath, CSDL chỉ lưu metadata nhẹ (<5KB)
 		FileSummaries:    req.FileSummaries,
 		CalcSummary:      req.CalcSummary,
 		Remark:           req.Remark,
-		CreatedBy:        req.CreatedBy,
+		CreatedBy:        creatorId, // Định danh User chính chủ từ Token
 	}
 
-	// 3. Upsert vào PostgreSQL trên cặp khóa (RegCode, Version) để lưu vết lịch sử nhiều version
+	// 6. Upsert vào PostgreSQL trên cặp khóa (RegCode, Version) để lưu vết lịch sử nhiều version
 	err := s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "RegCode"}, {Name: "Version"}},
 		DoUpdates: clause.AssignmentColumns([]string{
@@ -2298,7 +2361,7 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 	}).Create(&bundle).Error
 
 	if err != nil {
-		s.logger.Error("[gRPC] Lỗi lưu gói production bundle", zap.Error(err), zap.String("reg_code", req.RegCode))
+		s.logger.Error("[gRPC] Lỗi lưu gói production bundle", zap.Error(err), zap.String("reg_code", cleanRegCode))
 		return &pb.PublishProductionBundleProtoResponse{
 			Success:      false,
 			Message:      "Không thể lưu gói dữ liệu lên server: " + err.Error(),
@@ -2306,11 +2369,12 @@ func (s *Server) PublishProductionBundle(ctx context.Context, req *pb.PublishPro
 		}, nil
 	}
 
-	s.logger.Info("[gRPC] Đã công bố thành công gói production bundle",
+	s.logger.Info("[gRPC] Đã công bố thành công gói production bundle bởi chính chủ",
 		zap.String("reg_code", bundle.RegCode),
 		zap.String("version", bundle.Version),
 		zap.String("file_path", bundle.FilePath),
-		zap.Int("bytes", len(bundle.BundleData)),
+		zap.String("created_by", creatorId),
+		zap.Int("bytes", len(bundleBytes)),
 	)
 
 	return &pb.PublishProductionBundleProtoResponse{
@@ -2475,7 +2539,17 @@ func (s *Server) GetProductionBundleData(ctx context.Context, req *pb.GetProduct
 
 		if data, readErr := os.ReadFile(diskPath); readErr == nil && len(data) > 0 {
 			bundleBytes = data
+		} else if readErr != nil {
+			s.logger.Warn("[gRPC] Không thể đọc file gói từ ổ đĩa", zap.String("path", diskPath), zap.Error(readErr))
 		}
+	}
+
+	if len(bundleBytes) == 0 {
+		return &pb.GetProductionBundleDataProtoResponse{
+			Success:      false,
+			Message:      "Không tìm thấy file gói dữ liệu trên ổ đĩa server: " + bundle.FilePath,
+			ErrorMessage: "File gói dữ liệu không tồn tại trên ổ đĩa server",
+		}, nil
 	}
 
 	return &pb.GetProductionBundleDataProtoResponse{
@@ -2498,6 +2572,50 @@ func (s *Server) DeleteProductionBundle(ctx context.Context, req *pb.DeleteProdu
 	}
 
 	cleanCode := strings.TrimSpace(req.RegCode)
+
+	// 1. Xác thực Token chính chủ trên Server - CẤM tuyệt đối tin tưởng FE
+	authUser, authErr := auth.AuthenticateUser(ctx, s.db)
+	if authErr != nil {
+		s.logger.Warn("[gRPC] Từ chối DeleteProductionBundle do Token không hợp lệ",
+			zap.String("reg_code", cleanCode),
+			zap.Error(authErr),
+		)
+		return &pb.DeleteProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Từ chối quyền xóa: " + authErr.Error(),
+			ErrorMessage: authErr.Error(),
+		}, nil
+	}
+
+	// 2. Tìm bản ghi gói dữ liệu trong CSDL Server
+	var bundle reportmodels.CalcProductionBundle
+	errBundle := s.db.WithContext(ctx).Where(`LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode).First(&bundle).Error
+	if errBundle != nil {
+		return &pb.DeleteProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Không tìm thấy gói dữ liệu trên server: " + cleanCode,
+			ErrorMessage: "Bản ghi không tồn tại trên hệ thống",
+		}, nil
+	}
+
+	// 3. Kiểm tra quyền sở hữu chính chủ (Ownership Check)
+	allowed, reason := auth.CanUserModifyOrDeleteBundle(ctx, s.db, authUser, bundle.CreatedBy)
+	if !allowed {
+		s.logger.Warn("[gRPC] Cố gắng xóa gói dữ liệu của người khác bị chặn",
+			zap.String("reg_code", cleanCode),
+			zap.String("bundle_creator", bundle.CreatedBy),
+			zap.String("caller_user_seq", authUser.UserSeq),
+			zap.String("caller_user_id", authUser.UserId),
+		)
+		return &pb.DeleteProductionBundleProtoResponse{
+			Success:      false,
+			Message:      "Từ chối quyền xóa: " + reason,
+			ErrorMessage: reason,
+		}, nil
+	}
+
+	// 4. Thực hiện xóa bản ghi metadata trên PostgreSQL theo yêu cầu chính chủ
+	// ĐẶC BIỆT: Giữ nguyên file nén .gsprod vật lý trên ổ đĩa server theo đúng nguyên tắc thiết kế đã cam kết!
 	res := s.db.WithContext(ctx).Exec(`DELETE FROM "_ERPProductionBundle" WHERE LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode)
 	if res.Error != nil {
 		return &pb.DeleteProductionBundleProtoResponse{
@@ -2507,15 +2625,22 @@ func (s *Server) DeleteProductionBundle(ctx context.Context, req *pb.DeleteProdu
 		}, nil
 	}
 
-	// Đồng thời dọn dẹp các bản ghi tương ứng trong các bảng liên quan nếu có
+	// Đồng thời dọn dẹp các bản ghi liên quan trong CSDL
 	s.db.WithContext(ctx).Exec(`DELETE FROM plan_master WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+	s.db.WithContext(ctx).Exec(`DELETE FROM "_ERPPlanMaster" WHERE LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode)
 	s.db.WithContext(ctx).Exec(`DELETE FROM plan_registration WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
 	s.db.WithContext(ctx).Exec(`DELETE FROM plan_detail WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
 	s.db.WithContext(ctx).Exec(`DELETE FROM prod_stats_detail WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
 
+	s.logger.Info("[gRPC] Chính chủ đã xóa bản ghi gói dữ liệu (File vật lý được bảo lưu trên server)",
+		zap.String("reg_code", cleanCode),
+		zap.String("deleted_by_user_seq", authUser.UserSeq),
+		zap.String("deleted_by_user_id", authUser.UserId),
+	)
+
 	return &pb.DeleteProductionBundleProtoResponse{
 		Success:     true,
-		Message:     "Đã xóa gói dữ liệu thành công",
+		Message:     "Đã xóa gói dữ liệu của bạn trên server thành công (Bản nén gốc được bảo lưu an toàn).",
 		DeletedRows: res.RowsAffected,
 	}, nil
 }

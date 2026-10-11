@@ -15,10 +15,11 @@ export const runProductionCalculations = async (
   masterInfo = {},
   customRules = null
 ) => {
+  const regCode = masterInfo.regCode || masterInfo.RegCode || 'CURRENT_CALC'
   let allFiles = files
   if (!allFiles || Object.keys(allFiles).length === 0 || !allFiles.stat_report?.data?.length) {
     try {
-      allFiles = await storageAdapter.getAllFiles()
+      allFiles = await storageAdapter.getAllFiles(regCode)
     } catch (e) {
       console.warn('[Calc Engine] Đọc files từ storage adapter:', e)
     }
@@ -26,7 +27,6 @@ export const runProductionCalculations = async (
 
   const effectiveRules = customRules || masterInfo.calcRules || null
   const calcVersion = masterInfo.calcVersion || masterInfo.version || masterInfo.Version || 'V1'
-  const regCode = masterInfo.regCode || masterInfo.RegCode || 'CURRENT_CALC'
 
   const planResult = calculateKHSX(allFiles || {}, masterInfo || {}, effectiveRules)
   const statResult = calculateTKSX(allFiles || {}, masterInfo || {}, planResult, effectiveRules)

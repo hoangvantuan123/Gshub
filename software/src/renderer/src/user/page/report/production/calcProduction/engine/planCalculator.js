@@ -113,7 +113,12 @@ export function formatDateOnly(val) {
  *    - Ghép với baseDate (opDate, row.StartDate, applyDate,...)
  *    - Nếu là EndTime và giờ kết thúc < giờ bắt đầu (ca đêm vắt qua ngày hôm sau), tự động +1 ngày
  */
-export function formatFullDateTime(timeVal, baseDateVal = '', isEndTime = false, startTimeVal = '') {
+export function formatFullDateTime(
+  timeVal,
+  baseDateVal = '',
+  isEndTime = false,
+  startTimeVal = ''
+) {
   if (timeVal === undefined || timeVal === null || timeVal === '') return ''
 
   const str = String(timeVal).trim()
@@ -164,7 +169,9 @@ export function formatFullDateTime(timeVal, baseDateVal = '', isEndTime = false,
 
     // Nếu là EndTime: kiểm tra xem có qua đêm không (+1 ngày)
     if (isEndTime && startTimeVal) {
-      const sMatch = String(startTimeVal).match(/(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?/i)
+      const sMatch = String(startTimeVal).match(
+        /(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?/i
+      )
       if (sMatch) {
         let sH = parseInt(sMatch[1], 10)
         const sMin = parseInt(sMatch[2], 10)
@@ -191,7 +198,6 @@ export function formatFullDateTime(timeVal, baseDateVal = '', isEndTime = false,
 
   return str
 }
-
 
 /**
  * Tính toán 3 cột điều kiện KHSX cho từng dòng của Tab 3 "Tổng hợp lệnh thao tác":
@@ -325,13 +331,31 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
   let defaultSummaryIssuer = ''
 
   const getCleanAlphanumeric = (str) => {
-    return String(str || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    return String(str || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
   }
 
   // Danh sách các mã/tên không hợp lệ (công đoạn, bộ phận, hệ thống, trạng thái) không bao giờ là PIC ĐP
   const INVALID_ISSUER_NAMES = new Set([
-    'INOFFSET', 'KIEM', 'DAN', 'DONGGOI', 'CAT', 'IN', 'BOI', 'XEN', 'UV', 'CAN',
-    'MES GSHN', 'MES', 'NGOÀI KHSX', 'NGOAI KHSX', 'ĐÚNG KHSX', 'DUNG KHSX', 'KHÁC KHSX', 'KHAC KHSX'
+    'INOFFSET',
+    'KIEM',
+    'DAN',
+    'DONGGOI',
+    'CAT',
+    'IN',
+    'BOI',
+    'XEN',
+    'UV',
+    'CAN',
+    'MES GSHN',
+    'MES',
+    'NGOÀI KHSX',
+    'NGOAI KHSX',
+    'ĐÚNG KHSX',
+    'DUNG KHSX',
+    'KHÁC KHSX',
+    'KHAC KHSX'
   ])
 
   const isValidIssuerName = (val) => {
@@ -508,7 +532,10 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       }
     }
     if (baseCode) {
-      if (!summaryOpByBaseCode.has(baseCode) || isNewerVersion(row, summaryOpByBaseCode.get(baseCode))) {
+      if (
+        !summaryOpByBaseCode.has(baseCode) ||
+        isNewerVersion(row, summaryOpByBaseCode.get(baseCode))
+      ) {
         summaryOpByBaseCode.set(baseCode, row)
       }
     }
@@ -518,12 +545,18 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       }
     }
     if (alphaBase) {
-      if (!summaryOpByAlphaBase.has(alphaBase) || isNewerVersion(row, summaryOpByAlphaBase.get(alphaBase))) {
+      if (
+        !summaryOpByAlphaBase.has(alphaBase) ||
+        isNewerVersion(row, summaryOpByAlphaBase.get(alphaBase))
+      ) {
         summaryOpByAlphaBase.set(alphaBase, row)
       }
     }
     if (stageCode) {
-      if (!summaryOpByStageOrder.has(stageCode) || isNewerVersion(row, summaryOpByStageOrder.get(stageCode))) {
+      if (
+        !summaryOpByStageOrder.has(stageCode) ||
+        isNewerVersion(row, summaryOpByStageOrder.get(stageCode))
+      ) {
         summaryOpByStageOrder.set(stageCode, row)
       }
     }
@@ -547,7 +580,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     if (base && summaryOpByBaseCode.has(base)) return summaryOpByBaseCode.get(base)
     if (alphaClean && summaryOpByAlpha.has(alphaClean)) return summaryOpByAlpha.get(alphaClean)
     if (alphaBase && summaryOpByAlphaBase.has(alphaBase)) return summaryOpByAlphaBase.get(alphaBase)
-    if (cleanStage && summaryOpByStageOrder.has(cleanStage)) return summaryOpByStageOrder.get(cleanStage)
+    if (cleanStage && summaryOpByStageOrder.has(cleanStage))
+      return summaryOpByStageOrder.get(cleanStage)
 
     // Tìm kiếm mờ theo tiền tố mã lệnh
     if (base.length >= 6) {
@@ -733,11 +767,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         row['TG kết thúc'] ??
         ''
       const sDate =
-        row.StartDate ??
-        row['Ngày bắt đầu'] ??
-        row.ExecuteDate ??
-        row['Ngày thực hiện'] ??
-        ''
+        row.StartDate ?? row['Ngày bắt đầu'] ?? row.ExecuteDate ?? row['Ngày thực hiện'] ?? ''
       const eDate =
         row.EndDate ??
         row['Ngày kết thúc'] ??
@@ -953,7 +983,12 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     const sumRow = findSummaryOpRow(code, stageOrderNo)
     const hasSumRow = Boolean(
       (sumRow && Object.keys(sumRow).length > 0) ||
-      (row && (row.PlannedStartTime || row.PlannedQty || row.TargetQty || row.PlannedShift || row['Thời gian bắt đầu (5)']))
+      (row &&
+        (row.PlannedStartTime ||
+          row.PlannedQty ||
+          row.TargetQty ||
+          row.PlannedShift ||
+          row['Thời gian bắt đầu (5)']))
     )
     const hasPicCoordinator = Boolean(picCoordinator && String(picCoordinator).trim())
 
@@ -978,15 +1013,15 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     // 3. Ngày thực hiện thao tác
     const opDate = formatDateOnly(
       checks.opDateKhsx ||
-      String(
-        row.OperationDate ??
-          row.KhsxOpDate ??
-          row['Ngày KHSX thao tác'] ??
-          row['Ngày thực hiện thao tác'] ??
-          row['Ngày thao tác'] ??
-          unfinRow.ExecuteDate ??
-          ''
-      ).trim()
+        String(
+          row.OperationDate ??
+            row.KhsxOpDate ??
+            row['Ngày KHSX thao tác'] ??
+            row['Ngày thực hiện thao tác'] ??
+            row['Ngày thao tác'] ??
+            unfinRow.ExecuteDate ??
+            ''
+        ).trim()
     )
 
     // 5. Ngày tạo lệnh công đoạn / Ngày phát hành lệnh thao tác
@@ -1159,9 +1194,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
           const s = parseInt(parts[2], 10) || 0
           standardRunMin = h * 60 + m + Math.round(s / 60)
         } else {
-          standardRunMin = Math.round(
-            (parseFloat(pthStr.replace(/,/g, '')) || 0) * 60
-          )
+          standardRunMin = Math.round((parseFloat(pthStr.replace(/,/g, '')) || 0) * 60)
         }
       } else if (
         unfinRow.ProductionDurationMinutes !== undefined &&
@@ -1296,7 +1329,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       ActualQualifiedQty: actualQualified,
       StartTime: finalStartTime,
       EndTime: finalEndTime,
-      StandardRunMinutes: finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
+      StandardRunMinutes:
+        finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       ActualRunMinutes: actualRunMin > 0 ? actualRunMin : '',
       StandardCapa: finalStandardCapa !== '' && finalStandardCapa > 0 ? finalStandardCapa : '',
       ActualCapa: actualCapa > 0 ? actualCapa : '',
@@ -1324,7 +1358,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       'Số lượng đã thống kê đạt': actualQualified,
       'Thời gian bắt đầu': finalStartTime,
       'Thời gian kết thúc': finalEndTime,
-      'Thời gian sản xuất theo ĐM': finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
+      'Thời gian sản xuất theo ĐM':
+        finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       'Thời gian sản xuất': actualRunMin > 0 ? actualRunMin : '',
       'Capa ĐM': finalStandardCapa !== '' && finalStandardCapa > 0 ? finalStandardCapa : '',
       'Capa thực tế': actualCapa > 0 ? actualCapa : '',
@@ -1349,7 +1384,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       TargetPassQty: finalTargetQty,
       TargetProdQty: finalPlannedQty,
       StatPassQty: actualQualified,
-      StandardProdTime: finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
+      StandardProdTime:
+        finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       ActualProdTime: actualRunMin > 0 ? actualRunMin : '',
       StatusDpSx: finalCoordinatorStatus,
       KhsxCheck: khsxStatus
@@ -1560,18 +1596,18 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
 
     const opDate = formatDateOnly(
       checks.opDateKhsx ||
-      sumRow.OperationDate ||
-      sumRow.OpOrderReleaseDate ||
-      sumRow['Ngày phát hành lệnh TT'] ||
-      sumRow['Ngày phát hành lệnh thao tác'] ||
-      sumRow['Ngày thực hiện thao tác'] ||
-      unfinRow.ExecuteDate ||
-      statRow.StatDate ||
-      statRow.StartDate ||
-      statRow['Ngày thống kê'] ||
-      statRow['Ngày bắt đầu'] ||
-      applyDate ||
-      ''
+        sumRow.OperationDate ||
+        sumRow.OpOrderReleaseDate ||
+        sumRow['Ngày phát hành lệnh TT'] ||
+        sumRow['Ngày phát hành lệnh thao tác'] ||
+        sumRow['Ngày thực hiện thao tác'] ||
+        unfinRow.ExecuteDate ||
+        statRow.StatDate ||
+        statRow.StartDate ||
+        statRow['Ngày thống kê'] ||
+        statRow['Ngày bắt đầu'] ||
+        applyDate ||
+        ''
     )
 
     const finalStartTime = formatFullDateTime(startTime, opDate || applyDate, false)
@@ -1624,9 +1660,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
           const s = parseInt(parts[2], 10) || 0
           standardRunMin = h * 60 + m + Math.round(s / 60)
         } else {
-          standardRunMin = Math.round(
-            (parseFloat(pthStr.replace(/,/g, '')) || 0) * 60
-          )
+          standardRunMin = Math.round((parseFloat(pthStr.replace(/,/g, '')) || 0) * 60)
         }
       } else if (
         unfinRow.ProductionDurationMinutes !== undefined &&
@@ -1639,8 +1673,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     }
 
     const actualRunMin =
-      parseNum(statRow.ActualRunTime ?? statRow['Thời gian chạy thực tế'] ?? 0) ||
-      actual.runTimeMin
+      parseNum(statRow.ActualRunTime ?? statRow['Thời gian chạy thực tế'] ?? 0) || actual.runTimeMin
 
     let standardCapa = 0
     if (standardRunMin > 0 && targetQty > 0) {
@@ -1751,7 +1784,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       ActualQualifiedQty: actualQualified,
       StartTime: finalStartTime,
       EndTime: finalEndTime,
-      StandardRunMinutes: finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
+      StandardRunMinutes:
+        finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       ActualRunMinutes: actualRunMin > 0 ? actualRunMin : '',
       StandardCapa: finalStandardCapa !== '' && finalStandardCapa > 0 ? finalStandardCapa : '',
       ActualCapa: actualCapa > 0 ? actualCapa : '',
@@ -1778,7 +1812,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       'Số lượng đã thống kê đạt': actualQualified,
       'Thời gian bắt đầu': finalStartTime,
       'Thời gian kết thúc': finalEndTime,
-      'Thời gian sản xuất theo ĐM': finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
+      'Thời gian sản xuất theo ĐM':
+        finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       'Thời gian sản xuất': actualRunMin > 0 ? actualRunMin : '',
       'Capa ĐM': finalStandardCapa !== '' && finalStandardCapa > 0 ? finalStandardCapa : '',
       'Capa thực tế': actualCapa > 0 ? actualCapa : '',
@@ -1802,7 +1837,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       TargetPassQty: finalTargetQty,
       TargetProdQty: finalPlannedQty,
       StatPassQty: actualQualified,
-      StandardProdTime: finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
+      StandardProdTime:
+        finalStandardRunMin !== '' && finalStandardRunMin > 0 ? finalStandardRunMin : '',
       ActualProdTime: actualRunMin > 0 ? actualRunMin : '',
       StatusDpSx: finalCoordinatorStatus,
       KhsxCheck: khsxStatus

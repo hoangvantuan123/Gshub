@@ -10,6 +10,7 @@ import { Drawer, Checkbox } from '@renderer/components/ui'
 import useOnFill from '@renderer/user/components/hooks/sheet/onFillHook'
 import useTableManager from '@renderer/user/components/hooks/sheet/useTableManager'
 import useTableConfig from '@renderer/user/components/hooks/sheet/useTableConfig'
+import { isNumericColumn } from '../../calcProduction/columns/calcGridColumns'
 
 const EMPTY_ARRAY = []
 
@@ -79,12 +80,17 @@ export default function CalcMasterQueryTable({
   const colMetadata = useMemo(() => {
     return (cols || []).map((column) => {
       const columnKey = column.id || ''
-      const isNum = column.kind === GridCellKind.Number
+      const columnTitle = column.title || ''
+      const isNum =
+        column.kind === GridCellKind.Number ||
+        column.contentAlign === 'right' ||
+        column.id === 'compressionRatio' ||
+        isNumericColumn(columnKey, columnTitle, column.kind)
       const cellTheme = getCellTheme(columnKey, column)
       return {
         columnKey,
         isNum,
-        kind: column.kind,
+        kind: isNum ? GridCellKind.Number : column.kind,
         cellTheme,
         hasMenu: column.hasMenu || true
       }
@@ -178,13 +184,21 @@ export default function CalcMasterQueryTable({
       if (meta.isNum || typeof value === 'number') {
         const numVal =
           typeof value === 'number' ? value : parseFloat(String(value).replace(/,/g, '')) || 0
+        const displayData =
+          meta.columnKey === 'compressionRatio'
+            ? String(value).endsWith('%')
+              ? String(value)
+              : `${value}%`
+            : numVal.toLocaleString('vi-VN')
+
         return {
           kind: GridCellKind.Number,
           data: numVal,
-          displayData: numVal.toLocaleString('vi-VN'),
+          displayData,
           readonly: true,
           allowOverlay: false,
           hasMenu: meta.hasMenu,
+          contentAlign: 'right',
           themeOverride: meta.cellTheme
         }
       }

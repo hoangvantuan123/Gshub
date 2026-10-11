@@ -1,8 +1,9 @@
+/* eslint-disable react/prop-types, no-unused-vars */
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
-import { CompactSelection } from '@glideapps/glide-data-grid'
+import { CompactSelection, GridCellKind } from '@glideapps/glide-data-grid'
 
 import DataPageContainer from '@renderer/user/components/layout/DataPageContainer'
 import { usePageData } from '@renderer/context/PageDataContext'
@@ -45,6 +46,7 @@ export default function CalcProductionPage({
     fileSummaries,
     isParsing,
     isCalculating,
+    setIsCalculating,
     isRegistering,
     isRegistered,
     calcResults,
@@ -78,7 +80,9 @@ export default function CalcProductionPage({
     closePushRegistrationModal,
     clearAllFiles,
     refreshFiles,
-    setCalcResults
+    setCalcResults,
+    isDirty,
+    setIsDirty
   } = useCalcProductionLogic({
     setStatusMessage
   })
@@ -87,13 +91,9 @@ export default function CalcProductionPage({
   useEffect(() => {
     if (!registerDirtyChecker) return
     return registerDirtyChecker(() => {
-      const uploadedCount = Object.values(fileStatusSummary || {}).filter(
-        (s) => s?.isUploaded
-      ).length
-      const hasData = (activeTabFileData?.data?.length || 0) > 0 || uploadedCount > 0
-      return hasData && !isRegistered
+      return Boolean(isDirty)
     })
-  }, [registerDirtyChecker, fileStatusSummary, activeTabFileData, isRegistered])
+  }, [registerDirtyChecker, isDirty])
 
   const currentTabDef = useMemo(() => {
     return TAB_DEFINITIONS.find((t) => t.id === activeTab) || TAB_DEFINITIONS[0]
@@ -101,10 +101,49 @@ export default function CalcProductionPage({
 
   const currentUploadedAt = activeTabFileData?.uploadedAt
   const currentColumns = activeTabFileData?.columns
-  const currentData = activeTabFileData?.data
+  const activeTabRef = useRef(activeTab)
+  activeTabRef.current = activeTab
 
-  // ── Grid State & Fast Search ──
-  const [gridData, setGridData] = useState(() => currentData || [])
+  // Mảng dữ liệu nguồn độc lập của từng Tab (Tab nào có file thì lấy file đó, chưa có file thì dứt khoát là mảng rỗng [])
+  const currentTabRows = useMemo(() => {
+    if (activeTab === 'result_tksx') {
+      return calcResults?.stat?.calculatedRows || []
+    }
+    if (activeTab === 'result_khsx') {
+      return calcResults?.plan?.calculatedRows || []
+    }
+    const sum = fileSummaries[activeTab]
+    if (!sum || !sum.rowCount || sum.rowCount <= 0) {
+      return []
+    }
+    const curFileData = filesDataMap[activeTab]
+    if (curFileData && Array.isArray(curFileData.data) && curFileData.data.length > 0) {
+      return curFileData.data
+    }
+    return []
+  }, [activeTab, calcResults, fileSummaries, filesDataMap])
+
+  // Lưu trữ riêng biệt mảng dữ liệu của từng tab, triệt tiêu 100% việc dùng chung giữa các tab
+  const [tabDataMap, setTabDataMap] = useState({})
+
+  const gridData = useMemo(() => {
+    if (tabDataMap[activeTab] !== undefined) {
+      return tabDataMap[activeTab]
+    }
+    return currentTabRows
+  }, [tabDataMap, activeTab, currentTabRows])
+
+  const setGridData = useCallback((updater) => {
+    setTabDataMap((prev) => {
+      const cur = prev[activeTabRef.current] !== undefined ? prev[activeTabRef.current] : []
+      const nextVal = typeof updater === 'function' ? updater(cur) : updater
+      return {
+        ...prev,
+        [activeTabRef.current]: Array.isArray(nextVal) ? nextVal : []
+      }
+    })
+  }, [])
+
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [dynamicFilterFields, setDynamicFilterFields] = useState([])
@@ -150,26 +189,87 @@ export default function CalcProductionPage({
     }))
   }, [])
 
-  // Cột động cho Grid theo từng Tab
+  // Cột động cho Grid theo từng Tab riêng biệt
   const defaultCols = useMemo(() => {
-    return getGridColumnsForTab(activeTab, currentColumns || [])
-  }, [activeTab, currentColumns])
+    if (activeTab === 'result_tksx') {
+      const statCols = calcResults?.stat?.columns || fileSummaries['stat_report']?.columns || []
+      let merged = []
+      if (statCols && statCols.length > 0) {
+        const existingKeys = new Set(statCols.map((c) => c.key || c.id || c.title))
+        merged = [...statCols]
+        RESULT_CALC_COLUMNS_SCHEMA.forEach((cc) => {
+          if (!existingKeys.has(cc.key) && !existingKeys.has(cc.title)) {
+            merged.push(cc)
+          }
+        })
+      } else {
+        merged = [...STAT_REPORT_COLUMN_SCHEMA, ...RESULT_CALC_COLUMNS_SCHEMA]
+      }
+      return getGridColumnsForTab('result_tksx', merged)
+    }
 
-  const [cols, setCols] = useState(defaultCols)
+    if (activeTab === 'result_khsx') {
+      return getGridColumnsForTab('result_khsx', RESULT_KHSX_COLUMN_SCHEMA)
+    }
 
-  const lastSyncKeyRef = useRef('')
+    if (activeTab === 'stat_report') {
+      return getGridColumnsForTab(
+        'stat_report',
+        filesDataMap['stat_report']?.columns?.length > 0
+          ? filesDataMap['stat_report'].columns
+          : STAT_REPORT_COLUMN_SCHEMA
+      )
+    }
 
-  // Cập nhật khi dữ liệu Tab hiện tại thay đổi
+    if (activeTab === 'unfinished_op') {
+      return getGridColumnsForTab(
+        'unfinished_op',
+        filesDataMap['unfinished_op']?.columns?.length > 0
+          ? filesDataMap['unfinished_op'].columns
+          : UNFINISHED_OP_COLUMN_SCHEMA
+      )
+    }
+
+    if (activeTab === 'summary_op') {
+      return getGridColumnsForTab(
+        'summary_op',
+        filesDataMap['summary_op']?.columns?.length > 0
+          ? filesDataMap['summary_op'].columns
+          : SUMMARY_OP_COLUMN_SCHEMA
+      )
+    }
+
+    if (activeTab === 'mes_approval') {
+      return getGridColumnsForTab(
+        'mes_approval',
+        filesDataMap['mes_approval']?.columns?.length > 0
+          ? filesDataMap['mes_approval'].columns
+          : MES_APPROVAL_COLUMN_SCHEMA
+      )
+    }
+
+    return getGridColumnsForTab(activeTab, [])
+  }, [activeTab, filesDataMap, fileSummaries, calcResults])
+
+  const [tabColsMap, setTabColsMap] = useState({})
+  const cols = useMemo(() => {
+    return tabColsMap[activeTab] || defaultCols
+  }, [tabColsMap, activeTab, defaultCols])
+
+  const setCols = useCallback((updater) => {
+    setTabColsMap((prev) => {
+      const cur = prev[activeTabRef.current] || []
+      const nextVal = typeof updater === 'function' ? updater(cur) : updater
+      return {
+        ...prev,
+        [activeTabRef.current]: Array.isArray(nextVal) ? nextVal : []
+      }
+    })
+  }, [])
+
+  // Cập nhật Status bar chân trang khi đổi tab hoặc dữ liệu tab thay đổi
   useEffect(() => {
-    const syncKey = `${activeTab}_${currentUploadedAt || 'empty'}_${(currentData || []).length}`
-    if (lastSyncKeyRef.current === syncKey) return
-    lastSyncKeyRef.current = syncKey
-
-    const rows = currentData || []
-    const newCols = getGridColumnsForTab(activeTab, currentColumns || [])
-
-    setGridData(rows)
-    setCols(newCols)
+    const rows = gridData || []
     setSearchText('')
     setStatusFilter('ALL')
     setFilterValues({})
@@ -178,15 +278,14 @@ export default function CalcProductionPage({
       rows: CompactSelection.empty()
     })
 
-    // Cập nhật Status bar chân trang
     setPageData?.((prev) => ({
       ...prev,
       total: rows.length,
       totalAll: rows.length,
       loadedCount: rows.length,
-      totalColumns: newCols.length,
+      totalColumns: cols.length,
       page: 1,
-      pageSize: rows.length,
+      pageSize: rows.length || 50,
       totalPages: 1,
       rowStatusCounts: { aCount: 0, uCount: 0, dCount: 0, eCount: 0 }
     }))
@@ -202,9 +301,8 @@ export default function CalcProductionPage({
     }
   }, [
     activeTab,
-    currentUploadedAt,
-    currentData,
-    currentColumns,
+    gridData.length,
+    cols.length,
     currentTabDef.title,
     setPageData,
     setStatusMessage,
@@ -272,8 +370,8 @@ export default function CalcProductionPage({
             row[key] !== undefined
               ? row[key]
               : row[key.toLowerCase()] !== undefined
-              ? row[key.toLowerCase()]
-              : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
+                ? row[key.toLowerCase()]
+                : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
 
           if (rowVal === null || rowVal === undefined) return false
           const rowValStr = String(rowVal).toLowerCase()
@@ -328,6 +426,7 @@ export default function CalcProductionPage({
         nextGrid[editIdx] = updatedRow
         return nextGrid
       })
+      setIsDirty?.(true)
 
       // Đồng bộ trực tiếp vào calcResults nếu đang đứng tại Tab Kết quả KHSX
       if (activeTab === 'result_khsx' && setCalcResults) {
@@ -518,6 +617,7 @@ export default function CalcProductionPage({
             isParsing={isParsing}
             isCalculating={isCalculating}
             isRegistering={isRegistering}
+            isDirty={isDirty}
             isPublishing={isPublishing}
             isPublished={Boolean(masterInfo.isPublished || masterInfo.status === 'PUBLISHED')}
             isExporting={isExporting}
@@ -537,6 +637,7 @@ export default function CalcProductionPage({
             onPushRegistration={handleRegisterReportsToSystem}
             isPushingRegistration={isPushingRegistration}
             onExportBundle={handleExportBundle}
+            onExportTabExcel={handleExportExcel}
           />
         }
         query={
@@ -562,6 +663,8 @@ export default function CalcProductionPage({
         defaultOpenQuery={true}
         table={
           <CalcDataGridTable
+            key={activeTab}
+            tableId={`calc_production_${activeTab}`}
             tableTitle={`${currentTabDef.title} (${filteredGridData.length.toLocaleString('vi-VN')}/${(gridData.length || 0).toLocaleString('vi-VN')} dòng)`}
             cols={cols}
             setCols={setCols}

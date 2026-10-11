@@ -109,8 +109,10 @@ export function packProductionBundle(
 
   // Hỗ trợ truyền 1 object duy nhất { masterInfo/masterRecord, filesData/architectureFiles, calcResults, options }
   if (masterRecord && typeof masterRecord === 'object' && !architectureFiles && !calcResults) {
-    master = masterRecord.masterInfo || masterRecord.masterRecord || masterRecord.master || masterRecord
-    arch = masterRecord.filesData || masterRecord.architectureFiles || masterRecord.architecture || {}
+    master =
+      masterRecord.masterInfo || masterRecord.masterRecord || masterRecord.master || masterRecord
+    arch =
+      masterRecord.filesData || masterRecord.architectureFiles || masterRecord.architecture || {}
     results = masterRecord.calcResults || masterRecord.results || {}
     opt = masterRecord.options || {}
   } else if (
@@ -118,7 +120,8 @@ export function packProductionBundle(
     typeof masterRecord === 'object' &&
     (masterRecord.masterInfo || masterRecord.filesData || masterRecord.calcResults)
   ) {
-    master = masterRecord.masterInfo || masterRecord.masterRecord || masterRecord.master || masterRecord
+    master =
+      masterRecord.masterInfo || masterRecord.masterRecord || masterRecord.master || masterRecord
     arch = masterRecord.filesData || masterRecord.architectureFiles || architectureFiles || {}
     results = masterRecord.calcResults || calcResults || {}
     opt = masterRecord.options || options || {}
@@ -295,3 +298,18 @@ export function uint8ArrayToBase64(bytes) {
   }
   return btoa(binary)
 }
+
+/**
+ * Chuyển Base64 sang Uint8Array
+ */
+export function base64ToUint8Array(base64) {
+  if (!base64) return new Uint8Array(0)
+  const binaryString = atob(base64)
+  const len = binaryString.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+  return bytes
+}
+

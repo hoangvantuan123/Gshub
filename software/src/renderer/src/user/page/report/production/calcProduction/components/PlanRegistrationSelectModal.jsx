@@ -34,8 +34,7 @@ export default function PlanRegistrationSelectModal({
   }, [masterInfo?.regCode])
 
   const selectedCount = (pushKhsx ? 1 : 0) + (pushTksx ? 1 : 0)
-  const totalRowsSelected =
-    (pushKhsx ? khsxRowsCount : 0) + (pushTksx ? statRowsCount : 0)
+  const totalRowsSelected = (pushKhsx ? khsxRowsCount : 0) + (pushTksx ? statRowsCount : 0)
 
   if (!isOpen) return null
 
@@ -103,7 +102,9 @@ export default function PlanRegistrationSelectModal({
           <div className="flex items-center gap-1.5 truncate">
             <Calendar size={13} className="text-slate-400 shrink-0" />
             <span className="text-slate-500">Ngày áp dụng:</span>
-            <strong className="text-slate-800 font-mono">{masterInfo?.applyDate || 'Hôm nay'}</strong>
+            <strong className="text-slate-800 font-mono">
+              {masterInfo?.applyDate || 'Hôm nay'}
+            </strong>
           </div>
           <div className="flex items-center gap-1.5 truncate">
             <Layers size={13} className="text-slate-400 shrink-0" />
@@ -131,8 +132,8 @@ export default function PlanRegistrationSelectModal({
                 khsxRowsCount === 0
                   ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
                   : pushKhsx
-                  ? 'bg-blue-50/60 border-blue-400 shadow-sm cursor-pointer'
-                  : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
+                    ? 'bg-blue-50/60 border-blue-400 shadow-sm cursor-pointer'
+                    : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
               }`}
             >
               <div className="pt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -165,9 +166,13 @@ export default function PlanRegistrationSelectModal({
                 </div>
 
                 <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2 flex-wrap font-mono">
-                  <span>Mã đẩy: <strong className="text-blue-700">{baseRegCode}-KHSX</strong></span>
+                  <span>
+                    Mã đẩy: <strong className="text-blue-700">{baseRegCode}-KHSX</strong>
+                  </span>
                   <span className="text-slate-300">|</span>
-                  <span className="text-slate-500 font-sans">Module: Báo cáo kế hoạch sản xuất</span>
+                  <span className="text-slate-500 font-sans">
+                    Module: Báo cáo kế hoạch sản xuất
+                  </span>
                 </div>
               </div>
             </div>
@@ -181,8 +186,8 @@ export default function PlanRegistrationSelectModal({
                 statRowsCount === 0
                   ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
                   : pushTksx
-                  ? 'bg-emerald-50/60 border-emerald-400 shadow-sm cursor-pointer'
-                  : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
+                    ? 'bg-emerald-50/60 border-emerald-400 shadow-sm cursor-pointer'
+                    : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
               }`}
             >
               <div className="pt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -215,9 +220,13 @@ export default function PlanRegistrationSelectModal({
                 </div>
 
                 <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2 flex-wrap font-mono">
-                  <span>Mã đẩy: <strong className="text-emerald-700">{baseRegCode}-TKSX</strong></span>
+                  <span>
+                    Mã đẩy: <strong className="text-emerald-700">{baseRegCode}-TKSX</strong>
+                  </span>
                   <span className="text-slate-300">|</span>
-                  <span className="text-slate-500 font-sans">Module: Báo cáo thống kê sản xuất</span>
+                  <span className="text-slate-500 font-sans">
+                    Module: Báo cáo thống kê sản xuất
+                  </span>
                 </div>
               </div>
             </div>
@@ -229,7 +238,11 @@ export default function PlanRegistrationSelectModal({
               Đã chọn: <strong className="text-slate-800">{selectedCount} / 2</strong> báo cáo
             </span>
             <span className="text-slate-600 font-mono">
-              Tổng số dòng: <strong className="text-indigo-700">{totalRowsSelected.toLocaleString('vi-VN')}</strong> dòng
+              Tổng số dòng:{' '}
+              <strong className="text-indigo-700">
+                {totalRowsSelected.toLocaleString('vi-VN')}
+              </strong>{' '}
+              dòng
             </span>
           </div>
 

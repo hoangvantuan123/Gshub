@@ -71,9 +71,7 @@ export default function PlanRegistrationPushModal({
 
   if (!isOpen) return null
 
-  const percent = isCompleted
-    ? 100
-    : Math.min(100, Math.max(8, progressInfo?.percent || 10))
+  const percent = isCompleted ? 100 : Math.min(100, Math.max(8, progressInfo?.percent || 10))
 
   const pushKhsx = progressInfo?.pushKhsx !== false
   const pushTksx = progressInfo?.pushTksx !== false
@@ -93,11 +91,7 @@ export default function PlanRegistrationPushModal({
 
   const message = cleanMessage()
 
-  const statusTag = isCompleted
-    ? 'Hoàn tất'
-    : isError
-    ? 'Có lỗi'
-    : 'Đang xử lý'
+  const statusTag = isCompleted ? 'Hoàn tất' : isError ? 'Có lỗi' : 'Đang xử lý'
 
   const steps = [
     { title: 'Kiểm tra số liệu', key: 'INIT' },
@@ -120,7 +114,11 @@ export default function PlanRegistrationPushModal({
       return 'DONE'
     }
     if (stepKey === 'TKSX') {
-      if (currentStep === 'INIT' || (pushKhsx && (currentStep === 'KHSX' || currentStep === 'PUSHING_KHSX'))) return 'PENDING'
+      if (
+        currentStep === 'INIT' ||
+        (pushKhsx && (currentStep === 'KHSX' || currentStep === 'PUSHING_KHSX'))
+      )
+        return 'PENDING'
       if (currentStep === 'TKSX' || currentStep === 'PUSHING_TKSX') return 'ACTIVE'
       return 'DONE'
     }
@@ -156,7 +154,9 @@ export default function PlanRegistrationPushModal({
         {/* 1. Header */}
         <div className="px-3.5 py-2.5 bg-[#f1f5f9] border-b border-slate-300 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 min-w-0 flex-1 truncate">
-            <span className={`w-2.5 h-2.5 inline-block shrink-0 ${isCompleted ? 'bg-emerald-600' : 'bg-indigo-600'}`} />
+            <span
+              className={`w-2.5 h-2.5 inline-block shrink-0 ${isCompleted ? 'bg-emerald-600' : 'bg-indigo-600'}`}
+            />
             <span className="text-xs font-bold text-slate-800 tracking-wide uppercase truncate flex items-center gap-2">
               {isCompleted ? (
                 <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
@@ -166,13 +166,16 @@ export default function PlanRegistrationPushModal({
               {pushKhsx && pushTksx
                 ? 'ĐĂNG KÝ BÁO CÁO KHSX & TKSX'
                 : pushKhsx
-                ? 'ĐĂNG KÝ BÁO CÁO KHSX'
-                : 'ĐĂNG KÝ BÁO CÁO TKSX'}
+                  ? 'ĐĂNG KÝ BÁO CÁO KHSX'
+                  : 'ĐĂNG KÝ BÁO CÁO TKSX'}
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-200/70 border border-slate-300 text-slate-700 font-mono text-[11px] font-semibold">
-              <Clock size={11} className={isCompleted ? 'text-emerald-600' : 'text-indigo-600 animate-spin'} />
+              <Clock
+                size={11}
+                className={isCompleted ? 'text-emerald-600' : 'text-indigo-600 animate-spin'}
+              />
               <span>{formatDuration(elapsedSeconds)}</span>
             </div>
             <span
@@ -180,8 +183,8 @@ export default function PlanRegistrationPushModal({
                 isCompleted
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
                   : isError
-                  ? 'bg-rose-50 text-rose-700 border-rose-300'
-                  : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    ? 'bg-rose-50 text-rose-700 border-rose-300'
+                    : 'bg-indigo-50 text-indigo-700 border-indigo-200'
               }`}
             >
               {statusTag}
@@ -212,21 +215,27 @@ export default function PlanRegistrationPushModal({
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-slate-800 leading-snug">
-                {message}
-              </div>
+              <div className="text-xs font-bold text-slate-800 leading-snug">{message}</div>
 
               {(pushKhsx || pushTksx) && (
                 <div className="flex items-center gap-3 mt-2 text-[11px] font-medium text-slate-600 bg-white p-1.5 border border-slate-200">
                   {pushKhsx && progressInfo?.khsxRows !== undefined && (
                     <span>
-                      KHSX: <strong className="text-blue-700">{progressInfo.khsxRows.toLocaleString('vi-VN')}</strong> dòng
+                      KHSX:{' '}
+                      <strong className="text-blue-700">
+                        {progressInfo.khsxRows.toLocaleString('vi-VN')}
+                      </strong>{' '}
+                      dòng
                     </span>
                   )}
                   {pushKhsx && pushTksx && <span className="text-slate-300">|</span>}
                   {pushTksx && progressInfo?.statRows !== undefined && (
                     <span>
-                      TKSX: <strong className="text-emerald-700">{progressInfo.statRows.toLocaleString('vi-VN')}</strong> dòng
+                      TKSX:{' '}
+                      <strong className="text-emerald-700">
+                        {progressInfo.statRows.toLocaleString('vi-VN')}
+                      </strong>{' '}
+                      dòng
                     </span>
                   )}
                 </div>
@@ -243,11 +252,7 @@ export default function PlanRegistrationPushModal({
             <div className="w-full h-2 bg-slate-200 overflow-hidden border border-slate-300">
               <div
                 className={`h-full transition-all duration-300 ease-out ${
-                  isCompleted
-                    ? 'bg-emerald-600'
-                    : isError
-                    ? 'bg-rose-600'
-                    : 'bg-indigo-600'
+                  isCompleted ? 'bg-emerald-600' : isError ? 'bg-rose-600' : 'bg-indigo-600'
                 }`}
                 style={{ width: `${percent}%` }}
               />
@@ -265,8 +270,8 @@ export default function PlanRegistrationPushModal({
                     status === 'DONE'
                       ? 'bg-emerald-50/60 border-emerald-300 text-emerald-800 font-medium'
                       : status === 'ACTIVE'
-                      ? 'bg-indigo-50 border-indigo-400 text-indigo-900 font-bold'
-                      : 'bg-slate-50/80 border-slate-200 text-slate-400'
+                        ? 'bg-indigo-50 border-indigo-400 text-indigo-900 font-bold'
+                        : 'bg-slate-50/80 border-slate-200 text-slate-400'
                   }`}
                 >
                   {status === 'DONE' ? (
@@ -296,10 +301,7 @@ export default function PlanRegistrationPushModal({
               Đóng
             </Button>
           ) : (
-            <Button
-              disabled
-              className="rounded-none h-7 px-3 text-xs font-semibold opacity-70"
-            >
+            <Button disabled className="rounded-none h-7 px-3 text-xs font-semibold opacity-70">
               Đang nạp dữ liệu...
             </Button>
           )}
@@ -309,4 +311,3 @@ export default function PlanRegistrationPushModal({
     document.body
   )
 }
-

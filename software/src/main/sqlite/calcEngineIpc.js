@@ -857,15 +857,19 @@ export function setupCalcEngineIpc() {
     const db = getDb()
     if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
     try {
-      let targetId = 'latest_calculation'
+      let targetId = ''
       let dataObj = {}
 
       if (typeof payload === 'string') {
         targetId = payload
         dataObj = maybeData || {}
       } else if (payload && typeof payload === 'object') {
-        targetId = payload.id || payload.regCode || 'latest_calculation'
+        targetId = payload.id || payload.regCode || ''
         dataObj = payload.data !== undefined ? payload.data : payload
+      }
+
+      if (!targetId) {
+        return { success: false, error: 'Thiếu mã định danh phiếu khi lưu kết quả tính toán' }
       }
 
       const summary = dataObj?.summary || {}
@@ -889,11 +893,6 @@ export function setupCalcEngineIpc() {
 
       stmt.run(targetId, sumJson, planJson, statJson, calculatedAt)
 
-      // Luôn ghi đè bản sao latest_calculation để làm điểm tựa phục hồi
-      if (targetId !== 'latest_calculation') {
-        stmt.run('latest_calculation', sumJson, planJson, statJson, calculatedAt)
-      }
-
       return { success: true }
     } catch (err) {
       console.error('[SQLite IPC] Lỗi lưu kết quả tính:', err)
@@ -901,16 +900,13 @@ export function setupCalcEngineIpc() {
     }
   })
 
-  // 3. Lấy kết quả tính toán theo id (có fallback nếu id chưa có)
+  // 3. Lấy kết quả tính toán theo đúng mã phiếu id (cô lập 100%, không dùng fallback rò rỉ)
   ipcMain.handle('sqlite:get-calc-results', async (_, id) => {
     const db = getDb()
-    if (!db) return null
+    if (!db || !id) return null
     try {
       const stmt = db.prepare('SELECT * FROM calc_results WHERE id = ?')
-      let r = id ? stmt.get(id) : null
-      if (!r && id !== 'latest_calculation') {
-        r = stmt.get('latest_calculation') || stmt.get('CURRENT_CALC')
-      }
+      const r = stmt.get(id)
       if (!r) return null
       return {
         id: r.id,

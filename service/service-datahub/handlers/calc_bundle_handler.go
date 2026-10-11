@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"service-datahub/auth"
 	reportModels "service-datahub/models/report"
 
 	"github.com/gin-gonic/gin"
@@ -181,6 +182,19 @@ type PublishBundlePayload struct {
 
 // PublishBundle handles publishing/uploading a compressed .gsprod bundle
 func (h *CalcBundleHandler) PublishBundle(c *gin.Context) {
+	// 0. Xác thực Token chính chủ - CẤM tuyệt đối tin tưởng FE gửi created_by
+	rawAuth := c.GetHeader("Authorization")
+	if rawAuth == "" {
+		if t, ok := c.Get("access_token"); ok {
+			rawAuth = fmt.Sprint(t)
+		}
+	}
+	authUser, authErr := auth.AuthenticateUserWithToken(c.Request.Context(), h.db, rawAuth)
+	if authErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Xác thực thất bại: " + authErr.Error()})
+		return
+	}
+
 	contentType := c.ContentType()
 	var bundle reportModels.CalcProductionBundle
 
@@ -280,6 +294,28 @@ func (h *CalcBundleHandler) PublishBundle(c *gin.Context) {
 			CreatedBy:        c.PostForm("created_by"),
 		}
 	}
+
+	cleanRegCode := strings.TrimSpace(bundle.RegCode)
+	bundle.RegCode = cleanRegCode
+
+	// Kiểm tra nếu gói đã tồn tại trên Server -> chỉ chính chủ hoặc Admin mới được phép ghi đè/cập nhật
+	var existing reportModels.CalcProductionBundle
+	if findErr := h.db.Where(`LOWER(TRIM("RegCode")) = LOWER(?)`, cleanRegCode).First(&existing).Error; findErr == nil {
+		if allowed, reason := auth.CanUserModifyOrDeleteBundle(c.Request.Context(), h.db, authUser, existing.CreatedBy); !allowed {
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Từ chối quyền cập nhật: " + reason})
+			return
+		}
+	}
+
+	// Ghi nhận Creator chính chủ từ Token
+	creatorId := authUser.UserSeq
+	if creatorId == "" {
+		creatorId = authUser.UserId
+	}
+	if creatorId == "" {
+		creatorId = authUser.UserName
+	}
+	bundle.CreatedBy = creatorId
 
 	// 1. Sinh tên file & đường dẫn phân cấp theo Năm/Tháng/Ngày
 	fileName, relPath, fullPath := buildBundleStoragePath(
@@ -475,21 +511,64 @@ func (h *CalcBundleHandler) DeleteBundle(c *gin.Context) {
 	if regCode == "" {
 		regCode = c.Query("reg_code")
 	}
+	if regCode == "" {
+		var body struct {
+			RegCode string `json:"reg_code"`
+		}
+		_ = c.ShouldBindJSON(&body)
+		regCode = body.RegCode
+	}
 
 	if regCode == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Mã đăng ký (reg_code) là bắt buộc"})
 		return
 	}
 
-	result := h.db.Where("\"RegCode\" = ?", regCode).Delete(&reportModels.CalcProductionBundle{})
+	cleanCode := strings.TrimSpace(regCode)
+
+	// 1. Xác thực Token chính chủ - CẤM tuyệt đối tin tưởng FE
+	rawAuth := c.GetHeader("Authorization")
+	if rawAuth == "" {
+		if t, ok := c.Get("access_token"); ok {
+			rawAuth = fmt.Sprint(t)
+		}
+	}
+	authUser, authErr := auth.AuthenticateUserWithToken(c.Request.Context(), h.db, rawAuth)
+	if authErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Từ chối quyền xóa: " + authErr.Error()})
+		return
+	}
+
+	// 2. Tra cứu bản ghi trong CSDL Server
+	var bundle reportModels.CalcProductionBundle
+	if err := h.db.Where(`LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode).First(&bundle).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Không tìm thấy gói dữ liệu trên server: " + cleanCode})
+		return
+	}
+
+	// 3. Kiểm tra quyền sở hữu chính chủ (Ownership Check)
+	allowed, reason := auth.CanUserModifyOrDeleteBundle(c.Request.Context(), h.db, authUser, bundle.CreatedBy)
+	if !allowed {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Từ chối quyền xóa: " + reason})
+		return
+	}
+
+	// 4. Xóa bản ghi trong CSDL - BẢO LƯU FILE VẬT LÝ .GSPROD TRÊN SERVER
+	result := h.db.Where(`LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode).Delete(&reportModels.CalcProductionBundle{})
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Lỗi xóa gói dữ liệu: " + result.Error.Error()})
 		return
 	}
 
+	h.db.Exec(`DELETE FROM plan_master WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+	h.db.Exec(`DELETE FROM "_ERPPlanMaster" WHERE LOWER(TRIM("RegCode")) = LOWER(?)`, cleanCode)
+	h.db.Exec(`DELETE FROM plan_registration WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+	h.db.Exec(`DELETE FROM plan_detail WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+	h.db.Exec(`DELETE FROM prod_stats_detail WHERE LOWER(TRIM("reg_code")) = LOWER(?)`, cleanCode)
+
 	c.JSON(http.StatusOK, gin.H{
 		"success":      true,
-		"message":      "Đã xóa gói dữ liệu thành công",
+		"message":      "Đã xóa gói dữ liệu của bạn trên server thành công (Bản nén gốc được bảo lưu an toàn).",
 		"deleted_rows": result.RowsAffected,
 	})
 }

@@ -1,8 +1,5 @@
 import { request } from '../../../../../services/apiClient'
-import {
-  normalizeProdStatsDetailRows,
-  normalizePlanDetailRows
-} from './reportColumnNormalizer'
+import { normalizeProdStatsDetailRows, normalizePlanDetailRows } from './reportColumnNormalizer'
 
 /**
  * Service kết nối Backend API cho Module Đăng ký & Báo cáo Sản xuất (KHSX & TKSX)

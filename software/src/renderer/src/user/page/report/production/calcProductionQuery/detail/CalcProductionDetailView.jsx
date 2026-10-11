@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CompactSelection } from '@glideapps/glide-data-grid'
+import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
 
 import DataPageContainer from '@renderer/user/components/layout/DataPageContainer'
@@ -31,7 +32,12 @@ import CalcRuleConfigModal from '../../calcProduction/components/CalcRuleConfigM
 import ImportLoadingOverlay from '../../calcProduction/components/ImportLoadingOverlay'
 import ExcelMappingModal from '../../calcProduction/components/ExcelMappingModal'
 import { parseUploadedFile, inspectUploadedFile } from '../../calcProduction/engine/fileParsers'
-import { unpackProductionBundle, packProductionBundle } from '../../calcProduction/engine/bundlePacker'
+import {
+  unpackProductionBundle,
+  packProductionBundle,
+  base64ToUint8Array,
+  uint8ArrayToBase64
+} from '../../calcProduction/engine/bundlePacker'
 import {
   downloadProductionBundleOnline,
   publishProductionBundleOnline,
@@ -89,6 +95,8 @@ export default function CalcProductionDetailView() {
 
   const [masterRecord, setMasterRecord] = useState(null)
   const [availableVersions, setAvailableVersions] = useState([])
+  // Cache bundle nhị phân đã tải của các version để không bao giờ phải gọi lại API khi chuyển qua lại
+  const versionBundleCacheRef = useRef(new Map())
   const [isPublishing, setIsPublishing] = useState(false)
   const [publishProgress, setPublishProgress] = useState({
     percent: 25,
@@ -143,12 +151,12 @@ export default function CalcProductionDetailView() {
         key === 'FactoryName'
           ? 'factoryName'
           : key === 'ApplyDate'
-          ? 'applyDate'
-          : key === 'Remark'
-          ? 'remark'
-          : key === 'ProductionTeam'
-          ? 'productionTeam'
-          : key
+            ? 'applyDate'
+            : key === 'Remark'
+              ? 'remark'
+              : key === 'ProductionTeam'
+                ? 'productionTeam'
+                : key
 
       setMasterRecord((prev) => {
         const updated = {
@@ -162,15 +170,12 @@ export default function CalcProductionDetailView() {
           storageAdapter.saveMasterRegistration(updated).catch((err) => {
             console.warn('Lỗi cập nhật master info:', err)
           })
-          try {
-            const regKey = targetRegCode || prev?.regCode
-            localStorage.setItem(`S_MASTER_REG_${regKey}`, JSON.stringify(updated))
-          } catch {}
         }
 
         return updated
       })
 
+      setIsDirty(true)
       setStatusMessage?.({
         type: 'info',
         text: `Đã cập nhật [${key}]. Thông tin mới đã được lưu vào hệ thống.`
@@ -185,6 +190,15 @@ export default function CalcProductionDetailView() {
   const [isParsing, setIsParsing] = useState(false)
   const [isRegistering, setIsRegistering] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+
+  // Đăng ký kiểm tra dữ liệu chưa lưu - Chặn rời trang khi có thay đổi chưa lưu
+  useEffect(() => {
+    if (!registerDirtyChecker) return
+    return registerDirtyChecker(() => {
+      return Boolean(isDirty)
+    })
+  }, [registerDirtyChecker, isDirty])
   const [importProgress, setImportProgress] = useState({
     fileName: '',
     fileSize: 0,
@@ -244,8 +258,8 @@ export default function CalcProductionDetailView() {
   const isSearchActive = useMemo(() => {
     return Boolean(
       (searchText && searchText.trim()) ||
-        (statusFilter && statusFilter !== 'ALL') ||
-        Object.values(filterValues || {}).some((v) => Boolean(v && String(v).trim()))
+      (statusFilter && statusFilter !== 'ALL') ||
+      Object.values(filterValues || {}).some((v) => Boolean(v && String(v).trim()))
     )
   }, [searchText, statusFilter, filterValues])
 
@@ -397,8 +411,8 @@ export default function CalcProductionDetailView() {
               row[key] !== undefined
                 ? row[key]
                 : row[key.toLowerCase()] !== undefined
-                ? row[key.toLowerCase()]
-                : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
+                  ? row[key.toLowerCase()]
+                  : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
             if (rowVal === null || rowVal === undefined) return false
             const rowValStr = String(rowVal).toLowerCase()
             return tokens.some((token) => rowValStr.includes(token))
@@ -428,6 +442,9 @@ export default function CalcProductionDetailView() {
 
       if (tabId === 'result_tksx') {
         const rawRows = results?.stat?.calculatedRows || []
+        if (!rawRows || rawRows.length === 0) {
+          return { rows: [], total: 0, page: 1, totalPages: 1, hasMore: false }
+        }
         const filteredRows = applyRowSearchFilters(rawRows, searchFilters)
         const total = filteredRows.length
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -445,6 +462,9 @@ export default function CalcProductionDetailView() {
 
       if (tabId === 'result_khsx') {
         const rawRows = results?.plan?.calculatedRows || []
+        if (!rawRows || rawRows.length === 0) {
+          return { rows: [], total: 0, page: 1, totalPages: 1, hasMore: false }
+        }
         const filteredRows = applyRowSearchFilters(rawRows, searchFilters)
         const total = filteredRows.length
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -460,12 +480,25 @@ export default function CalcProductionDetailView() {
         }
       }
 
+      // 4 Bảng kiến trúc: Kiểm tra tóm tắt xem tab này có file được nạp hay không
+      const archSummary = summaries?.[tabId]
+      const archRowCount = archSummary?.rowCount || 0
+      if (!archSummary || archRowCount === 0) {
+        return { rows: [], total: 0, page: 1, totalPages: 1, hasMore: false }
+      }
+
       // 4 Bảng kiến trúc: Chọc thẳng vào SQLite / IndexedDB với bộ lọc tìm kiếm
       try {
-        const res = await storageAdapter.getFilePage(tabId, pageNumber, PAGE_SIZE, searchFilters)
+        const res = await storageAdapter.getFilePage(
+          tabId,
+          pageNumber,
+          PAGE_SIZE,
+          searchFilters,
+          targetRegCode
+        )
         const pagedRows = res?.rows || []
         const total =
-          res?.total !== undefined ? res.total : summaries[tabId]?.rowCount || pagedRows.length
+          res?.total !== undefined ? res.total : archRowCount || pagedRows.length
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
         const offset = (pageNumber - 1) * PAGE_SIZE
 
@@ -481,7 +514,7 @@ export default function CalcProductionDetailView() {
         return { rows: [], total: 0, page: 1, totalPages: 1, hasMore: false }
       }
     },
-    [fileSummaries, calcResults, applyRowSearchFilters]
+    [fileSummaries, calcResults, applyRowSearchFilters, targetRegCode]
   )
 
   // ── Hàm nạp trước dữ liệu toàn bộ 6 tabs ở chế độ ngầm (Background Preload) ──
@@ -522,16 +555,6 @@ export default function CalcProductionDetailView() {
         let master = null
         if (targetRegCode) {
           master = await storageAdapter.getMasterRegistration(targetRegCode)
-          if (!master) {
-            const local = localStorage.getItem(`S_MASTER_REG_${targetRegCode}`)
-            if (local) {
-              try {
-                master = JSON.parse(local)
-              } catch (_e) {
-                master = null
-              }
-            }
-          }
         }
 
         // 1b. Xác định trường hợp cần tải & đồng bộ từ Server DataHub:
@@ -542,12 +565,10 @@ export default function CalcProductionDetailView() {
         )
         const hasLocalFiles = Boolean(
           master?.fileSummaries &&
-            Object.values(master.fileSummaries).some((s) => (s?.rowCount || 0) > 0)
+          Object.values(master.fileSummaries).some((s) => (s?.rowCount || 0) > 0)
         )
 
-        const needsRemoteDownload = Boolean(
-          targetRegCode && !hasLocalMaster && !hasLocalFiles
-        )
+        const needsRemoteDownload = Boolean(targetRegCode && !hasLocalMaster && !hasLocalFiles)
 
         if (needsRemoteDownload) {
           setIsSyncingVersion(true)
@@ -561,6 +582,7 @@ export default function CalcProductionDetailView() {
           try {
             const binaryBuffer = await downloadProductionBundleOnline(targetRegCode)
             if (binaryBuffer && binaryBuffer.length > 0) {
+              versionBundleCacheRef.current.set(targetRegCode, binaryBuffer)
               setSyncVersionProgress({
                 percent: 60,
                 step: 'UNPACK',
@@ -570,6 +592,18 @@ export default function CalcProductionDetailView() {
               })
 
               const unpacked = unpackProductionBundle(binaryBuffer)
+              if (unpacked?.masterInfo?.version) {
+                const vCode = `${targetRegCode}@v${unpacked.masterInfo.version}`
+                versionBundleCacheRef.current.set(vCode, binaryBuffer)
+                storageAdapter
+                  .saveVersionedBundle({
+                    bundleCode: vCode,
+                    regCode: targetRegCode,
+                    version: unpacked.masterInfo.version,
+                    bundleData: uint8ArrayToBase64(binaryBuffer)
+                  })
+                  .catch(() => {})
+              }
 
               setSyncVersionProgress({
                 percent: 85,
@@ -583,15 +617,20 @@ export default function CalcProductionDetailView() {
               for (const fType of tabKeys) {
                 const fData = unpacked?.filesData?.[fType]
                 if (fData && fData.data && fData.data.length > 0) {
-                  await storageAdapter.saveFile(fType, fData)
+                  await storageAdapter.saveFile(fType, fData, null, targetRegCode)
                 } else {
-                  await storageAdapter.saveFile(fType, {
-                    fileName: '',
-                    fileSize: 0,
-                    rowCount: 0,
-                    data: [],
-                    columns: []
-                  })
+                  await storageAdapter.saveFile(
+                    fType,
+                    {
+                      fileName: '',
+                      fileSize: 0,
+                      rowCount: 0,
+                      data: [],
+                      columns: []
+                    },
+                    null,
+                    targetRegCode
+                  )
                 }
               }
 
@@ -612,7 +651,8 @@ export default function CalcProductionDetailView() {
                 step: 'COMPLETED',
                 isComplete: true,
                 message: `Đã đồng bộ thành công dữ liệu phiếu [${targetRegCode}]!`,
-                detail: 'Dữ liệu các bảng và kết quả tính toán đã sẵn sàng. Bấm [Đồng ý] để bắt đầu làm việc.',
+                detail:
+                  'Dữ liệu các bảng và kết quả tính toán đã sẵn sàng. Bấm [Đồng ý] để bắt đầu làm việc.',
                 statusTag: 'Hoàn tất'
               })
             } else {
@@ -625,7 +665,7 @@ export default function CalcProductionDetailView() {
         }
 
         // Lấy lại summaries chính xác sau khi đồng bộ
-        let summaries = await storageAdapter.getAllSummaries()
+        let summaries = await storageAdapter.getAllSummaries(targetRegCode)
 
         setMasterRecord(master || { regCode: targetRegCode || '' })
 
@@ -672,12 +712,6 @@ export default function CalcProductionDetailView() {
         if (targetRegCode) {
           try {
             results = await storageAdapter.getCalcResults(targetRegCode)
-            if (!results && typeof window !== 'undefined') {
-              const local = localStorage.getItem(`S_CALC_RESULTS_${targetRegCode}`)
-              if (local) {
-                results = JSON.parse(local)
-              }
-            }
             if (results) {
               setCalcResults(results)
               mergedSummaries.result_tksx = {
@@ -853,12 +887,16 @@ export default function CalcProductionDetailView() {
         rows: CompactSelection.empty()
       })
 
+      // Cách ly dữ liệu tức thì: Xóa sạch dữ liệu của tab cũ ngay khi bấm chuyển tab
+      setGridData([])
+      gridDataRef.current = []
+
       loadingChunksRef.current.clear()
       isLoadingNextPageRef.current = false
 
       // 3. Nếu tab đã được nạp sẵn trong Cache: Chuyển tức thì 0ms không chờ đợi
       const cached = tabsCacheRef.current[tabId]
-      if (cached && cached.rows) {
+      if (cached && Array.isArray(cached.rows)) {
         setGridData(cached.rows)
         gridDataRef.current = cached.rows
 
@@ -890,11 +928,12 @@ export default function CalcProductionDetailView() {
       loadingBarRef.current?.continuousStart?.()
       try {
         const dataRes = await loadTabData(tabId, 1)
-        setGridData(dataRes.rows)
-        gridDataRef.current = dataRes.rows
+        const freshRows = dataRes?.rows || []
+        setGridData(freshRows)
+        gridDataRef.current = freshRows
 
         tabsCacheRef.current[tabId] = {
-          rows: dataRes.rows,
+          rows: freshRows,
           total: dataRes.total,
           page: dataRes.page,
           totalPages: dataRes.totalPages,
@@ -1202,7 +1241,7 @@ export default function CalcProductionDetailView() {
     await new Promise((resolve) => setTimeout(resolve, 60))
 
     try {
-      const allFiles = await storageAdapter.getAllFiles()
+      const allFiles = await storageAdapter.getAllFiles(targetRegCode)
 
       setCalculationProgress({
         percent: 50,
@@ -1301,9 +1340,6 @@ export default function CalcProductionDetailView() {
           await storageAdapter.saveMasterRegistration(updatedMaster)
           if (results) {
             await storageAdapter.saveCalcResults(targetRegCode, results)
-            if (typeof window !== 'undefined') {
-              try { localStorage.setItem(`S_CALC_RESULTS_${targetRegCode}`, JSON.stringify(results)) } catch (e) { console.warn('[LocalStorage] Quota exceeded (>5MB), data saved in SQLite/IndexedDB:', e) }
-            }
           }
         } catch (e) {
           console.warn('Lưu kết quả tính toán:', e)
@@ -1322,6 +1358,7 @@ export default function CalcProductionDetailView() {
       const initialPageRows = tksxAllRows.slice(0, PAGE_SIZE)
       setGridData(initialPageRows)
       gridDataRef.current = initialPageRows
+      setIsDirty(true)
 
       setActiveTab('result_tksx')
       activeTabRef.current = 'result_tksx'
@@ -1367,7 +1404,15 @@ export default function CalcProductionDetailView() {
       setStatusMessage?.({ type: 'error', text: `Tính toán thất bại: ${err.message}` })
       setIsCalculating(false)
     }
-  }, [fileSummaries, targetRegCode, masterInfo, masterRecord, calcRules, setPageData, setStatusMessage])
+  }, [
+    fileSummaries,
+    targetRegCode,
+    masterInfo,
+    masterRecord,
+    calcRules,
+    setPageData,
+    setStatusMessage
+  ])
 
   // Chuyển đổi xem phiên bản khác nhau của cùng phiếu đăng ký
   const handleSelectVersion = useCallback(
@@ -1375,18 +1420,58 @@ export default function CalcProductionDetailView() {
       if (!newVersion || newVersion === masterRecord?.version) return
       loadingBarRef.current?.continuousStart?.()
       setIsSyncingVersion(true)
+
+      const bundleCode = `${targetRegCode}@v${newVersion}`
+      
+      // 1. Kiểm tra trong bộ nhớ RAM hoặc trong CSDL cục bộ (SQLite / IndexedDB)
+      let binaryBuffer = versionBundleCacheRef.current.get(bundleCode)
+      let isLocal = Boolean(binaryBuffer)
+
+      if (!binaryBuffer) {
+        // Kiểm tra trong CSDL cục bộ SQLite / IndexedDB
+        try {
+          const localBundleBase64 = await storageAdapter.getVersionedBundle(bundleCode)
+          if (localBundleBase64) {
+            binaryBuffer = base64ToUint8Array(localBundleBase64)
+            versionBundleCacheRef.current.set(bundleCode, binaryBuffer)
+            isLocal = true
+          }
+        } catch (_localErr) {
+          // ignore
+        }
+      }
+
       setSyncVersionProgress({
-        percent: 20,
-        step: 'DOWNLOAD',
-        message: `Đang kết nối và tải dữ liệu phiên bản v${newVersion}...`,
-        detail: `Tải dữ liệu phiên bản v${newVersion} cho phiếu [${targetRegCode}]...`,
-        statusTag: 'Tải phiên bản',
+        percent: isLocal ? 60 : 20,
+        step: isLocal ? 'UNPACK' : 'DOWNLOAD',
+        message: isLocal
+          ? `Đang nạp phiên bản v${newVersion} từ CSDL cục bộ (0 API call)...`
+          : `Đang kết nối và tải dữ liệu phiên bản v${newVersion}...`,
+        detail: isLocal
+          ? `Đọc trực tiếp từ kho lưu trữ cục bộ máy tính...`
+          : `Tải dữ liệu phiên bản v${newVersion} cho phiếu [${targetRegCode}]...`,
+        statusTag: isLocal ? 'CSDL cục bộ' : 'Tải phiên bản',
         isComplete: false
       })
 
       try {
-        const bundleCode = `${targetRegCode}@v${newVersion}`
-        const binaryBuffer = await downloadProductionBundleOnline(bundleCode)
+        if (!binaryBuffer) {
+          binaryBuffer = await downloadProductionBundleOnline(bundleCode)
+          if (binaryBuffer && binaryBuffer.length > 0) {
+            versionBundleCacheRef.current.set(bundleCode, binaryBuffer)
+            // Lưu vĩnh viễn vào SQLite / IndexedDB cục bộ để không bao giờ phải gọi API lại
+            try {
+              await storageAdapter.saveVersionedBundle({
+                bundleCode,
+                regCode: targetRegCode,
+                version: newVersion,
+                bundleData: uint8ArrayToBase64(binaryBuffer)
+              })
+            } catch (_saveErr) {
+              // ignore
+            }
+          }
+        }
         if (binaryBuffer && binaryBuffer.length > 0) {
           setSyncVersionProgress({
             percent: 60,
@@ -1412,15 +1497,20 @@ export default function CalcProductionDetailView() {
           for (const fType of tabKeys) {
             const fData = unpacked?.filesData?.[fType]
             if (fData && fData.data && fData.data.length > 0) {
-              await storageAdapter.saveFile(fType, fData)
+              await storageAdapter.saveFile(fType, fData, null, targetRegCode)
             } else {
-              await storageAdapter.saveFile(fType, {
-                fileName: '',
-                fileSize: 0,
-                rowCount: 0,
-                data: [],
-                columns: []
-              })
+              await storageAdapter.saveFile(
+                fType,
+                {
+                  fileName: '',
+                  fileSize: 0,
+                  rowCount: 0,
+                  data: [],
+                  columns: []
+                },
+                null,
+                targetRegCode
+              )
             }
           }
 
@@ -1437,7 +1527,7 @@ export default function CalcProductionDetailView() {
 
           // Xóa cache và nạp lại tab hiện tại
           tabsCacheRef.current = {}
-          const summaries = await storageAdapter.getAllSummaries()
+          const summaries = await storageAdapter.getAllSummaries(targetRegCode)
           setFileSummaries(summaries)
 
           const curTab = activeTabRef.current || TAB_DEFINITIONS[0].id
@@ -1522,15 +1612,20 @@ export default function CalcProductionDetailView() {
         for (const fType of tabKeys) {
           const fData = unpacked?.filesData?.[fType]
           if (fData && fData.data && fData.data.length > 0) {
-            await storageAdapter.saveFile(fType, fData)
+            await storageAdapter.saveFile(fType, fData, null, targetRegCode)
           } else {
-            await storageAdapter.saveFile(fType, {
-              fileName: '',
-              fileSize: 0,
-              rowCount: 0,
-              data: [],
-              columns: []
-            })
+            await storageAdapter.saveFile(
+              fType,
+              {
+                fileName: '',
+                fileSize: 0,
+                rowCount: 0,
+                data: [],
+                columns: []
+              },
+              null,
+              targetRegCode
+            )
           }
         }
 
@@ -1546,7 +1641,7 @@ export default function CalcProductionDetailView() {
 
         // Xóa cache và nạp lại tab hiện tại
         tabsCacheRef.current = {}
-        const summaries = await storageAdapter.getAllSummaries()
+        const summaries = await storageAdapter.getAllSummaries(targetRegCode)
         setFileSummaries(summaries)
 
         const curTab = activeTabRef.current || TAB_DEFINITIONS[0].id
@@ -1586,7 +1681,8 @@ export default function CalcProductionDetailView() {
   // Chuyển sang chế độ Chỉnh sửa / Tạo bản nháp mới từ bản đã công bố (tự động tăng version)
   const handleUnlockForEdit = useCallback(async () => {
     try {
-      const currentVer = masterRecord?.calcVersion || masterRecord?.version || masterRecord?.Version || '1.0'
+      const currentVer =
+        masterRecord?.calcVersion || masterRecord?.version || masterRecord?.Version || '1.0'
       const nextVer = getNextVersion(currentVer)
 
       const updatedMaster = {
@@ -1602,7 +1698,9 @@ export default function CalcProductionDetailView() {
       await storageAdapter.saveMasterRegistration(updatedMaster)
 
       if (calcResults) {
-        setCalcResults((prev) => (prev ? { ...prev, version: nextVer, calcVersion: nextVer } : prev))
+        setCalcResults((prev) =>
+          prev ? { ...prev, version: nextVer, calcVersion: nextVer } : prev
+        )
       }
 
       setStatusMessage?.({
@@ -1621,8 +1719,12 @@ export default function CalcProductionDetailView() {
   // Công bố báo cáo trực tiếp từ màn hình chi tiết lên Server DataHub
   const handlePublishReport = useCallback(async () => {
     // RÀNG BUỘC CHẶT CHẼ: Bắt buộc phải tính toán KHSX & TKSX trước khi công bố
-    const hasTksx = Boolean(calcResults?.stat?.calculatedRows && calcResults.stat.calculatedRows.length > 0)
-    const hasKhsx = Boolean(calcResults?.plan?.calculatedRows && calcResults.plan.calculatedRows.length > 0)
+    const hasTksx = Boolean(
+      calcResults?.stat?.calculatedRows && calcResults.stat.calculatedRows.length > 0
+    )
+    const hasKhsx = Boolean(
+      calcResults?.plan?.calculatedRows && calcResults.plan.calculatedRows.length > 0
+    )
     if (!hasTksx || !hasKhsx) {
       setStatusMessage?.({
         type: 'warning',
@@ -1669,7 +1771,7 @@ export default function CalcProductionDetailView() {
       await new Promise((r) => setTimeout(r, 250))
 
       // 2. Nạp dữ liệu 4 bảng thô mới nhất từ CSDL
-      const allFiles = await storageAdapter.getAllFiles()
+      const allFiles = await storageAdapter.getAllFiles(targetRegCode || masterInfo?.regCode)
       const filesData = {
         stat_report: allFiles?.stat_report?.data || allFiles?.stat_report || [],
         unfinished_op: allFiles?.unfinished_op?.data || allFiles?.unfinished_op || [],
@@ -1736,6 +1838,25 @@ export default function CalcProductionDetailView() {
       setMasterRecord(updatedMaster)
       await storageAdapter.saveMasterRegistration(updatedMaster)
 
+      if (bundlePack?.buffer || base64Str) {
+        if (bundlePack?.buffer) {
+          versionBundleCacheRef.current.set(
+            `${masterInfo.regCode}@v${masterInfo.version || '1.0'}`,
+            bundlePack.buffer
+          )
+        }
+        try {
+          await storageAdapter.saveVersionedBundle({
+            bundleCode: `${masterInfo.regCode}@v${masterInfo.version || '1.0'}`,
+            regCode: masterInfo.regCode,
+            version: masterInfo.version || '1.0',
+            bundleData: base64Str
+          })
+        } catch (_saveErr) {
+          // ignore
+        }
+      }
+
       if (freshCalc) {
         const publishedCalc = {
           ...freshCalc,
@@ -1745,9 +1866,6 @@ export default function CalcProductionDetailView() {
         }
         setCalcResults(publishedCalc)
         await storageAdapter.saveCalcResults(targetRegCode, publishedCalc)
-        if (typeof window !== 'undefined') {
-          try { localStorage.setItem(`S_CALC_RESULTS_${targetRegCode}`, JSON.stringify(publishedCalc)) } catch (e) { console.warn('[LocalStorage] Quota exceeded (>5MB), data saved in SQLite/IndexedDB:', e) }
-        }
       }
 
       setAvailableVersions((prev) => {
@@ -1811,11 +1929,11 @@ export default function CalcProductionDetailView() {
           }))
         })
 
-        await storageAdapter.saveFile(targetTab, parsed)
+        await storageAdapter.saveFile(targetTab, parsed, null, targetRegCode)
         tabsCacheRef.current[targetTab] = null
 
         // Cập nhật summaries
-        const summaries = await storageAdapter.getAllSummaries()
+        const summaries = await storageAdapter.getAllSummaries(targetRegCode)
         setFileSummaries(summaries)
 
         // Cập nhật Master
@@ -1847,6 +1965,7 @@ export default function CalcProductionDetailView() {
           }))
         }
 
+        setIsDirty(true)
         setStatusMessage?.({
           type: 'success',
           text: `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng cho tab ${tabDef.title}.`
@@ -1919,10 +2038,10 @@ export default function CalcProductionDetailView() {
           setImportProgress((prev) => ({ ...prev, ...prog }))
         })
 
-        await storageAdapter.saveFile(fileType, parsed)
+        await storageAdapter.saveFile(fileType, parsed, null, targetRegCode)
         tabsCacheRef.current[fileType] = null
 
-        const summaries = await storageAdapter.getAllSummaries()
+        const summaries = await storageAdapter.getAllSummaries(targetRegCode)
         setFileSummaries(summaries)
 
         if (masterRecord) {
@@ -1943,6 +2062,7 @@ export default function CalcProductionDetailView() {
           tabsCacheRef.current[fileType] = dataRes
         }
 
+        setIsDirty(true)
         setStatusMessage?.({
           type: 'success',
           text: `Đã nạp ${parsed.rowCount.toLocaleString('vi-VN')} dòng theo ánh xạ tùy chỉnh cho tab ${tabDef.title}.`
@@ -1967,7 +2087,7 @@ export default function CalcProductionDetailView() {
       text: `Đang lưu thông tin đăng ký cho phiếu [${masterInfo.regCode}]...`
     })
     try {
-      const summaries = await storageAdapter.getAllSummaries()
+      const summaries = await storageAdapter.getAllSummaries(targetRegCode || masterInfo.regCode)
       const statRows = summaries?.stat_report?.rowCount || 0
       const unfinRows = summaries?.unfinished_op?.rowCount || 0
       const sumRows = summaries?.summary_op?.rowCount || 0
@@ -2013,16 +2133,12 @@ export default function CalcProductionDetailView() {
 
       await storageAdapter.saveMasterRegistration(updatedMaster)
       setMasterRecord(updatedMaster)
-      try {
-        localStorage.setItem(`S_MASTER_REG_${masterInfo.regCode}`, JSON.stringify(updatedMaster))
-      } catch {}
 
       if (calcResults) {
         await storageAdapter.saveCalcResults(masterInfo.regCode, calcResults)
-        await storageAdapter.saveCalcResults('CURRENT_CALC', calcResults)
-        // Đã lưu qua storageAdapter
       }
 
+      setIsDirty(false)
       setStatusMessage?.({
         type: 'success',
         text: `Đã lưu cập nhật thông tin phiếu đăng ký [${masterInfo.regCode}] và kết quả tính toán thành công!`
@@ -2043,13 +2159,18 @@ export default function CalcProductionDetailView() {
     async (fileType) => {
       const targetTab = fileType || activeTabRef.current
       try {
-        await storageAdapter.saveFile(targetTab, {
-          fileName: '',
-          fileSize: 0,
-          rowCount: 0,
-          data: [],
-          columns: []
-        })
+        await storageAdapter.saveFile(
+          targetTab,
+          {
+            fileName: '',
+            fileSize: 0,
+            rowCount: 0,
+            data: [],
+            columns: []
+          },
+          null,
+          targetRegCode
+        )
         tabsCacheRef.current[targetTab] = {
           rows: [],
           total: 0,
@@ -2057,7 +2178,7 @@ export default function CalcProductionDetailView() {
           totalPages: 1,
           hasMore: false
         }
-        const summaries = await storageAdapter.getAllSummaries()
+        const summaries = await storageAdapter.getAllSummaries(targetRegCode)
         setFileSummaries(summaries)
 
         if (targetTab === activeTabRef.current) {
@@ -2097,12 +2218,14 @@ export default function CalcProductionDetailView() {
           await storageAdapter.saveMasterRegistration(updatedMaster)
           if (targetRegCode) {
             try {
-              localStorage.setItem(`S_MASTER_REG_${targetRegCode}`, JSON.stringify(updatedMaster))
               localStorage.setItem('GS_ACTIVE_DETAIL_REG_CODE', targetRegCode)
-            } catch {}
+            } catch (_e) {
+              // ignore
+            }
           }
         }
 
+        setIsDirty(true)
         setStatusMessage?.({
           type: 'info',
           text: `Đã xóa dữ liệu tab khỏi hệ thống.`
@@ -2122,13 +2245,18 @@ export default function CalcProductionDetailView() {
     try {
       const tabKeys = ['stat_report', 'unfinished_op', 'summary_op', 'mes_approval']
       for (const fType of tabKeys) {
-        await storageAdapter.saveFile(fType, {
-          fileName: '',
-          fileSize: 0,
-          rowCount: 0,
-          data: [],
-          columns: []
-        })
+        await storageAdapter.saveFile(
+          fType,
+          {
+            fileName: '',
+            fileSize: 0,
+            rowCount: 0,
+            data: [],
+            columns: []
+          },
+          null,
+          targetRegCode
+        )
       }
       tabsCacheRef.current = {}
       setGridData([])
@@ -2140,7 +2268,9 @@ export default function CalcProductionDetailView() {
         await storageAdapter.saveCalcResults?.(targetRegCode, null)
         try {
           localStorage.removeItem(`S_CALC_RESULTS_${targetRegCode}`)
-        } catch {}
+        } catch (_e) {
+          // ignore
+        }
       }
 
       if (masterRecord) {
@@ -2154,9 +2284,10 @@ export default function CalcProductionDetailView() {
         await storageAdapter.saveMasterRegistration(updatedMaster)
         if (targetRegCode) {
           try {
-            localStorage.setItem(`S_MASTER_REG_${targetRegCode}`, JSON.stringify(updatedMaster))
             localStorage.setItem('GS_ACTIVE_DETAIL_REG_CODE', targetRegCode)
-          } catch {}
+          } catch (_e) {
+            // ignore
+          }
         }
       }
 
@@ -2182,6 +2313,7 @@ export default function CalcProductionDetailView() {
         rows: CompactSelection.empty(),
         current: undefined
       })
+      setIsDirty(true)
       setStatusMessage?.({
         type: 'info',
         text: 'Đã xóa toàn bộ file khỏi phiếu làm việc.'
@@ -2366,9 +2498,9 @@ export default function CalcProductionDetailView() {
       }
 
       try {
-        let curFile = await storageAdapter.getFile(activeTab)
+        let curFile = await storageAdapter.getFile(activeTab, targetRegCode)
         if (!curFile || !curFile.data || curFile.data.length === 0) {
-          const allFiles = await storageAdapter.getAllFiles()
+          const allFiles = await storageAdapter.getAllFiles(targetRegCode)
           curFile = allFiles[activeTab] || {}
         }
         const rawData = curFile?.data || []
@@ -2392,7 +2524,7 @@ export default function CalcProductionDetailView() {
             data: filtered,
             rowCount: filtered.length
           }
-          await storageAdapter.saveFile(activeTab, updated)
+          await storageAdapter.saveFile(activeTab, updated, null, targetRegCode)
           tabsCacheRef.current[activeTab] = {
             rows: filtered.slice(0, PAGE_SIZE),
             total: filtered.length,
@@ -2403,7 +2535,7 @@ export default function CalcProductionDetailView() {
           setGridData(filtered.slice(0, PAGE_SIZE))
           gridDataRef.current = filtered.slice(0, PAGE_SIZE)
 
-          const summaries = await storageAdapter.getAllSummaries()
+          const summaries = await storageAdapter.getAllSummaries(targetRegCode)
           setFileSummaries(summaries)
 
           if (masterRecord) {
@@ -2415,11 +2547,6 @@ export default function CalcProductionDetailView() {
             }
             setMasterRecord(updatedMaster)
             await storageAdapter.saveMasterRegistration(updatedMaster)
-            if (targetRegCode) {
-              try {
-                localStorage.setItem(`S_MASTER_REG_${targetRegCode}`, JSON.stringify(updatedMaster))
-              } catch {}
-            }
           }
 
           pageInfoRef.current = {
@@ -2444,6 +2571,7 @@ export default function CalcProductionDetailView() {
             rows: CompactSelection.empty(),
             current: undefined
           })
+          setIsDirty(true)
           setStatusMessage?.({
             type: 'info',
             text: `Đã xóa ${count} dòng khỏi tab hiện tại.`
@@ -2487,7 +2615,7 @@ export default function CalcProductionDetailView() {
       if (!freshCalc && targetRegCode) {
         freshCalc = await storageAdapter.getCalcResults(targetRegCode)
       }
-      const allFiles = await storageAdapter.getAllFiles()
+      const allFiles = await storageAdapter.getAllFiles(targetRegCode)
       const filesData = {
         stat_report: allFiles?.stat_report?.data || allFiles?.stat_report || [],
         unfinished_op: allFiles?.unfinished_op?.data || allFiles?.unfinished_op || [],
@@ -2495,12 +2623,9 @@ export default function CalcProductionDetailView() {
         mes_approval: allFiles?.mes_approval?.data || allFiles?.mes_approval || []
       }
 
-      const bundlePack = packProductionBundle(
-        masterInfo,
-        filesData,
-        freshCalc,
-        { version: masterInfo.version || '1.0' }
-      )
+      const bundlePack = packProductionBundle(masterInfo, filesData, freshCalc, {
+        version: masterInfo.version || '1.0'
+      })
 
       const blob = new Blob([bundlePack.buffer], { type: 'application/octet-stream' })
       const url = URL.createObjectURL(blob)
@@ -2567,17 +2692,22 @@ export default function CalcProductionDetailView() {
             }
           } else {
             try {
-              const fileDoc = await storageAdapter.getFile(ft)
+              const fileDoc = await storageAdapter.getFile(ft, targetRegCode)
               if (fileDoc?.data) {
                 allFiles[ft] = fileDoc
               }
-            } catch (e) {}
+            } catch (_e) {
+              // ignore
+            }
           }
         }
 
         let activeCalc = calcResults
         if (!activeCalc?.plan?.calculatedRows || !activeCalc?.stat?.calculatedRows) {
-          if (tabsCacheRef.current['result_khsx']?.data || tabsCacheRef.current['result_tksx']?.data) {
+          if (
+            tabsCacheRef.current['result_khsx']?.data ||
+            tabsCacheRef.current['result_tksx']?.data
+          ) {
             activeCalc = {
               plan: {
                 calculatedRows: tabsCacheRef.current['result_khsx']?.data || [],
@@ -2590,8 +2720,12 @@ export default function CalcProductionDetailView() {
             }
           } else {
             try {
-              activeCalc = await storageAdapter.getCalcResults(targetRegCode || masterRecord?.regCode)
-            } catch (e) {}
+              activeCalc = await storageAdapter.getCalcResults(
+                targetRegCode || masterRecord?.regCode
+              )
+            } catch (_e) {
+              // ignore
+            }
           }
         }
 
@@ -2680,7 +2814,9 @@ export default function CalcProductionDetailView() {
       } else {
         try {
           freshCalc = await storageAdapter.getCalcResults(targetRegCode || masterRecord?.regCode)
-        } catch (e) {}
+        } catch (_e) {
+          // ignore
+        }
       }
     }
 
@@ -2710,7 +2846,10 @@ export default function CalcProductionDetailView() {
 
       let freshCalc = registrationSelectInfo.freshCalc || calcResults
       if (!freshCalc?.plan?.calculatedRows || !freshCalc?.stat?.calculatedRows) {
-        if (tabsCacheRef.current['result_khsx']?.data || tabsCacheRef.current['result_tksx']?.data) {
+        if (
+          tabsCacheRef.current['result_khsx']?.data ||
+          tabsCacheRef.current['result_tksx']?.data
+        ) {
           freshCalc = {
             plan: {
               calculatedRows: tabsCacheRef.current['result_khsx']?.data || [],
@@ -2724,7 +2863,9 @@ export default function CalcProductionDetailView() {
         } else {
           try {
             freshCalc = await storageAdapter.getCalcResults(targetRegCode || masterRecord?.regCode)
-          } catch (e) {}
+          } catch (_e) {
+            // ignore
+          }
         }
       }
 
@@ -2749,8 +2890,8 @@ export default function CalcProductionDetailView() {
           pushKhsx && pushTksx
             ? 'Đang chuẩn bị dữ liệu 2 báo cáo KHSX và TKSX...'
             : pushKhsx
-            ? 'Đang chuẩn bị dữ liệu báo cáo KHSX...'
-            : 'Đang chuẩn bị dữ liệu báo cáo TKSX...',
+              ? 'Đang chuẩn bị dữ liệu báo cáo KHSX...'
+              : 'Đang chuẩn bị dữ liệu báo cáo TKSX...',
         detail: `Mã đăng ký: ${currentRegCode} | Nhà máy: ${masterInfo.factoryName || 'GS1 Hà Nội'}`,
         statusTag: 'Khởi tạo',
         khsxRows: khsxRows.length,
@@ -2781,10 +2922,7 @@ export default function CalcProductionDetailView() {
         const tksxRegCode = `${baseReg}-TKSX`
 
         const activeVersion =
-          masterInfo.version ||
-          masterRecord?.version ||
-          freshCalc?.version ||
-          '1.0'
+          masterInfo.version || masterRecord?.version || freshCalc?.version || '1.0'
 
         // Nạp Báo cáo Kế hoạch sản xuất (KHSX) nếu được chọn
         if (pushKhsx && khsxRows.length > 0) {
@@ -2876,8 +3014,8 @@ export default function CalcProductionDetailView() {
           pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
             ? 'Đã nạp thành công 2 báo cáo KHSX & TKSX!'
             : pushKhsx && khsxRows.length > 0
-            ? 'Đã nạp thành công báo cáo KHSX!'
-            : 'Đã nạp thành công báo cáo TKSX!'
+              ? 'Đã nạp thành công báo cáo KHSX!'
+              : 'Đã nạp thành công báo cáo TKSX!'
 
         setPushRegistrationProgress((prev) => ({
           ...prev,
@@ -2893,8 +3031,8 @@ export default function CalcProductionDetailView() {
           pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
             ? `Đã nạp thành công 2 báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng) và TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
             : pushKhsx && khsxRows.length > 0
-            ? `Đã nạp thành công báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng)!`
-            : `Đã nạp thành công báo cáo TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
+              ? `Đã nạp thành công báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng)!`
+              : `Đã nạp thành công báo cáo TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
 
         setStatusMessage?.({
           type: 'success',
@@ -2966,6 +3104,7 @@ export default function CalcProductionDetailView() {
             isParsing={isParsing}
             isCalculating={isCalculating}
             isRegistering={isRegistering}
+            isDirty={isDirty}
             isPublishing={isPublishing}
             isSyncingVersion={isSyncingVersion}
             isExporting={isExporting}
@@ -3017,6 +3156,8 @@ export default function CalcProductionDetailView() {
         defaultOpenQuery={true}
         table={
           <CalcDataGridTable
+            key={activeTab}
+            tableId={`calc_detail_${activeTab}`}
             tableTitle={`${currentTabDef.title} (${(pageInfoRef.current.total || filteredGridData.length || 0).toLocaleString('vi-VN')} dòng)`}
             cols={cols}
             setCols={setCols}

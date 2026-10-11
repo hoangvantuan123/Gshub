@@ -34,7 +34,21 @@ const generateDefaultRegCode = () => {
   return `REG-CALC-${dateStr}-${rand}`
 }
 
-export function useCalcProductionLogic({ setStatusMessage } = {}) {
+export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}) {
+  const resolvedRegCode = useMemo(() => {
+    if (initialRegCode && String(initialRegCode).trim()) {
+      return String(initialRegCode).trim()
+    }
+    try {
+      const sp = new URLSearchParams(window.location.hash.split('?')[1] || window.location.search)
+      const q = sp.get('regCode') || sp.get('seq')
+      if (q) return q.trim()
+    } catch (_e) {
+      // Bỏ qua lỗi parse URL
+    }
+    return generateDefaultRegCode()
+  }, [initialRegCode])
+
   const [activeTab, setActiveTab] = useState(TAB_DEFINITIONS[0].id)
   const [isCalculating, setIsCalculating] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
@@ -42,6 +56,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
   const [isPublishing, setIsPublishing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isRegistered, setIsRegistered] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
   const [calcResults, setCalcResults] = useState(null)
 
   // State Modal Tùy chọn báo cáo KHSX / TKSX trước khi đẩy
@@ -79,8 +94,8 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
   })
 
   // Thông tin Master Đăng Ký Báo Cáo - Tự động tạo mã hệ thống duy nhất cho đợt đăng ký mới
-  const [masterInfo, setMasterInfo] = useState({
-    regCode: generateDefaultRegCode(),
+  const [masterInfo, setMasterInfo] = useState(() => ({
+    regCode: resolvedRegCode,
     factoryName: 'GS1 Hà Nội',
     applyDate: dayjs().format('YYYY-MM-DD'),
     productionTeam: 'Tất cả các tổ',
@@ -88,7 +103,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     status: 'DRAFT',
     version: '1.0',
     isPublished: false
-  })
+  }))
 
   const notify = useCallback(
     (type, text) => {
@@ -104,6 +119,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       ...prev,
       [key]: value
     }))
+    setIsDirty(true)
   }, [])
 
   const {
@@ -117,23 +133,59 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     deleteFile,
     clearAllFiles,
     loadAllFilesForCalculation
-  } = useArchitectureStorage({ autoLoad: false })
+  } = useArchitectureStorage({ autoLoad: true, regCode: masterInfo.regCode })
+
+  // Tự động tải bản ghi master và calc results nếu regCode đã tồn tại trong CSDL
+  useEffect(() => {
+    if (!masterInfo.regCode) return
+    let isMounted = true
+    const loadExistingRecord = async () => {
+      try {
+        const master = await storageAdapter.getMasterRegistration(masterInfo.regCode)
+        if (master && isMounted) {
+          setMasterInfo((prev) => ({
+            ...prev,
+            ...master,
+            regCode: masterInfo.regCode
+          }))
+          if (master.status === 'PUBLISHED' || master.isPublished) {
+            setIsRegistered(true)
+          }
+        }
+        const results = await storageAdapter.getCalcResults(masterInfo.regCode)
+        if (results && isMounted) {
+          setCalcResults(results)
+        }
+      } catch (e) {
+        console.warn('Lỗi nạp master info ban đầu:', e)
+      }
+    }
+    loadExistingRecord()
+    return () => {
+      isMounted = false
+    }
+  }, [masterInfo.regCode])
 
   const handleGenerateNewRegCode = useCallback(() => {
     const newCode = generateDefaultRegCode()
     setMasterInfo((prev) => ({
       ...prev,
-      regCode: newCode
+      regCode: newCode,
+      status: 'DRAFT',
+      version: '1.0',
+      isPublished: false
     }))
-    clearAllFiles()
+    clearAllFiles(newCode)
     setCalcResults(null)
     setIsRegistered(false)
+    setIsDirty(false)
     notify('info', `Đã tạo mã đăng ký mới: ${newCode}`)
   }, [clearAllFiles, notify])
 
   const activeTabFileData = useMemo(() => {
     if (activeTab === 'result_tksx') {
       const rows = calcResults?.stat?.calculatedRows || []
+      if (!rows || rows.length === 0) return null
       const statCols =
         filesDataMap['stat_report']?.columns ||
         fileSummaries['stat_report']?.columns ||
@@ -165,6 +217,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
 
     if (activeTab === 'result_khsx') {
       const rows = calcResults?.plan?.calculatedRows || []
+      if (!rows || rows.length === 0) return null
       return {
         columns: RESULT_KHSX_COLUMN_SCHEMA,
         data: rows,
@@ -175,7 +228,17 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       }
     }
 
-    return filesDataMap[activeTab] || null
+    // 4 tab kiến trúc: Phải kiểm tra đúng tóm tắt của tab đó: nếu tab chưa có dữ liệu nạp (rowCount <= 0) thì dứt khoát trả về null!
+    const tabSummary = fileSummaries[activeTab]
+    if (!tabSummary || !tabSummary.rowCount || tabSummary.rowCount <= 0) {
+      return null
+    }
+
+    const curFileData = filesDataMap[activeTab]
+    if (curFileData && Array.isArray(curFileData.data) && curFileData.data.length > 0) {
+      return curFileData
+    }
+    return null
   }, [filesDataMap, fileSummaries, activeTab, calcResults])
 
   // Nạp chi tiết Tab khi người dùng chủ động chọn tab (nếu đã có tóm tắt file được nạp)
@@ -185,11 +248,14 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       activeTab !== 'result_tksx' &&
       activeTab !== 'result_khsx' &&
       fileSummaries[activeTab]?.rowCount > 0 &&
+      (!fileSummaries[activeTab]?.regCode ||
+        !masterInfo.regCode ||
+        fileSummaries[activeTab]?.regCode === masterInfo.regCode) &&
       !filesDataMap[activeTab]
     ) {
       loadTabDetail(activeTab)
     }
-  }, [activeTab, fileSummaries, filesDataMap, loadTabDetail])
+  }, [activeTab, fileSummaries, filesDataMap, loadTabDetail, masterInfo.regCode])
 
   const [importProgress, setImportProgress] = useState({
     fileName: '',
@@ -297,6 +363,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
           }))
         })
         setIsRegistered(false)
+        setIsDirty(true)
         setCalcResults(null)
         notify(
           'success',
@@ -315,6 +382,15 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
   const handleUploadFileForTab = useCallback(
     async (fileType, rawFile) => {
       if (!rawFile) return
+
+      if (fileType === 'result_tksx' || fileType === 'result_khsx') {
+        notify(
+          'warning',
+          'Tab Kết quả TKSX và KHSX được sinh tự động sau khi tính toán. Vui lòng chuyển sang Tab 1-4 để nạp file Excel nguồn.'
+        )
+        return
+      }
+
       const tabTitle = TAB_DEFINITIONS.find((t) => t.id === fileType)?.title || fileType
       setImportProgress({
         fileName: rawFile.name,
@@ -348,6 +424,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
           }))
         })
         setIsRegistered(false)
+        setIsDirty(true)
         setCalcResults(null)
         notify(
           'success',
@@ -383,6 +460,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       try {
         await deleteFile(fileType)
         setIsRegistered(false)
+        setIsDirty(true)
         setCalcResults(null)
         notify('info', 'Đã xóa dữ liệu file khỏi kho lưu trữ. Vui lòng tính toán lại.')
       } catch (err) {
@@ -406,14 +484,25 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       if (activeTab === 'result_tksx') {
         const oldRows = calcResults?.stat?.calculatedRows || []
         const filtered = oldRows.filter((_, idx) => !indicesSet.has(idx))
-        setCalcResults((prev) => ({
-          ...prev,
+        const updatedCalc = {
+          ...calcResults,
           stat: {
-            ...prev?.stat,
+            ...calcResults?.stat,
             calculatedRows: filtered,
             totalTickets: filtered.length
           }
-        }))
+        }
+        setCalcResults(updatedCalc)
+        const targetReg = masterInfo.regCode
+        if (targetReg) {
+          try {
+            await storageAdapter.saveCalcResults(targetReg, updatedCalc)
+          } catch (e) {
+            console.warn('Lỗi lưu kết quả sau xóa dòng:', e)
+          }
+        }
+        setIsRegistered(false)
+        setIsDirty(true)
         notify('info', `Đã xóa ${count} dòng khỏi Kết Quả TKSX`)
         return
       }
@@ -421,13 +510,24 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       if (activeTab === 'result_khsx') {
         const oldRows = calcResults?.plan?.calculatedRows || []
         const filtered = oldRows.filter((_, idx) => !indicesSet.has(idx))
-        setCalcResults((prev) => ({
-          ...prev,
+        const updatedCalc = {
+          ...calcResults,
           plan: {
-            ...prev?.plan,
+            ...calcResults?.plan,
             calculatedRows: filtered
           }
-        }))
+        }
+        setCalcResults(updatedCalc)
+        const targetReg = masterInfo.regCode
+        if (targetReg) {
+          try {
+            await storageAdapter.saveCalcResults(targetReg, updatedCalc)
+          } catch (e) {
+            console.warn('Lỗi lưu kết quả sau xóa dòng:', e)
+          }
+        }
+        setIsRegistered(false)
+        setIsDirty(true)
         notify('info', `Đã xóa ${count} dòng khỏi Kết Quả KHSX`)
         return
       }
@@ -442,10 +542,15 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
         }
         await saveFile(activeTab, updatedFile)
         setIsRegistered(false)
-        notify('info', `Đã xóa ${count} dòng khỏi tab hiện tại`)
+        setIsDirty(true)
+        setCalcResults(null)
+        notify(
+          'info',
+          `Đã xóa ${count} dòng khỏi tab hiện tại. Vui lòng bấm [TÍNH KHSX & TKSX] lại.`
+        )
       }
     },
-    [activeTab, calcResults, filesDataMap, saveFile, notify]
+    [activeTab, calcResults, filesDataMap, saveFile, notify, masterInfo.regCode]
   )
 
   // Lưu đăng ký Master vào DB khi người dùng bấm ĐĂNG KÝ BÁO CÁO (LƯU ĐĂNG KÝ)
@@ -453,16 +558,20 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     const uploadedCount = Object.values(fileSummaries || {}).filter((s) => s.rowCount > 0).length
     const hasActiveData = Boolean(
       activeTabFileData &&
-        (activeTabFileData.rowCount > 0 || (activeTabFileData.data && activeTabFileData.data.length > 0))
+      (activeTabFileData.rowCount > 0 ||
+        (activeTabFileData.data && activeTabFileData.data.length > 0))
     )
     const hasCalc = Boolean(
       calcResults &&
-        ((calcResults.stat?.calculatedRows && calcResults.stat.calculatedRows.length > 0) ||
-          (calcResults.plan?.calculatedRows && calcResults.plan.calculatedRows.length > 0))
+      ((calcResults.stat?.calculatedRows && calcResults.stat.calculatedRows.length > 0) ||
+        (calcResults.plan?.calculatedRows && calcResults.plan.calculatedRows.length > 0))
     )
 
     if (uploadedCount === 0 && !hasActiveData && !hasCalc) {
-      notify('error', 'Vui lòng nạp ít nhất 1 file hoặc tính toán KHSX & TKSX để thực hiện lưu đăng ký')
+      notify(
+        'error',
+        'Vui lòng nạp ít nhất 1 file hoặc tính toán KHSX & TKSX để thực hiện lưu đăng ký'
+      )
       return
     }
 
@@ -528,17 +637,10 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       // Lưu toàn bộ bảng kết quả tính toán nếu đã có
       if (calcResults) {
         await storageAdapter.saveCalcResults(masterInfo.regCode, calcResults)
-        await storageAdapter.saveCalcResults('CURRENT_CALC', calcResults)
-        // Đã lưu trong IndexedDB/SQLite qua storageAdapter
-      }
-
-      // Fallback lưu localStorage & đồng bộ
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`S_MASTER_REG_${masterInfo.regCode}`, JSON.stringify(masterRecord))
-        window.dispatchEvent(new Event('storage'))
       }
 
       setIsRegistered(true)
+      setIsDirty(false)
       notify(
         'success',
         hasCalc
@@ -570,14 +672,29 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     }
 
     // RÀNG BUỘC: Phải hoàn tất tính toán KHSX & TKSX trước khi được phép công bố
-    const hasTksx = Boolean(calcResults?.stat?.calculatedRows && calcResults.stat.calculatedRows.length > 0)
-    const hasKhsx = Boolean(calcResults?.plan?.calculatedRows && calcResults.plan.calculatedRows.length > 0)
+    let freshCalc = calcResults
+    if (!freshCalc && masterInfo.regCode) {
+      try {
+        freshCalc = await storageAdapter.getCalcResults(masterInfo.regCode)
+      } catch (e) {
+        console.warn('Lỗi đọc freshCalc:', e)
+      }
+    }
+    const hasTksx = Boolean(
+      freshCalc?.stat?.calculatedRows && freshCalc.stat.calculatedRows.length > 0
+    )
+    const hasKhsx = Boolean(
+      freshCalc?.plan?.calculatedRows && freshCalc.plan.calculatedRows.length > 0
+    )
     if (!hasTksx || !hasKhsx) {
       notify(
         'warning',
         'Báo cáo chưa được tính toán kết quả Thống kê SX (TKSX) và Kế hoạch SX (KHSX). Vui lòng bấm [Tính KHSX & TKSX] trước khi công bố!'
       )
       return
+    }
+    if (!calcResults && freshCalc) {
+      setCalcResults(freshCalc)
     }
 
     setIsPublishing(true)
@@ -621,7 +738,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
           if (!freshCalc && masterInfo.regCode) {
             freshCalc = await storageAdapter.getCalcResults(masterInfo.regCode)
           }
-          const filesData = await loadAllFilesForCalculation()
+          const filesData = await loadAllFilesForCalculation(masterInfo.regCode)
           const bundlePack = packProductionBundle(
             {
               ...masterInfo,
@@ -703,6 +820,11 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
             unfinishedOpRows: unfinRows,
             summaryOpRows: sumRows,
             mesApprovalRows: mesRows,
+            resultTksxRows:
+              freshCalc?.stat?.calculatedRows?.length || masterInfo.resultTksxRows || 0,
+            resultKhsxRows:
+              freshCalc?.plan?.calculatedRows?.length || masterInfo.resultKhsxRows || 0,
+            hasCalcResults: true,
             registeredAt: new Date().toISOString(),
             registeredBy: displayName,
             createdBy: userSeq,
@@ -710,10 +832,6 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
             isPublished: true
           }
           await storageAdapter.saveMasterRegistration(updatedLocalMaster)
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(`S_MASTER_REG_${masterInfo.regCode}`, JSON.stringify(updatedLocalMaster))
-            window.dispatchEvent(new Event('storage'))
-          }
 
           if (freshCalc) {
             const publishedCalcResults = {
@@ -737,10 +855,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
             isComplete: true
           })
 
-          notify(
-            'success',
-            `Đã công bố thành công báo cáo phiên bản v${pubVersion}!`
-          )
+          notify('success', `Đã công bố thành công báo cáo phiên bản v${pubVersion}!`)
         } catch (serverErr) {
           console.warn('[DataHub Online] Không thể đẩy lên server:', serverErr)
           setPublishProgress({
@@ -751,10 +866,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
             statusTag: 'Hoàn tất thành công',
             isComplete: true
           })
-          notify(
-            'success',
-            `Đã công bố thành công báo cáo phiên bản v${res.version || '1.0'}!`
-          )
+          notify('success', `Đã công bố thành công báo cáo phiên bản v${res.version || '1.0'}!`)
         }
       } else {
         notify('error', res?.error || 'Không thể công bố báo cáo')
@@ -784,7 +896,9 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       await storageAdapter.saveMasterRegistration(updatedMaster)
 
       if (calcResults) {
-        setCalcResults((prev) => (prev ? { ...prev, version: nextVer, calcVersion: nextVer } : prev))
+        setCalcResults((prev) =>
+          prev ? { ...prev, version: nextVer, calcVersion: nextVer } : prev
+        )
       }
 
       notify(
@@ -864,14 +978,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       // 1. Tự động kiểm tra phiên bản: Nếu đã PUBLISHED trước đó, tính lại sẽ tạo version mới (1.0 -> 1.1)
       let nextVersion = masterInfo.version || '1.0'
       if (masterInfo.status === 'PUBLISHED') {
-        const parts = String(nextVersion).split('.')
-        if (parts.length === 2) {
-          const major = parseInt(parts[0], 10) || 1
-          const minor = parseInt(parts[1], 10) || 0
-          nextVersion = `${major}.${minor + 1}`
-        } else {
-          nextVersion = `${parseInt(nextVersion, 10) || 1}.1`
-        }
+        nextVersion = getNextVersion(nextVersion)
       }
 
       const statRows = fileSummaries?.stat_report?.rowCount || 0
@@ -911,10 +1018,6 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
 
       try {
         await storageAdapter.saveMasterRegistration(masterRecord)
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(`S_MASTER_REG_${calcRegCode}`, JSON.stringify(masterRecord))
-          window.dispatchEvent(new Event('storage'))
-        }
         setIsRegistered(true)
       } catch (saveMasterErr) {
         console.warn('Lưu master registration tự động:', saveMasterErr)
@@ -932,7 +1035,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       // Nhường luồng cho UI
       await new Promise((resolve) => setTimeout(resolve, 60))
 
-      const allFiles = await loadAllFilesForCalculation()
+      const allFiles = await loadAllFilesForCalculation(calcRegCode)
 
       // 3. Thực hiện tính toán TKSX & KHSX
       setCalculationProgress({
@@ -976,10 +1079,47 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
 
       try {
         await storageAdapter.saveCalcResults(calcRegCode, results)
+        await storageAdapter.saveCalcResults('CURRENT_CALC', results)
         // Đã lưu trong IndexedDB/SQLite qua storageAdapter
       } catch (saveErr) {
         console.warn('Lỗi lưu kết quả tính toán:', saveErr)
       }
+
+      const resTksxRows = results?.stat?.calculatedRows?.length || 0
+      const resKhsxRows = results?.plan?.calculatedRows?.length || 0
+
+      // Đồng bộ ngay master record với số dòng kết quả vừa tính xong
+      const updatedMasterRecord = {
+        ...masterRecord,
+        resultTksxRows: resTksxRows,
+        resultKhsxRows: resKhsxRows,
+        hasCalcResults: true,
+        fileSummaries: {
+          ...(fileSummaries || {}),
+          result_tksx: {
+            isUploaded: true,
+            rowCount: resTksxRows,
+            fileName: 'TKSX_KetQua_98Cot.xlsx',
+            uploadedAt: results?.calculatedAt || new Date().toISOString(),
+            isResult: true
+          },
+          result_khsx: {
+            isUploaded: true,
+            rowCount: resKhsxRows,
+            fileName: 'KHSX_KetQua_DoiSoat.xlsx',
+            uploadedAt: results?.calculatedAt || new Date().toISOString(),
+            isResult: true
+          }
+        }
+      }
+
+      try {
+        await storageAdapter.saveMasterRegistration(updatedMasterRecord)
+      } catch (saveMasterErr) {
+        console.warn('Lỗi cập nhật master registration sau tính toán:', saveMasterErr)
+      }
+
+      setMasterInfo(updatedMasterRecord)
 
       const missingList = results?.plan?.missingOpInfoList || []
       const missingCount = missingList.length
@@ -998,6 +1138,7 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
 
       // Tự động chuyển ngay sang Tab Kết Quả TKSX và tự động đóng modal
       setActiveTab('result_tksx')
+      setIsDirty(true)
       setTimeout(() => {
         setIsCalculating(false)
       }, 400)
@@ -1058,16 +1199,21 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
         }
       } else {
         const summaryItem = fileSummaries[tab.id]
+        const hasValidReg =
+          !summaryItem?.regCode ||
+          !masterInfo.regCode ||
+          summaryItem.regCode === masterInfo.regCode
+        const isValidUploaded = Boolean(summaryItem && summaryItem.rowCount > 0 && hasValidReg)
         summary[tab.id] = {
-          isUploaded: Boolean(summaryItem && summaryItem.rowCount > 0),
-          fileName: summaryItem?.fileName || '',
-          rowCount: summaryItem?.rowCount || 0,
-          uploadedAt: summaryItem?.uploadedAt || null
+          isUploaded: isValidUploaded,
+          fileName: isValidUploaded ? summaryItem?.fileName || '' : '',
+          rowCount: isValidUploaded ? summaryItem?.rowCount || 0 : 0,
+          uploadedAt: isValidUploaded ? summaryItem?.uploadedAt || null : null
         }
       }
     })
     return summary
-  }, [fileSummaries, calcResults])
+  }, [fileSummaries, calcResults, masterInfo.regCode])
 
   // BƯỚC 1: Khi bấm ĐĂNG KÝ BÁO CÁO -> Mở Modal tích chọn báo cáo (mặc định tích 2 báo cáo KHSX & TKSX nếu có dữ liệu)
   const handleRegisterReportsToSystem = useCallback(async () => {
@@ -1075,7 +1221,9 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     if (!freshCalc && masterInfo.regCode) {
       try {
         freshCalc = await storageAdapter.getCalcResults(masterInfo.regCode)
-      } catch {}
+      } catch (_err) {
+        // ignore
+      }
     }
 
     const khsxRows = freshCalc?.plan?.calculatedRows || []
@@ -1106,14 +1254,19 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
       if (!freshCalc && masterInfo.regCode) {
         try {
           freshCalc = await storageAdapter.getCalcResults(masterInfo.regCode)
-        } catch {}
+        } catch (_err) {
+          // ignore
+        }
       }
 
       const khsxRows = pushKhsx ? freshCalc?.plan?.calculatedRows || [] : []
       const statRows = pushTksx ? freshCalc?.stat?.calculatedRows || [] : []
 
       if (khsxRows.length === 0 && statRows.length === 0) {
-        notify('warning', 'Không có báo cáo nào được chọn hoặc dữ liệu báo cáo được chọn đang trống!')
+        notify(
+          'warning',
+          'Không có báo cáo nào được chọn hoặc dữ liệu báo cáo được chọn đang trống!'
+        )
         return
       }
 
@@ -1126,8 +1279,8 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
           pushKhsx && pushTksx
             ? 'Đang chuẩn bị dữ liệu 2 báo cáo KHSX và TKSX...'
             : pushKhsx
-            ? 'Đang chuẩn bị dữ liệu báo cáo KHSX...'
-            : 'Đang chuẩn bị dữ liệu báo cáo TKSX...',
+              ? 'Đang chuẩn bị dữ liệu báo cáo KHSX...'
+              : 'Đang chuẩn bị dữ liệu báo cáo TKSX...',
         detail: `Mã đăng ký: ${masterInfo.regCode} | Nhà máy: ${masterInfo.factoryName || 'GS1 Hà Nội'}`,
         statusTag: 'Khởi tạo',
         khsxRows: khsxRows.length,
@@ -1254,8 +1407,8 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
           pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
             ? 'Đã nạp thành công 2 báo cáo KHSX & TKSX!'
             : pushKhsx && khsxRows.length > 0
-            ? 'Đã nạp thành công báo cáo KHSX!'
-            : 'Đã nạp thành công báo cáo TKSX!'
+              ? 'Đã nạp thành công báo cáo KHSX!'
+              : 'Đã nạp thành công báo cáo TKSX!'
 
         setPushRegistrationProgress((prev) => ({
           ...prev,
@@ -1271,8 +1424,8 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
           pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
             ? `Đã nạp thành công 2 báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng) và TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
             : pushKhsx && khsxRows.length > 0
-            ? `Đã nạp thành công báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng)!`
-            : `Đã nạp thành công báo cáo TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
+              ? `Đã nạp thành công báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng)!`
+              : `Đã nạp thành công báo cáo TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
 
         notify('success', notifyMsg)
       } catch (err) {
@@ -1303,8 +1456,11 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     isStorageLoading,
     isParsing,
     isCalculating,
+    setIsCalculating,
     isRegistering,
     isRegistered,
+    isDirty,
+    setIsDirty,
     isPublishing,
     setIsPublishing,
     publishProgress,
@@ -1348,4 +1504,3 @@ export function useCalcProductionLogic({ setStatusMessage } = {}) {
     }
   }
 }
-

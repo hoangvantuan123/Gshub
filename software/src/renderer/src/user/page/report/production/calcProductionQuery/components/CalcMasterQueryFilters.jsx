@@ -180,8 +180,26 @@ export default function CalcMasterQueryFilters({
         filters[f.key] !== undefined
           ? filters[f.key]
           : filters[f.key.toLowerCase()] !== undefined
-          ? filters[f.key.toLowerCase()]
-          : filters[f.key === 'FactoryName' ? 'factory' : f.key === 'ProductionTeam' ? 'team' : f.key === 'FromDate' ? 'fromDate' : f.key === 'ToDate' ? 'toDate' : f.key === 'ApplyDate' ? 'applyDate' : f.key === 'RegCode' ? 'regCode' : f.key === 'Status' ? 'status' : f.key === 'Keyword' ? 'keyword' : f.key] || ''
+            ? filters[f.key.toLowerCase()]
+            : filters[
+                f.key === 'FactoryName'
+                  ? 'factory'
+                  : f.key === 'ProductionTeam'
+                    ? 'team'
+                    : f.key === 'FromDate'
+                      ? 'fromDate'
+                      : f.key === 'ToDate'
+                        ? 'toDate'
+                        : f.key === 'ApplyDate'
+                          ? 'applyDate'
+                          : f.key === 'RegCode'
+                            ? 'regCode'
+                            : f.key === 'Status'
+                              ? 'status'
+                              : f.key === 'Keyword'
+                                ? 'keyword'
+                                : f.key
+              ] || ''
     })
     return {
       ...base,

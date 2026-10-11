@@ -337,4 +337,42 @@ export function setupBundlePackageIpc() {
       return { success: false, error: err.message }
     }
   })
+
+  // 3. Lấy gói bundle của 1 phiên bản đã lưu trong SQLite cục bộ (tránh gọi API lặp lại)
+  ipcMain.handle('sqlite:get-versioned-bundle', async (_, bundleCode) => {
+    const db = getDb()
+    if (!db || !bundleCode) return null
+    try {
+      const row = db
+        .prepare('SELECT bundle_data FROM calc_versioned_bundles WHERE bundle_code = ?')
+        .get(bundleCode)
+      return row ? row.bundle_data : null
+    } catch (err) {
+      console.warn('[SQLite IPC] Lỗi đọc versioned bundle:', err.message)
+      return null
+    }
+  })
+
+  // 4. Lưu gói bundle của 1 phiên bản vào SQLite cục bộ (dùng lâu dài offline)
+  ipcMain.handle('sqlite:save-versioned-bundle', async (_, payload = {}) => {
+    const db = getDb()
+    if (!db) return { success: false }
+    try {
+      const { bundleCode, regCode = '', version = '1.0', bundleData } = payload
+      if (!bundleCode || !bundleData) return { success: false, error: 'Thiếu bundleCode hoặc bundleData' }
+
+      db.prepare(`
+        INSERT INTO calc_versioned_bundles (bundle_code, reg_code, version, bundle_data, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(bundle_code) DO UPDATE SET
+          bundle_data = excluded.bundle_data,
+          created_at = excluded.created_at
+      `).run(bundleCode, regCode, version, bundleData, new Date().toISOString())
+
+      return { success: true }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi lưu versioned bundle:', err.message)
+      return { success: false, error: err.message }
+    }
+  })
 }

@@ -141,6 +141,7 @@ export default function PlanImportTable({
           readonly: meta.isReadOnly,
           allowOverlay: !meta.isReadOnly,
           hasMenu: meta.hasMenu,
+          contentAlign: 'right',
           themeOverride: meta.cellTheme
         }
       }

@@ -14,19 +14,14 @@ export default function CalculationProgressOverlay({
   progressInfo = {},
   title = 'TIẾN TRÌNH TÍNH TOÁN KHSX & TKSX',
   icon: IconComponent = Calculator,
-  steps = [
-    '1. Chuẩn bị dữ liệu',
-    '2. Tổng hợp TKSX',
-    '3. Đối soát KHSX',
-    '4. Hoàn tất báo cáo'
-  ],
+  steps = ['1. Chuẩn bị dữ liệu', '2. Tổng hợp TKSX', '3. Đối soát KHSX', '4. Hoàn tất báo cáo'],
   subMessage = 'Thao tác đang được bảo vệ an toàn để bảo đảm tính toàn vẹn dữ liệu.',
   onClose = null
 }) {
   const isCompleted = Boolean(
     progressInfo?.isComplete ||
-      progressInfo?.step === 'COMPLETED' ||
-      (progressInfo?.percent !== undefined && progressInfo?.percent >= 100)
+    progressInfo?.step === 'COMPLETED' ||
+    (progressInfo?.percent !== undefined && progressInfo?.percent >= 100)
   )
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -94,12 +89,10 @@ export default function CalculationProgressOverlay({
     ? 'Hoàn tất thành công'
     : progressInfo?.statusTag || 'Đang xử lý dữ liệu'
 
-  const stepList = Array.isArray(steps) && steps.length >= 4 ? steps : [
-    '1. Chuẩn bị dữ liệu',
-    '2. Tổng hợp TKSX',
-    '3. Đối soát KHSX',
-    '4. Hoàn tất báo cáo'
-  ]
+  const stepList =
+    Array.isArray(steps) && steps.length >= 4
+      ? steps
+      : ['1. Chuẩn bị dữ liệu', '2. Tổng hợp TKSX', '3. Đối soát KHSX', '4. Hoàn tất báo cáo']
 
   return createPortal(
     <div
@@ -125,7 +118,9 @@ export default function CalculationProgressOverlay({
         {/* 1. Header Vuông Liền MẠCH */}
         <div className="px-3.5 py-2.5 bg-[#f1f5f9] border-b border-slate-300 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 min-w-0 flex-1 truncate">
-            <span className={`w-2.5 h-2.5 inline-block shrink-0 ${isCompleted ? 'bg-emerald-600' : 'bg-blue-600'}`} />
+            <span
+              className={`w-2.5 h-2.5 inline-block shrink-0 ${isCompleted ? 'bg-emerald-600' : 'bg-blue-600'}`}
+            />
             <span className="text-xs font-bold text-slate-800 tracking-wide uppercase truncate flex items-center gap-2">
               {isCompleted ? (
                 <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
@@ -137,7 +132,10 @@ export default function CalculationProgressOverlay({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-200/70 border border-slate-300 text-slate-700 font-mono text-[11px] font-semibold">
-              <Clock size={11} className={isCompleted ? 'text-emerald-600' : 'text-blue-600 animate-spin'} />
+              <Clock
+                size={11}
+                className={isCompleted ? 'text-emerald-600' : 'text-blue-600 animate-spin'}
+              />
               <span>{formatDuration(elapsedSeconds)}</span>
             </div>
             <span
@@ -157,9 +155,7 @@ export default function CalculationProgressOverlay({
           {/* Hộp Thông Tin Trạng Thái */}
           <div
             className={`p-3 border text-xs space-y-2 ${
-              isCompleted
-                ? 'bg-emerald-50/60 border-emerald-300'
-                : 'bg-slate-50 border-slate-300'
+              isCompleted ? 'bg-emerald-50/60 border-emerald-300' : 'bg-slate-50 border-slate-300'
             }`}
           >
             <div className="flex items-center justify-between text-slate-800 font-bold gap-2">
@@ -169,7 +165,9 @@ export default function CalculationProgressOverlay({
                 ) : (
                   <Cpu size={15} className="text-indigo-600 shrink-0 animate-pulse" />
                 )}
-                <span className={`truncate font-semibold ${isCompleted ? 'text-emerald-900 font-bold' : 'text-slate-800'}`}>
+                <span
+                  className={`truncate font-semibold ${isCompleted ? 'text-emerald-900 font-bold' : 'text-slate-800'}`}
+                >
                   {message}
                 </span>
               </div>
@@ -213,9 +211,7 @@ export default function CalculationProgressOverlay({
             <div className="w-full bg-slate-200 h-2.5 overflow-hidden border border-slate-300">
               <div
                 className={`h-full transition-all duration-250 ease-out ${
-                  isCompleted
-                    ? 'bg-emerald-600'
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600'
+                  isCompleted ? 'bg-emerald-600' : 'bg-gradient-to-r from-blue-600 to-indigo-600'
                 }`}
                 style={{ width: `${percent}%` }}
               />

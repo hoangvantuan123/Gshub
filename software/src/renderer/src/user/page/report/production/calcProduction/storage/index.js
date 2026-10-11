@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+/* eslint-disable no-unused-vars, no-empty */
 /**
  * Unified Storage Adapter
  * Tự động điều phối lưu trữ:
@@ -26,6 +26,21 @@ import {
   isElectronSqliteAvailable
 } from './sqliteStorage'
 
+// Tự động dọn dẹp sạch hoàn toàn tàn dư S_MASTER_REG_* và S_CALC_RESULTS_* trong localStorage (nếu có từ bản cũ)
+// Chuyển dịch 100% việc lưu trữ dữ liệu sang IndexedDB (bản Web) và SQLite (bản Desktop)
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    const legacyKeys = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && (k.startsWith('S_MASTER_REG_') || k.startsWith('S_CALC_RESULTS_'))) {
+        legacyKeys.push(k)
+      }
+    }
+    legacyKeys.forEach((k) => localStorage.removeItem(k))
+  } catch {}
+}
+
 export const getStorageMode = () => {
   const isElectron = Boolean(window?.electron || window?.process?.type === 'renderer')
   if (isElectron && isElectronSqliteAvailable()) {
@@ -37,61 +52,91 @@ export const getStorageMode = () => {
 export const storageAdapter = {
   getMode: getStorageMode,
 
-  saveFile: async (fileType, fileData, onProgress = null) => {
+  saveFile: async (fileType, fileData, onProgress = null, regCode = '') => {
+    const activeReg = regCode || fileData?.regCode || ''
     const mode = getStorageMode()
     if (mode === 'sqlite') {
-      return await saveArchitectureFileSQLite(fileType, fileData, onProgress)
+      return await saveArchitectureFileSQLite(fileType, fileData, onProgress, activeReg)
     }
-    return await saveArchitectureFileIDB(fileType, fileData, onProgress)
+    return await saveArchitectureFileIDB(fileType, fileData, onProgress, activeReg)
   },
 
   saveAllFilesData: async (regCode, filesData) => {
     if (!filesData) return
     for (const [fType, fData] of Object.entries(filesData)) {
       if (fData && (fData.data || Array.isArray(fData))) {
-        await storageAdapter.saveFile(fType, fData)
+        await storageAdapter.saveFile(fType, fData, null, regCode)
       }
     }
   },
 
-  getAllSummaries: async () => {
+  getAllSummaries: async (regCode = '') => {
     const mode = getStorageMode()
     if (mode === 'sqlite') {
-      return await getAllFileSummariesSQLite()
+      return await getAllFileSummariesSQLite(regCode)
     }
-    return await getAllFileSummariesIDB()
+    return await getAllFileSummariesIDB(regCode)
   },
 
-  getFile: async (fileType) => {
+  getFile: async (fileType, regCode = '') => {
     const mode = getStorageMode()
     if (mode === 'sqlite') {
-      return await getArchitectureFileSQLite(fileType)
+      return await getArchitectureFileSQLite(fileType, regCode)
     }
-    return await getArchitectureFileIDB(fileType)
+    return await getArchitectureFileIDB(fileType, regCode)
   },
 
-  getFilePage: async (fileType, page = 1, pageSize = 1500, searchFilters = {}) => {
+  getFilePage: async (fileType, page = 1, pageSize = 1500, searchFilters = {}, regCode = '') => {
     const mode = getStorageMode()
     if (mode === 'sqlite') {
-      return await getArchitectureFilePageSQLite(fileType, page, pageSize, searchFilters)
+      return await getArchitectureFilePageSQLite(fileType, page, pageSize, searchFilters, regCode)
     }
-    return await getArchitectureFilePageIDB(fileType, page, pageSize, searchFilters)
+    return await getArchitectureFilePageIDB(fileType, page, pageSize, searchFilters, regCode)
   },
 
-  getAllFiles: async () => {
+  getAllFiles: async (regCode = '') => {
     const mode = getStorageMode()
     if (mode === 'sqlite') {
-      return await getAllArchitectureFilesSQLite()
+      return await getAllArchitectureFilesSQLite(regCode)
     }
-    return await getAllArchitectureFilesIDB()
+    return await getAllArchitectureFilesIDB(regCode)
   },
 
-  deleteFile: async (fileType) => {
+  deleteFile: async (fileType, regCode = '') => {
     const mode = getStorageMode()
     if (mode === 'sqlite') {
-      return await deleteArchitectureFileSQLite(fileType)
+      return await deleteArchitectureFileSQLite(fileType, regCode)
     }
-    return await deleteArchitectureFileIDB(fileType)
+    return await deleteArchitectureFileIDB(fileType, regCode)
+  },
+
+  cleanCache: async () => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { cleanCacheSQLite } = await import('./sqliteStorage')
+      return await cleanCacheSQLite()
+    }
+    return { success: true }
+  },
+
+  getVersionedBundle: async (bundleCode) => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { getVersionedBundleSQLite } = await import('./sqliteStorage')
+      return await getVersionedBundleSQLite(bundleCode)
+    }
+    const { getVersionedBundleIDB } = await import('./indexedDbStorage')
+    return await getVersionedBundleIDB(bundleCode)
+  },
+
+  saveVersionedBundle: async (payload) => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { saveVersionedBundleSQLite } = await import('./sqliteStorage')
+      return await saveVersionedBundleSQLite(payload)
+    }
+    const { saveVersionedBundleIDB } = await import('./indexedDbStorage')
+    return await saveVersionedBundleIDB(payload)
   },
 
   saveCalcResult: async (resultIdOrObj, maybeData) => {

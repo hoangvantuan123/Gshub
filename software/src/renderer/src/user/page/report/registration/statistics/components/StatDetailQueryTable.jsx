@@ -230,6 +230,7 @@ export default function StatDetailQueryTable({
           displayData: numVal.toLocaleString('vi-VN'),
           readonly: true,
           allowOverlay: false,
+          contentAlign: 'right',
           themeOverride: meta.cellTheme
         }
       }

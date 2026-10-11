@@ -437,7 +437,10 @@ export default function CalcProductionQuery({
               className="flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:bg-slate-300 border border-slate-300 text-slate-700 w-7 h-7 rounded transition cursor-pointer"
               title={t('Cấu hình quy tắc tính toán (giờ ca kíp, dung sai, nhãn trạng thái)')}
             >
-              <Settings size={14} className="text-slate-600 hover:text-indigo-600 transition-colors" />
+              <Settings
+                size={14}
+                className="text-slate-600 hover:text-indigo-600 transition-colors"
+              />
             </button>
           )}
         </div>

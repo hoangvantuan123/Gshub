@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
 import { memo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@renderer/components/ui/button'
@@ -8,7 +8,6 @@ import {
   Save,
   Trash2,
   Share2,
-  FileArchive,
   CheckCircle2,
   FileSpreadsheet,
   Send
@@ -40,7 +39,8 @@ const CalcProductionActions = memo(function CalcProductionActions({
   onSyncFromServer,
   onUnlockForEdit,
   onExportAllTabsExcel,
-  onExportTabExcel
+  onExportTabExcel,
+  isDirty = false
 }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
@@ -59,9 +59,9 @@ const CalcProductionActions = memo(function CalcProductionActions({
 
   const hasCalcResults = Boolean(
     fileStatusSummary?.result_tksx?.isUploaded ||
-      fileStatusSummary?.result_khsx?.isUploaded ||
-      (fileStatusSummary?.result_tksx?.rowCount || 0) > 0 ||
-      (fileStatusSummary?.result_khsx?.rowCount || 0) > 0
+    fileStatusSummary?.result_khsx?.isUploaded ||
+    (fileStatusSummary?.result_tksx?.rowCount || 0) > 0 ||
+    (fileStatusSummary?.result_khsx?.rowCount || 0) > 0
   )
 
   const hasAnyData = uploadedCount > 0 || hasActiveFileData || hasCalcResults
@@ -91,30 +91,59 @@ const CalcProductionActions = memo(function CalcProductionActions({
       {!isPublished && typeof onRegisterMaster === 'function' && (
         <Button
           key="Register"
-          variant="ghost"
+          variant={isDirty ? 'default' : 'ghost'}
           size="sm"
           onClick={onRegisterMaster}
           disabled={isRegistering || isCalculating || !hasAnyData}
-          className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0"
-          title="Lưu thông tin đăng ký và dữ liệu báo cáo vào CSDL"
+          className={`uppercase text-[11px] font-bold h-7 px-2.5 shrink-0 transition-all duration-200 relative ${
+            isDirty
+              ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-500/25 ring-2 ring-amber-400 ring-offset-1 animate-pulse'
+              : 'text-indigo-700 hover:text-indigo-800'
+          }`}
+          title={
+            isDirty
+              ? t('⚠️ Có dữ liệu mới hoặc thay đổi chưa lưu! Bấm để Lưu đăng ký ngay.')
+              : t('Lưu thông tin đăng ký và dữ liệu báo cáo vào CSDL')
+          }
         >
-          <Save size={13} className="text-indigo-600" />
+          <Save size={13} className={isDirty ? 'text-white' : 'text-indigo-600'} />
           <span>{t('LƯU ĐĂNG KÝ')}</span>
+          {isDirty && (
+            <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] bg-red-600 text-white font-extrabold shadow-sm">
+              ● Cần lưu
+            </span>
+          )}
         </Button>
       )}
 
-      {/* 2. NẠP FILE EXCEL (Khóa khi bản đã công bố để bảo vệ dữ liệu chuẩn) */}
+      {/* 2. NẠP FILE EXCEL (Khóa khi bản đã công bố hoặc đang ở Tab Kết quả) */}
       {!isPublished && typeof onUploadFile === 'function' && (
         <Button
           key="Upload"
           variant="ghost"
           size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isParsing || isCalculating}
-          className="uppercase text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 h-7 px-2"
-          title="Chọn file Excel/CSV để nạp dữ liệu vào tab hiện tại"
+          onClick={() => {
+            if (activeTabDef?.isResultTab) return
+            fileInputRef.current?.click()
+          }}
+          disabled={isParsing || isCalculating || activeTabDef?.isResultTab}
+          className={`uppercase text-[11px] font-semibold h-7 px-2 ${
+            activeTabDef?.isResultTab
+              ? 'text-slate-400 cursor-not-allowed opacity-60'
+              : 'text-emerald-700 hover:text-emerald-800'
+          }`}
+          title={
+            activeTabDef?.isResultTab
+              ? t(
+                  'Tab kết quả được tính toán tự động. Vui lòng chọn Tab 1-4 để nạp file Excel nguồn.'
+                )
+              : t('Chọn file Excel/CSV để nạp dữ liệu vào tab hiện tại')
+          }
         >
-          <Upload size={13} className="text-emerald-600" />
+          <Upload
+            size={13}
+            className={activeTabDef?.isResultTab ? 'text-slate-400' : 'text-emerald-600'}
+          />
           <span>{t('NẠP FILE EXCEL')}</span>
         </Button>
       )}
@@ -125,7 +154,12 @@ const CalcProductionActions = memo(function CalcProductionActions({
         variant="ghost"
         size="sm"
         onClick={isPublished ? undefined : onRunCalculation}
-        disabled={Boolean(isPublished) || isCalculating || isParsing || (uploadedCount === 0 && !hasActiveFileData)}
+        disabled={
+          Boolean(isPublished) ||
+          isCalculating ||
+          isParsing ||
+          (uploadedCount === 0 && !hasActiveFileData)
+        }
         className={`uppercase text-[11px] font-bold h-7 px-2 shrink-0 ${
           isPublished
             ? 'text-slate-400 cursor-not-allowed opacity-60'
@@ -137,7 +171,10 @@ const CalcProductionActions = memo(function CalcProductionActions({
             : t('Chạy tính toán Kế hoạch & Thống kê sản xuất từ các file đã nạp')
         }
       >
-        <Play size={13} className={isPublished ? 'text-slate-400' : 'text-blue-600 fill-blue-600/30'} />
+        <Play
+          size={13}
+          className={isPublished ? 'text-slate-400' : 'text-blue-600 fill-blue-600/30'}
+        />
         <span>{t('TÍNH KHSX & TKSX')}</span>
       </Button>
 
@@ -164,18 +201,28 @@ const CalcProductionActions = memo(function CalcProductionActions({
           variant="ghost"
           size="sm"
           onClick={isPublished ? undefined : onPublishReport}
-          disabled={Boolean(isPublished) || isPublishing || isCalculating || (uploadedCount === 0 && !hasActiveFileData)}
+          disabled={Boolean(isPublished) || isPublishing || isCalculating || !hasCalcResults}
           className={`uppercase text-[11px] font-bold h-7 px-2 shrink-0 ${
             isPublished
               ? 'text-emerald-700 bg-emerald-50 cursor-default border border-emerald-300/60 opacity-90'
-              : 'text-violet-700 hover:text-violet-800'
+              : !hasCalcResults
+                ? 'text-slate-400 cursor-not-allowed opacity-60'
+                : 'text-violet-700 hover:text-violet-800'
           }`}
-          title={isPublished ? t('Báo cáo này đã được công bố chính thức') : t('Công bố phiên bản báo cáo chính thức cho mọi người dùng')}
+          title={
+            isPublished
+              ? t('Báo cáo này đã được công bố chính thức')
+              : !hasCalcResults
+                ? t(
+                    'Báo cáo chưa có kết quả tính toán. Vui lòng bấm [TÍNH KHSX & TKSX] trước khi công bố.'
+                  )
+                : t('Công bố phiên bản báo cáo chính thức cho mọi người dùng')
+          }
         >
           {isPublished ? (
             <CheckCircle2 size={13} className="text-emerald-600" />
           ) : (
-            <Share2 size={13} className="text-violet-600" />
+            <Share2 size={13} className={!hasCalcResults ? 'text-slate-400' : 'text-violet-600'} />
           )}
           <span>
             {isPublished
@@ -217,56 +264,46 @@ const CalcProductionActions = memo(function CalcProductionActions({
         </Button>
       )}
 
-      {/* 7. XUẤT GÓI .GSPROD */}
-      {typeof onExportBundle === 'function' && (
-        <Button
-          key="ExportBundle"
-          variant="ghost"
-          size="sm"
-          onClick={onExportBundle}
-          disabled={isExporting || (uploadedCount === 0 && !hasActiveFileData)}
-          className="uppercase text-[11px] font-bold text-amber-700 hover:text-amber-800 h-7 px-2 shrink-0"
-          title="Xuất gói dữ liệu báo cáo để chia sẻ và lưu trữ"
-        >
-          <FileArchive size={13} className="text-amber-600" />
-          <span>{t('XUẤT GÓI .GSPROD')}</span>
-        </Button>
-      )}
 
-      {/* 8. NÚT XUẤT EXCEL 6 BẢNG (1 file đa Sheet siêu nhẹ) */}
-      {typeof onExportAllTabsExcel === 'function' && (
+
+      {/* 8. NÚT XUẤT EXCEL (1 file đa Sheet hoặc bảng hiện tại) */}
+      {(typeof onExportAllTabsExcel === 'function' || typeof onExportTabExcel === 'function') && (
         <Button
-          key="ExportAllExcel"
+          key="ExportExcel"
           variant="ghost"
           size="sm"
-          onClick={onExportAllTabsExcel}
-          disabled={isExporting || (uploadedCount === 0 && !hasActiveFileData)}
+          onClick={onExportAllTabsExcel || onExportTabExcel}
+          disabled={isExporting || (uploadedCount === 0 && !hasActiveFileData && !hasCalcResults)}
           className="uppercase text-[11px] font-bold text-emerald-700 hover:text-emerald-800 h-7 px-2 shrink-0"
-          title="Xuất toàn bộ dữ liệu 6 bảng ra 1 tệp Excel đa Sheet duy nhất"
+          title={
+            onExportAllTabsExcel
+              ? t('Xuất toàn bộ dữ liệu 6 bảng ra 1 tệp Excel đa Sheet duy nhất')
+              : t('Xuất dữ liệu bảng hiện tại ra tệp Excel')
+          }
         >
           <FileSpreadsheet size={13} className="text-emerald-600" />
-          <span>{t('XUẤT EXCEL (6 BẢNG)')}</span>
+          <span>{onExportAllTabsExcel ? t('XUẤT EXCEL (6 BẢNG)') : t('XUẤT EXCEL')}</span>
         </Button>
       )}
 
       {/* 9. NÚT XÓA DÒNG (Chỉ hiển thị khi KHÔNG PHẢI bản PUBLISHED đã khóa, hoặc đang ở bản nháp/chỉnh sửa) */}
-      {!isPublished && (hasActiveFileData || selectedRowsCount > 0) && typeof onDeleteSelectedRows === 'function' && (
-        <Button
-          key="Delete"
-          variant="ghost"
-          size="sm"
-          onClick={() => onDeleteSelectedRows()}
-          className="uppercase text-[11px] font-semibold text-rose-600 hover:text-rose-700 h-7 px-2 shrink-0 flex items-center gap-1"
-          title={selectedRowsCount > 0 ? t('Xóa các dòng đang chọn') : t('Xóa dữ liệu đang chọn')}
-        >
-          <Trash2 size={13} className="text-rose-500" />
-          <span>
-            {selectedRowsCount > 0
-              ? `${t('XÓA')} (${selectedRowsCount} ${t('DÒNG')})`
-              : t('XÓA')}
-          </span>
-        </Button>
-      )}
+      {!isPublished &&
+        (hasActiveFileData || selectedRowsCount > 0) &&
+        typeof onDeleteSelectedRows === 'function' && (
+          <Button
+            key="Delete"
+            variant="ghost"
+            size="sm"
+            onClick={() => onDeleteSelectedRows()}
+            className="uppercase text-[11px] font-semibold text-rose-600 hover:text-rose-700 h-7 px-2 shrink-0 flex items-center gap-1"
+            title={selectedRowsCount > 0 ? t('Xóa các dòng đang chọn') : t('Xóa dữ liệu đang chọn')}
+          >
+            <Trash2 size={13} className="text-rose-500" />
+            <span>
+              {selectedRowsCount > 0 ? `${t('XÓA')} (${selectedRowsCount} ${t('DÒNG')})` : t('XÓA')}
+            </span>
+          </Button>
+        )}
     </div>
   )
 })

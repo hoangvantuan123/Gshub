@@ -267,6 +267,7 @@ export default function PlanDetailQueryTable({
           displayData: numVal.toLocaleString('vi-VN'),
           readonly: true,
           allowOverlay: false,
+          contentAlign: 'right',
           themeOverride: meta.cellTheme
         }
       }

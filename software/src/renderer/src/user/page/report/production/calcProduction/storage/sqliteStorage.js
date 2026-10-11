@@ -22,14 +22,14 @@ export const isElectronSqliteAvailable = () => {
 /**
  * Lấy danh sách Metadata tóm tắt của 4 file (cực nhanh không đọc mảng data)
  */
-export const getAllFileSummariesSQLite = async () => {
+export const getAllFileSummariesSQLite = async (regCode = '') => {
   try {
     if (isElectronSqliteAvailable()) {
       let rows = null
       if (window?.electron?.sqlite?.getAllFileSummaries) {
-        rows = await window.electron.sqlite.getAllFileSummaries()
+        rows = await window.electron.sqlite.getAllFileSummaries(regCode)
       } else if (window?.electron?.ipcRenderer) {
-        rows = await window.electron.ipcRenderer.invoke('sqlite:get-all-file-summaries')
+        rows = await window.electron.ipcRenderer.invoke('sqlite:get-all-file-summaries', regCode)
       }
 
       if (Array.isArray(rows)) {
@@ -47,7 +47,7 @@ export const getAllFileSummariesSQLite = async () => {
     console.warn('[SQLite Storage] Lỗi lấy tóm tắt files:', error)
   }
 
-  return await getAllFileSummariesIDB()
+  return await getAllFileSummariesIDB(regCode)
 }
 
 const CHUNK_ROW_SIZE = 2500
@@ -55,11 +55,16 @@ const CHUNK_ROW_SIZE = 2500
 /**
  * Lưu 1 file kiến trúc vào SQLite qua Electron IPC theo từng khúc (Chunking) và đồng thời lưu bản sao IndexedDB
  */
-export const saveArchitectureFileSQLite = async (fileType, fileData, onProgress = null) => {
-  let sqliteSuccess = false
+export const saveArchitectureFileSQLite = async (
+  fileType,
+  fileData,
+  onProgress = null,
+  regCode = ''
+) => {
   const rows = fileData.data || []
   const totalRows = rows.length
   const totalChunks = Math.max(1, Math.ceil(totalRows / CHUNK_ROW_SIZE))
+  const activeRegCode = regCode || fileData.regCode || ''
 
   try {
     if (isElectronSqliteAvailable()) {
@@ -69,6 +74,7 @@ export const saveArchitectureFileSQLite = async (fileType, fileData, onProgress 
         const chunkData = rows.slice(startIdx, endIdx)
 
         const chunkPayload = {
+          regCode: activeRegCode,
           fileType,
           fileName: fileData.fileName || '',
           fileSize: fileData.fileSize || 0,
@@ -84,10 +90,8 @@ export const saveArchitectureFileSQLite = async (fileType, fileData, onProgress 
 
         if (window?.electron?.ipcRenderer) {
           await window.electron.ipcRenderer.invoke('sqlite:save-calc-file-chunk', chunkPayload)
-          sqliteSuccess = true
         } else if (window?.electron?.sqlite?.saveFileChunk) {
           await window.electron.sqlite.saveFileChunk(chunkPayload)
-          sqliteSuccess = true
         }
 
         // Báo tiến độ lên giao diện
@@ -117,7 +121,7 @@ export const saveArchitectureFileSQLite = async (fileType, fileData, onProgress 
 
   // Fallback sang IndexedDB chỉ khi không chạy Electron hoặc SQLite gặp sự cố
   try {
-    const idbRes = await saveArchitectureFileIDB(fileType, fileData, onProgress)
+    const idbRes = await saveArchitectureFileIDB(fileType, fileData, onProgress, activeRegCode)
     return { success: idbRes?.success !== false, sqlite: false }
   } catch (idbErr) {
     console.warn('[IndexedDB Storage] Ghi IDB fallback lỗi:', idbErr)
@@ -128,14 +132,15 @@ export const saveArchitectureFileSQLite = async (fileType, fileData, onProgress 
 /**
  * Lấy 1 file kiến trúc từ SQLite
  */
-export const getArchitectureFileSQLite = async (fileType) => {
+export const getArchitectureFileSQLite = async (fileType, regCode = '') => {
   try {
     if (isElectronSqliteAvailable()) {
       let row = null
+      const payload = { fileType, regCode }
       if (window?.electron?.sqlite?.getFile) {
-        row = await window.electron.sqlite.getFile(fileType)
+        row = await window.electron.sqlite.getFile(payload)
       } else if (window?.electron?.ipcRenderer) {
-        row = await window.electron.ipcRenderer.invoke('sqlite:get-calc-file', fileType)
+        row = await window.electron.ipcRenderer.invoke('sqlite:get-calc-file', payload)
       }
 
       if (row) {
@@ -150,7 +155,7 @@ export const getArchitectureFileSQLite = async (fileType) => {
     console.warn('[SQLite Storage] Lỗi lấy file từ SQLite, fallback sang IndexedDB:', error)
   }
 
-  return await getArchitectureFileIDB(fileType)
+  return await getArchitectureFileIDB(fileType, regCode)
 }
 
 /**
@@ -160,12 +165,14 @@ export const getArchitectureFilePageSQLite = async (
   fileType,
   page = 1,
   pageSize = 1500,
-  searchFilters = {}
+  searchFilters = {},
+  regCode = ''
 ) => {
   try {
     if (isElectronSqliteAvailable()) {
       let res = null
       const payload = {
+        regCode,
         fileType,
         page,
         pageSize,
@@ -185,20 +192,20 @@ export const getArchitectureFilePageSQLite = async (
     console.warn('[SQLite Storage] Lỗi lấy phân trang từ SQLite, fallback sang IndexedDB:', error)
   }
 
-  return await getArchitectureFilePageIDB(fileType, page, pageSize, searchFilters)
+  return await getArchitectureFilePageIDB(fileType, page, pageSize, searchFilters, regCode)
 }
 
 /**
  * Lấy toàn bộ các file kiến trúc từ SQLite (chỉ dùng khi người dùng bấm Tính toán KHSX & TKSX)
  */
-export const getAllArchitectureFilesSQLite = async () => {
+export const getAllArchitectureFilesSQLite = async (regCode = '') => {
   try {
     if (isElectronSqliteAvailable()) {
       let rows = null
       if (window?.electron?.sqlite?.getAllFiles) {
-        rows = await window.electron.sqlite.getAllFiles()
+        rows = await window.electron.sqlite.getAllFiles(regCode)
       } else if (window?.electron?.ipcRenderer) {
-        rows = await window.electron.ipcRenderer.invoke('sqlite:get-all-calc-files')
+        rows = await window.electron.ipcRenderer.invoke('sqlite:get-all-calc-files', regCode)
       }
 
       if (Array.isArray(rows)) {
@@ -220,26 +227,27 @@ export const getAllArchitectureFilesSQLite = async () => {
     console.warn('[SQLite Storage] Lỗi lấy toàn bộ files từ SQLite, fallback IndexedDB:', error)
   }
 
-  return await getAllArchitectureFilesIDB()
+  return await getAllArchitectureFilesIDB(regCode)
 }
 
 /**
  * Xóa file trong SQLite
  */
-export const deleteArchitectureFileSQLite = async (fileType) => {
+export const deleteArchitectureFileSQLite = async (fileType, regCode = '') => {
   try {
     if (isElectronSqliteAvailable()) {
+      const payload = { fileType, regCode }
       if (window?.electron?.sqlite?.deleteFile) {
-        return await window.electron.sqlite.deleteFile(fileType)
+        return await window.electron.sqlite.deleteFile(payload)
       } else if (window?.electron?.ipcRenderer) {
-        return await window.electron.ipcRenderer.invoke('sqlite:delete-calc-file', fileType)
+        return await window.electron.ipcRenderer.invoke('sqlite:delete-calc-file', payload)
       }
     }
   } catch (error) {
     console.warn('[SQLite Storage] Lỗi xóa file trong SQLite, fallback IndexedDB:', error)
   }
 
-  return await deleteArchitectureFileIDB(fileType)
+  return await deleteArchitectureFileIDB(fileType, regCode)
 }
 
 let isMasterIpcSupported = true
@@ -370,6 +378,7 @@ export const saveCalcResultsSQLite = async (id, data) => {
  * Lấy kết quả tính toán từ SQLite
  */
 export const getCalcResultsSQLite = async (id = null) => {
+  if (!id) return null
   if (isElectronSqliteAvailable()) {
     try {
       if (window?.electron?.sqlite?.getCalcResults) {
@@ -382,7 +391,7 @@ export const getCalcResultsSQLite = async (id = null) => {
     }
   }
   const { getCalculationResultIDB } = await import('./indexedDbStorage')
-  return await getCalculationResultIDB(id || 'latest_calculation')
+  return await getCalculationResultIDB(id)
 }
 
 /**
@@ -463,3 +472,58 @@ export const importBundlePackageSQLite = async (payload = {}) => {
   }
   return { success: false, error: 'Tính năng đồng bộ gói yêu cầu ứng dụng Desktop GsHub' }
 }
+
+/**
+ * Dọn dẹp cache mồ côi và rác trong SQLite
+ */
+export const cleanCacheSQLite = async () => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.cleanCache) {
+        return await window.electron.sqlite.cleanCache()
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:clean-cache')
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi dọn dẹp cache:', error)
+    }
+  }
+  return { success: true }
+}
+
+/**
+ * Lấy gói bundle theo version đã lưu trong SQLite cục bộ
+ */
+export const getVersionedBundleSQLite = async (bundleCode) => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.getVersionedBundle) {
+        return await window.electron.sqlite.getVersionedBundle(bundleCode)
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:get-versioned-bundle', bundleCode)
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi lấy versioned bundle:', error)
+    }
+  }
+  return null
+}
+
+/**
+ * Lưu gói bundle theo version vào SQLite cục bộ
+ */
+export const saveVersionedBundleSQLite = async (payload) => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.saveVersionedBundle) {
+        return await window.electron.sqlite.saveVersionedBundle(payload)
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:save-versioned-bundle', payload)
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi lưu versioned bundle:', error)
+    }
+  }
+  return { success: false }
+}
+

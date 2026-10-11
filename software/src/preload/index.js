@@ -145,10 +145,15 @@ const api = {
   sqlite: {
     saveFile: (payload) => ipcRenderer.invoke('sqlite:save-calc-file', payload),
     saveFileChunk: (payload) => ipcRenderer.invoke('sqlite:save-calc-file-chunk', payload),
-    getFile: (fileType) => ipcRenderer.invoke('sqlite:get-calc-file', fileType),
-    getAllFileSummaries: () => ipcRenderer.invoke('sqlite:get-all-file-summaries'),
-    getAllFiles: () => ipcRenderer.invoke('sqlite:get-all-calc-files'),
-    deleteFile: (fileType) => ipcRenderer.invoke('sqlite:delete-calc-file', fileType),
+    getFile: (fileType, regCode = '') =>
+      ipcRenderer.invoke('sqlite:get-calc-file', { fileType, regCode }),
+    getFilePage: (payload) => ipcRenderer.invoke('sqlite:get-calc-file-page', payload),
+    getAllFileSummaries: (regCode = '') =>
+      ipcRenderer.invoke('sqlite:get-all-file-summaries', regCode),
+    getAllFiles: (regCode = '') => ipcRenderer.invoke('sqlite:get-all-calc-files', regCode),
+    deleteFile: (fileType, regCode = '') =>
+      ipcRenderer.invoke('sqlite:delete-calc-file', { fileType, regCode }),
+    cleanCache: () => ipcRenderer.invoke('sqlite:clean-cache'),
     calculateProduction: () => ipcRenderer.invoke('sqlite:calculate-production'),
     saveCalcResults: (idOrPayload, maybeData) => {
       const payload =
@@ -164,7 +169,10 @@ const api = {
     getAllMasterRegs: () => ipcRenderer.invoke('sqlite:get-all-master-regs'),
     deleteMasterReg: (regCode) => ipcRenderer.invoke('sqlite:delete-master-reg', regCode),
     exportBundlePackage: (payload) => ipcRenderer.invoke('sqlite:export-bundle-package', payload),
-    importBundlePackage: (payload) => ipcRenderer.invoke('sqlite:import-bundle-package', payload)
+    importBundlePackage: (payload) => ipcRenderer.invoke('sqlite:import-bundle-package', payload),
+    getVersionedBundle: (bundleCode) =>
+      ipcRenderer.invoke('sqlite:get-versioned-bundle', bundleCode),
+    saveVersionedBundle: (payload) => ipcRenderer.invoke('sqlite:save-versioned-bundle', payload)
   }
 }
 

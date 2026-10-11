@@ -14,6 +14,7 @@ export function setupFilesIpc() {
     }
     try {
       const {
+        regCode = '',
         fileType,
         fileName,
         fileSize,
@@ -21,18 +22,18 @@ export function setupFilesIpc() {
         columns,
         chunk,
         chunkIndex,
-        totalChunks,
         isFirstChunk,
-        isLastChunk,
         uploadedAt
       } = payload
+
+      const activeRegCode = regCode || payload.reg_code || ''
 
       const tx = db.transaction(() => {
         if (isFirstChunk) {
           const metaStmt = db.prepare(`
-            INSERT INTO calc_architecture_files (file_type, file_name, file_size, row_count, columns, data, uploaded_at)
-            VALUES (?, ?, ?, ?, ?, '', ?)
-            ON CONFLICT(file_type) DO UPDATE SET
+            INSERT INTO calc_architecture_files (reg_code, file_type, file_name, file_size, row_count, columns, data, uploaded_at)
+            VALUES (?, ?, ?, ?, ?, ?, '', ?)
+            ON CONFLICT(reg_code, file_type) DO UPDATE SET
               file_name = excluded.file_name,
               file_size = excluded.file_size,
               row_count = excluded.row_count,
@@ -41,6 +42,7 @@ export function setupFilesIpc() {
               uploaded_at = excluded.uploaded_at
           `)
           metaStmt.run(
+            activeRegCode,
             fileType,
             fileName || '',
             fileSize || 0,
@@ -49,15 +51,18 @@ export function setupFilesIpc() {
             uploadedAt || new Date().toISOString()
           )
 
-          db.prepare('DELETE FROM calc_architecture_chunks WHERE file_type = ?').run(fileType)
+          db.prepare(
+            'DELETE FROM calc_architecture_chunks WHERE LOWER(file_type) = LOWER(?) AND reg_code = ?'
+          ).run(fileType, activeRegCode)
         }
 
         if (chunk && chunk.length > 0) {
           const chunkStmt = db.prepare(`
-            INSERT OR REPLACE INTO calc_architecture_chunks (file_type, chunk_index, row_count, data)
-            VALUES (?, ?, ?, ?)
+            INSERT OR REPLACE INTO calc_architecture_chunks (reg_code, file_type, chunk_index, row_count, data)
+            VALUES (?, ?, ?, ?, ?)
           `)
           chunkStmt.run(
+            activeRegCode,
             fileType,
             chunkIndex,
             chunk.length,
@@ -81,10 +86,11 @@ export function setupFilesIpc() {
       return { success: false, error: 'Database SQLite chưa sẵn sàng' }
     }
     try {
+      const activeRegCode = payload.regCode || payload.reg_code || ''
       const stmt = db.prepare(`
-        INSERT INTO calc_architecture_files (file_type, file_name, file_size, row_count, columns, data, uploaded_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(file_type) DO UPDATE SET
+        INSERT INTO calc_architecture_files (reg_code, file_type, file_name, file_size, row_count, columns, data, uploaded_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(reg_code, file_type) DO UPDATE SET
           file_name = excluded.file_name,
           file_size = excluded.file_size,
           row_count = excluded.row_count,
@@ -94,6 +100,7 @@ export function setupFilesIpc() {
       `)
 
       stmt.run(
+        activeRegCode,
         payload.fileType,
         payload.fileName || '',
         payload.fileSize || 0,
@@ -113,15 +120,24 @@ export function setupFilesIpc() {
   })
 
   // 3. Lấy Metadata tóm tắt của tất cả các file (KHÔNG đọc cột data dung lượng lớn -> Cực nhanh < 1ms)
-  ipcMain.handle('sqlite:get-all-file-summaries', async () => {
+  ipcMain.handle('sqlite:get-all-file-summaries', async (_, payload) => {
     const db = getDb()
     if (!db) return []
     try {
-      const stmt = db.prepare(
-        'SELECT file_type, file_name, file_size, row_count, columns, uploaded_at FROM calc_architecture_files'
-      )
-      const rows = stmt.all()
+      const regCode =
+        typeof payload === 'string' ? payload.trim() : (payload?.regCode || payload?.reg_code || '').trim()
+      let rows = []
+      if (regCode) {
+        const stmt = db.prepare(
+          'SELECT file_type, file_name, file_size, row_count, columns, uploaded_at FROM calc_architecture_files WHERE reg_code = ?'
+        )
+        rows = stmt.all(regCode)
+      } else {
+        // Nếu không có regCode, không tự động lấy dữ liệu tàn dư của các phiếu khác
+        rows = []
+      }
       return rows.map((row) => ({
+        regCode: row.reg_code || regCode,
         fileType: row.file_type,
         fileName: row.file_name,
         fileSize: row.file_size,
@@ -136,17 +152,26 @@ export function setupFilesIpc() {
   })
 
   // 4. Lấy chi tiết 1 file (bao gồm data được ghép từ chunks)
-  ipcMain.handle('sqlite:get-calc-file', async (_, fileType) => {
+  ipcMain.handle('sqlite:get-calc-file', async (_, payload) => {
     const db = getDb()
+    const fileType = typeof payload === 'string' ? payload : payload?.fileType
+    const regCode = (typeof payload === 'object' ? payload?.regCode || payload?.reg_code || '' : '').trim()
     if (!db || !fileType) return null
     try {
-      const stmt = db.prepare(
-        'SELECT * FROM calc_architecture_files WHERE LOWER(file_type) = LOWER(?)'
-      )
-      const row = stmt.get(fileType)
+      let row = null
+      if (regCode) {
+        row = db
+          .prepare(
+            'SELECT * FROM calc_architecture_files WHERE LOWER(file_type) = LOWER(?) AND reg_code = ?'
+          )
+          .get(fileType, regCode)
+      } else {
+        row = null
+      }
       if (!row) return null
-      const fullData = getFullDataForFileType(fileType)
+      const fullData = getFullDataForFileType(fileType, regCode)
       return {
+        regCode: row.reg_code || regCode,
         fileType: row.file_type,
         fileName: row.file_name,
         fileSize: row.file_size,
@@ -164,15 +189,111 @@ export function setupFilesIpc() {
   // 5. Lấy dữ liệu phân trang (mặc định 1.500 dòng/trang) cho 1 fileType để cuộn mượt mà không nghẽn RAM (kèm lọc tìm kiếm trực tiếp trong DB SQLite)
   ipcMain.handle(
     'sqlite:get-calc-file-page',
-    async (_, { fileType, page = 1, pageSize = 1500, searchText = '', filterValues = {}, statusFilter = 'ALL' } = {}) => {
+    async (
+      _,
+      {
+        regCode = '',
+        fileType,
+        page = 1,
+        pageSize = 1500,
+        searchText = '',
+        filterValues = {},
+        statusFilter = 'ALL'
+      } = {}
+    ) => {
       const db = getDb()
       if (!db || !fileType) return { rows: [], total: 0, page: 1, pageSize: 1500, totalPages: 0 }
       try {
-        const metaStmt = db.prepare(
-          'SELECT file_type, file_name, file_size, row_count, columns, uploaded_at FROM calc_architecture_files WHERE LOWER(file_type) = LOWER(?)'
+        let meta = null
+        if (regCode) {
+          meta = db
+            .prepare(
+              'SELECT file_type, file_name, file_size, row_count, columns, uploaded_at FROM calc_architecture_files WHERE LOWER(file_type) = LOWER(?) AND reg_code = ?'
+            )
+            .get(fileType, regCode)
+        } else {
+          return { rows: [], total: 0, page: 1, pageSize: 1500, totalPages: 0 }
+        }
+        if (!meta) {
+          return {
+            fileType,
+            fileName: '',
+            fileSize: 0,
+            columns: [],
+            rows: [],
+            total: 0,
+            page: 1,
+            pageSize,
+            totalPages: 0,
+            uploadedAt: null
+          }
+        }
+
+        const hasSearchText = Boolean(searchText && String(searchText).trim())
+        const hasStatusFilter = Boolean(statusFilter && statusFilter !== 'ALL')
+        const hasFilterValues = Boolean(
+          filterValues &&
+            typeof filterValues === 'object' &&
+            Object.values(filterValues).some(
+              (v) => v !== undefined && v !== null && String(v).trim() !== ''
+            )
         )
-        const meta = metaStmt.get(fileType)
-        const fullData = getFullDataForFileType(fileType)
+        const hasFilter = hasSearchText || hasStatusFilter || hasFilterValues
+
+        const totalRows = meta.row_count || 0
+        const totalPagesCount = Math.max(1, Math.ceil(totalRows / pageSize))
+        const offset = (Math.max(1, page) - 1) * pageSize
+
+        // TỐI ƯU SIÊU TỐC: Khi không có bộ lọc tìm kiếm, CHỈ nạp đúng 1-2 Chunks liên quan đến trang hiện tại (< 2ms)
+        if (!hasFilter && totalRows > 0) {
+          const CHUNK_SIZE = 2500
+          const startChunkIdx = Math.floor(offset / CHUNK_SIZE)
+          const endChunkIdx = Math.floor((offset + pageSize - 1) / CHUNK_SIZE)
+
+          let targetedChunks = []
+          if (regCode) {
+            targetedChunks = db
+              .prepare(
+                'SELECT chunk_index, data FROM calc_architecture_chunks WHERE LOWER(file_type) = LOWER(?) AND reg_code = ? AND chunk_index >= ? AND chunk_index <= ? ORDER BY chunk_index ASC'
+              )
+              .all(fileType, regCode, startChunkIdx, endChunkIdx)
+          } else {
+            targetedChunks = db
+              .prepare(
+                "SELECT chunk_index, data FROM calc_architecture_chunks WHERE LOWER(file_type) = LOWER(?) AND (reg_code IS NULL OR reg_code = '') AND chunk_index >= ? AND chunk_index <= ? ORDER BY chunk_index ASC"
+              )
+              .all(fileType, startChunkIdx, endChunkIdx)
+          }
+
+          if (targetedChunks && targetedChunks.length > 0) {
+            const windowRows = []
+            for (const ch of targetedChunks) {
+              if (ch.data) {
+                try {
+                  const arr = typeof ch.data === 'string' ? JSON.parse(ch.data) : ch.data
+                  if (Array.isArray(arr)) windowRows.push(...arr)
+                } catch {}
+              }
+            }
+            const localStart = offset - startChunkIdx * CHUNK_SIZE
+            const pageRows = windowRows.slice(localStart, localStart + pageSize)
+
+            return {
+              fileType,
+              fileName: meta?.file_name || '',
+              fileSize: meta?.file_size || 0,
+              columns: meta?.columns ? JSON.parse(meta.columns) : [],
+              rows: pageRows,
+              total: totalRows,
+              page: Math.max(1, page),
+              pageSize,
+              totalPages: totalPagesCount,
+              uploadedAt: meta?.uploaded_at || null
+            }
+          }
+        }
+
+        const fullData = getFullDataForFileType(fileType, regCode)
 
         let filteredData = fullData
 
@@ -234,8 +355,10 @@ export function setupFilesIpc() {
                   row[key] !== undefined
                     ? row[key]
                     : row[key.toLowerCase()] !== undefined
-                    ? row[key.toLowerCase()]
-                    : Object.entries(row).find(([k]) => k.toLowerCase() === key.toLowerCase())?.[1]
+                      ? row[key.toLowerCase()]
+                      : Object.entries(row).find(
+                          ([k]) => k.toLowerCase() === key.toLowerCase()
+                        )?.[1]
                 if (rowVal === null || rowVal === undefined) return false
                 const rowValStr = String(rowVal).toLowerCase()
                 return tokens.some((token) => rowValStr.includes(token))
@@ -262,8 +385,8 @@ export function setupFilesIpc() {
           }
         }
 
-        const offset = (Math.max(1, page) - 1) * pageSize
-        const pageRows = filteredData.slice(offset, offset + pageSize)
+        const finalOffset = (Math.max(1, page) - 1) * pageSize
+        const pageRows = filteredData.slice(finalOffset, finalOffset + pageSize)
 
         return {
           fileType,
@@ -285,15 +408,26 @@ export function setupFilesIpc() {
   )
 
   // 6. Lấy toàn bộ các file (chỉ dùng khi tính toán KHSX & TKSX)
-  ipcMain.handle('sqlite:get-all-calc-files', async () => {
+  ipcMain.handle('sqlite:get-all-calc-files', async (_, payload) => {
     const db = getDb()
     if (!db) return []
     try {
-      const stmt = db.prepare('SELECT * FROM calc_architecture_files')
-      const rows = stmt.all()
+      const regCode =
+        typeof payload === 'string' ? payload : payload?.regCode || payload?.reg_code || ''
+      let rows = []
+      if (regCode) {
+        const stmt = db.prepare('SELECT * FROM calc_architecture_files WHERE reg_code = ?')
+        rows = stmt.all(regCode)
+      } else {
+        const stmt = db.prepare(
+          "SELECT * FROM calc_architecture_files WHERE reg_code IS NULL OR reg_code = ''"
+        )
+        rows = stmt.all()
+      }
       return rows.map((row) => {
-        const fullData = getFullDataForFileType(row.file_type)
+        const fullData = getFullDataForFileType(row.file_type, row.reg_code || regCode)
         return {
+          regCode: row.reg_code,
           fileType: row.file_type,
           fileName: row.file_name,
           fileSize: row.file_size,
@@ -310,23 +444,70 @@ export function setupFilesIpc() {
   })
 
   // 7. Xóa 1 file hoặc xóa toàn bộ (kèm xóa chunks)
-  ipcMain.handle('sqlite:delete-calc-file', async (_, fileType) => {
+  ipcMain.handle('sqlite:delete-calc-file', async (_, payload) => {
     const db = getDb()
     if (!db) return { success: false }
     try {
+      const fileType = typeof payload === 'string' ? payload : payload?.fileType
+      const regCode = typeof payload === 'object' ? payload?.regCode || payload?.reg_code || '' : ''
       if (fileType) {
-        db.prepare('DELETE FROM calc_architecture_files WHERE LOWER(file_type) = LOWER(?)').run(
-          fileType
-        )
-        db.prepare('DELETE FROM calc_architecture_chunks WHERE LOWER(file_type) = LOWER(?)').run(
-          fileType
-        )
+        if (regCode) {
+          db.prepare(
+            'DELETE FROM calc_architecture_files WHERE LOWER(file_type) = LOWER(?) AND reg_code = ?'
+          ).run(fileType, regCode)
+          db.prepare(
+            'DELETE FROM calc_architecture_chunks WHERE LOWER(file_type) = LOWER(?) AND reg_code = ?'
+          ).run(fileType, regCode)
+        } else {
+          db.prepare('DELETE FROM calc_architecture_files WHERE LOWER(file_type) = LOWER(?)').run(
+            fileType
+          )
+          db.prepare('DELETE FROM calc_architecture_chunks WHERE LOWER(file_type) = LOWER(?)').run(
+            fileType
+          )
+        }
       } else {
-        db.exec('DELETE FROM calc_architecture_files; DELETE FROM calc_architecture_chunks;')
+        if (regCode) {
+          db.prepare('DELETE FROM calc_architecture_files WHERE reg_code = ?').run(regCode)
+          db.prepare('DELETE FROM calc_architecture_chunks WHERE reg_code = ?').run(regCode)
+        } else {
+          db.exec('DELETE FROM calc_architecture_files; DELETE FROM calc_architecture_chunks;')
+        }
       }
       return { success: true }
     } catch (err) {
       console.error('[SQLite IPC] Lỗi xóa file:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 8. Dọn dẹp toàn bộ cache mồ côi / dữ liệu tạm trong SQLite
+  ipcMain.handle('sqlite:clean-cache', async () => {
+    const db = getDb()
+    if (!db) return { success: false }
+    try {
+      const delFiles = db
+        .prepare("DELETE FROM calc_architecture_files WHERE reg_code IS NULL OR reg_code = ''")
+        .run()
+      const delChunks = db
+        .prepare("DELETE FROM calc_architecture_chunks WHERE reg_code IS NULL OR reg_code = ''")
+        .run()
+      const delResults = db
+        .prepare(
+          "DELETE FROM calc_results WHERE id IN ('latest_calculation', 'CURRENT_CALC') OR id IS NULL OR id = ''"
+        )
+        .run()
+      try {
+        db.exec('VACUUM;')
+      } catch {}
+      return {
+        success: true,
+        deletedFiles: delFiles.changes,
+        deletedChunks: delChunks.changes,
+        deletedResults: delResults.changes
+      }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi dọn dẹp cache:', err)
       return { success: false, error: err.message }
     }
   })

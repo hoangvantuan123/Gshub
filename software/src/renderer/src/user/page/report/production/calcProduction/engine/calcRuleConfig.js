@@ -218,9 +218,7 @@ function parseDateFlexible(val) {
   }
 
   // 2. Format DD/MM/YYYY hoặc DD-MM-YYYY (kèm giờ phút giây tùy chọn)
-  const dmyMatch = str.match(
-    /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/
-  )
+  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/)
   if (dmyMatch) {
     const d = parseInt(dmyMatch[1], 10)
     const m = parseInt(dmyMatch[2], 10) - 1

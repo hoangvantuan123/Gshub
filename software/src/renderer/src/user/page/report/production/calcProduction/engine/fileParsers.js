@@ -667,9 +667,7 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
     if (!str) return ''
 
     // Nếu chuỗi chỉ là giờ dạng HH:mm hoặc HH:mm:ss (kèm AM/PM/SA/CH)
-    const pureTimeMatch = str.match(
-      /^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?$/i
-    )
+    const pureTimeMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?$/i)
     if (pureTimeMatch) {
       let h = parseInt(pureTimeMatch[1], 10)
       const m = pad(pureTimeMatch[2])
@@ -1411,10 +1409,7 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
                 }
                 const cleanSTitleNoParen = sTitle.replace(/\s*\(.*?\)/g, '').trim()
                 const cleanColTitleNoParen = cleanTitle.replace(/\s*\(.*?\)/g, '').trim()
-                return (
-                  sTitle === cleanTitle ||
-                  cleanSTitleNoParen === cleanColTitleNoParen
-                )
+                return sTitle === cleanTitle || cleanSTitleNoParen === cleanColTitleNoParen
               })
 
               // F2. Khớp tương đối Title trong cùng Group (loại trừ nhầm lẫn Ngày vs Giờ)
@@ -1715,7 +1710,8 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
             if (rowObj.StagePlannedQty !== undefined) {
               rowObj['SL cần sản xuất (CĐ)'] = rowObj.StagePlannedQty
               rowObj['Số lượng cần sản xuất (CĐ)'] = rowObj.StagePlannedQty
-              rowObj['Số lượng cần sản xuất'] = rowObj['Số lượng cần sản xuất'] ?? rowObj.StagePlannedQty
+              rowObj['Số lượng cần sản xuất'] =
+                rowObj['Số lượng cần sản xuất'] ?? rowObj.StagePlannedQty
             }
             if (rowObj.StageOrderReleaseDate !== undefined) {
               rowObj['Ngày phát hành lệnh CĐ'] = rowObj.StageOrderReleaseDate

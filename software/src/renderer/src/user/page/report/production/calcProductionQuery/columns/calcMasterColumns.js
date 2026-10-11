@@ -49,6 +49,7 @@ export const CALC_MASTER_COLUMNS = [
     title: 'Tổng số dòng',
     width: 120,
     kind: GridCellKind.Number,
+    contentAlign: 'right',
     hasMenu: true,
     readonly: true
   },
@@ -57,6 +58,7 @@ export const CALC_MASTER_COLUMNS = [
     title: 'Dung lượng gốc (MB)',
     width: 150,
     kind: GridCellKind.Number,
+    contentAlign: 'right',
     hasMenu: true,
     readonly: true
   },
@@ -65,6 +67,7 @@ export const CALC_MASTER_COLUMNS = [
     title: 'Dung lượng nén (MB)',
     width: 150,
     kind: GridCellKind.Number,
+    contentAlign: 'right',
     hasMenu: true,
     readonly: true
   },
@@ -73,6 +76,7 @@ export const CALC_MASTER_COLUMNS = [
     title: 'Tỷ lệ nén (%)',
     width: 110,
     kind: GridCellKind.Text,
+    contentAlign: 'right',
     hasMenu: true,
     readonly: true
   },
@@ -81,6 +85,7 @@ export const CALC_MASTER_COLUMNS = [
     title: '1. Thống kê SX (dòng)',
     width: 170,
     kind: GridCellKind.Number,
+    contentAlign: 'right',
     hasMenu: true,
     readonly: true
   },
@@ -89,6 +94,7 @@ export const CALC_MASTER_COLUMNS = [
     title: '2. Lệnh TT chưa xong (dòng)',
     width: 170,
     kind: GridCellKind.Number,
+    contentAlign: 'right',
     hasMenu: true,
     readonly: true
   },
@@ -97,6 +103,7 @@ export const CALC_MASTER_COLUMNS = [
     title: '3. Tổng hợp lệnh TT (dòng)',
     width: 170,
     kind: GridCellKind.Number,
+    contentAlign: 'right',
     hasMenu: true,
     readonly: true
   },
@@ -105,6 +112,25 @@ export const CALC_MASTER_COLUMNS = [
     title: '4. Duyệt SL MES (dòng)',
     width: 150,
     kind: GridCellKind.Number,
+    contentAlign: 'right',
+    hasMenu: true,
+    readonly: true
+  },
+  {
+    id: 'resultTksxRows',
+    title: '5. Kết quả TKSX (dòng)',
+    width: 170,
+    kind: GridCellKind.Number,
+    contentAlign: 'right',
+    hasMenu: true,
+    readonly: true
+  },
+  {
+    id: 'resultKhsxRows',
+    title: '6. Kết quả KHSX (dòng)',
+    width: 170,
+    kind: GridCellKind.Number,
+    contentAlign: 'right',
     hasMenu: true,
     readonly: true
   },

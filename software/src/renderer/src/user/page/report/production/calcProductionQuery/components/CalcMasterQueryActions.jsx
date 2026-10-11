@@ -11,7 +11,8 @@ const CalcMasterQueryActions = memo(function CalcMasterQueryActions({
   onDeleteSelected,
   isLoading,
   isSyncing,
-  hasSelection
+  hasSelection,
+  isMyRecord = false
 }) {
   const { t } = useTranslation()
 
@@ -74,18 +75,26 @@ const CalcMasterQueryActions = memo(function CalcMasterQueryActions({
         </Button>
       )}
 
-      {/* 5. Xóa phiếu (Hiện khi chọn dòng) */}
+      {/* 5. Xóa phiếu (của mình) hoặc Xóa Cache (của người khác) */}
       {hasSelection && (
         <Button
           key="DeleteSelected"
           variant="ghost"
           size="sm"
           onClick={onDeleteSelected}
-          className="uppercase text-[10.5px] font-semibold text-rose-600 hover:text-rose-700 h-6 px-1.5 shrink-0"
-          title="Xóa phiếu đăng ký đang chọn (cả trên Server DataHub & Local DB)"
+          className={`uppercase text-[10.5px] font-semibold h-6 px-1.5 shrink-0 ${
+            isMyRecord
+              ? 'text-rose-600 hover:text-rose-700'
+              : 'text-amber-700 hover:text-amber-800'
+          }`}
+          title={
+            isMyRecord
+              ? t('Xóa dữ liệu làm việc của phiếu này trên máy tính')
+              : t('Xóa bộ nhớ đệm (cache) của phiếu này trên máy tính')
+          }
         >
-          <Trash2 size={12} className="text-rose-500" />
-          <span>{t('XÓA')}</span>
+          <Trash2 size={12} className={isMyRecord ? 'text-rose-500' : 'text-amber-600'} />
+          <span>{isMyRecord ? t('XÓA PHIẾU') : t('XÓA CACHE')}</span>
         </Button>
       )}
     </div>

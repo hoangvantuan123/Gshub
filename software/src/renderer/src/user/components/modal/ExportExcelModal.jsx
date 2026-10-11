@@ -160,7 +160,8 @@ export default function ExportExcelModal({
     setIsExporting(true)
     setErrorMsg('')
     try {
-      const fullFileName = `${baseFileName.trim()}.xlsx`
+      const cleanBaseName = baseFileName.trim().replace(/\.xlsx$/i, '')
+      const fullFileName = `${cleanBaseName}.xlsx`
       if (saveDirectory) {
         localStorage.setItem(STORAGE_KEY_LAST_DIR, saveDirectory.trim())
       }
@@ -254,7 +255,7 @@ export default function ExportExcelModal({
               {formattedBreadcrumb}
             </div>
 
-            {/* Ô nhập tên file lớn viền xanh, chữ .XLSX bên phải, nút ... */}
+            {/* Ô nhập tên file lớn viền xanh, nút ... */}
             <div className="flex items-center border border-[#0088cc] rounded-[2px] bg-white overflow-hidden shadow-2xs">
               <input
                 type="text"
@@ -264,9 +265,6 @@ export default function ExportExcelModal({
                 className="flex-1 px-3 py-1.5 text-[15px] font-normal text-[#005580] outline-none bg-transparent"
                 placeholder="BCTKSX_GS51B_28"
               />
-              <span className="px-3 text-[15px] font-bold text-[#b0c8dc] select-none tracking-wide">
-                .XLSX
-              </span>
               {isElectron && (
                 <button
                   type="button"

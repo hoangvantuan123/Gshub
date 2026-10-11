@@ -17,6 +17,166 @@ import {
 
 export { RESULT_CALC_COLUMNS_SCHEMA, RESULT_TKSX_COLUMN_SCHEMA }
 
+/**
+ * Kiểm tra xem một cột có phải là cột số liệu (cần căn phải) hay không.
+ */
+export function isNumericColumn(key = '', title = '', kind = '') {
+  if (
+    kind === 'Number' ||
+    kind === 'number' ||
+    (typeof GridCellKind !== 'undefined' && kind === GridCellKind.Number)
+  ) {
+    return true
+  }
+
+  const k = String(key || '').trim()
+  const t = String(title || '').trim()
+  const kl = k.toLowerCase()
+  const tl = t.toLowerCase()
+
+  // Các trường trạng thái luôn là văn bản / nhãn căn giữa hoặc trái, không phải số liệu
+  if (tl.includes('trạng thái') || kl.includes('status')) return false
+
+  // Đơn vị tính, cờ checkbox hoặc thông số text đặc biệt
+  if (
+    tl.includes('đơn vị') ||
+    kl.includes('unit') ||
+    tl.includes('không kiểm tra') ||
+    kl.includes('skipcheck') ||
+    tl.includes('khổ giấy') ||
+    kl.includes('papersize')
+  ) {
+    return false
+  }
+
+  // 1. Loại trừ rõ ràng các trường mã, số lệnh, số phiếu, ngày tháng, họ tên
+  if (
+    tl.includes('dòng hàng') ||
+    tl.includes('loại hàng') ||
+    tl.includes('phiếu sinh') ||
+    tl.includes('tự động') ||
+    tl.includes('mã') ||
+    tl.includes('số lệnh') ||
+    tl.includes('số phiếu') ||
+    tl.includes('số đơn hàng') ||
+    tl.includes('số job') ||
+    tl.includes('số hợp đồng') ||
+    tl.includes('họ tên') ||
+    tl.includes('ngày') ||
+    tl.includes('thời điểm') ||
+    tl.includes('phiên bản') ||
+    tl.includes('nguyên nhân') ||
+    tl.includes('ghi chú') ||
+    tl.includes('nhà máy') ||
+    tl.includes('tổ sản xuất') ||
+    tl.includes('ca sản xuất') ||
+    tl.includes('thao tác') ||
+    tl.includes('công đoạn') ||
+    tl.includes('vật tư') ||
+    tl.includes('khách hàng') ||
+    tl.includes('người') ||
+    tl.includes('nhân viên')
+  ) {
+    if (
+      !tl.includes('số lượng') &&
+      !tl.includes('sản lượng') &&
+      !tl.includes('thời gian sản xuất') &&
+      !tl.includes('thời gian chạy') &&
+      !tl.includes('số phút')
+    ) {
+      return false
+    }
+  }
+
+  if (
+    kl.includes('code') ||
+    kl.includes('orderno') ||
+    kl.includes('slipno') ||
+    kl.includes('jobno') ||
+    kl.includes('date') ||
+    kl.includes('name') ||
+    kl.includes('user') ||
+    kl.includes('employee') ||
+    kl.includes('version') ||
+    kl.includes('reason') ||
+    kl.includes('note') ||
+    kl.includes('remark') ||
+    kl.includes('model') ||
+    kl.includes('duplicateslip')
+  ) {
+    if (
+      !kl.includes('runminutes') &&
+      !kl.includes('runtime') &&
+      !kl.includes('capa') &&
+      !kl.includes('qty') &&
+      !kl.includes('meters') &&
+      !kl.includes('weight')
+    ) {
+      return false
+    }
+  }
+
+  // 2. Các mẫu từ khóa số liệu đặc trưng
+  const patterns = [
+    /\bsl\b/i,
+    /số lượng/i,
+    /sản lượng/i,
+    /số mét/i,
+    /định mức/i,
+    /capa/i,
+    /tỷ lệ/i,
+    /tỉ lệ/i,
+    /trọng lượng/i,
+    /chiều dài/i,
+    /chiều rộng/i,
+    /chiều cao/i,
+    /khổ/i,
+    /độ dày/i,
+    /diện tích/i,
+    /thời gian sản xuất/i,
+    /thời gian chạy/i,
+    /số phút/i,
+    /số giờ/i,
+    /số part/i,
+    /số màu/i,
+    /số bước/i,
+    /số dao/i,
+    /số vị trí/i,
+    /số lỗ/i,
+    /pallet/i,
+    /thùng/i,
+    /cuộn/i,
+    /tấm/i,
+    /chiếc/i,
+    /đơn giá/i,
+    /thành tiền/i,
+    /doanh thu/i,
+    /tốc độ/i,
+    /hiệu suất/i,
+    /oee/i,
+    /dung lượng/i,
+    /tổng số dòng/i,
+    /\(dòng\)/i,
+    /phế/i,
+    /m2/i,
+    /qty/i,
+    /weight/i,
+    /meters/i,
+    /rate/i,
+    /count/i,
+    /length/i,
+    /width/i,
+    /height/i,
+    /speed/i,
+    /minutes/i,
+    /hours/i,
+    /rows/i,
+    /size(mb|kb|b)?/i
+  ]
+
+  return patterns.some((p) => p.test(t) || p.test(k))
+}
+
 // Bảng từ điển chuyển đổi tên cột Tiếng Anh sang Tiếng Việt chuẩn mực
 const ENGLISH_KEY_TO_VIETNAMESE = {
   LeadTechnicianName: { title: 'Họ tên', group: 'Thợ chính' },
@@ -106,9 +266,9 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
 
       const isNum =
         matched?.kind === 'Number' ||
-        displayTitle.includes('SL') ||
-        displayTitle.includes('Số lượng') ||
-        displayTitle.includes('Số mét')
+        col.kind === 'Number' ||
+        col.kind === GridCellKind.Number ||
+        isNumericColumn(colId || matched?.key, displayTitle, matched?.kind || col.kind)
 
       return {
         title: displayTitle,
@@ -116,21 +276,29 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
         group: displayGroup,
         width: matched?.width || Math.max(120, Math.min(260, displayTitle.length * 10 + 30)),
         kind: isNum ? GridCellKind.Number : GridCellKind.Text,
+        contentAlign: isNum ? 'right' : undefined,
         hasMenu: true,
         readonly: true
       }
     })
   } else if (schemaList.length > 0) {
     // Mặc định lấy theo schemaList chuẩn
-    baseCols = schemaList.map((col) => ({
-      title: col.title,
-      id: col.key || col.id,
-      group: col.group,
-      width: col.width || 140,
-      kind: col.kind === 'Number' ? GridCellKind.Number : GridCellKind.Text,
-      hasMenu: true,
-      readonly: col.readonly !== undefined ? col.readonly : true
-    }))
+    baseCols = schemaList.map((col) => {
+      const isNum =
+        col.kind === 'Number' ||
+        col.kind === GridCellKind.Number ||
+        isNumericColumn(col.key || col.id, col.title, col.kind)
+      return {
+        title: col.title,
+        id: col.key || col.id,
+        group: col.group,
+        width: col.width || 140,
+        kind: isNum ? GridCellKind.Number : GridCellKind.Text,
+        contentAlign: isNum ? 'right' : undefined,
+        hasMenu: true,
+        readonly: col.readonly !== undefined ? col.readonly : true
+      }
+    })
   } else {
     // Fallback
     baseCols = (dynamicColumns || []).map((col) => {
@@ -139,8 +307,11 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
       const engMatch = ENGLISH_KEY_TO_VIETNAMESE[colKey] || ENGLISH_KEY_TO_VIETNAMESE[colName]
       const displayTitle = engMatch?.title || colName
       const displayGroup = (typeof col === 'object' ? col.group : undefined) || engMatch?.group
-      const isNum =
-        colName.includes('SL') || colName.includes('Số lượng') || colName.includes('Qty')
+      const isNum = isNumericColumn(
+        colKey,
+        displayTitle,
+        typeof col === 'object' ? col.kind : undefined
+      )
 
       return {
         title: displayTitle,
@@ -148,6 +319,7 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
         group: displayGroup,
         width: Math.max(120, Math.min(260, displayTitle.length * 10 + 30)),
         kind: isNum ? GridCellKind.Number : GridCellKind.Text,
+        contentAlign: isNum ? 'right' : undefined,
         hasMenu: true,
         readonly: true
       }
@@ -160,7 +332,8 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
     return baseCols.filter((col) => {
       const colId = String(col.id || col.key || '').toLowerCase()
       const colGroup = String(col.group || '').toLowerCase()
-      if (colGroup.includes('kết quả tính toán') || colGroup.includes('ket qua tinh toan')) return false
+      if (colGroup.includes('kết quả tính toán') || colGroup.includes('ket qua tinh toan'))
+        return false
       if (calcKeySet.has(colId)) return false
       return true
     })
@@ -171,15 +344,22 @@ export function getGridColumnsForTab(fileType, dynamicColumns = []) {
     const existingKeys = new Set(baseCols.map((c) => c.id || c.key || c.title))
     const calcColsToAdd = RESULT_CALC_COLUMNS_SCHEMA.filter(
       (cc) => !existingKeys.has(cc.key) && !existingKeys.has(cc.id) && !existingKeys.has(cc.title)
-    ).map((cc) => ({
-      title: cc.title,
-      id: cc.key,
-      group: cc.group,
-      width: cc.width || 140,
-      kind: cc.kind === 'Number' ? GridCellKind.Number : GridCellKind.Text,
-      hasMenu: true,
-      readonly: true
-    }))
+    ).map((cc) => {
+      const isNum =
+        cc.kind === 'Number' ||
+        cc.kind === GridCellKind.Number ||
+        isNumericColumn(cc.key, cc.title, cc.kind)
+      return {
+        title: cc.title,
+        id: cc.key,
+        group: cc.group,
+        width: cc.width || 140,
+        kind: isNum ? GridCellKind.Number : GridCellKind.Text,
+        contentAlign: isNum ? 'right' : undefined,
+        hasMenu: true,
+        readonly: true
+      }
+    })
 
     return [...baseCols, ...calcColsToAdd]
   }

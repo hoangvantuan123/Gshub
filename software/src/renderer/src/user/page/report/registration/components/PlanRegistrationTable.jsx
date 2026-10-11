@@ -202,6 +202,7 @@ export default function PlanRegistrationTable({
           readonly: meta.isReadOnly,
           allowOverlay: !meta.isReadOnly,
           hasMenu: meta.hasMenu,
+          contentAlign: 'right',
           themeOverride: meta.cellTheme
         }
       }

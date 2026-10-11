@@ -177,6 +177,7 @@ export default function ProductionStatisticsTable({
           readonly: meta.isReadOnly,
           allowOverlay: !meta.isReadOnly,
           hasMenu: meta.hasMenu,
+          contentAlign: 'right',
           themeOverride: meta.cellTheme
         }
       }

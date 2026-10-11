@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types, no-unused-vars */
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CompactSelection } from '@glideapps/glide-data-grid'
@@ -8,6 +8,7 @@ import DataPageContainer from '@renderer/user/components/layout/DataPageContaine
 import { usePageData } from '@renderer/context/PageDataContext'
 import { calculateSelectionStats } from '@renderer/user/hooks/useDataGridSheet'
 import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
+import SystemConfirmModal from '@renderer/user/components/modal/SystemConfirmModal'
 import CalculationProgressOverlay from '../calcProduction/components/CalculationProgressOverlay'
 import { FileSpreadsheet } from 'lucide-react'
 import { CALC_MASTER_COLUMNS } from './columns/calcMasterColumns'
@@ -49,7 +50,11 @@ export default function CalcProductionQueryPage({
     selectedRegCode,
     setSelectedRegCode,
     isLoading,
-    isSyncing
+    isSyncing,
+    deleteModalState,
+    setDeleteModalState,
+    handleConfirmDelete,
+    isMySelectedRecord
   } = useCalcMasterQueryLogic({ setStatusMessage })
 
   // ── Grid State ──
@@ -165,6 +170,8 @@ export default function CalcProductionQueryPage({
         'Lệnh TT chưa xong (Dòng)': r.unfinishedOpRows,
         'Tổng hợp lệnh TT (Dòng)': r.summaryOpRows,
         'Duyệt SL MES (Dòng)': r.mesApprovalRows,
+        'Kết quả TKSX (Dòng)': r.resultTksxRows || r.fileSummaries?.result_tksx?.rowCount || 0,
+        'Kết quả KHSX (Dòng)': r.resultKhsxRows || r.fileSummaries?.result_khsx?.rowCount || 0,
         'Thời gian tạo': r.registeredAt,
         'Người tạo': r.registeredBy || 'Admin',
         'Ghi chú': r.remark
@@ -207,6 +214,7 @@ export default function CalcProductionQueryPage({
             isLoading={isLoading}
             isSyncing={isSyncing}
             hasSelection={Boolean(selectedRegCode)}
+            isMyRecord={isMySelectedRecord}
           />
         }
         query={
@@ -264,6 +272,39 @@ export default function CalcProductionQueryPage({
         ]}
         subMessage="Đang tổng hợp trọn bộ 6 bảng dữ liệu KHSX với tiêu đề tiếng Việt chuẩn ERP."
         onClose={() => setIsExportProgressOpen(false)}
+      />
+
+      {/* Modal Xác nhận Xóa Phiếu (Của mình) / Xóa Cache (Người khác) */}
+      <SystemConfirmModal
+        isOpen={deleteModalState.isOpen}
+        title={
+          deleteModalState.isMyRecord
+            ? t('Xác nhận xóa dữ liệu cục bộ của phiếu')
+            : t('Xác nhận xóa bộ nhớ đệm (Cache) trên máy')
+        }
+        type={deleteModalState.isMyRecord ? 'delete' : 'warning'}
+        confirmVariant={deleteModalState.isMyRecord ? 'danger' : 'primary'}
+        confirmText={
+          deleteModalState.isMyRecord ? t('Xác nhận xóa dữ liệu') : t('Xóa cache trên máy')
+        }
+        cancelText={t('Hủy bỏ')}
+        message={
+          deleteModalState.isMyRecord
+            ? t('Bạn có chắc chắn muốn xóa dữ liệu làm việc của phiếu [{{code}}] trên máy tính này không?', {
+                code: deleteModalState.regCode
+              })
+            : t('Phiếu [{{code}}] do [{{creator}}] tạo. Bạn không thể xóa phiếu của người khác trên hệ thống.', {
+                code: deleteModalState.regCode,
+                creator: deleteModalState.creatorName
+              })
+        }
+        subMessage={
+          deleteModalState.isMyRecord
+            ? t('Lưu ý: Toàn bộ dữ liệu 6 bảng và kết quả tính toán cục bộ sẽ được dọn dẹp sạch sẽ. Bản nén (.gsprod) đã công bố trên Server DataHub vẫn được giữ lại an toàn.')
+            : t('Bạn có muốn xóa dữ liệu bộ nhớ đệm (cache) đã tải về trên máy tính này để giải phóng dung lượng bộ nhớ không? (Bản ghi của người tạo trên Server sẽ KHÔNG bị ảnh hưởng).')
+        }
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteModalState((prev) => ({ ...prev, isOpen: false }))}
       />
     </>
   )

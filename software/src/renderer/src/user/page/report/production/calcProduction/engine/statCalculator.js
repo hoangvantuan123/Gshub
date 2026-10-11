@@ -36,9 +36,7 @@ function parseTimeToMinutesInDay(val) {
   }
 
   // Format "HH:mm" hoặc "H:mm" hoặc "HH:mm:ss" (kèm AM/PM/SA/CH)
-  const timeMatch = str.match(
-    /(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?/i
-  )
+  const timeMatch = str.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?/i)
   if (timeMatch) {
     let hours = parseInt(timeMatch[1], 10)
     const minutes = parseInt(timeMatch[2], 10)
@@ -552,11 +550,7 @@ export const calculateTKSX = (files = {}, masterInfo = {}, planResult = null) =>
       rowObj['Ket thuc'] ??
       ''
 
-    const startDateVal =
-      rowObj.StartDate ??
-      rowObj['Ngày bắt đầu'] ??
-      rowObj['Ngay bat dau'] ??
-      ''
+    const startDateVal = rowObj.StartDate ?? rowObj['Ngày bắt đầu'] ?? rowObj['Ngay bat dau'] ?? ''
     const endDateVal =
       rowObj.EndDate ??
       rowObj['Ngày kết thúc'] ??

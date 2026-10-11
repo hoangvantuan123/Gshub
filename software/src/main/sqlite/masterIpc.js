@@ -176,13 +176,16 @@ export function setupMasterIpc() {
     }
   })
 
-  // 5. Xóa đăng ký Master
+  // 5. Xóa đăng ký Master (xóa sạch toàn bộ files, chunks, kết quả tính toán và bundle liên quan)
   ipcMain.handle('sqlite:delete-master-reg', async (_, regCode) => {
     const db = getDb()
-    if (!db) return { success: false }
+    if (!db || !regCode) return { success: false }
     try {
-      const stmt = db.prepare('DELETE FROM calc_master_registrations WHERE reg_code = ?')
-      stmt.run(regCode)
+      db.prepare('DELETE FROM calc_master_registrations WHERE reg_code = ?').run(regCode)
+      db.prepare('DELETE FROM calc_architecture_files WHERE reg_code = ?').run(regCode)
+      db.prepare('DELETE FROM calc_architecture_chunks WHERE reg_code = ?').run(regCode)
+      db.prepare('DELETE FROM calc_results WHERE id = ?').run(regCode)
+      db.prepare('DELETE FROM calc_versioned_bundles WHERE reg_code = ?').run(regCode)
       return { success: true }
     } catch (err) {
       console.error('[SQLite IPC] Lỗi xóa master reg:', err)

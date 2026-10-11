@@ -137,7 +137,12 @@ export async function downloadProductionBundleOnline(regCode) {
       resData?.data?.bundleBase64 ||
       resData?.data
 
-    if (rawBundle && typeof rawBundle === 'object' && !Array.isArray(rawBundle) && !(rawBundle instanceof Uint8Array)) {
+    if (
+      rawBundle &&
+      typeof rawBundle === 'object' &&
+      !Array.isArray(rawBundle) &&
+      !(rawBundle instanceof Uint8Array)
+    ) {
       rawBundle =
         rawBundle.bundle_data ||
         rawBundle.bundleData ||

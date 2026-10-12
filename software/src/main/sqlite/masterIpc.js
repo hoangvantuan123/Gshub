@@ -4,12 +4,40 @@
  */
 import { ipcMain } from 'electron'
 import { getDb } from './db.js'
+function ensureMasterColumns(db) {
+  if (!db) return
+  try {
+    db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN is_published INTEGER DEFAULT 0;`)
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN version TEXT DEFAULT '1.0';`)
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN published_at TEXT;`)
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN registered_by TEXT;`)
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN raw_size_mb REAL DEFAULT 0;`)
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN compressed_size_mb REAL DEFAULT 0;`)
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN compression_ratio TEXT;`)
+  } catch {}
+}
 
 export function setupMasterIpc() {
+  const dbInit = getDb()
+  if (dbInit) ensureMasterColumns(dbInit)
+
   // 1. Lưu đăng ký Master (hỗ trợ version, is_published, published_at)
   ipcMain.handle('sqlite:save-master-reg', async (_, payload) => {
     const db = getDb()
     if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    ensureMasterColumns(db)
     try {
       const stmt = db.prepare(`
         INSERT INTO calc_master_registrations (
@@ -84,6 +112,7 @@ export function setupMasterIpc() {
   ipcMain.handle('sqlite:publish-master-reg', async (_, payload) => {
     const db = getDb()
     if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    ensureMasterColumns(db)
     try {
       const regCode = typeof payload === 'string' ? payload : payload?.regCode
       const version = payload?.version || '1.0'

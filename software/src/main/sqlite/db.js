@@ -6,6 +6,7 @@
 import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 
 let db = null
 
@@ -197,168 +198,22 @@ export function initSqliteDatabase() {
     }
 
     if (DatabaseClass) {
+      const totalRamMB = Math.round(os.totalmem() / (1024 * 1024))
+      const isLowEnd = totalRamMB <= 6144
+      const cacheSize = isLowEnd ? -16000 : -64000 // Máy yếu: 16MB cache; máy mạnh: 64MB cache
+      const mmapSize = isLowEnd ? 67108864 : 268435456 // Máy yếu: 64MB mmap; máy mạnh: 256MB mmap
+
       db = new DatabaseClass(dbPath)
       db.pragma('journal_mode = WAL')
       db.pragma('synchronous = NORMAL')
       db.pragma('temp_store = MEMORY')
-      db.pragma('cache_size = -64000') // 64MB Cache
+      db.pragma(`cache_size = ${cacheSize}`)
       try {
-        db.pragma('mmap_size = 268435456') // 256MB Memory-Mapped I/O
+        db.pragma(`mmap_size = ${mmapSize}`)
       } catch {}
 
-      // 1. Bảng lưu 4 file kiến trúc (Metadata) - Định danh theo từng mã đăng ký (reg_code, file_type)
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS calc_architecture_files (
-          reg_code TEXT DEFAULT '',
-          file_type TEXT,
-          file_name TEXT,
-          file_size INTEGER,
-          row_count INTEGER,
-          columns TEXT,
-          data TEXT,
-          uploaded_at TEXT,
-          PRIMARY KEY (reg_code, file_type)
-        );
-      `)
-
-      // 2. Bảng lưu các khúc (Chunks) dữ liệu để nạp/lưu theo batch không bao giờ tràn RAM
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS calc_architecture_chunks (
-          reg_code TEXT DEFAULT '',
-          file_type TEXT,
-          chunk_index INTEGER,
-          row_count INTEGER,
-          data TEXT,
-          PRIMARY KEY (reg_code, file_type, chunk_index)
-        );
-      `)
-
-      // Tự động nâng cấp cấu trúc bảng nếu database cũ chưa có cột reg_code
-      try {
-        const fileCols = db.prepare('PRAGMA table_info(calc_architecture_files)').all()
-        if (!fileCols.some((c) => c.name === 'reg_code')) {
-          db.exec(`
-            CREATE TABLE IF NOT EXISTS calc_architecture_files_new (
-              reg_code TEXT DEFAULT '',
-              file_type TEXT,
-              file_name TEXT,
-              file_size INTEGER,
-              row_count INTEGER,
-              columns TEXT,
-              data TEXT,
-              uploaded_at TEXT,
-              PRIMARY KEY (reg_code, file_type)
-            );
-            INSERT OR IGNORE INTO calc_architecture_files_new (reg_code, file_type, file_name, file_size, row_count, columns, data, uploaded_at)
-            SELECT '', file_type, file_name, file_size, row_count, columns, data, uploaded_at FROM calc_architecture_files;
-            DROP TABLE calc_architecture_files;
-            ALTER TABLE calc_architecture_files_new RENAME TO calc_architecture_files;
-          `)
-        }
-      } catch (colErr) {
-        console.warn('[SQLite Migration] files table:', colErr)
-      }
-
-      try {
-        const chunkCols = db.prepare('PRAGMA table_info(calc_architecture_chunks)').all()
-        if (!chunkCols.some((c) => c.name === 'reg_code')) {
-          db.exec(`
-            CREATE TABLE IF NOT EXISTS calc_architecture_chunks_new (
-              reg_code TEXT DEFAULT '',
-              file_type TEXT,
-              chunk_index INTEGER,
-              row_count INTEGER,
-              data TEXT,
-              PRIMARY KEY (reg_code, file_type, chunk_index)
-            );
-            INSERT OR IGNORE INTO calc_architecture_chunks_new (reg_code, file_type, chunk_index, row_count, data)
-            SELECT '', file_type, chunk_index, row_count, data FROM calc_architecture_chunks;
-            DROP TABLE calc_architecture_chunks;
-            ALTER TABLE calc_architecture_chunks_new RENAME TO calc_architecture_chunks;
-          `)
-        }
-      } catch (colErr) {
-        console.warn('[SQLite Migration] chunks table:', colErr)
-      }
-
-      // 3. Bảng lưu đăng ký Master KHSX & TKSX
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS calc_master_registrations (
-          reg_code TEXT PRIMARY KEY,
-          factory_name TEXT,
-          apply_date TEXT,
-          production_team TEXT,
-          remark TEXT,
-          status TEXT,
-          stat_report_rows INTEGER DEFAULT 0,
-          unfinished_op_rows INTEGER DEFAULT 0,
-          summary_op_rows INTEGER DEFAULT 0,
-          mes_approval_rows INTEGER DEFAULT 0,
-          total_rows INTEGER DEFAULT 0,
-          file_summaries TEXT,
-          registered_at TEXT
-        );
-      `)
-      try {
-        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN production_team TEXT;`)
-      } catch {}
-      try {
-        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN version TEXT DEFAULT '1.0';`)
-      } catch {}
-      try {
-        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN published_at TEXT;`)
-      } catch {}
-      try {
-        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN registered_by TEXT;`)
-      } catch {}
-      try {
-        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN raw_size_mb REAL DEFAULT 0;`)
-      } catch {}
-      try {
-        db.exec(
-          `ALTER TABLE calc_master_registrations ADD COLUMN compressed_size_mb REAL DEFAULT 0;`
-        )
-      } catch {}
-      try {
-        db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN compression_ratio TEXT;`)
-      } catch {}
-
-      // 4. Bảng lưu kết quả tính toán KHSX & TKSX
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS calc_results (
-          id TEXT PRIMARY KEY,
-          summary TEXT,
-          plan_data TEXT,
-          stat_data TEXT,
-          calculated_at TEXT
-        );
-      `)
-
-      // Tự động dọn dẹp cache mồ côi (không có reg_code) để tránh rò rỉ dữ liệu sang form mới
-      try {
-        db.exec(`
-          DELETE FROM calc_architecture_files WHERE reg_code IS NULL OR reg_code = '';
-          DELETE FROM calc_architecture_chunks WHERE reg_code IS NULL OR reg_code = '';
-          DELETE FROM calc_results WHERE id IN ('latest_calculation', 'CURRENT_CALC') OR id IS NULL OR id = '';
-        `)
-      } catch (cleanErr) {
-        console.warn('[SQLite] Lỗi dọn dẹp cache mồ côi:', cleanErr)
-      }
-
-      // 5. Bảng lưu trữ cục bộ các phiên bản đã tải/công bố (.gsprod bundles) để không phải gọi lại API
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS calc_versioned_bundles (
-          bundle_code TEXT PRIMARY KEY,
-          reg_code TEXT,
-          version TEXT,
-          bundle_data TEXT,
-          created_at TEXT
-        );
-
-        -- 6. Chỉ mục tăng tốc truy vấn danh sách phiếu và gói phiên bản
-        CREATE INDEX IF NOT EXISTS idx_master_reg_at ON calc_master_registrations(registered_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_bundles_reg_code ON calc_versioned_bundles(reg_code);
-      `)
+      // Tự động kiểm tra và đồng bộ cấu trúc cơ sở dữ liệu trên mọi máy
+      verifyAndMigrateDatabaseSchema(db)
 
       console.log('✅ [SQLite] Đã khởi tạo thành công CSDL SQLite tại:', dbPath)
     }
@@ -366,5 +221,199 @@ export function initSqliteDatabase() {
   } catch (error) {
     console.error('❌ [SQLite] Lỗi khởi tạo cơ sở dữ liệu SQLite:', error)
     return null
+  }
+}
+
+/**
+ * Tự động kiểm tra và nâng cấp cấu trúc Database SQLite (Auto Migration)
+ * Đảm bảo mọi máy tính khi cập nhật phần mềm đều tự động có đầy đủ các bảng và cột mới nhất
+ */
+export function verifyAndMigrateDatabaseSchema(db) {
+  if (!db) return
+
+  try {
+    // 1. Bảng lưu file kiến trúc (calc_architecture_files)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS calc_architecture_files (
+        reg_code TEXT DEFAULT '',
+        file_type TEXT,
+        file_name TEXT,
+        file_size INTEGER,
+        row_count INTEGER,
+        columns TEXT,
+        data TEXT,
+        uploaded_at TEXT,
+        PRIMARY KEY (reg_code, file_type)
+      );
+    `)
+
+    // Nâng cấp nếu bản cũ thiếu reg_code
+    try {
+      const fileCols = db.prepare('PRAGMA table_info(calc_architecture_files)').all()
+      if (!fileCols.some((c) => c.name === 'reg_code')) {
+        console.log('[SQLite Auto-Migrate] Nâng cấp cấu trúc bảng calc_architecture_files (thêm reg_code)...')
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS calc_architecture_files_new (
+            reg_code TEXT DEFAULT '',
+            file_type TEXT,
+            file_name TEXT,
+            file_size INTEGER,
+            row_count INTEGER,
+            columns TEXT,
+            data TEXT,
+            uploaded_at TEXT,
+            PRIMARY KEY (reg_code, file_type)
+          );
+          INSERT OR IGNORE INTO calc_architecture_files_new (reg_code, file_type, file_name, file_size, row_count, columns, data, uploaded_at)
+          SELECT '', file_type, file_name, file_size, row_count, columns, data, uploaded_at FROM calc_architecture_files;
+          DROP TABLE calc_architecture_files;
+          ALTER TABLE calc_architecture_files_new RENAME TO calc_architecture_files;
+        `)
+      }
+    } catch (migErr) {
+      console.warn('[SQLite Migration] files table:', migErr)
+    }
+
+    // 2. Bảng lưu các khúc (calc_architecture_chunks)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS calc_architecture_chunks (
+        reg_code TEXT DEFAULT '',
+        file_type TEXT,
+        chunk_index INTEGER,
+        row_count INTEGER,
+        data TEXT,
+        PRIMARY KEY (reg_code, file_type, chunk_index)
+      );
+    `)
+
+    // Nâng cấp nếu bản cũ thiếu reg_code
+    try {
+      const chunkCols = db.prepare('PRAGMA table_info(calc_architecture_chunks)').all()
+      if (!chunkCols.some((c) => c.name === 'reg_code')) {
+        console.log('[SQLite Auto-Migrate] Nâng cấp cấu trúc bảng calc_architecture_chunks (thêm reg_code)...')
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS calc_architecture_chunks_new (
+            reg_code TEXT DEFAULT '',
+            file_type TEXT,
+            chunk_index INTEGER,
+            row_count INTEGER,
+            data TEXT,
+            PRIMARY KEY (reg_code, file_type, chunk_index)
+          );
+          INSERT OR IGNORE INTO calc_architecture_chunks_new (reg_code, file_type, chunk_index, row_count, data)
+          SELECT '', file_type, chunk_index, row_count, data FROM calc_architecture_chunks;
+          DROP TABLE calc_architecture_chunks;
+          ALTER TABLE calc_architecture_chunks_new RENAME TO calc_architecture_chunks;
+        `)
+      }
+    } catch (migErr) {
+      console.warn('[SQLite Migration] chunks table:', migErr)
+    }
+
+    // 3. Bảng đăng ký Master KHSX & TKSX (calc_master_registrations)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS calc_master_registrations (
+        reg_code TEXT PRIMARY KEY,
+        factory_name TEXT,
+        apply_date TEXT,
+        production_team TEXT,
+        remark TEXT,
+        status TEXT,
+        stat_report_rows INTEGER DEFAULT 0,
+        unfinished_op_rows INTEGER DEFAULT 0,
+        summary_op_rows INTEGER DEFAULT 0,
+        mes_approval_rows INTEGER DEFAULT 0,
+        total_rows INTEGER DEFAULT 0,
+        file_summaries TEXT,
+        registered_at TEXT,
+        version TEXT DEFAULT '1.0',
+        is_published INTEGER DEFAULT 0,
+        published_at TEXT,
+        registered_by TEXT,
+        raw_size_mb REAL DEFAULT 0,
+        compressed_size_mb REAL DEFAULT 0,
+        compression_ratio TEXT
+      );
+    `)
+
+    // Tự động kiểm tra và bổ sung MỌI cột thiếu trong calc_master_registrations
+    const masterCols = db.prepare('PRAGMA table_info(calc_master_registrations)').all()
+    const existingMasterColNames = new Set(masterCols.map((c) => c.name))
+
+    const requiredMasterColumns = [
+      { name: 'factory_name', def: 'TEXT' },
+      { name: 'apply_date', def: 'TEXT' },
+      { name: 'production_team', def: 'TEXT' },
+      { name: 'remark', def: 'TEXT' },
+      { name: 'status', def: 'TEXT' },
+      { name: 'stat_report_rows', def: 'INTEGER DEFAULT 0' },
+      { name: 'unfinished_op_rows', def: 'INTEGER DEFAULT 0' },
+      { name: 'summary_op_rows', def: 'INTEGER DEFAULT 0' },
+      { name: 'mes_approval_rows', def: 'INTEGER DEFAULT 0' },
+      { name: 'total_rows', def: 'INTEGER DEFAULT 0' },
+      { name: 'file_summaries', def: 'TEXT' },
+      { name: 'registered_at', def: 'TEXT' },
+      { name: 'version', def: "TEXT DEFAULT '1.0'" },
+      { name: 'is_published', def: 'INTEGER DEFAULT 0' },
+      { name: 'published_at', def: 'TEXT' },
+      { name: 'registered_by', def: 'TEXT' },
+      { name: 'raw_size_mb', def: 'REAL DEFAULT 0' },
+      { name: 'compressed_size_mb', def: 'REAL DEFAULT 0' },
+      { name: 'compression_ratio', def: 'TEXT' }
+    ]
+
+    for (const col of requiredMasterColumns) {
+      if (!existingMasterColNames.has(col.name)) {
+        try {
+          db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN ${col.name} ${col.def};`)
+          console.log(`✅ [SQLite Auto-Migrate] Bảng calc_master_registrations: Đã tự động bổ sung cột "${col.name}"`)
+        } catch (colErr) {
+          console.warn(`[SQLite Auto-Migrate] Không thể thêm cột ${col.name}:`, colErr?.message)
+        }
+      }
+    }
+
+    // 4. Bảng lưu kết quả tính toán KHSX & TKSX (calc_results)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS calc_results (
+        id TEXT PRIMARY KEY,
+        summary TEXT,
+        plan_data TEXT,
+        stat_data TEXT,
+        calculated_at TEXT
+      );
+    `)
+
+    // 5. Bảng lưu trữ cục bộ các phiên bản đã tải/công bố (calc_versioned_bundles)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS calc_versioned_bundles (
+        bundle_code TEXT PRIMARY KEY,
+        reg_code TEXT,
+        version TEXT,
+        bundle_data TEXT,
+        created_at TEXT
+      );
+    `)
+
+    // 6. Các chỉ mục tối ưu truy vấn (Indices)
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_master_reg_at ON calc_master_registrations(registered_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_bundles_reg_code ON calc_versioned_bundles(reg_code);
+      CREATE INDEX IF NOT EXISTS idx_arch_chunks_reg_type ON calc_architecture_chunks(reg_code, file_type);
+      CREATE INDEX IF NOT EXISTS idx_arch_files_reg_type ON calc_architecture_files(reg_code, file_type);
+    `)
+
+    // 7. Dọn dẹp cache mồ côi (không có reg_code)
+    try {
+      db.exec(`
+        DELETE FROM calc_architecture_files WHERE reg_code IS NULL OR reg_code = '';
+        DELETE FROM calc_architecture_chunks WHERE reg_code IS NULL OR reg_code = '';
+        DELETE FROM calc_results WHERE id IN ('latest_calculation', 'CURRENT_CALC') OR id IS NULL OR id = '';
+      `)
+    } catch {}
+
+    console.log('✅ [SQLite Auto-Migrate] Kiểm tra cấu trúc CSDL hoàn tất. CSDL sẵn sàng.')
+  } catch (err) {
+    console.error('❌ [SQLite Auto-Migrate] Lỗi kiểm tra cấu trúc CSDL:', err)
   }
 }

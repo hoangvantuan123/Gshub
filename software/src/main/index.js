@@ -40,18 +40,43 @@ process.on('unhandledRejection', (reason) => {
   console.error('[Electron Main Unhandled Rejection]:', reason)
 })
 
+// Đảm bảo chỉ có DUY NHẤT 1 instance chạy trên toàn máy tính (Ngăn chặn mở nhiều ứng dụng trùng lặp gây lag máy)
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+  process.exit(0)
+}
+
 const execAsync = promisify(exec)
 
 const BASE_URL = 'http://localhost:5173'
 
-// Cấu hình bộ nhớ V8 và tăng tốc GPU (Hỗ trợ nạp và tính toán file Excel dữ liệu lớn 50k+ dòng)
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
-app.commandLine.appendSwitch('renderer-process-limit', '4')
-app.commandLine.appendSwitch('ignore-gpu-blocklist')
-app.commandLine.appendSwitch('enable-gpu-rasterization')
-app.commandLine.appendSwitch('enable-zero-copy')
+// Cấu hình tối ưu bộ nhớ V8 và hạn chế số lượng tiến trình nền (Đặc biệt tối ưu cho máy yếu)
+const totalRamMB = Math.round(os.totalmem() / (1024 * 1024))
+const isLowEndMachine = totalRamMB <= 6144
+
+// Phân bổ heap thông minh: máy yếu (<=6GB) cấp tối đa 1.5GB để tránh chiếm hết RAM vật lý gây đơ hệ điều hành, máy mạnh cấp 4GB
+const maxHeapSize = isLowEndMachine ? 1536 : 4096
+app.commandLine.appendSwitch('js-flags', `--max-old-space-size=${maxHeapSize} --expose-gc`)
+
+// Giảm số lượng Renderer Process: gom các tiến trình thay vì mở tràn lan
+app.commandLine.appendSwitch('renderer-process-limit', '2')
+
+// Tắt các dịch vụ chạy ngầm thừa thãi của Chromium (AudioService độc lập, Speech API) để giảm 2 tiến trình trong Task Manager
+app.commandLine.appendSwitch(
+  'disable-features',
+  'AudioServiceOutOfProcess,CalculateNativeWinOcclusion'
+)
+app.commandLine.appendSwitch('disable-speech-api')
 app.commandLine.appendSwitch('no-sandbox')
 app.commandLine.appendSwitch('log-level', '3')
+
+// Chỉ bật các cờ GPU chuyên sâu nếu máy có card/RAM đủ để tránh crash GPU Broker trên máy yếu
+if (!isLowEndMachine) {
+  app.commandLine.appendSwitch('ignore-gpu-blocklist')
+  app.commandLine.appendSwitch('enable-gpu-rasterization')
+  app.commandLine.appendSwitch('enable-zero-copy')
+}
 
 let width, height
 let mainWindow
@@ -119,7 +144,8 @@ function getSettingsWindowPosition(settingsW, settingsH) {
 function openSettingsWindow() {
   if (currentWindowMode !== 'login') {
     if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.hide()
+      settingsWindow.destroy()
+      settingsWindow = null
     }
     return
   }
@@ -161,16 +187,8 @@ function openSettingsWindow() {
 
   settingsWindow.setMenuBarVisibility(false)
 
-  settingsWindow.on('close', (e) => {
-    if (
-      settingsWindow &&
-      !settingsWindow.isDestroyed() &&
-      mainWindow &&
-      !mainWindow.isDestroyed()
-    ) {
-      e.preventDefault()
-      settingsWindow.hide()
-    }
+  settingsWindow.on('closed', () => {
+    settingsWindow = null
   })
 
   const loadUrl = getRendererUrl('/erp/u/settings')
@@ -292,15 +310,13 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    // Pre-warm settingsWindow in background so clicking Settings icon is 0ms instant!
-    setTimeout(() => {
-      if (!settingsWindow) {
-        openSettingsWindow()
-        if (settingsWindow && !settingsWindow.isDestroyed()) {
-          settingsWindow.hide()
-        }
-      }
-    }, 1000)
+  })
+
+  mainWindow.on('minimize', () => {
+    // Tự động thu gọn và giải phóng RAM khi người dùng thu nhỏ cửa sổ
+    try {
+      if (global.gc) global.gc()
+    } catch {}
   })
 
   mainWindow.on('maximize', () => {
@@ -1055,9 +1071,10 @@ app.whenReady().then(() => {
     // 1. Đóng sạch toàn bộ các cửa sổ con đang mở
     closeAllChildWindows()
 
-    // 2. Đóng cửa sổ Settings nếu đang mở
+    // 2. Đóng và hủy hoàn toàn cửa sổ Settings nếu đang mở để giải phóng RAM
     if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.hide()
+      settingsWindow.destroy()
+      settingsWindow = null
     }
 
     // 3. Đưa mainWindow về chế độ Login và cố định kích thước 750x420
@@ -1075,7 +1092,8 @@ app.whenReady().then(() => {
 
   ipcMain.on('window:set-main-size', () => {
     if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.hide()
+      settingsWindow.destroy()
+      settingsWindow = null
     }
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (currentWindowMode === 'main') return
@@ -1109,7 +1127,8 @@ app.whenReady().then(() => {
   })
   ipcMain.on('window:close-settings-window', () => {
     if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.hide()
+      settingsWindow.destroy()
+      settingsWindow = null
     }
   })
 

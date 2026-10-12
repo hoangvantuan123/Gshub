@@ -528,8 +528,11 @@ export const calculateTKSX = (files = {}, masterInfo = {}, planResult = null) =>
         ).replace(/,/g, '')
       ) || 0
 
-    // Cột 26 (Z): Bắt đầu & Cột 27 (AA): Kết thúc
+    // Cột 26 (Z): Bắt đầu & Cột 27 (AA): Kết thúc (Ưu tiên lấy thông tin thực tế thống kê nếu có)
     const startVal =
+      rowObj.ActualStartTime ??
+      rowObj['Thời gian bắt đầu (8)'] ??
+      rowObj['THÔNG TIN THỐNG KÊ - Thời gian bắt đầu (8)'] ??
       rowObj.StartTime ??
       rowObj['Bắt đầu'] ??
       rowObj['Thời gian bắt đầu'] ??
@@ -540,6 +543,9 @@ export const calculateTKSX = (files = {}, masterInfo = {}, planResult = null) =>
       rowObj['Bat dau'] ??
       ''
     const endVal =
+      rowObj.ActualEndTime ??
+      rowObj['Thời gian kết thúc (9)'] ??
+      rowObj['THÔNG TIN THỐNG KÊ - Thời gian kết thúc (9)'] ??
       rowObj.EndTime ??
       rowObj['Kết thúc'] ??
       rowObj['Thời gian kết thúc'] ??
@@ -550,8 +556,16 @@ export const calculateTKSX = (files = {}, masterInfo = {}, planResult = null) =>
       rowObj['Ket thuc'] ??
       ''
 
-    const startDateVal = rowObj.StartDate ?? rowObj['Ngày bắt đầu'] ?? rowObj['Ngay bat dau'] ?? ''
+    const startDateVal =
+      rowObj.ActualStartDate ??
+      rowObj.StartDate ??
+      rowObj['Ngày bắt đầu'] ??
+      rowObj['Ngay bat dau'] ??
+      rowObj.StatDate ??
+      rowObj['Ngày thống kê'] ??
+      ''
     const endDateVal =
+      rowObj.ActualEndDate ??
       rowObj.EndDate ??
       rowObj['Ngày kết thúc'] ??
       rowObj['Ngay ket thuc'] ??
@@ -571,7 +585,19 @@ export const calculateTKSX = (files = {}, masterInfo = {}, planResult = null) =>
       if (row.ActualRunTime !== undefined && row.ActualRunTime !== '') {
         actualRunTime = parseFloat(String(row.ActualRunTime).replace(/,/g, '')) || 0
       } else {
-        actualRunTime = ''
+        const actualHours = parseFloat(
+          String(
+            rowObj.ActualTotalHours ??
+              rowObj['Tổng thời gian kế hoạch(giờ) (10)=(9)-(8)'] ??
+              rowObj['Tổng thời gian kế hoạch (10)=(9)-(8)'] ??
+              ''
+          ).replace(/,/g, '')
+        )
+        if (!isNaN(actualHours) && actualHours > 0) {
+          actualRunTime = Math.max(0, Math.round(actualHours * 60 - downtime))
+        } else {
+          actualRunTime = ''
+        }
       }
     }
 

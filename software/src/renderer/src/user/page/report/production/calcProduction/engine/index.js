@@ -28,7 +28,21 @@ export const runProductionCalculations = async (
   const effectiveRules = customRules || masterInfo.calcRules || null
   const calcVersion = masterInfo.calcVersion || masterInfo.version || masterInfo.Version || 'V1'
 
-  const planResult = calculateKHSX(allFiles || {}, masterInfo || {}, effectiveRules)
+  // 1. Tính sơ bộ TKSX để tính Cột 91 'Thời gian chạy thực tế' chuẩn xác cho từng dòng Thống kê sản xuất (Tab 1b)
+  const preStatResult = calculateTKSX(allFiles || {}, masterInfo || {}, null, effectiveRules)
+
+  const filesWithCalculatedStats = {
+    ...allFiles,
+    stat_report: {
+      ...allFiles.stat_report,
+      data: preStatResult.calculatedRows || allFiles.stat_report?.data || []
+    }
+  }
+
+  // 2. Tính KHSX (Tab 6 Kết quả KHSX): Tổng 'Thời gian sản xuất' được lấy chính xác từ tổng 'Thời gian chạy thực tế' của Tab 1b
+  const planResult = calculateKHSX(filesWithCalculatedStats, masterInfo || {}, effectiveRules)
+
+  // 3. Hoàn tất tính toán TKSX (Tab 5 Kết quả TKSX) với đối soát KHSX (Cột 93 CHECK KHSX)
   const statResult = calculateTKSX(allFiles || {}, masterInfo || {}, planResult, effectiveRules)
 
   // Tính tỷ lệ hoàn thành kế hoạch (Thực tế / Kế hoạch)

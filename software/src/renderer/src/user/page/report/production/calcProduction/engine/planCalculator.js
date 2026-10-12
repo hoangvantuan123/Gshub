@@ -753,6 +753,9 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
 
     if (runTimeMin === 0) {
       const sVal =
+        row.ActualStartTime ??
+        row['Thời gian bắt đầu (8)'] ??
+        row['THÔNG TIN THỐNG KÊ - Thời gian bắt đầu (8)'] ??
         row.StartTime ??
         row['Bắt đầu'] ??
         row['Thời gian bắt đầu'] ??
@@ -760,6 +763,9 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         row['TG bắt đầu'] ??
         ''
       const eVal =
+        row.ActualEndTime ??
+        row['Thời gian kết thúc (9)'] ??
+        row['THÔNG TIN THỐNG KÊ - Thời gian kết thúc (9)'] ??
         row.EndTime ??
         row['Kết thúc'] ??
         row['Thời gian kết thúc'] ??
@@ -767,26 +773,48 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         row['TG kết thúc'] ??
         ''
       const sDate =
-        row.StartDate ?? row['Ngày bắt đầu'] ?? row.ExecuteDate ?? row['Ngày thực hiện'] ?? ''
+        row.ActualStartDate ??
+        row.StartDate ??
+        row['Ngày bắt đầu'] ??
+        row.StatDate ??
+        row['Ngày thống kê'] ??
+        row.ExecuteDate ??
+        row['Ngày thực hiện'] ??
+        ''
       const eDate =
+        row.ActualEndDate ??
         row.EndDate ??
         row['Ngày kết thúc'] ??
         row.StatDate ??
         row['Ngày thống kê'] ??
         row.ExecuteDate ??
         ''
-      const dt = parseNum(
+      let rawDt =
         row.TotalDowntimeMinutes ??
-          row['Tổng tg hao phí\r\n(5)=1+2+3+4'] ??
-          row['Tổng tg hao phí\n(5)=1+2+3+4'] ??
-          row['Tổng tg hao phí (5)=1+2+3+4'] ??
-          row['Tổng tg hao phí'] ??
-          0
-      )
+        row['Tổng thời gian Downtime(giờ) (19)=((15)+(16)+(17)+(18))/60'] ??
+        row['Tổng tg hao phí\r\n(5)=1+2+3+4'] ??
+        row['Tổng tg hao phí\n(5)=1+2+3+4'] ??
+        row['Tổng tg hao phí (5)=1+2+3+4'] ??
+        row['Tổng tg hao phí'] ??
+        null
+      if (rawDt === null && row.TotalDowntimeHours !== undefined && row.TotalDowntimeHours !== '') {
+        rawDt = parseNum(row.TotalDowntimeHours) * 60
+      }
+      const dt = parseNum(rawDt || 0)
 
       const calculatedMinutes = calcTotalProductionMinutes(sDate, sVal, eDate, eVal, dt)
       if (calculatedMinutes !== null) {
         runTimeMin = calculatedMinutes
+      } else {
+        const actualHours = parseNum(
+          row.ActualTotalHours ??
+            row['Tổng thời gian kế hoạch(giờ) (10)=(9)-(8)'] ??
+            row['Tổng thời gian kế hoạch (10)=(9)-(8)'] ??
+            0
+        )
+        if (actualHours > 0) {
+          runTimeMin = Math.max(0, Math.round(actualHours * 60 - dt))
+        }
       }
     }
 
@@ -1132,14 +1160,9 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       actualQualified = parseNum(unfinRow.StatQty ?? unfinRow['Số lượng đã thống kê'] ?? 0)
     }
 
-    let actualRunMin = actual.runTimeMin
-    if (
-      actualRunMin === 0 &&
-      unfinRow.ProductionDurationMinutes !== undefined &&
-      unfinRow.ProductionDurationMinutes !== null
-    ) {
-      actualRunMin = parseNum(unfinRow.ProductionDurationMinutes)
-    }
+    // 18. Thời gian sản xuất (phút): Tổng Thời gian chạy thực tế của thao tác đó từ Tab 1b (Thống kê sản xuất)
+    // TUYỆT ĐỐI KHÔNG lấy từ Tab 2 (lệnh chưa hoàn thành unfinRow.ProductionDurationMinutes)
+    const actualRunMin = actual.runTimeMin
 
     // 15. Thời gian bắt đầu: định dạng DD/MM/YYYY HH:mm:ss
     // 16. Thời gian kết thúc: định dạng DD/MM/YYYY HH:mm:ss (tự động +1 ngày nếu ca đêm vắt qua ngày)

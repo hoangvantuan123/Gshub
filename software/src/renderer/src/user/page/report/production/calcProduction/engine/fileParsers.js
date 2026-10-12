@@ -423,25 +423,22 @@ export function normalizeRowOperationalTimePair(rowObj) {
 
   const pad = (n) => String(n).padStart(2, '0')
 
-  const shift = String(rowObj.PlannedShift || rowObj['Ca SX'] || rowObj['Ca'] || '').trim()
-  const isNightOrShift2 = /c2|ca\s*2|chiều|chieu|tối|toi|đêm|dem/i.test(shift)
-
   if (sMatch && eMatch) {
     const sDate = sMatch[1]
     let sH = parseInt(sMatch[2], 10)
     const sM = sMatch[3]
-    const sS = sMatch[4] || '00'
+    const sS = sMatch[4]
     const sAmpm = sMatch[5] ? sMatch[5].toUpperCase() : ''
 
     let eDate = eMatch[1]
     let eH = parseInt(eMatch[2], 10)
     const eM = eMatch[3]
-    const eS = eMatch[4] || '00'
+    const eS = eMatch[4]
     const eAmpm = eMatch[5] ? eMatch[5].toUpperCase() : ''
 
     let changed = false
 
-    // AM/PM conversion
+    // Chỉ chuyển đổi khi có chỉ định rõ ràng AM/PM/SA/CH
     if ((sAmpm === 'PM' || sAmpm === 'CH') && sH < 12) {
       sH += 12
       changed = true
@@ -459,37 +456,11 @@ export function normalizeRowOperationalTimePair(rowObj) {
       changed = true
     }
 
-    // Nếu thuộc Ca 2 / ca tối / ca đêm mà giờ đang là [1..11] (do ERP xuất 12h thiếu nhãn PM)
-    if (isNightOrShift2) {
-      if (sH >= 1 && sH <= 11) {
-        sH += 12
-        changed = true
-      }
-      if (eH >= 1 && eH <= 11) {
-        if (sH > eH && eH + 12 <= 23) {
-          eH += 12
-          changed = true
-        }
-      }
-    } else {
-      // TH1: Cùng ngày, StartTime có giờ [1..6] và EndTime có giờ >= 12 (VD: 04:59:55 và 19:41:35)
-      if (sDate === eDate && sH >= 1 && sH <= 6 && eH >= 12) {
-        if (sH + 12 <= eH) {
-          sH += 12
-          changed = true
-        }
-      }
-      // TH2: Cùng ngày, cả StartTime và EndTime đều có giờ [1..6] (VD: 05:00 và 05:32)
-      else if (sDate === eDate && sH >= 1 && sH <= 6 && eH >= 1 && eH <= 6 && sH <= eH) {
-        sH += 12
-        eH += 12
-        changed = true
-      }
-    }
-
-    if (changed || sAmpm || eAmpm) {
-      const newStartVal = `${sDate} ${pad(sH)}:${sM}:${sS}`
-      const newEndVal = `${eDate} ${pad(eH)}:${eM}:${eS}`
+    if (changed) {
+      const newStartVal =
+        sS !== undefined ? `${sDate} ${pad(sH)}:${sM}:${pad(sS)}` : `${sDate} ${pad(sH)}:${sM}`
+      const newEndVal =
+        eS !== undefined ? `${eDate} ${pad(eH)}:${eM}:${pad(eS)}` : `${eDate} ${pad(eH)}:${eM}`
 
       startKeys.forEach((k) => {
         if (rowObj[k] !== undefined) rowObj[k] = newStartVal
@@ -502,21 +473,26 @@ export function normalizeRowOperationalTimePair(rowObj) {
     const sDate = sMatch[1]
     let sH = parseInt(sMatch[2], 10)
     const sM = sMatch[3]
-    const sS = sMatch[4] || '00'
+    const sS = sMatch[4]
     const sAmpm = sMatch[5] ? sMatch[5].toUpperCase() : ''
 
-    if ((sAmpm === 'PM' || sAmpm === 'CH') && sH < 12) sH += 12
-    if ((sAmpm === 'AM' || sAmpm === 'SA') && sH === 12) sH = 0
-
-    if (isNightOrShift2 && sH >= 1 && sH <= 11) {
+    let changed = false
+    if ((sAmpm === 'PM' || sAmpm === 'CH') && sH < 12) {
       sH += 12
-    } else if (sH >= 1 && sH <= 6) {
-      sH += 12
+      changed = true
     }
-    const newStartVal = `${sDate} ${pad(sH)}:${sM}:${sS}`
-    startKeys.forEach((k) => {
-      if (rowObj[k] !== undefined) rowObj[k] = newStartVal
-    })
+    if ((sAmpm === 'AM' || sAmpm === 'SA') && sH === 12) {
+      sH = 0
+      changed = true
+    }
+
+    if (changed) {
+      const newStartVal =
+        sS !== undefined ? `${sDate} ${pad(sH)}:${sM}:${pad(sS)}` : `${sDate} ${pad(sH)}:${sM}`
+      startKeys.forEach((k) => {
+        if (rowObj[k] !== undefined) rowObj[k] = newStartVal
+      })
+    }
   }
 
   return rowObj

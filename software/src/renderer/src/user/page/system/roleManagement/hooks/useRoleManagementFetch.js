@@ -356,17 +356,19 @@ export function useRoleManagementFetch({
 
         const [resRoleDetails, resTree] = await Promise.all(promises)
 
-        // Cập nhật cache danh mục hệ thống lần đầu
+        // Cập nhật cache danh mục hệ thống lần đầu trực tiếp từ Backend Database
         if ((!cachedSystemRootList || !cachedSystemMenuList) && resTree) {
           const treeData = resTree?.data?.data || resTree?.data || {}
-          cachedSystemRootList =
-            treeData?.rootMenus || treeData?.RootMenus || MOCK_ROOT_MENUS
-          cachedSystemMenuList =
-            treeData?.flatMenus || treeData?.FlatMenus || MOCK_FLAT_MENUS_SQL
+          if (Array.isArray(treeData?.rootMenus || treeData?.RootMenus)) {
+            cachedSystemRootList = treeData?.rootMenus || treeData?.RootMenus
+          }
+          if (Array.isArray(treeData?.flatMenus || treeData?.FlatMenus)) {
+            cachedSystemMenuList = treeData?.flatMenus || treeData?.FlatMenus
+          }
         }
 
-        const systemRootList = cachedSystemRootList || MOCK_ROOT_MENUS
-        const systemMenuList = cachedSystemMenuList || MOCK_FLAT_MENUS_SQL
+        const systemRootList = cachedSystemRootList || MOCK_ROOT_MENUS || []
+        const systemMenuList = cachedSystemMenuList || MOCK_FLAT_MENUS_SQL || []
 
         // Trích xuất quyền đã cấp cho nhóm hiện tại (từ bảng _ERPRolesUsers trong 1 response duy nhất)
         const roleDetails = resRoleDetails?.data?.data || resRoleDetails?.data || {}

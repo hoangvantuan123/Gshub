@@ -323,6 +323,53 @@ export default function RoleMenuTable({
           }
           currentRow.isEdited = true
           updated[row] = currentRow
+
+          // Cascade toggle cho các dòng con nếu sửa cột boolean (như View, Create, Edit, Delete)
+          if (isBoolCol) {
+            const isRootModule =
+              currentRow.Level === 0 ||
+              currentRow.Type === 'Phân hệ' ||
+              currentRow.MenuType === 'Phân hệ'
+            const isSub =
+              currentRow.Type === 'Submenu' ||
+              currentRow.Type === 'submenu' ||
+              currentRow.MenuType === 'Submenu' ||
+              (currentRow.Level === 1 && currentRow.IsGroup)
+
+            if (isRootModule || isSub) {
+              const currentLevel = typeof currentRow.Level === 'number' ? currentRow.Level : 0
+              const subId = String(currentRow.RawId || currentRow.MenuId || currentRow.Id || '')
+
+              // Duyệt các dòng liền kề bên dưới thuộc phân cấp con
+              for (let i = row + 1; i < updated.length; i++) {
+                const child = updated[i]
+                if (!child) continue
+                const childLevel = typeof child.Level === 'number' ? child.Level : 0
+                // Nếu gặp node ngang cấp hoặc cấp cao hơn thì dừng
+                if (childLevel <= currentLevel) break
+
+                const isChildOfThis =
+                  isRootModule ||
+                  String(child.ParentId || child.MenuSubRootId || '') === subId ||
+                  childLevel > currentLevel
+
+                if (isChildOfThis) {
+                  const updatedChild = { ...child }
+                  updatedChild[colId] = newVal
+                  const cStatus = updatedChild.WorkingTag || updatedChild.Status || ''
+                  if (!cStatus || cStatus === '') {
+                    updatedChild.WorkingTag = 'U'
+                    updatedChild.Status = 'U'
+                  }
+                  if (selectedGroupId && !updatedChild.GroupId) {
+                    updatedChild.GroupId = selectedGroupId
+                  }
+                  updatedChild.isEdited = true
+                  updated[i] = updatedChild
+                }
+              }
+            }
+          }
         }
         return updated
       })

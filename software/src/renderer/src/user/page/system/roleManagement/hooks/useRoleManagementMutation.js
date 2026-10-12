@@ -63,22 +63,74 @@ export function useRoleManagementMutation({
       const itemsToUpdate = []
       const itemsToDelete = []
 
-      // A. Phân quyền Menu (Cột B)
+      // A. Phân quyền Menu & Submenu (Cột B)
       ;(gridDataB || []).forEach((m, idx) => {
-        if (m.Type === 'Phân hệ' || m.Type === 'Submenu' || m.IsGroup) return
+        const isRootModule = m.Type === 'Phân hệ' || m.MenuType === 'Phân hệ' || m.Level === 0
+        const isSubmenu =
+          m.Type === 'Submenu' ||
+          m.Type === 'submenu' ||
+          m.MenuType === 'Submenu' ||
+          (m.Level === 1 && m.IsGroup)
 
         const hasPerm = Boolean(m.View || m.CanView)
         const isExistingRecord = Boolean(m.RoleRecordId)
         const isModified = m.isEdited || m.WorkingTag === 'U' || m.WorkingTag === 'A'
+
+        // Xử lý dòng Phân hệ ở bảng B (Đồng bộ quyền RootMenu)
+        if (isRootModule) {
+          if (isModified || hasPerm) {
+            const rootId = Number(m.RawId || m.RootMenuId || m.Id || 0)
+            if (rootId > 0) {
+              const existingIdx = itemsToUpdate.findIndex(
+                (it) => it.Sheet === 'rootmenu' && it.RootMenuId === rootId
+              )
+              if (existingIdx >= 0) {
+                itemsToUpdate[existingIdx].View = hasPerm
+              } else if (isExistingRecord && isModified) {
+                itemsToUpdate.push({
+                  Id: Number(m.RoleRecordId),
+                  Sheet: 'rootmenu',
+                  Type: 'rootmenu',
+                  GroupId: Number(selectedGroupId),
+                  RootMenuId: rootId,
+                  View: hasPerm,
+                  IdxNo: idx + 1,
+                  RowVersion: Number(m.RowVersion || 1)
+                })
+              } else if (hasPerm) {
+                const insertedIdx = itemsToInsert.findIndex(
+                  (it) => it.Sheet === 'rootmenu' && it.RootMenuId === rootId
+                )
+                if (insertedIdx >= 0) {
+                  itemsToInsert[insertedIdx].View = hasPerm
+                } else {
+                  itemsToInsert.push({
+                    Sheet: 'rootmenu',
+                    Type: 'rootmenu',
+                    GroupId: Number(selectedGroupId),
+                    RootMenuId: rootId,
+                    View: hasPerm,
+                    IdxNo: idx + 1
+                  })
+                }
+              }
+            }
+          }
+          return
+        }
+
+        // Xử lý dòng Submenu & Menu chức năng chi tiết
+        const permType = isSubmenu ? 'submenu' : 'menu'
+        const menuId = Number(m.RawId || m.MenuId || m.Id || 0)
 
         if (isExistingRecord) {
           if (isModified) {
             itemsToUpdate.push({
               Id: Number(m.RoleRecordId),
               Sheet: 'menu',
-              Type: 'menu',
+              Type: permType,
               GroupId: Number(selectedGroupId),
-              MenuId: Number(m.RawId || m.MenuId || m.Id || 0),
+              MenuId: menuId,
               RootMenuId: Number(m.RootMenuId || 0),
               View: hasPerm,
               Create: Boolean(m.Create),
@@ -91,9 +143,9 @@ export function useRoleManagementMutation({
         } else if (isModified || hasPerm) {
           itemsToInsert.push({
             Sheet: 'menu',
-            Type: 'menu',
+            Type: permType,
             GroupId: Number(selectedGroupId),
-            MenuId: Number(m.RawId || m.MenuId || m.Id || 0),
+            MenuId: menuId,
             RootMenuId: Number(m.RootMenuId || 0),
             View: hasPerm,
             Create: Boolean(m.Create),

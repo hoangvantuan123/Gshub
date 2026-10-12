@@ -396,7 +396,13 @@ export default function RoleGroupUsersTable({
     }
 
     setGridData((prev) => {
-      const next = prev.filter((_, idx) => !selectedRowIndices.has(idx))
+      const next = prev.flatMap((row, idx) =>
+        !selectedRowIndices.has(idx)
+          ? [row]
+          : row.Id
+            ? [{ ...row, WorkingTag: 'D', Status: 'D', isEdited: true }]
+            : []
+      )
       return updateIndexNo(next)
     })
 

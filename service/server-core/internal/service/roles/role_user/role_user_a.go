@@ -28,7 +28,7 @@ func (s *RoleUsersService) RoleUsersA(ctx context.Context, roles []domain.ERPRol
 
 	query := `INSERT INTO "_ERPRolesUsers" ("GroupId", "UserId", "UserSeq", "MenuId", "RootMenuId", "Type", "Name", "View", "Edit", "Create", "Delete", "CreatedBy", "CreatedAt", "IdxNo") 
 	          VALUES (:GroupId, :UserId, :UserSeq, :MenuId, :RootMenuId, :Type, :Name, :View, :Edit, :Create, :Delete, :CreatedBy, NOW(), :IdxNo) 
-			  RETURNING "Id", "GroupId", "UserId", "UserSeq", "MenuId", "RootMenuId", "Type", "Name", "View", "Edit", "Create", "Delete", "CreatedBy", "CreatedAt", "IdxNo"`
+			  RETURNING "Id", "GroupId", "UserId", "UserSeq", "MenuId", "RootMenuId", "Type", "Name", "View", "Edit", "Create", "Delete", "CreatedBy", "CreatedAt", "IdxNo", "RowVersion"`
 
 	stmt, err := tx.PrepareNamedContext(ctx, query)
 	if err != nil {

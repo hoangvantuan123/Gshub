@@ -80,8 +80,7 @@ func (s *RoleUsersService) RoleUsersQ(ctx context.Context, opts RoleUsersQueryOp
 		case "rootmenu", "root":
 			query += ` AND (ru."Type" = 'root' OR ru."Type" = 'rootmenu') AND ru."RootMenuId" IS NOT NULL AND ru."RootMenuId" > 0`
 		case "menu":
-			query += ` AND ru."Type" = :type AND ru."MenuId" IS NOT NULL AND ru."MenuId" > 0`
-			args["type"] = opts.Type
+			query += ` AND ru."Type" IN ('menu', 'submenu') AND ru."MenuId" IS NOT NULL AND ru."MenuId" > 0`
 		case "user":
 			query += ` AND ru."Type" = :type AND ((ru."UserId" IS NOT NULL AND ru."UserId" != '') OR (ru."UserSeq" IS NOT NULL AND ru."UserSeq" != ''))`
 			args["type"] = opts.Type

@@ -12,7 +12,14 @@ const KEY_ALIASES = [
     'PAGE_ROLE_MGMT',
     'role_group'
   ],
-  ['permission_assignment', 'perm_assign', 'tbl_grp_perm'],
+  [
+    'permission_assignment',
+    'perm_assign',
+    'tbl_grp_perm',
+    'system_permissions',
+    'system/permissions',
+    '/erp/u/system/permissions'
+  ],
   ['module_registry', 'sys_module', 'tech_root', 'system_structure', 'sys_structure'],
   ['menu_registry', 'sys_menu', 'tech_menu_items'],
   ['permission_catalog', 'perm_catalog'],
@@ -77,6 +84,7 @@ export const findMenuByKey = (permissions, menuKey) => {
         .trim()
       if (link) {
         const cleanLink = link.replace(/^\/erp\/u\//, '')
+        if (isKeyMatch(link, target) || isKeyMatch(cleanLink, target)) return true
         if (
           cleanLink.includes(target) ||
           target.includes(cleanLink) ||
@@ -96,8 +104,25 @@ export const checkMenuPermission = (permissions, menuKey, action = 'View') => {
 
   if (!menu) return false
 
-  const permissionKey = `${action}`
-  return menu[permissionKey] ?? false
+  return resolveMenuOperation(menu, action)
+}
+
+const isAllowed = (value) =>
+  value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true'
+
+// Legacy operation flags and BE action grants describe the same operation.
+// Combine granted permissions; use the caller fallback only when BE declares neither.
+export const resolveMenuOperation = (menu, operation, fallback = false) => {
+  if (!menu) return isAllowed(fallback)
+  const keys = new Set([normalize(operation), normalize(`BTN_${operation}`)])
+  const values = [menu, menu.actions, menu.Actions]
+    .filter((value) => value && typeof value === 'object')
+    .flatMap((value) =>
+      Object.entries(value)
+        .filter(([key]) => keys.has(normalize(key)))
+        .map(([, grant]) => grant)
+    )
+  return values.length ? values.some(isAllowed) : isAllowed(fallback)
 }
 
 export const checkActionPermission = (permissions, menuKey, actionKey) => {

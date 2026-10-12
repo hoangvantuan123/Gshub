@@ -38,11 +38,13 @@ export default function RoleManagementPage({
   const { t } = useTranslation()
   const loadingBarRef = useRef(null)
   const [activeTab, setActiveTab] = useState('permissions')
+  const [permissionSheet, setPermissionSheet] = useState('menu')
+  const activeSheet = activeTab === 'members' ? 'users' : permissionSheet
   const [openMembersModal, setOpenMembersModal] = useState(false)
 
   const pagePerms = usePagePermissions({
     permissions,
-    menuKey: 'role_mgmt',
+    menuKey: 'system_permissions',
     canCreate,
     canEdit,
     canDelete,
@@ -150,6 +152,7 @@ export default function RoleManagementPage({
     handleDelete,
     limitModalProps
   } = useRoleManagement({
+    activeSheet,
     canCreate: pagePerms.canCreate,
     canEdit: pagePerms.canEdit,
     canDelete: pagePerms.canDelete,
@@ -166,6 +169,38 @@ export default function RoleManagementPage({
     onSave: handleSave,
     onDelete: handleDelete
   })
+
+  useEffect(() => {
+    const openFilter = (event) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.key?.toLowerCase() !== 'f' ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return
+      event.preventDefault()
+      event.stopPropagation()
+      if (activeSheet === 'users') setShowSearchUsers(true)
+      else if (activeSheet === 'actions') setShowSearchAction(true)
+      else setShowSearchB(true)
+    }
+    window.addEventListener('keydown', openFilter, true)
+    return () => window.removeEventListener('keydown', openFilter, true)
+  }, [activeSheet, setShowSearchUsers, setShowSearchAction, setShowSearchB])
+
+  const hasPendingChanges = (rows) =>
+    rows.some((row) => ['A', 'U', 'D'].includes(row.WorkingTag || row.Status))
+  const canSelectMenu = (row) => {
+    if (
+      String(row?.MenuId) !== String(selectedMenuInGrid?.MenuId) &&
+      hasPendingChanges(gridDataAction)
+    ) {
+      message.warning('Vui lòng lưu quyền thao tác trước khi chọn menu khác.')
+      return false
+    }
+    return true
+  }
 
   const cancelAllRequestsRef = useRef(cancelAllRequests)
   cancelAllRequestsRef.current = cancelAllRequests
@@ -278,6 +313,13 @@ export default function RoleManagementPage({
 
   const handleSelectGroup = (g) => {
     if (!g) return
+    if (
+      String(g.Id) !== String(groupId) &&
+      [gridDataB, gridDataAction, gridDataUsers].some(hasPendingChanges)
+    ) {
+      message.warning('Vui lòng lưu thay đổi ở từng bảng trước khi chuyển nhóm quyền.')
+      return
+    }
     setGroupId(String(g.Id || ''))
     setGroupName(g.Name || '')
     setComment(g.Comment || '')
@@ -290,6 +332,7 @@ export default function RoleManagementPage({
         loadingBarRef={loadingBarRef}
         actions={
           <RoleManagementActions
+            activeSheet={activeSheet}
             handleSearch={handleSearch}
             handleSave={handleSave}
             handleDelete={handleDelete}
@@ -397,6 +440,9 @@ export default function RoleManagementPage({
                   className="flex-1 min-h-0 w-full flex flex-col overflow-hidden bg-white"
                 >
                   <RoleMenuColumnActionPanel
+                    activeSheet={permissionSheet}
+                    onActivateSheet={setPermissionSheet}
+                    canSelectMenu={canSelectMenu}
                     gridDataB={gridDataB}
                     setGridDataB={setGridDataB}
                     selectionB={selectionB}

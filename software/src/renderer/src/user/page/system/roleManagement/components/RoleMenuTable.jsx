@@ -1,646 +1,286 @@
-/* eslint-disable react/prop-types, no-unused-vars, no-empty */
-import { useCallback, useRef, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+/* eslint-disable react/prop-types */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid'
 import '@glideapps/glide-data-grid/dist/index.css'
-import {
-  CheckSquareOutlined,
-  BorderOutlined,
-  UnlockOutlined,
-  LockOutlined,
-  AppstoreOutlined,
-  FolderOpenOutlined
-} from '@ant-design/icons'
-
 import LayoutMenuSheet from '../../../../components/sheet/jsx/layoutMenu'
 import LayoutStatusMenuSheet from '../../../../components/sheet/jsx/layoutStatusMenu'
-import LayoutContextMenuSheet from '../../../../components/sheet/jsx/layoutContextMenu'
-import { reorderColumns } from '../../../../components/sheet/js/reorderColumns'
 import useTableManager from '../../../../components/hooks/sheet/useTableManager'
 import useTableConfig from '../../../../components/hooks/sheet/useTableConfig'
-import { usePageData } from '../../../../../context/PageDataContext'
-import { togglePageInteraction } from '../../../../../utils/togglePageInteraction'
-
-const BOOLEAN_COLS = new Set(['View'])
+import { asBoolean, filterMenuRows, setTreeView } from '../utils/permissionRows'
 
 export default function RoleMenuTable({
-  setSelection,
   selection,
-  setShowSearch,
+  setSelection,
   showSearch,
-  setGridData,
+  setShowSearch,
   gridData = [],
-  numRows,
-  setNumRows,
-  setCols,
+  setGridData,
   cols = [],
+  setCols,
+  defaultCols,
   canEdit = true,
-  defaultCols = [],
+  canCreate = canEdit,
+  onAddQueryField,
+  onActivate,
   selectedGroupId,
-  selectedRootMenuId = 1,
-  onAddQueryField
+  canSelectMenu = () => true
 }) {
-  const { t } = useTranslation()
-  const { setStatusMessage } = usePageData() || {}
+  const [query, setQuery] = useState('')
+  const [view, setView] = useState('')
+  const searchRef = useRef(null)
   const gridRef = useRef(null)
-
-  const onSearchClose = useCallback(() => setShowSearch(false), [setShowSearch])
-  const {
-    freezeColumnsCount,
-    handleFreezeColumn,
-    rowHeight,
-    headerHeight,
-    overscrollX,
-    overscrollY
-  } = useTableConfig('role_menu_perms')
-
-  const handleAddQueryFieldWrapper = useCallback(
-    (columnKey, colTitle, activeCol) => {
-      if (onAddQueryField) {
-        onAddQueryField(columnKey, colTitle, activeCol, 'menu', 'Menu')
-      }
-    },
-    [onAddQueryField]
-  )
-
-  const {
-    showMenu,
-    setShowMenu,
-    onHeaderMenuClick,
-    layerProps,
-    renderLayer,
-    handleHideColumn,
-    handleReset,
-    onColumnMoved,
-    onColumnResize,
-    onCellContextMenu,
-    onCellClicked: baseOnCellClicked,
-    onCellActivated,
-    onKeyDown,
-    getCellTheme,
-    gridTheme,
-    isReadOnlyColumn,
-    onItemHovered
-  } = useTableManager({
+  const config = useTableConfig('role_menu_perms')
+  const manager = useTableManager({
     tableId: 'role_menu_perms',
     defaultCols,
     cols,
     setCols,
-    setGridData,
     gridData,
+    setGridData,
     selection,
     setSelection,
-    canEdit,
-    onAddQueryField: handleAddQueryFieldWrapper
+    canEdit: canEdit || canCreate,
+    onAddQueryField: (key, title, col) => onAddQueryField?.(key, title, col, 'menu', 'Menu')
   })
+  const indices = useMemo(() => filterMenuRows(gridData, query, view), [gridData, query, view])
+  useEffect(() => {
+    if (showSearch) searchRef.current?.focus()
+  }, [showSearch])
+  useEffect(() => {
+    setQuery('')
+    setView('')
+  }, [selectedGroupId])
 
-  // Chọn nhanh toàn bộ quyền theo cột
-  const handleBatchToggleColumn = useCallback(
-    (columnKey, value) => {
-      if (!canEdit) return
-      setGridData((prev) => {
-        return prev.map((row) => {
-          if (!row || row.Id === undefined) return row
-          const curStatus = row.WorkingTag || row.Status || ''
-          return {
-            ...row,
-            [columnKey]: value,
-            WorkingTag: curStatus === 'A' ? 'A' : 'U',
-            Status: curStatus === 'A' ? 'A' : 'U',
-            isEdited: true
-          }
-        })
+  const visibleSelection = useMemo(() => {
+    let rows = CompactSelection.empty()
+    for (const [start, end] of selection?.rows?.items || []) {
+      indices.forEach((index, visible) => {
+        if (index >= start && index < end) rows = rows.add(visible)
       })
-    },
-    [canEdit, setGridData]
-  )
-
-  // Cấp toàn quyền hoặc xóa toàn quyền cho tất cả các dòng
-  const handleBatchAllPermissions = useCallback(
-    (allowAll = true) => {
-      if (!canEdit) return
-      setGridData((prev) => {
-        return prev.map((row) => {
-          if (!row || row.Id === undefined) return row
-          const curStatus = row.WorkingTag || row.Status || ''
-          return {
-            ...row,
-            View: allowAll,
-            WorkingTag: curStatus === 'A' ? 'A' : 'U',
-            Status: curStatus === 'A' ? 'A' : 'U',
-            isEdited: true
-          }
-        })
-      })
-    },
-    [canEdit, setGridData]
-  )
-
-  const onCellClicked = useCallback(
-    (cell, event) => {
-      const [colIndex, rowIndex] = cell
-      const colDef = cols[colIndex]
-      const colId = colDef?.id
-
-      if (rowIndex >= 0 && gridData[rowIndex]) {
-        try {
-          const rowSel = CompactSelection.empty().add(rowIndex)
-          setSelection({
-            columns: CompactSelection.empty(),
-            rows: rowSel,
+    }
+    const selected = selection?.current
+    const visible = selected ? indices.indexOf(selected.cell[1]) : -1
+    return {
+      columns: selection?.columns || CompactSelection.empty(),
+      rows,
+      ...(visible < 0
+        ? {}
+        : {
             current: {
-              cell: [colIndex, rowIndex],
-              range: { x: colIndex, y: rowIndex, width: 1, height: 1 },
+              cell: [selected.cell[0], visible],
+              range: { x: selected.cell[0], y: visible, width: 1, height: 1 },
               rangeStack: []
             }
           })
-        } catch {
-          setSelection((prev) => ({
-            ...prev,
-            current: {
-              cell: [colIndex, rowIndex],
-              range: { x: colIndex, y: rowIndex, width: 1, height: 1 },
-              rangeStack: []
-            }
-          }))
-        }
-      }
+    }
+  }, [indices, selection])
 
-      if (baseOnCellClicked) {
-        baseOnCellClicked(cell, event)
+  const selectRows = useCallback(
+    (next) => {
+      const firstSelectedRow = next.rows?.items?.[0]?.[0]
+      const index = next.current ? indices[next.current.cell[1]] : indices[firstSelectedRow]
+      if (index !== undefined && !canSelectMenu(gridData[index])) return
+      let rows = CompactSelection.empty()
+      for (const [start, end] of next.rows?.items || []) {
+        for (let i = start; i < end; i++) if (indices[i] !== undefined) rows = rows.add(indices[i])
       }
+      setSelection({
+        ...next,
+        rows,
+        ...(index === undefined || !next.current
+          ? { current: undefined }
+          : {
+              current: {
+                cell: [next.current.cell[0], index],
+                range: { x: next.current.cell[0], y: index, width: 1, height: 1 },
+                rangeStack: []
+              }
+            })
+      })
     },
-    [baseOnCellClicked, cols, setSelection]
+    [indices, gridData, canSelectMenu, setSelection]
   )
 
-  const colMetadata = useMemo(() => {
-    return (cols || []).map((column) => {
-      const columnKey = column.id || ''
-      const isStatus = columnKey === 'WorkingTag' || columnKey === 'Status'
-      const isBoolean = column.kind === 'Boolean' || BOOLEAN_COLS.has(columnKey)
-      const isReadOnly =
-        (isReadOnlyColumn && isReadOnlyColumn(columnKey, column)) || column.readonly || false
-      const cellTheme = getCellTheme ? getCellTheme(columnKey, column) : {}
-      return {
-        columnKey,
-        isStatus,
-        isBoolean,
-        isReadOnly,
-        cellTheme,
-        hasMenu: column.hasMenu || false
-      }
-    })
-  }, [cols, getCellTheme, isReadOnlyColumn])
+  const editView = useCallback(
+    ([col, visibleRow], cell) => {
+      if (cols[col]?.id !== 'View') return
+      const index = indices[visibleRow]
+      if (index === undefined) return
+      if (!(gridData[index]?.RoleRecordId ? canEdit : canCreate)) return
+      setGridData((rows) =>
+        asBoolean(rows[index]?.View) === asBoolean(cell.data)
+          ? rows
+          : setTreeView(rows, index, asBoolean(cell.data))
+      )
+    },
+    [canEdit, canCreate, cols, indices, gridData, setGridData]
+  )
 
   const getCellContent = useCallback(
-    ([col, row]) => {
-      const rowData = gridData[row] || {}
-      const meta = colMetadata[col]
-
-      if (!meta) {
-        return {
-          kind: GridCellKind.Text,
-          data: '',
-          displayData: '',
-          allowOverlay: false,
-          readonly: true
-        }
-      }
-
-      const { columnKey, isStatus, isBoolean, isReadOnly, cellTheme } = meta
-      let val = rowData[columnKey]
-      if (val === undefined || val === null || val === '') {
-        if (columnKey === 'MenuLabel') {
-          val = rowData.Label || rowData.Name || ''
-        } else if (columnKey === 'MenuKey') {
-          val = rowData.Key || ''
-        } else if (columnKey === 'MenuType') {
-          val = rowData.Type || 'menu'
-        } else if (columnKey === 'MenuId') {
-          val = rowData.Id || ''
-        }
-      }
-      if (val === undefined || val === null) {
-        val = ''
-      }
-
-      const isRootModule =
-        rowData.Level === 0 || rowData.Type === 'Phân hệ' || rowData.MenuType === 'Phân hệ'
-      const isSubmenu =
-        rowData.Level === 1 &&
-        (rowData.Type === 'Submenu' || rowData.MenuType === 'Submenu' || rowData.IsGroup)
-      let customTheme = { ...cellTheme }
-      if (isRootModule) {
-        customTheme = {
-          ...customTheme,
-          bgCell: '#e0e7ff',
-          textDark: '#1e3a8a',
-          baseFontStyle: 'bold 12.5px'
-        }
-      } else if (isSubmenu) {
-        customTheme = {
-          ...customTheme,
-          bgCell: '#f8fafc',
-          textDark: '#0f172a',
-          baseFontStyle: '600 12px'
-        }
-      }
-
-      if (isStatus) {
-        const status = String(val)
-        return {
-          kind: GridCellKind.Text,
-          data: status,
-          displayData: status,
-          allowOverlay: false,
-          readonly: true,
-          hasMenu: meta.hasMenu,
-          contentAlign: 'center',
-          themeOverride: meta.cellTheme
-        }
-      }
-
-      if (isBoolean) {
-        const boolVal =
-          val === true || val === 1 || val === '1' || String(val).toLowerCase() === 'true'
+    ([col, visibleRow]) => {
+      const row = gridData[indices[visibleRow]]
+      const column = cols[col]
+      if (!row || !column) return { kind: GridCellKind.Loading, allowOverlay: false }
+      const theme =
+        row.Level === 0
+          ? { bgCell: '#e0e7ff', textDark: '#1e3a8a', baseFontStyle: 'bold 12px' }
+          : row.IsGroup
+            ? { bgCell: '#f8fafc', baseFontStyle: '600 12px' }
+            : {}
+      if (column.id === 'View')
         return {
           kind: GridCellKind.Boolean,
-          data: boolVal,
+          data: asBoolean(row.View),
           allowOverlay: false,
-          readonly: !canEdit || isReadOnly,
-          themeOverride: customTheme
+          readonly:
+            !(row.RoleRecordId ? canEdit : canCreate) || column.readonly || row.WorkingTag === 'D',
+          themeOverride: theme
         }
-      }
-
+      const value = String(row[column.id] ?? '')
       return {
         kind: GridCellKind.Text,
-        data: String(val),
-        displayData: String(val),
-        allowOverlay: !isReadOnly && canEdit,
-        readonly: isReadOnly || !canEdit,
-        themeOverride: customTheme
+        data: value,
+        displayData: value,
+        readonly: true,
+        allowOverlay: false,
+        themeOverride: { ...theme, ...manager.getCellTheme(column.id, row) }
       }
     },
-    [colMetadata, gridData, canEdit]
-  )
-
-  const onCellEdited = useCallback(
-    ([col, row], cell) => {
-      if (!canEdit) return
-      const colId = cols[col]?.id
-      if (!colId || colId === 'WorkingTag' || colId === 'Status') return
-
-      const isBoolCol = BOOLEAN_COLS.has(colId)
-      let newVal = cell.data
-      if (isBoolCol) {
-        newVal = Boolean(cell.data)
-      } else {
-        newVal = cell.data ?? ''
-      }
-
-      setGridData((prev) => {
-        const updated = [...prev]
-        const currentRow = { ...(updated[row] || {}) }
-        const oldVal = currentRow[colId]
-        const oldBoolVal =
-          oldVal === true ||
-          oldVal === 1 ||
-          oldVal === '1' ||
-          String(oldVal).toLowerCase() === 'true'
-        const isChanged = isBoolCol
-          ? oldBoolVal !== newVal
-          : String(oldVal ?? '') !== String(newVal ?? '')
-
-        if (isChanged) {
-          currentRow[colId] = newVal
-          const curStatus = currentRow.WorkingTag || currentRow.Status || ''
-          if (!curStatus || curStatus === '') {
-            currentRow.WorkingTag = 'U'
-            currentRow.Status = 'U'
-          }
-          if (selectedGroupId && !currentRow.GroupId) {
-            currentRow.GroupId = selectedGroupId
-          }
-          currentRow.isEdited = true
-          updated[row] = currentRow
-
-          // Cascade toggle cho các dòng con nếu sửa cột boolean (như View, Create, Edit, Delete)
-          if (isBoolCol) {
-            const isRootModule =
-              currentRow.Level === 0 ||
-              currentRow.Type === 'Phân hệ' ||
-              currentRow.MenuType === 'Phân hệ'
-            const isSub =
-              currentRow.Type === 'Submenu' ||
-              currentRow.Type === 'submenu' ||
-              currentRow.MenuType === 'Submenu' ||
-              (currentRow.Level === 1 && currentRow.IsGroup)
-
-            if (isRootModule || isSub) {
-              const currentLevel = typeof currentRow.Level === 'number' ? currentRow.Level : 0
-              const subId = String(currentRow.RawId || currentRow.MenuId || currentRow.Id || '')
-
-              // Duyệt các dòng liền kề bên dưới thuộc phân cấp con
-              for (let i = row + 1; i < updated.length; i++) {
-                const child = updated[i]
-                if (!child) continue
-                const childLevel = typeof child.Level === 'number' ? child.Level : 0
-                // Nếu gặp node ngang cấp hoặc cấp cao hơn thì dừng
-                if (childLevel <= currentLevel) break
-
-                const isChildOfThis =
-                  isRootModule ||
-                  String(child.ParentId || child.MenuSubRootId || '') === subId ||
-                  childLevel > currentLevel
-
-                if (isChildOfThis) {
-                  const updatedChild = { ...child }
-                  updatedChild[colId] = newVal
-                  const cStatus = updatedChild.WorkingTag || updatedChild.Status || ''
-                  if (!cStatus || cStatus === '') {
-                    updatedChild.WorkingTag = 'U'
-                    updatedChild.Status = 'U'
-                  }
-                  if (selectedGroupId && !updatedChild.GroupId) {
-                    updatedChild.GroupId = selectedGroupId
-                  }
-                  updatedChild.isEdited = true
-                  updated[i] = updatedChild
-                }
-              }
-            }
-          }
-        }
-        return updated
-      })
-    },
-    [cols, canEdit, selectedGroupId, setGridData]
-  )
-
-  // Kéo thả một loạt (Fill handle / Drag-fill) cho cả checkbox và text chuẩn Glide Data Grid
-  const onFillPattern = useCallback(
-    (arg1, arg2) => {
-      if (!canEdit) return
-      const patternSource = arg1?.patternSource || arg1
-      const fillDestination = arg1?.fillDestination || arg2
-      if (!patternSource || !fillDestination) return
-
-      setGridData((prev) => {
-        const updated = [...prev]
-
-        for (let dy = 0; dy < fillDestination.height; dy++) {
-          const targetRow = fillDestination.y + dy
-          if (targetRow < 0) continue
-          if (!updated[targetRow]) updated[targetRow] = {}
-          const rowObj = { ...updated[targetRow] }
-          let rowChanged = false
-
-          const srcPatternY = patternSource.y + (dy % patternSource.height)
-          const srcRow = prev[srcPatternY] || {}
-
-          for (let dx = 0; dx < fillDestination.width; dx++) {
-            const targetCol = fillDestination.x + dx
-            const colObj = cols[targetCol]
-            const colKey = colObj?.id
-            if (
-              !colKey ||
-              colKey === 'WorkingTag' ||
-              colKey === 'Status' ||
-              colKey === 'Id' ||
-              colObj.readonly
-            )
-              continue
-
-            const srcPatternX = patternSource.x + (dx % patternSource.width)
-            const srcColKey = cols[srcPatternX]?.id
-            if (!srcColKey) continue
-
-            const sourceVal = srcRow[srcColKey]
-            const isBoolCol = BOOLEAN_COLS.has(colKey)
-
-            if (isBoolCol) {
-              const boolVal = Boolean(
-                sourceVal === true ||
-                sourceVal === 1 ||
-                sourceVal === '1' ||
-                String(sourceVal).toLowerCase() === 'true'
-              )
-              const oldBool =
-                rowObj[colKey] === true ||
-                rowObj[colKey] === 1 ||
-                rowObj[colKey] === '1' ||
-                String(rowObj[colKey]).toLowerCase() === 'true'
-              if (oldBool !== boolVal) {
-                rowObj[colKey] = boolVal
-                rowChanged = true
-              }
-            } else {
-              if (String(rowObj[colKey] ?? '') !== String(sourceVal ?? '')) {
-                rowObj[colKey] = sourceVal ?? ''
-                rowChanged = true
-              }
-            }
-          }
-
-          if (rowChanged) {
-            const curStatus = rowObj.WorkingTag || rowObj.Status || ''
-            if (!curStatus || curStatus === '') {
-              rowObj.WorkingTag = 'U'
-              rowObj.Status = 'U'
-            }
-            if (selectedGroupId && !rowObj.GroupId) {
-              rowObj.GroupId = selectedGroupId
-            }
-            rowObj.isEdited = true
-            updated[targetRow] = rowObj
-          }
-        }
-        return updated
-      })
-    },
-    [canEdit, cols, selectedGroupId, setGridData]
-  )
-
-  const onPaste = useCallback(
-    (target, values) => {
-      if (!values || values.length === 0 || canEdit === false) {
-        return false
-      }
-
-      const [startCol, startRow] = target
-      const indexes = reorderColumns(cols)
-      const numPastedRows = values.length
-      const numPastedCols = values[0]?.length || 0
-
-      if (numPastedRows > 3000) {
-        if (typeof setStatusMessage === 'function') {
-          setStatusMessage({
-            type: 'error',
-            text: t(
-              'Số lượng dòng dán ({{count}} dòng) vượt quá giới hạn tối đa cho phép (3,000 dòng)! Vui lòng chia nhỏ dữ liệu.',
-              { count: numPastedRows.toLocaleString() }
-            )
-          })
-        }
-        return false
-      }
-
-      const isBatch = numPastedRows >= 10 || numPastedRows * numPastedCols >= 50
-      if (isBatch) {
-        const msg = t('Đang xử lý dán {{count}} dòng dữ liệu... Vui lòng không thao tác', {
-          count: numPastedRows.toLocaleString()
-        })
-        togglePageInteraction(true, msg)
-        if (typeof setStatusMessage === 'function') {
-          setStatusMessage({
-            type: 'info',
-            text: msg
-          })
-        }
-      }
-
-      try {
-        setGridData((prevData) => {
-          const requiredLength = Math.max(prevData.length, startRow + numPastedRows)
-          const nextData = new Array(requiredLength)
-
-          for (let r = 0; r < startRow; r++) {
-            nextData[r] = prevData[r] || {}
-          }
-
-          for (let r = 0; r < numPastedRows; r++) {
-            const targetRow = startRow + r
-            const originalRow = prevData[targetRow] || {}
-            const modifiedRow = { ...originalRow }
-            const rowVals = values[r] || []
-            let isRowChanged = false
-
-            for (let c = 0; c < numPastedCols; c++) {
-              const targetCol = startCol + c
-              if (targetCol >= cols.length) break
-              const colKey = indexes[targetCol]
-              if (!colKey || colKey === 'WorkingTag' || colKey === 'Status' || colKey === 'Id')
-                continue
-
-              let rawVal = rowVals[c] ?? ''
-              if (BOOLEAN_COLS.has(colKey)) {
-                rawVal =
-                  rawVal === true ||
-                  rawVal === 1 ||
-                  rawVal === '1' ||
-                  String(rawVal).toLowerCase() === 'true' ||
-                  String(rawVal).toLowerCase() === 'v'
-              }
-
-              if (modifiedRow[colKey] !== rawVal) {
-                modifiedRow[colKey] = rawVal
-                isRowChanged = true
-              }
-            }
-
-            if (isRowChanged) {
-              const curStatus = modifiedRow.WorkingTag || modifiedRow.Status || ''
-              if (!curStatus || curStatus === '') {
-                modifiedRow.WorkingTag = 'U'
-                modifiedRow.Status = 'U'
-              }
-              if (selectedGroupId && !modifiedRow.GroupId) {
-                modifiedRow.GroupId = selectedGroupId
-              }
-              modifiedRow.isEdited = true
-            }
-
-            nextData[targetRow] = modifiedRow
-          }
-
-          for (let r = startRow + numPastedRows; r < prevData.length; r++) {
-            nextData[r] = prevData[r]
-          }
-
-          return nextData
-        })
-
-        setNumRows((prev) => Math.max(prev, startRow + numPastedRows))
-        return true
-      } finally {
-        if (isBatch) {
-          togglePageInteraction(false)
-        }
-      }
-    },
-    [canEdit, cols, selectedGroupId, setGridData, setNumRows, setStatusMessage, t]
+    [gridData, indices, cols, canEdit, canCreate, manager.getCellTheme]
   )
 
   return (
-    <div className="flex flex-col h-full w-full bg-white relative overflow-hidden">
-      {/* DATA EDITOR BẢNG PHÂN QUYỀN TOÀN MÀN HÌNH */}
-      <div className="flex-1 min-h-0 w-full relative">
+    <div
+      className="flex flex-col h-full w-full bg-white overflow-hidden"
+      onPointerDownCapture={onActivate}
+      onFocusCapture={onActivate}
+    >
+      <div className="flex items-center gap-2 px-2 h-7 shrink-0 border-b border-slate-200 bg-slate-50 text-xs">
+        <button type="button" onClick={() => setShowSearch(true)} className="text-blue-700">
+          Bộ lọc (Ctrl+F)
+        </button>
+        <span className="text-slate-500">
+          {indices.length}/{gridData.length} mục
+        </span>
+        <span className="ml-auto text-slate-500">A: thêm · U: sửa · D: xóa</span>
+      </div>
+      {showSearch && (
+        <div className="flex items-center gap-2 p-2 shrink-0 border-b border-slate-200 bg-slate-50">
+          <input
+            ref={searchRef}
+            aria-label="Tìm menu"
+            placeholder="Tìm tên, mã menu hoặc phân loại..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setShowSearch(false)
+            }}
+            className="h-7 flex-1 min-w-0 border border-slate-300 px-2 text-xs"
+          />
+          <select
+            aria-label="Lọc quyền View"
+            value={view}
+            onChange={(event) => setView(event.target.value)}
+            className="h-7 border border-slate-300 text-xs"
+          >
+            <option value="">Tất cả quyền View</option>
+            <option value="1">Được xem</option>
+            <option value="0">Chưa được xem</option>
+          </select>
+          <button
+            type="button"
+            className="text-xs text-blue-700"
+            onClick={() => {
+              setQuery('')
+              setView('')
+            }}
+          >
+            Đặt lại
+          </button>
+          <button
+            type="button"
+            aria-label="Đóng bộ lọc"
+            onClick={() => {
+              setQuery('')
+              setView('')
+              setShowSearch(false)
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      <div className="flex-1 min-h-0 relative">
         <DataEditor
           ref={gridRef}
           width="100%"
           height="100%"
-          rows={numRows}
+          rows={indices.length}
           columns={cols}
           getCellContent={getCellContent}
           getCellsForSelection={true}
-          onCellEdited={onCellEdited}
-          onCellClicked={onCellClicked}
-          onCellActivated={onCellActivated}
-          onKeyDown={onKeyDown}
-          onItemHovered={onItemHovered}
-          fillHandle={true}
-          onFillPattern={onFillPattern}
-          theme={gridTheme}
-          gridSelection={selection}
-          onGridSelectionChange={setSelection}
-          onPaste={onPaste}
-          onHeaderMenuClick={onHeaderMenuClick}
-          onColumnMoved={onColumnMoved}
-          onColumnResize={onColumnResize}
-          onCellContextMenu={onCellContextMenu}
-          freezeColumns={freezeColumnsCount}
-          showSearch={showSearch}
-          onSearchClose={onSearchClose}
+          onCellEdited={editView}
+          gridSelection={visibleSelection}
+          onGridSelectionChange={selectRows}
+          onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key?.toLowerCase() === 'f') {
+              event.preventDefault()
+              setShowSearch(true)
+            }
+          }}
+          onPaste={(target, values) => {
+            if (!canEdit && !canCreate) return false
+            values.forEach((cells, y) =>
+              cells.forEach((value, x) => editView([target[0] + x, target[1] + y], { data: value }))
+            )
+            return true
+          }}
+          fillHandle={canEdit || canCreate}
+          onFillPattern={({ patternSource, fillDestination }) => {
+            if (!patternSource || !fillDestination || (!canEdit && !canCreate)) return
+            for (let y = 0; y < fillDestination.height; y++) {
+              for (let x = 0; x < fillDestination.width; x++) {
+                const source = getCellContent([
+                  patternSource.x + (x % patternSource.width),
+                  patternSource.y + (y % patternSource.height)
+                ])
+                editView([fillDestination.x + x, fillDestination.y + y], source)
+              }
+            }
+          }}
+          theme={manager.gridTheme}
+          onColumnMoved={manager.onColumnMoved}
+          onColumnResize={manager.onColumnResize}
+          onHeaderMenuClick={manager.onHeaderMenuClick}
+          onHeaderContextMenu={manager.onHeaderContextMenu}
+          freezeColumns={Math.max(1, config.freezeColumnsCount)}
           rowMarkers="both"
-          rowHeight={rowHeight || 23}
-          headerHeight={headerHeight || 23}
-          overscrollX={overscrollX || 50}
-          overscrollY={overscrollY || 20}
+          rowHeight={config.rowHeight || 24}
+          headerHeight={config.headerHeight || 24}
           smoothScrollX={true}
           smoothScrollY={true}
         />
       </div>
-
-      {showMenu !== null &&
-        renderLayer(
-          <div {...layerProps} className="z-[9999] outline-none">
-            {showMenu.menuType === 'statusMenu' ? (
+      {manager.showMenu !== null &&
+        manager.renderLayer(
+          <div {...manager.layerProps} className="z-[9999] outline-none">
+            {manager.showMenu.menuType === 'statusMenu' ? (
               <LayoutStatusMenuSheet
-                showMenu={showMenu}
+                showMenu={manager.showMenu}
                 cols={cols}
                 setShowSearch={setShowSearch}
-                setShowMenu={setShowMenu}
-                handleReset={handleReset}
+                setShowMenu={manager.setShowMenu}
+                handleReset={manager.handleReset}
                 data={gridData}
-              />
-            ) : showMenu.menuType === 'contextMenu' ? (
-              <LayoutContextMenuSheet
-                showMenu={showMenu}
-                cols={cols}
-                setShowSearch={setShowSearch}
-                setShowMenu={setShowMenu}
-                data={gridData}
-                selection={selection}
-                canCreate={false}
               />
             ) : (
               <LayoutMenuSheet
-                showMenu={showMenu}
-                handleHideColumn={handleHideColumn}
+                showMenu={manager.showMenu}
                 cols={cols}
                 setShowSearch={setShowSearch}
-                setShowMenu={setShowMenu}
-                handleFreezeColumn={handleFreezeColumn}
+                setShowMenu={manager.setShowMenu}
+                handleHideColumn={manager.handleHideColumn}
+                handleFreezeColumn={config.handleFreezeColumn}
               />
             )}
           </div>

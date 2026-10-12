@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"server-core/internal/config"
 	domain "server-core/internal/models/auth"
 	"server-core/internal/worker"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -162,7 +162,11 @@ func (s *authService) LoginUserB(ctx context.Context, login, password string, de
 	})
 	tokenString, _ := token.SignedString([]byte(jwtSecret))
 
-	rolesUserMenu, _, _ := s.getDataRolesUserRaw(ctx, login, user.UserSeq)
+	canonicalUserID := login
+	if user.UserId != nil {
+		canonicalUserID = *user.UserId
+	}
+	rolesUserMenu, _, _ := s.getDataRolesUserRaw(ctx, canonicalUserID, user.UserSeq)
 
 	// 8. Generate Roles Token
 	rolesToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -200,7 +204,7 @@ func (s *authService) sanitizeInput(input string) string {
 
 func (s *authService) getDataRolesUserRaw(ctx context.Context, userId string, userSeq interface{}) ([]map[string]interface{}, []map[string]interface{}, error) {
 	var groupIds []interface{}
-	err := s.db.SelectContext(ctx, &groupIds, `SELECT DISTINCT "GroupId" FROM "_ERPRolesUsers" WHERE "UserId" = $1`, userId)
+	err := s.db.SelectContext(ctx, &groupIds, `SELECT DISTINCT "GroupId" FROM "_ERPRolesUsers" WHERE LOWER(TRIM("UserId")) = LOWER(TRIM($1)) OR CAST("UserSeq" AS VARCHAR) = CAST($2 AS VARCHAR)`, userId, userSeq)
 	if err != nil || len(groupIds) == 0 {
 		return []map[string]interface{}{}, []map[string]interface{}{}, nil
 	}
@@ -304,6 +308,7 @@ func (s *authService) mergePermissions(data []map[string]interface{}) map[string
 	menus := make(map[int]map[string]interface{})
 	rootMenus := make(map[int]map[string]interface{})
 	menuItems := make(map[int]map[string]interface{})
+	actionGrants := make(map[int]map[string]bool)
 
 	for _, item := range data {
 		normItem := make(map[string]interface{}, len(item))
@@ -423,14 +428,29 @@ func (s *authService) mergePermissions(data []map[string]interface{}) map[string
 			actKey = strings.TrimSpace(actKey)
 			if menuId > 0 && actKey != "" {
 				isAllow := s.asBool(getVal("view"))
-				if targetMenu, exists := menus[menuId]; exists {
-					targetMenu[actKey] = isAllow
-					if actionsMap, ok := targetMenu["actions"].(map[string]bool); ok {
-						actionsMap[actKey] = isAllow
-					} else {
-						targetMenu["actions"] = map[string]bool{actKey: isAllow}
-					}
+				if actionGrants[menuId] == nil {
+					actionGrants[menuId] = make(map[string]bool)
 				}
+				key := strings.ToUpper(actKey)
+				actionGrants[menuId][key] = actionGrants[menuId][key] || isAllow
+			}
+		}
+	}
+
+	// Apply action grants after all menu rows have been merged, regardless of SQL row order.
+	for menuId, grants := range actionGrants {
+		targetMenu, exists := menus[menuId]
+		if !exists {
+			continue
+		}
+		targetMenu["actions"] = grants
+		for key, allow := range grants {
+			targetMenu[key] = s.asBool(targetMenu[key]) || allow
+			operation := strings.TrimPrefix(key, "BTN_")
+			switch operation {
+			case "VIEW", "CREATE", "EDIT", "DELETE", "IMPORT", "EXPORT", "COPY", "SEARCH":
+				field := strings.ToUpper(operation[:1]) + strings.ToLower(operation[1:])
+				targetMenu[field] = s.asBool(targetMenu[field]) || allow
 			}
 		}
 	}

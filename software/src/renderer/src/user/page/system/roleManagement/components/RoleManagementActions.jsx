@@ -4,6 +4,7 @@ import { SaveOutlined, SearchOutlined, DeleteRowOutlined, TeamOutlined } from '@
 import { useTranslation } from 'react-i18next'
 
 export default function RoleManagementActions({
+  activeSheet = 'menu',
   handleSearch,
   handleSave,
   handleDelete,
@@ -28,7 +29,7 @@ export default function RoleManagementActions({
           style={{ fontSize: '10px', padding: '2px 4px', height: '24px' }}
           color="default"
           variant="link"
-          title="Tìm kiếm (F4)"
+          title="Truy vấn bảng đang làm việc (Ctrl+Q)"
         >
           {t('TÌM KIẾM')}
         </Button>
@@ -62,9 +63,17 @@ export default function RoleManagementActions({
           variant="link"
           title="Xóa dòng phân quyền đang chọn (Ctrl+Shift+D)"
         >
-          {t('XÓA SHEET')}
+          {t('XÓA')}
         </Button>
       )}
+      <span className="text-xs text-slate-500 whitespace-nowrap border-l border-slate-200 pl-3">
+        Đang làm việc:{' '}
+        {activeSheet === 'users'
+          ? 'Thành viên'
+          : activeSheet === 'actions'
+            ? 'Quyền thao tác'
+            : 'Quyền menu'}
+      </span>
     </div>
   )
 }

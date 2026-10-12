@@ -42,7 +42,7 @@ func (s *RoleUsersService) RoleUsersU(ctx context.Context, roles []domain.ERPRol
 				"UpdatedAt" = NOW(), 
 				"IdxNo" = :IdxNo 
 			  WHERE "Id" = :Id
-			  RETURNING "Id", "GroupId", "UserId", "UserSeq", "MenuId", "RootMenuId", "Type", "Name", "View", "Edit", "Create", "Delete", "UpdatedBy", "UpdatedAt", "IdxNo"`
+			  RETURNING "Id", "GroupId", "UserId", "UserSeq", "MenuId", "RootMenuId", "Type", "Name", "View", "Edit", "Create", "Delete", "UpdatedBy", "UpdatedAt", "IdxNo", "RowVersion"`
 
 	stmt, err := tx.PrepareNamedContext(ctx, query)
 	if err != nil {

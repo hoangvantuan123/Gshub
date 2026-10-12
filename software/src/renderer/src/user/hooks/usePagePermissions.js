@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { findMenuByKey } from '../../permissions'
+import { findMenuByKey, resolveMenuOperation } from '../../permissions'
 
 /**
  * Hook phân quyền tổng hợp chuẩn hóa cho toàn bộ Page trong ERP.
@@ -49,15 +49,17 @@ export function usePagePermissions({
 
     const actions = {
       canView: computedCanView,
-      canSearch: computedCanView, // Không có quyền Xem thì KHÔNG được Tìm kiếm (Search)
-      canCreate: computedCanView && Boolean(currentMenuPerm?.Create ?? canCreate ?? false),
-      canEdit: computedCanView && Boolean(currentMenuPerm?.Edit ?? canEdit ?? false),
-      canDelete: computedCanView && Boolean(currentMenuPerm?.Delete ?? canDelete ?? false),
-      canCopy: computedCanView && Boolean(currentMenuPerm?.Copy ?? extraProps?.canCopy ?? false),
+      canSearch:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Search', computedCanView),
+      canCreate: computedCanView && resolveMenuOperation(currentMenuPerm, 'Create', canCreate),
+      canEdit: computedCanView && resolveMenuOperation(currentMenuPerm, 'Edit', canEdit),
+      canDelete: computedCanView && resolveMenuOperation(currentMenuPerm, 'Delete', canDelete),
+      canCopy:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Copy', extraProps?.canCopy),
       canImport:
-        computedCanView && Boolean(currentMenuPerm?.Import ?? extraProps?.canImport ?? false),
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Import', extraProps?.canImport),
       canExport:
-        computedCanView && Boolean(currentMenuPerm?.Export ?? extraProps?.canExport ?? false)
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Export', extraProps?.canExport)
     }
 
     // 3. Nhóm quyền quy trình nghiệp vụ (Workflow / Approvals)

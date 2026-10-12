@@ -38,7 +38,7 @@ export default function RoleManagementQuery({
         ],
         fetchHelpData: createCodeHelpFetcher(PostQRoleGroup),
         onSelect: (selected) => {
-          if (setGroupId) setGroupId(String(selected.Id || ''))
+          if (setGroupId && setGroupId(String(selected.Id || '')) === false) return
           if (setGroupName) setGroupName(selected.Name || '')
           if (setComment) setComment(selected.Comment || '')
           if (setCreatedByName) setCreatedByName(selected.CreatedByName || '')
@@ -154,7 +154,8 @@ export default function RoleManagementQuery({
 
   const handleChange = (keyOrObj, maybeVal) => {
     if (typeof keyOrObj === 'object' && keyOrObj !== null) {
-      if (keyOrObj.GroupId !== undefined && setGroupId) setGroupId(keyOrObj.GroupId)
+      if (keyOrObj.GroupId !== undefined && setGroupId && setGroupId(keyOrObj.GroupId) === false)
+        return
       if (keyOrObj.GroupName !== undefined && setGroupName) setGroupName(keyOrObj.GroupName)
       if (keyOrObj.Comment !== undefined && setComment) setComment(keyOrObj.Comment)
       if (keyOrObj.CreatedByName !== undefined && setCreatedByName)
@@ -191,9 +192,9 @@ export default function RoleManagementQuery({
   }
 
   const handleReset = () => {
+    if (setGroupId && setGroupId('') === false) return
     setHiddenKeys(new Set())
     setDynamicValues({})
-    if (setGroupId) setGroupId('')
     if (setGroupName) setGroupName('')
     if (setComment) setComment('')
     if (setCreatedByName) setCreatedByName('')

@@ -1,29 +1,11 @@
+import { buildActionRows } from '../utils/backendPermissions'
 /* eslint-disable react/prop-types, no-unused-vars, no-empty */
 import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { updateIndexNo } from '../../../../components/sheet/js/updateIndexNo'
-import {
-  PostQRoleGroup,
-  PostQPermResourceTree,
-  PostQRole,
-  PostQRootMenuRole,
-  PostQMenuRole,
-  PostQUserRole,
-  PostQActionRole,
-  PostQRootMenu,
-  PostQMenu
-} from '../../../../../api/system'
+import { PostQRoleGroup, PostQPermResourceTree, PostQRole } from '../../../../../api/system'
 import { ActionQ } from '../../../../../api/system/action'
-import {
-  buildMenuTreeFromFlatRows,
-  buildComprehensiveMenuTree,
-  flattenMenuTree,
-  getAllGroupIds,
-  MOCK_ROOT_MENUS,
-  MOCK_FLAT_MENUS_SQL,
-  MOCK_ROLE_GROUPS,
-  getRegisteredMenuPermissions
-} from '../mock/mockRoleData'
+import { buildComprehensiveMenuTree, flattenMenuTree, getAllGroupIds } from '../utils/menuTree'
 
 // Cache toàn cục cho cấu trúc menu hệ thống và danh mục actions (chỉ tải 1 lần duy nhất trong toàn phiên)
 let cachedSystemRootList = null
@@ -61,6 +43,8 @@ export function useRoleManagementFetch({
   const { t } = useTranslation()
   const groupActionsStoreRef = useRef([])
   const currentGroupIdRef = useRef('')
+  const groupRequestRef = useRef(0)
+  const actionRequestRef = useRef(0)
 
   // 1. Tải danh sách nhóm quyền từ Backend API
   const fetchRoleGroups = useCallback(async () => {
@@ -69,9 +53,10 @@ export function useRoleManagementFetch({
 
     try {
       const res = await PostQRoleGroup({})
+      if (res?.success === false) throw new Error(res.message || 'Không thể tải nhóm quyền')
       let groups = res?.data?.data || res?.data || []
       if (!Array.isArray(groups) || groups.length === 0) {
-        groups = MOCK_ROLE_GROUPS
+        groups = []
       }
 
       setRoleGroups(groups)
@@ -96,14 +81,7 @@ export function useRoleManagementFetch({
         })
       }
     } catch (err) {
-      setRoleGroups(MOCK_ROLE_GROUPS)
-      if (MOCK_ROLE_GROUPS.length > 0) {
-        const first = MOCK_ROLE_GROUPS[0]
-        setGroupId(String(first.Id || ''))
-        setGroupName(first.Name || '')
-        setComment(first.Comment || '')
-        setCreatedByName(first.CreatedByName || '')
-      }
+      setStatusMessage?.({ type: 'error', text: err.message || 'Không thể tải nhóm quyền' })
     } finally {
       loadingBarRef?.current?.complete?.()
     }
@@ -119,211 +97,48 @@ export function useRoleManagementFetch({
     t
   ])
 
-  // 3. Tải chi tiết Action Permissions của Menu đang chọn từ In-Memory Store (0 API Call khi click chọn menu)
+  // Selection is local: all grants and the action catalogue were loaded from BE.
   const fetchMenuViewDetails = useCallback(
-    async (menuId, groupId, menuName = '', menuKey = '') => {
-      if (!menuId || canView === false) {
-        setGridDataAction([])
-        setNumRowsAction(0)
-        return
-      }
-
-      try {
-        let dbActions = []
-        // Ưu tiên đọc trực tiếp từ in-memory store đã được tải trọn gói bởi fetchGroupRoles (0 network spam)
-        if (
-          currentGroupIdRef.current === String(groupId) &&
-          Array.isArray(groupActionsStoreRef.current) &&
-          groupActionsStoreRef.current.length > 0
-        ) {
-          dbActions = groupActionsStoreRef.current.filter(
-            (a) => String(a.MenuId || a.menuId || '') === String(menuId)
-          )
-        } else {
-          // Chỉ fallback gọi API nếu chưa có dữ liệu nhóm
-          const resRoleActions = await PostQActionRole({
-            groupId: String(groupId || ''),
-            menuId: String(menuId),
-            KeyItem1: String(groupId || ''),
-            KeyItem2: String(menuId)
-          }).catch(() => null)
-          const rawActions = resRoleActions?.data?.data || resRoleActions?.data || []
-          dbActions = Array.isArray(rawActions) ? rawActions : []
-        }
-
-        // Đảm bảo có danh mục action hệ thống (tải 1 lần duy nhất trong toàn phiên)
-        if (!cachedSystemActionList) {
-          const resSysActions = await ActionQ({ pageSize: 1000 }).catch(() => null)
-          const sysRaw =
-            resSysActions?.data?.data ||
-            resSysActions?.data?.items ||
-            resSysActions?.data ||
-            []
-          if (Array.isArray(sysRaw) && sysRaw.length > 0) {
-            cachedSystemActionList = sysRaw
-          }
-        }
-        const sysActions = cachedSystemActionList || []
-
-        // Lấy cấu hình action chuẩn của menu làm mẫu ban đầu (để giữ icon và tên Tiếng Việt chuẩn)
-        const defaultActions =
-          getRegisteredMenuPermissions(menuId, menuKey, menuName).actions || []
-
-        // Tạo map danh mục action: ưu tiên danh mục thực tế từ server (_ERPPermActions)
-        const masterActionMap = new Map()
-
-        // 1. Nạp từ template mặc định trước (để có icon đẹp, tên chuẩn)
-        defaultActions.forEach((def, idx) => {
-          const code = (def.ActionCode || def.ActionKey || '').toUpperCase()
-          if (code) {
-            masterActionMap.set(code, {
-              ...def,
-              ActionCode: code,
-              ActionKey: code,
-              IdxNo: def.IdxNo || idx + 1
-            })
-          }
-        })
-
-        // 2. Nạp và bổ sung từ danh mục thực tế hệ thống (gồm bất kỳ action nào mới thêm ở /erp/u/system/actions)
-        sysActions.forEach((sys, idx) => {
-          const code = (sys.ActionCode || sys.ActionKey || '').toUpperCase()
-          if (code) {
-            const existing = masterActionMap.get(code)
-            masterActionMap.set(code, {
-              ...(existing || {}),
-              ActionCode: code,
-              ActionKey: code,
-              ActionName: sys.ActionName || existing?.ActionName || code,
-              Description: sys.Comment || sys.Description || existing?.Description || '',
-              Icon: existing?.Icon || 'Activity',
-              IdxNo: sys.IdxNo ?? existing?.IdxNo ?? idx + 1,
-              IsDefaultAllow: sys.IsDefaultAllow ?? existing?.IsDefaultAllow ?? false,
-              Active: true
-            })
-          }
-        })
-
-        // Bộ action thô cơ bản không được hiển thị lặp lại trong bảng Action vì đã có ở cột Menu (View là duy nhất)
-        const RAW_CRUD_ACTIONS = new Set([
-          'VIEW',
-          'CREATE',
-          'EDIT',
-          'DELETE',
-          'IMPORT',
-          'EXPORT',
-          'PRINT',
-          'APPROVE',
-          'REJECT'
-        ])
-
-        const mergedMap = new Set()
-        const mergedList = []
-
-        // Sắp xếp danh mục master action theo thứ tự hiển thị IdxNo
-        const sortedMasterActions = Array.from(masterActionMap.values()).sort(
-          (a, b) => (Number(a.IdxNo) || 999) - (Number(b.IdxNo) || 999)
-        )
-
-        sortedMasterActions.forEach((actionDef, idx) => {
-          const actionKey = (actionDef.ActionCode || actionDef.ActionKey || '').toUpperCase()
-          if (RAW_CRUD_ACTIONS.has(actionKey)) return
-          mergedMap.add(actionKey)
-
-          const dbItem = dbActions.find((a) => {
-            const k = (a.ActionKey || a.Name || a.ActionCode || '').toUpperCase()
-            return k === actionKey
-          })
-
-          const isSavedInDb = Boolean(dbItem?.Id && !isNaN(Number(dbItem.Id)))
-
-          mergedList.push({
-            ...actionDef,
-            Id: isSavedInDb ? String(dbItem.Id) : '',
-            RoleRecordId: isSavedInDb ? String(dbItem.Id) : '',
-            ActionKey: actionKey,
-            Key: actionKey,
-            ActionName: actionDef.ActionName || dbItem?.ActionName || actionKey,
-            Name: actionDef.ActionName || dbItem?.ActionName || actionKey,
-            Description: actionDef.Description || actionDef.Comment || '',
-            Icon: actionDef.Icon || 'Activity',
-            IdxNo: idx + 1,
-            Allow: dbItem ? Boolean(dbItem.Allow ?? dbItem.View) : Boolean(actionDef.IsDefaultAllow ?? false),
-            Active: true,
-            MenuId: String(menuId),
-            MenuName: menuName,
-            GroupId: String(groupId || ''),
-            RowVersion: Number(dbItem?.RowVersion || 1),
-            Status: '',
-            isEdited: false
-          })
-        })
-
-        // Bổ sung các custom action khác có trong DB nếu là action nút lệnh hợp lệ (bắt đầu bằng BTN_)
-        dbActions.forEach((dbAct) => {
-          const actKey = (dbAct.ActionKey || dbAct.Name || dbAct.ActionCode || '').toUpperCase()
-          if (actKey && !RAW_CRUD_ACTIONS.has(actKey) && !mergedMap.has(actKey) && actKey.startsWith('BTN_')) {
-            mergedMap.add(actKey)
-            mergedList.push({
-              Id: String(dbAct.Id || ''),
-              RoleRecordId: String(dbAct.Id || ''),
-              ActionKey: dbAct.ActionKey || dbAct.Name || dbAct.ActionCode || '',
-              Key: dbAct.ActionKey || dbAct.Name || dbAct.ActionCode || '',
-              ActionName: dbAct.ActionName || dbAct.Name || actKey,
-              Name: dbAct.ActionName || dbAct.Name || actKey,
-              Description: dbAct.Description || '',
-              Icon: 'Activity',
-              IdxNo: mergedList.length + 1,
-              Allow: Boolean(dbAct.Allow ?? dbAct.View),
-              Active: true,
-              MenuId: String(menuId),
-              MenuName: menuName,
-              GroupId: String(groupId || ''),
-              RowVersion: Number(dbAct.RowVersion || 1),
-              Status: '',
-              isEdited: false
-            })
-          }
-        })
-
-        const finalActions = updateIndexNo(mergedList)
-        setGridDataAction(finalActions)
-        setNumRowsAction(finalActions.length)
-      } catch (err) {
-        const defaultActions =
-          getRegisteredMenuPermissions(menuId, menuKey, menuName).actions || []
-        const fallbackActions = updateIndexNo(
-          defaultActions.map((act, idx) => ({
-            ...act,
-            Id: '',
-            RoleRecordId: '',
-            ActionKey: act.ActionCode || act.ActionKey || '',
-            Key: act.ActionCode || act.ActionKey || '',
-            ActionName: act.ActionName || act.Name || '',
-            Name: act.ActionName || act.Name || '',
-            Description: act.Comment || act.Description || '',
-            IdxNo: act.IdxNo || idx + 1,
-            Allow: Boolean(act.Allow),
-            Active: true,
-            MenuId: String(menuId),
-            MenuName: menuName,
-            GroupId: String(groupId || ''),
-            Status: '',
-            isEdited: false
-          }))
-        )
-        setGridDataAction(fallbackActions)
-        setNumRowsAction(fallbackActions.length)
-      }
-
-      if (resetTableAction) resetTableAction()
+    async (menuId, groupId, menuName = '') => {
+      const request = ++actionRequestRef.current
+      const granted =
+        currentGroupIdRef.current === String(groupId)
+          ? groupActionsStoreRef.current.filter((row) => String(row.MenuId) === String(menuId))
+          : []
+      const rows =
+        menuId && canView !== false
+          ? buildActionRows(cachedSystemActionList || [], granted, menuId, groupId, menuName)
+          : []
+      if (request !== actionRequestRef.current) return
+      setGridDataAction(rows)
+      setNumRowsAction(rows.length)
+      resetTableAction?.()
     },
     [canView, resetTableAction, setGridDataAction, setNumRowsAction]
   )
 
+  const updateSavedActions = useCallback((rows) => {
+    const menuId = rows[0]?.MenuId
+    if (!menuId) return
+    groupActionsStoreRef.current = groupActionsStoreRef.current
+      .filter((row) => String(row.MenuId) !== String(menuId))
+      .concat(
+        rows
+          .filter((row) => row.RoleRecordId)
+          .map((row) => ({
+            ...row,
+            Id: row.RoleRecordId,
+            Type: 'action',
+            Name: row.ActionKey,
+            View: row.Allow
+          }))
+      )
+  }, [])
   // 2. Tải toàn bộ Phân hệ Root, Menu và Thành viên nhóm từ Backend API cho nhóm quyền
   const fetchGroupRoles = useCallback(
-    async (groupId, selectedRootId) => {
+    async (groupId, selectedRootId, sheet = 'all') => {
+      const request = ++groupRequestRef.current
+      if (sheet === 'all') ++actionRequestRef.current
       if (!groupId || canView === false) {
         setGridDataA([])
         setNumRowsA(0)
@@ -349,12 +164,29 @@ export function useRoleManagementFetch({
         }
 
         // Tối ưu hóa: Nếu đã có cache danh mục Menu hệ thống thì CHỈ CẦN GỌI ĐÚNG 1 REQUEST DUY NHẤT: PostQRole (Sheet: 'details')
-        const promises = [PostQRole(queryParam).catch(() => null)]
+        const promises = [PostQRole(queryParam)]
         if (!cachedSystemRootList || !cachedSystemMenuList) {
-          promises.push(PostQPermResourceTree({}).catch(() => null))
+          promises.push(PostQPermResourceTree({}))
         }
 
-        const [resRoleDetails, resTree] = await Promise.all(promises)
+        if (cachedSystemActionList === null) promises.push(ActionQ({ pageSize: 1000 }))
+        const results = await Promise.all(promises)
+        const resRoleDetails = results[0]
+        const resTree = !cachedSystemRootList || !cachedSystemMenuList ? results[1] : null
+        if (cachedSystemActionList === null) {
+          const actionResult = results[results.length - 1]
+          if (actionResult?.success === false)
+            throw new Error(actionResult.message || 'Không thể tải danh mục quyền thao tác')
+          const actions =
+            actionResult?.data?.data || actionResult?.data?.items || actionResult?.data || []
+          cachedSystemActionList = Array.isArray(actions) ? actions : []
+        }
+        if (request !== groupRequestRef.current) return
+        if (resRoleDetails?.success === false || resTree?.success === false) {
+          throw new Error(
+            resRoleDetails?.message || resTree?.message || 'Không thể truy vấn phân quyền'
+          )
+        }
 
         // Cập nhật cache danh mục hệ thống lần đầu trực tiếp từ Backend Database
         if ((!cachedSystemRootList || !cachedSystemMenuList) && resTree) {
@@ -367,8 +199,8 @@ export function useRoleManagementFetch({
           }
         }
 
-        const systemRootList = cachedSystemRootList || MOCK_ROOT_MENUS || []
-        const systemMenuList = cachedSystemMenuList || MOCK_FLAT_MENUS_SQL || []
+        const systemRootList = cachedSystemRootList || []
+        const systemMenuList = cachedSystemMenuList || []
 
         // Trích xuất quyền đã cấp cho nhóm hiện tại (từ bảng _ERPRolesUsers trong 1 response duy nhất)
         const roleDetails = resRoleDetails?.data?.data || resRoleDetails?.data || {}
@@ -411,7 +243,7 @@ export function useRoleManagementFetch({
             const granted =
               grantedRootMap.get(rmId) || grantedRootMap.get(rmKey.toLowerCase()) || null
 
-            const canView = Boolean(granted ? granted.View || granted.CanView : false)
+            const canView = Boolean(granted ? (granted.View ?? granted.CanView) : false)
 
             return {
               ...rm,
@@ -444,12 +276,12 @@ export function useRoleManagementFetch({
             m.MenuType === 'submenu' ||
             m.Type === 'Submenu' ||
             m.MenuType === 'Submenu'
-          const parentId = isSub ? 0 : m.MenuSubRootId || m.ParentId || 0
+          const parentId = m.MenuSubRootId || m.ParentId || 0
           const rootMenuId = String(m.RootMenuId || m.MenuRootId || selectedRootId || 1)
 
           const granted = grantedMenuMap.get(mId) || grantedMenuMap.get(mKey.toLowerCase()) || null
 
-          const canView = Boolean(granted ? granted.View || granted.CanView : false)
+          const canView = Boolean(granted ? (granted.View ?? granted.CanView) : false)
           const canCreate = Boolean(granted ? granted.Create : false)
           const canEdit = Boolean(granted ? granted.Edit : false)
           const canDelete = Boolean(granted ? granted.Delete : false)
@@ -491,15 +323,17 @@ export function useRoleManagementFetch({
         const groupedData = flattenMenuTree(tree, expandedIds, targetRoot)
         const finalB = updateIndexNo(groupedData.length > 0 ? groupedData : flatRows)
 
-        setGridDataA(finalA)
-        setNumRowsA(finalA.length)
-        setGridDataB(finalB)
-        setNumRowsB(finalB.length)
+        if (sheet === 'all' || sheet === 'menu') {
+          setGridDataA(finalA)
+          setNumRowsA(finalA.length)
+          setGridDataB(finalB)
+          setNumRowsB(finalB.length)
+        }
 
-        if (resetTableB) resetTableB()
+        if (sheet === 'all' && resetTableB) resetTableB()
 
         // 3. Tab 2: Thành Viên Thuộc Nhóm
-        if (setGridDataUsers) {
+        if (setGridDataUsers && (sheet === 'all' || sheet === 'users')) {
           const queriedUsers = (Array.isArray(grantedUsers) ? grantedUsers : []).map((u) => ({
             Id: u.Id ? String(u.Id) : '',
             UserSeq: u.UserSeq || '',
@@ -525,7 +359,10 @@ export function useRoleManagementFetch({
           setNumRowsAction(0)
         }
       } catch (err) {
+        if (request !== groupRequestRef.current) return
         console.error('fetchGroupRoles error:', err)
+        setStatusMessage?.({ type: 'error', text: err.message || 'Lỗi truy vấn phân quyền' })
+        throw err
       } finally {
         loadingBarRef?.current?.complete?.()
       }
@@ -542,13 +379,15 @@ export function useRoleManagementFetch({
       setNumRowsA,
       setNumRowsAction,
       setNumRowsB,
-      setNumRowsUsers
+      setNumRowsUsers,
+      setStatusMessage
     ]
   )
 
   return {
     fetchRoleGroups,
     fetchGroupRoles,
-    fetchMenuViewDetails
+    fetchMenuViewDetails,
+    updateSavedActions
   }
 }

@@ -9,6 +9,7 @@ import LayoutContextMenuSheet from '../../../../components/sheet/jsx/layoutConte
 import { reorderColumns } from '../../../../components/sheet/js/reorderColumns'
 import useTableManager from '../../../../components/hooks/sheet/useTableManager'
 import useTableConfig from '../../../../components/hooks/sheet/useTableConfig'
+import { asBoolean, markEdited } from '../utils/permissionRows'
 
 const BOOLEAN_COLS = new Set(['Allow'])
 
@@ -24,6 +25,7 @@ export default function RoleActionPermTable({
   setCols,
   cols = [],
   canEdit = true,
+  canCreate = canEdit,
   defaultCols = [],
   selectedMenuId,
   selectedMenuName,
@@ -100,12 +102,15 @@ export default function RoleActionPermTable({
       const cellValue = rowData[colId]
 
       if (BOOLEAN_COLS.has(colId)) {
-        const isChecked = Boolean(cellValue)
+        const isChecked = asBoolean(cellValue)
         return {
           kind: GridCellKind.Boolean,
           data: isChecked,
           allowOverlay: false,
-          readonly: !canEdit || isReadOnlyColumn(colId, rowData)
+          readonly:
+            !(rowData.RoleRecordId ? canEdit : canCreate) ||
+            colDef.readonly ||
+            rowData.WorkingTag === 'D'
         }
       }
 
@@ -120,17 +125,18 @@ export default function RoleActionPermTable({
         themeOverride: getCellTheme(colId, rowData)
       }
     },
-    [cols, gridData, canEdit, isReadOnlyColumn, getCellTheme]
+    [cols, gridData, canEdit, canCreate, isReadOnlyColumn, getCellTheme]
   )
 
   const onCellEdited = useCallback(
     ([col, row], newVal) => {
-      if (!canEdit) return
+      if (!(gridData[row]?.RoleRecordId ? canEdit : canCreate)) return
 
       const colDef = cols[col]
       if (!colDef) return
 
       const colId = colDef.id
+      if (colId !== 'Allow' || colDef.readonly || gridData[row]?.WorkingTag === 'D') return
       let finalVal = newVal.data
 
       if (newVal.kind === GridCellKind.Boolean) {
@@ -144,20 +150,20 @@ export default function RoleActionPermTable({
         const oldVal = oldRow[colId]
 
         if (oldVal !== finalVal) {
-          const statusVal = oldRow.WorkingTag || oldRow.Status || 'U'
-          next[row] = {
-            ...oldRow,
-            [colId]: finalVal,
-            WorkingTag: statusVal,
-            Status: statusVal,
-            MenuId: selectedMenuId,
-            MenuName: selectedMenuName
-          }
+          next[row] = markEdited(
+            oldRow,
+            {
+              [colId]: finalVal,
+              MenuId: selectedMenuId,
+              MenuName: selectedMenuName
+            },
+            'actions'
+          )
         }
         return next
       })
     },
-    [canEdit, cols, setGridData, selectedMenuId, selectedMenuName]
+    [canEdit, canCreate, cols, gridData, setGridData, selectedMenuId, selectedMenuName]
   )
 
   const onCellClickedInternal = useCallback(
@@ -175,7 +181,7 @@ export default function RoleActionPermTable({
           width="100%"
           height="100%"
           columns={cols}
-          rows={numRows}
+          rows={gridData.length}
           getCellContent={getCellContent}
           onCellEdited={onCellEdited}
           onCellClicked={onCellClickedInternal}

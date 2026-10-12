@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { CompactSelection } from '@glideapps/glide-data-grid'
 import { usePageData } from '../../../../../context/PageDataContext'
 import { loadFromLocalStorageSheet } from '../../../../../localStorage/sheet/sheet'
+import { ensureWorkingTagFirstColumn } from '../../../../../utils/systemColumns'
 
 import { useRoleRootMenuColumns } from '../columns/roleRootMenuColumns'
 import { useRoleMenuColumns } from '../columns/roleMenuColumns'
@@ -15,6 +16,7 @@ import { useRoleManagementFetch } from './useRoleManagementFetch'
 import { useRoleManagementMutation } from './useRoleManagementMutation'
 
 export function useRoleManagement({
+  activeSheet = 'menu',
   canCreate,
   canEdit,
   canDelete,
@@ -28,7 +30,7 @@ export function useRoleManagement({
 
   // Form Thông Tin Nhóm Quyền Hệ Thống (Hiển thị trên Query Bar Layout)
   const [roleGroups, setRoleGroups] = useState([])
-  const [groupId, setGroupId] = useState('')
+  const [groupId, setGroupIdState] = useState('')
   const [groupName, setGroupName] = useState('')
   const [comment, setComment] = useState('')
   const [createdByName, setCreatedByName] = useState('')
@@ -106,23 +108,32 @@ export function useRoleManagement({
   const getSanitizedCols = (storageKey, defaults) => {
     const cached = loadFromLocalStorageSheet(storageKey, null)
     if (!Array.isArray(cached) || cached.length === 0) {
-      return defaults.filter((c) => c.visible)
+      return ensureWorkingTagFirstColumn(
+        defaults.filter((c) => c.visible),
+        defaults
+      )
     }
     const defaultIds = new Set(defaults.filter((d) => d.visible).map((d) => d.id))
     const valid = cached.filter((c) => defaultIds.has(c.id))
     if (valid.length === 0) {
-      return defaults.filter((c) => c.visible)
+      return ensureWorkingTagFirstColumn(
+        defaults.filter((c) => c.visible),
+        defaults
+      )
     }
-    return valid.map((c) => {
-      const def = defaults.find((d) => d.id === c.id) || {}
-      return {
-        ...def,
-        ...c,
-        title: def.title || c.title,
-        kind: def.kind || c.kind,
-        readonly: def.readonly
-      }
-    })
+    return ensureWorkingTagFirstColumn(
+      valid.map((c) => {
+        const def = defaults.find((d) => d.id === c.id) || {}
+        return {
+          ...def,
+          ...c,
+          title: def.title || c.title,
+          kind: def.kind || c.kind,
+          readonly: def.readonly
+        }
+      }),
+      defaults
+    )
   }
 
   // 2. State Cột lưu cache local storage
@@ -148,6 +159,28 @@ export function useRoleManagement({
   const [gridDataCol, setGridDataCol] = useState([])
   const [gridDataScope, setGridDataScope] = useState([])
   const [gridDataUsers, setGridDataUsers] = useState([])
+  const contextRef = useRef({})
+  contextRef.current = { groupId, gridDataB, gridDataAction, gridDataUsers }
+  const setGroupId = useCallback(
+    (nextId) => {
+      const current = contextRef.current
+      if (
+        String(nextId) !== String(current.groupId) &&
+        [current.gridDataB, current.gridDataAction, current.gridDataUsers].some((rows) =>
+          rows.some((row) => ['A', 'U', 'D'].includes(row.WorkingTag || row.Status))
+        )
+      ) {
+        setStatusMessage?.({
+          type: 'warning',
+          text: 'Vui lòng lưu thay đổi ở từng bảng trước khi chuyển nhóm quyền.'
+        })
+        return false
+      }
+      setGroupIdState(nextId)
+      return true
+    },
+    [setStatusMessage]
+  )
 
   const [numRowsA, setNumRowsA] = useState(0)
   const [numRowsB, setNumRowsB] = useState(0)
@@ -289,37 +322,39 @@ export function useRoleManagement({
   }, [selectionUsers.rows.items, gridDataUsers])
 
   // 7. Fetch Hook
-  const { fetchRoleGroups, fetchGroupRoles, fetchMenuViewDetails } = useRoleManagementFetch({
-    setGroupId,
-    setGroupName,
-    setComment,
-    setCreatedByName,
-    setRoleGroups,
-    setGridDataA,
-    setGridDataB,
-    setGridDataCol,
-    setGridDataAction,
-    setGridDataScope,
-    setGridDataUsers,
-    setNumRowsA,
-    setNumRowsB,
-    setNumRowsCol,
-    setNumRowsAction,
-    setNumRowsScope,
-    setNumRowsUsers,
-    resetTableA,
-    resetTableB,
-    resetTableCol,
-    resetTableAction,
-    resetTableScope,
-    canView,
-    loadingBarRef,
-    controllers,
-    setStatusMessage
-  })
+  const { fetchRoleGroups, fetchGroupRoles, fetchMenuViewDetails, updateSavedActions } =
+    useRoleManagementFetch({
+      setGroupId,
+      setGroupName,
+      setComment,
+      setCreatedByName,
+      setRoleGroups,
+      setGridDataA,
+      setGridDataB,
+      setGridDataCol,
+      setGridDataAction,
+      setGridDataScope,
+      setGridDataUsers,
+      setNumRowsA,
+      setNumRowsB,
+      setNumRowsCol,
+      setNumRowsAction,
+      setNumRowsScope,
+      setNumRowsUsers,
+      resetTableA,
+      resetTableB,
+      resetTableCol,
+      resetTableAction,
+      resetTableScope,
+      canView,
+      loadingBarRef,
+      controllers,
+      setStatusMessage
+    })
 
   // 9. Mutation Hook
   const { handleSave, handleDelete, limitModalProps } = useRoleManagementMutation({
+    activeSheet,
     gridDataA,
     setGridDataA,
     gridDataB,
@@ -350,10 +385,29 @@ export function useRoleManagement({
     setStatusMessage,
     selectedGroupId: groupId,
     selectedMenuInGrid,
-    fetchGroupRoles: () => {
-      if (groupId) {
-        fetchGroupRoles(groupId)
-      }
+    onSaved: (sheet, rows) => {
+      if (sheet === 'actions') updateSavedActions(rows)
+      if (sheet === 'menu')
+        setGridDataA((roots) =>
+          roots.map((root) => {
+            const saved = rows.find(
+              (row) =>
+                row.MenuType === 'Phân hệ' && String(row.RootMenuId) === String(root.RootMenuId)
+            )
+            return saved
+              ? {
+                  ...root,
+                  View: saved.View,
+                  CanView: saved.View,
+                  RoleRecordId: saved.RoleRecordId,
+                  RowVersion: saved.RowVersion,
+                  WorkingTag: '',
+                  Status: '',
+                  isEdited: false
+                }
+              : root
+          })
+        )
     },
     customLimits
   })
@@ -369,18 +423,26 @@ export function useRoleManagement({
 
   const [selectedRootMenuId, setSelectedRootMenuId] = useState('')
   const lastFetchedMenuRef = useRef('')
+  const loadedGroupRef = useRef(null)
 
   // Tự động nạp phân quyền khi chọn/đổi nhóm quyền (tải toàn bộ cây phân quyền đầy đủ)
   useEffect(() => {
-    if (groupId) {
-      lastFetchedMenuRef.current = ''
-      fetchGroupRoles(groupId, '')
-    }
-  }, [groupId, fetchGroupRoles])
+    const key = `${groupId}:${canView !== false}`
+    if (loadedGroupRef.current === key) return
+    loadedGroupRef.current = key
+    lastFetchedMenuRef.current = ''
+    fetchGroupRoles(groupId, '').catch(() => {})
+  }, [groupId, canView, fetchGroupRoles])
 
   // Tự động nạp Action của Menu khi CHUYỂN SANG menu khác trong Bảng B (Không spam khi click sửa cell)
-  const currentMenuId = selectedMenuInGrid?.MenuId || selectedMenuInGrid?.Id || ''
+  const currentMenuId =
+    selectedMenuInGrid?.MenuType === 'Menu' ? selectedMenuInGrid?.MenuId || '' : ''
   useEffect(() => {
+    if (!currentMenuId) {
+      fetchMenuViewDetails('', groupId).catch(() => {})
+      lastFetchedMenuRef.current = ''
+      return
+    }
     if (currentMenuId && groupId) {
       const cacheKey = `${groupId}_${currentMenuId}`
       if (lastFetchedMenuRef.current === cacheKey) {
@@ -389,20 +451,33 @@ export function useRoleManagement({
       lastFetchedMenuRef.current = cacheKey
       const mName = selectedMenuInGrid.RawLabel || selectedMenuInGrid.MenuLabel || ''
       const mKey = selectedMenuInGrid.MenuKey || selectedMenuInGrid.Key || ''
-      fetchMenuViewDetails(currentMenuId, groupId, mName, mKey)
+      fetchMenuViewDetails(currentMenuId, groupId, mName, mKey).catch(() => {})
     }
   }, [currentMenuId, groupId, fetchMenuViewDetails])
 
   // Lọc tìm kiếm nhóm theo ô query
-  const handleSearch = useCallback(() => {
+  const handleSearch = useCallback(async () => {
+    const rows =
+      activeSheet === 'users'
+        ? gridDataUsers
+        : activeSheet === 'actions'
+          ? gridDataAction
+          : gridDataB
+    if (rows.some((row) => ['A', 'U', 'D'].includes(row.WorkingTag || row.Status))) {
+      setStatusMessage?.({
+        type: 'warning',
+        text: 'Vui lòng lưu thay đổi của bảng đang làm việc trước khi truy vấn lại.'
+      })
+      return
+    }
     if (groupName && groupName.trim()) {
       const match = roleGroups.find((g) =>
         String(g.Name || g.Id || '')
           .toLowerCase()
           .includes(groupName.toLowerCase().trim())
       )
-      if (match) {
-        setGroupId(String(match.Id || ''))
+      if (match && String(match.Id) !== String(groupId)) {
+        if (setGroupId(String(match.Id || '')) === false) return
         setGroupName(match.Name || '')
         setComment(match.Comment || '')
         setCreatedByName(match.CreatedByName || '')
@@ -410,11 +485,38 @@ export function useRoleManagement({
       }
     }
     if (groupId) {
-      fetchGroupRoles(groupId, selectedRootMenuId)
+      try {
+        await fetchGroupRoles(groupId, '', activeSheet)
+        if (activeSheet === 'actions' && currentMenuId) {
+          await fetchMenuViewDetails(
+            currentMenuId,
+            groupId,
+            selectedMenuInGrid?.RawLabel,
+            selectedMenuInGrid?.MenuKey
+          )
+        }
+      } catch {
+        /* Fetch hook displays the error. */
+      }
     } else {
       fetchRoleGroups()
     }
-  }, [fetchGroupRoles, fetchRoleGroups, groupId, groupName, roleGroups, selectedRootMenuId])
+  }, [
+    fetchGroupRoles,
+    fetchRoleGroups,
+    groupId,
+    groupName,
+    roleGroups,
+    activeSheet,
+    gridDataB,
+    gridDataAction,
+    gridDataUsers,
+    setStatusMessage,
+    setGroupId,
+    currentMenuId,
+    fetchMenuViewDetails,
+    selectedMenuInGrid
+  ])
 
   return {
     // Form Query & Groups List

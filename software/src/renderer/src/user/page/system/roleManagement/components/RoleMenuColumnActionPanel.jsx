@@ -9,6 +9,9 @@ import RoleColumnSetupTable from './RoleColumnSetupTable'
 import RoleDataScopeTable from './RoleDataScopeTable'
 
 export default function RoleMenuColumnActionPanel({
+  activeSheet = 'menu',
+  onActivateSheet,
+  canSelectMenu,
   // Bảng Menu nửa trên
   gridDataB,
   setGridDataB,
@@ -148,9 +151,30 @@ export default function RoleMenuColumnActionPanel({
   return (
     <div
       ref={panelRef}
-      className="h-full w-full flex flex-col bg-white overflow-hidden select-none border border-slate-300 rounded shadow-2xs"
+      className="h-full w-full flex flex-col bg-white overflow-hidden border border-slate-300"
     >
       {/* 1. THANH HEADER THÔNG TIN CÂY PHÂN QUYỀN VÀ MENU ĐANG CHỌN */}
+      <div
+        className="flex gap-1 px-2 pt-1 border-b border-slate-300 bg-slate-100 text-xs"
+        role="tablist"
+        aria-label="Bảng phân quyền đang làm việc"
+      >
+        {[
+          ['menu', 'Quyền menu'],
+          ['actions', 'Quyền thao tác']
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={activeSheet === key}
+            onClick={() => onActivateSheet?.(key)}
+            className={`px-3 py-1 border-t-2 ${activeSheet === key ? 'bg-white border-blue-700 text-blue-700 font-semibold' : 'border-transparent text-slate-600'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 shrink-0 flex items-center justify-between text-xs gap-2">
         <div className="flex items-center gap-2">
           <span className="w-2 h-4 bg-blue-700 rounded-xs" />
@@ -181,6 +205,8 @@ export default function RoleMenuColumnActionPanel({
       >
         <div className="flex-1 w-full relative">
           <RoleMenuTable
+            onActivate={() => onActivateSheet?.('menu')}
+            canSelectMenu={canSelectMenu}
             gridData={gridDataB}
             setGridData={setGridDataB}
             selection={selectionB}
@@ -222,7 +248,10 @@ export default function RoleMenuColumnActionPanel({
       {/* 3. NỬA DƯỚI: BẢNG QUYỀN ACTION & NÚT LỆNH CỦA MENU ĐANG CHỌN */}
       <div className="flex-1 min-h-0 w-full flex flex-col mt-1 bg-white overflow-hidden">
         {/* THANH HEADER ĐƠN GIẢN, RÕ RÀNG */}
-        <div className="flex items-center justify-between border-b border-slate-300 bg-slate-100 h-[30px] px-3 shrink-0 select-none">
+        <div
+          onClick={() => onActivateSheet?.('actions')}
+          className="flex items-center justify-between border-b border-slate-300 bg-slate-100 h-[30px] px-3 shrink-0 select-none cursor-pointer"
+        >
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-3.5 bg-blue-600 rounded-xs" />
             <span className="text-xs font-semibold text-slate-800">
@@ -235,7 +264,11 @@ export default function RoleMenuColumnActionPanel({
         </div>
 
         {/* NỘI DUNG BẢNG ACTION PERMISSIONS */}
-        <div className="flex-1 min-h-0 w-full relative overflow-hidden bg-white">
+        <div
+          onPointerDownCapture={() => onActivateSheet?.('actions')}
+          onFocusCapture={() => onActivateSheet?.('actions')}
+          className="flex-1 min-h-0 w-full relative overflow-hidden bg-white"
+        >
           <div className="absolute inset-0 h-full w-full flex flex-col min-h-0 overflow-hidden">
             <RoleActionPermTable
               gridData={gridDataAction}

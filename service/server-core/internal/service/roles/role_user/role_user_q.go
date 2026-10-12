@@ -50,7 +50,9 @@ func (s *RoleUsersService) RoleUsersQ(ctx context.Context, opts RoleUsersQueryOp
 	case "menu":
 		query += `, m."Key" AS "MenuKey", m."Label" AS "MenuLabel", COALESCE(rm."Label", '') AS "MenuRootName", COALESCE(sm."Label", '') AS "MenuSubRootName"`
 	case "user":
-		query += `, COALESCE(u."UserName", '') AS "UserName"`
+		query += `, COALESCE(u."UserName", '') AS "UserName", COALESCE(u."EmpID", '') AS "EmpID", COALESCE(u."DeptName", '') AS "DeptName"`
+	case "action":
+		query += `, ru."Name" AS "ActionKey", ru."Name" AS "ActionName", ru."View" AS "Allow"`
 	case "rootmenu", "root":
 		query += `, rm."Key" AS "RootMenuKey", rm."Label" AS "RootMenuLabel"`
 	}
@@ -83,6 +85,8 @@ func (s *RoleUsersService) RoleUsersQ(ctx context.Context, opts RoleUsersQueryOp
 		case "user":
 			query += ` AND ru."Type" = :type AND ((ru."UserId" IS NOT NULL AND ru."UserId" != '') OR (ru."UserSeq" IS NOT NULL AND ru."UserSeq" != ''))`
 			args["type"] = opts.Type
+		case "action":
+			query += ` AND ru."Type" = 'action'`
 		default:
 			query += ` AND ru."Type" = :type`
 			args["type"] = opts.Type
@@ -92,7 +96,14 @@ func (s *RoleUsersService) RoleUsersQ(ctx context.Context, opts RoleUsersQueryOp
 		query += ` AND CAST(ru."GroupId" AS VARCHAR) = :groupId`
 		args["groupId"] = fmt.Sprintf("%d", opts.GroupId)
 	}
-	if opts.UserId > 0 {
+	if opts.MenuId > 0 {
+		query += ` AND CAST(ru."MenuId" AS VARCHAR) = :menuId`
+		args["menuId"] = fmt.Sprintf("%d", opts.MenuId)
+	}
+	if opts.UserCode != "" {
+		query += ` AND (ru."UserId" = :userCode OR ru."UserSeq" = :userCode)`
+		args["userCode"] = opts.UserCode
+	} else if opts.UserId > 0 {
 		query += ` AND CAST(ru."UserSeq" AS VARCHAR) = :userId`
 		args["userId"] = fmt.Sprintf("%d", opts.UserId)
 	}

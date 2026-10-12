@@ -47,33 +47,6 @@ export const useUserColumns = ({ isFieldVisible, isFieldReadOnly } = {}) => {
         visible: true
       },
       {
-        title: t('system.empCode', 'Mã nhân viên [F2]'),
-        id: 'EmpCode',
-        kind: 'Text',
-        readonly: false,
-        width: 150,
-        hasMenu: true,
-        visible: true
-      },
-      {
-        title: t('system.empName', 'Tên nhân viên'),
-        id: 'EmpName',
-        kind: 'Text',
-        readonly: false,
-        width: 190,
-        hasMenu: true,
-        visible: true
-      },
-      {
-        title: t('system.deptName', 'Phòng ban / Bộ phận [F2]'),
-        id: 'DeptName',
-        kind: 'Text',
-        readonly: false,
-        width: 190,
-        hasMenu: true,
-        visible: true
-      },
-      {
         title: t('system.email', 'Email'),
         id: 'Email',
         kind: 'Text',

@@ -22,7 +22,7 @@ const EMPTY_ARRAY = []
 const BOOLEAN_KEYS = new Set(['StatusAcc', 'CheckPass1', 'Active', 'IsDataLock'])
 const DATE_KEYS = new Set(['CreatedAt', 'UpdatedAt', 'LastLoginDate', 'CreatedDate', 'UpdatedDate'])
 const CUSTOM_RENDERERS = [CellsPosition]
-const CODE_HELP_COLUMNS = ['GroupName', 'EmpCode', 'EmpName', 'DeptName']
+const CODE_HELP_COLUMNS = ['GroupName']
 
 export default function UserTable({
   tableTitle,
@@ -52,22 +52,6 @@ export default function UserTable({
   const { freezeColumnsCount, handleFreezeColumn } = useTableConfig('users_manage')
 
   const codeHelpConfig = useMemo(() => {
-    const helpList = Array.isArray(dataHelp01) ? dataHelp01 : []
-    const deptMap = new Map()
-    helpList.forEach((d) => {
-      if (d?.DeptName && !deptMap.has(d.DeptName)) {
-        deptMap.set(d.DeptName, { DeptName: d.DeptName, DeptCode: d.DeptCode || '' })
-      }
-    })
-    const deptList = Array.from(deptMap.values())
-
-    const userList = helpList.map((u) => ({
-      UserId: u?.UserId || '',
-      UserName: u?.UserName || '',
-      DeptName: u?.DeptName || '',
-      EmpCode: u?.EmpCode || ''
-    }))
-
     return {
       GroupName: {
         title: t('Tra cứu nhóm quyền hệ thống'),
@@ -81,48 +65,9 @@ export default function UserTable({
           GroupName: selected.Name || '',
           GroupId: String(selected.Id || '')
         })
-      },
-      EmpCode: {
-        title: t('Tra cứu nhân viên'),
-        helpData: userList,
-        columns: [
-          { id: 'EmpCode', title: t('Mã NV'), width: 140 },
-          { id: 'EmpName', title: t('Tên nhân viên'), width: 220 },
-          { id: 'DeptName', title: t('Bộ phận'), width: 200 }
-        ],
-        onSelect: (selected, row, prev) => ({
-          EmpCode: selected.EmpCode || selected.UserId || '',
-          EmpName: selected.EmpName || selected.UserName || '',
-          DeptName: selected.DeptName || prev[row]?.DeptName || ''
-        })
-      },
-      EmpName: {
-        title: t('Tra cứu nhân viên'),
-        helpData: userList,
-        columns: [
-          { id: 'EmpCode', title: t('Mã NV'), width: 140 },
-          { id: 'EmpName', title: t('Tên nhân viên'), width: 220 },
-          { id: 'DeptName', title: t('Bộ phận'), width: 200 }
-        ],
-        onSelect: (selected, row, prev) => ({
-          EmpCode: selected.EmpCode || selected.UserId || '',
-          EmpName: selected.EmpName || selected.UserName || '',
-          DeptName: selected.DeptName || prev[row]?.DeptName || ''
-        })
-      },
-      DeptName: {
-        title: t('Tra cứu bộ phận làm việc'),
-        helpData: deptList,
-        columns: [
-          { id: 'DeptName', title: t('Tên bộ phận'), width: 300 },
-          { id: 'DeptCode', title: t('Mã bộ phận'), width: 150 }
-        ],
-        onSelect: (selected) => ({
-          DeptName: selected.DeptName || selected.Name || ''
-        })
       }
     }
-  }, [dataHelp01, t])
+  }, [t])
 
   const {
     hoverRow,

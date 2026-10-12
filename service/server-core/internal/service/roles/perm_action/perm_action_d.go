@@ -38,13 +38,14 @@ func (s *PermActionsService) PermActionsD(ctx context.Context, actions []domainR
 	// ── BƯỚC 1: KIỂM TRA OPTIMISTIC CONCURRENCY LOCKING (ROWVERSION) ──
 	type ExistingDeleteRecord struct {
 		IdSeq         string `db:"IdSeq"`
+		ActionCode    string `db:"ActionCode"`
 		ActionName    string `db:"ActionName"`
 		RowVersion    int64  `db:"RowVersion"`
 		UpdatedByName string `db:"UpdatedByName"`
 	}
 	var existingList []ExistingDeleteRecord
 	queryCheck := `
-		SELECT a."IdSeq", a."ActionName", COALESCE(a."RowVersion", 1) AS "RowVersion",
+		SELECT a."IdSeq", a."ActionCode", a."ActionName", COALESCE(a."RowVersion", 1) AS "RowVersion",
 		       COALESCE(u."UserName", u."UserId", CAST(a."UpdatedBy" AS VARCHAR), '') AS "UpdatedByName"
 		FROM "_ERPPermActions" a
 		LEFT JOIN "_ERPUsers" u ON CAST(a."UpdatedBy" AS VARCHAR) = CAST(u."UserSeq" AS VARCHAR) OR CAST(a."UpdatedBy" AS VARCHAR) = CAST(u."UserId" AS VARCHAR)
@@ -96,6 +97,15 @@ func (s *PermActionsService) PermActionsD(ctx context.Context, actions []domainR
 	res, err := s.db.ExecContext(ctx, `DELETE FROM "_ERPPermActions" WHERE "IdSeq" = ANY($1)`, pq.Array(idSeqs))
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete perm actions: %w", err)
+	}
+
+	// Đồng bộ xóa khỏi _ERPMenuActions, _ERPActions và _ERPRolesUsers
+	for _, rec := range existingList {
+		if rec.ActionCode != "" {
+			_, _ = s.db.ExecContext(ctx, `DELETE FROM "_ERPMenuActions" WHERE "ActionKey" = $1`, rec.ActionCode)
+			_, _ = s.db.ExecContext(ctx, `DELETE FROM "_ERPActions" WHERE "ActionKey" = $1`, rec.ActionCode)
+			_, _ = s.db.ExecContext(ctx, `DELETE FROM "_ERPRolesUsers" WHERE "Type" = 'action' AND "Name" = $1`, rec.ActionCode)
+		}
 	}
 
 	rowsAffected, _ := res.RowsAffected()

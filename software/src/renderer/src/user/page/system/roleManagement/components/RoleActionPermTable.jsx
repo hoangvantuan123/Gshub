@@ -162,33 +162,9 @@ export default function RoleActionPermTable({
 
   const onCellClickedInternal = useCallback(
     (cell, event) => {
-      const [colIndex, rowIndex] = cell
-      const colDef = cols[colIndex]
-      const colId = colDef?.id
-      if (colId && BOOLEAN_COLS.has(colId) && canEdit) {
-        const rowData = gridData[rowIndex]
-        if (rowData) {
-          const currentVal = Boolean(rowData[colId])
-          const nextVal = !currentVal
-          setGridData((prev) => {
-            const next = [...prev]
-            if (!next[rowIndex]) return prev
-            const statusVal = next[rowIndex].WorkingTag || next[rowIndex].Status || 'U'
-            next[rowIndex] = {
-              ...next[rowIndex],
-              [colId]: nextVal,
-              WorkingTag: statusVal,
-              Status: statusVal,
-              isEdited: true
-            }
-            return next
-          })
-          return
-        }
-      }
       if (onCellClicked) onCellClicked(cell, event)
     },
-    [cols, canEdit, gridData, onCellClicked, setGridData]
+    [onCellClicked]
   )
 
   return (

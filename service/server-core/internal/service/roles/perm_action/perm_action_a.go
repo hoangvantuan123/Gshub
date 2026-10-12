@@ -204,6 +204,24 @@ func (s *PermActionsService) PermActionsA(ctx context.Context, actions []domainR
 		return nil, fmt.Errorf("lỗi thực thi Bulk Insert PermActions: %w", err)
 	}
 
+	// Tự động đồng bộ sang _ERPActions và _ERPMenuActions để menu có ngay action mới
+	for _, rec := range createdRecords {
+		_, _ = tx.ExecContext(ctx, `
+			INSERT INTO "_ERPActions" ("ActionKey", "ActionName", "Description", "Icon", "IdxNo", "Active")
+			VALUES ($1, $2, COALESCE($3, ''), 'Activity', COALESCE($4, 1), true)
+			ON CONFLICT ("ActionKey") DO UPDATE 
+			SET "ActionName" = EXCLUDED."ActionName", "Description" = EXCLUDED."Description", "IdxNo" = EXCLUDED."IdxNo", "Active" = true
+		`, rec.ActionCode, rec.ActionName, rec.Comment, rec.IdxNo)
+
+		_, _ = tx.ExecContext(ctx, `
+			INSERT INTO "_ERPMenuActions" ("MenuId", "ActionKey", "ActionName", "IdxNo")
+			SELECT m."Id", $1, $2, COALESCE($3, 1)
+			FROM "_ERPMenus" m
+			WHERE m."Type" = 'menu'
+			ON CONFLICT DO NOTHING
+		`, rec.ActionCode, rec.ActionName, rec.IdxNo)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}

@@ -626,20 +626,21 @@ export function flattenMenuTree(tree = [], expandedIds = new Set(), rootMenuId =
 
       let displayPrefix = ''
       if (node.Level === 0) {
-        displayPrefix = hasChildren ? (isExpanded ? '[-] 📁 ' : '[+] 📁 ') : '📁 '
+        displayPrefix = hasChildren ? (isExpanded ? '▾ ' : '▸ ') : ''
       } else if (node.Level === 1) {
+        const indent = '    '
         displayPrefix = hasChildren
           ? isExpanded
-            ? '    [-] 📂 '
-            : '    [+] 📂 '
+            ? `${indent}▾ `
+            : `${indent}▸ `
           : node.IsGroup
-            ? '    📂 '
-            : '    📄 '
+            ? `${indent}`
+            : `${indent}  `
       } else {
-        displayPrefix = '        📄 '
+        displayPrefix = '        '
       }
 
-      const countSuffix = hasChildren ? ` (${count})` : ''
+      const countSuffix = ''
       const treeDisplay = `${displayPrefix}${node.RawLabel || node.Label}${countSuffix}`
 
       result.push({
@@ -980,103 +981,10 @@ export const DEFAULT_DATA_SCOPES_TEMPLATE = [
 
 // 6. Hàm lấy danh sách quyền, cột, phạm vi chuyên biệt cho từng Menu
 export function getRegisteredMenuPermissions(menuId, menuKey = '', menuLabel = '') {
-  const key = String(menuKey || '').toLowerCase()
-  const label = String(menuLabel || '').toLowerCase()
-
-  // Phân hệ Quản trị hệ thống (User, Role, Menu, RootMenu)
-  if (
-    key.includes('sys') ||
-    key.includes('role') ||
-    key.includes('user') ||
-    key.includes('menu') ||
-    label.includes('hệ thống') ||
-    label.includes('quyền')
-  ) {
-    return {
-      actions: [
-        {
-          ActionCode: 'BTN_SEARCH',
-          ActionName: 'Truy vấn dữ liệu (Search / F4)',
-          TargetType: 'Group',
-          TargetName: 'Nhóm quyền',
-          Allow: true,
-          Comment: 'Tìm kiếm dữ liệu hệ thống'
-        },
-        {
-          ActionCode: 'BTN_CREATE',
-          ActionName: 'Thêm mới bản ghi (Insert / F2)',
-          TargetType: 'Group',
-          TargetName: 'Nhóm quyền',
-          Allow: true,
-          Comment: 'Thêm mới cấu hình hệ thống'
-        },
-        {
-          ActionCode: 'BTN_EDIT',
-          ActionName: 'Chỉnh sửa cấu hình (Edit)',
-          TargetType: 'Group',
-          TargetName: 'Nhóm quyền',
-          Allow: true,
-          Comment: 'Chỉnh sửa thông tin'
-        },
-        {
-          ActionCode: 'BTN_DELETE',
-          ActionName: 'Xóa bản ghi (Delete / F8)',
-          TargetType: 'Group',
-          TargetName: 'Nhóm quyền',
-          Allow: true,
-          Comment: 'Xóa cấu hình'
-        },
-        {
-          ActionCode: 'BTN_SAVE',
-          ActionName: 'Lưu thay đổi (Save / F10)',
-          TargetType: 'Group',
-          TargetName: 'Nhóm quyền',
-          Allow: true,
-          Comment: 'Lưu thay đổi trên bảng dữ liệu'
-        },
-        {
-          ActionCode: 'BTN_EXPORT',
-          ActionName: 'Xuất file Excel (Export / F9)',
-          TargetType: 'Group',
-          TargetName: 'Nhóm quyền',
-          Allow: true,
-          Comment: 'Xuất danh mục hệ thống'
-        }
-      ],
-      columns: DEFAULT_COLUMNS_TEMPLATE,
-      scopes: [
-        {
-          ScopeCode: 'SCOPE_VIEW_ALL',
-          ScopeName: 'Xem cấu hình toàn hệ thống',
-          OperationCode: 'BTN_SEARCH',
-          OperationName: 'Truy vấn / Tìm kiếm dữ liệu (Search)',
-          DataScope: 'ALL',
-          DataScopeLabel: 'Toàn hệ thống (ALL)',
-          RuleCondition: 'ALL_STATUS',
-          RuleConditionLabel: 'Mọi trạng thái',
-          Allow: true,
-          Comment: 'Toàn quyền xem'
-        },
-        {
-          ScopeCode: 'SCOPE_EDIT_ALL',
-          ScopeName: 'Chỉnh sửa cấu hình toàn hệ thống',
-          OperationCode: 'BTN_SAVE',
-          OperationName: 'Lưu thay đổi dữ liệu (Save)',
-          DataScope: 'ALL',
-          DataScopeLabel: 'Toàn hệ thống (ALL)',
-          RuleCondition: 'ALL_STATUS',
-          RuleConditionLabel: 'Mọi trạng thái',
-          Allow: true,
-          Comment: 'Toàn quyền sửa'
-        }
-      ]
-    }
-  }
-
-  // Phân hệ Báo cáo sản xuất và các màn hình khác
   return {
     actions: DEFAULT_ACTIONS_TEMPLATE,
     columns: DEFAULT_COLUMNS_TEMPLATE,
     scopes: DEFAULT_DATA_SCOPES_TEMPLATE
   }
 }
+

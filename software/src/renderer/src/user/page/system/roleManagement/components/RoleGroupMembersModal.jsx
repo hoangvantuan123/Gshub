@@ -66,10 +66,17 @@ export default function RoleGroupMembersModal({
     }
 
     try {
-      await PostAUserRole({
-        groupId: String(groupId),
-        userIds: selectedUserKeys
+      const usersToInsert = selectedUserKeys.map((uid, idx) => {
+        const found = allUsers.find((u) => u.UserId === uid)
+        return {
+          GroupId: Number(groupId),
+          UserId: String(uid),
+          UserSeq: String(found?.UserSeq || ''),
+          Type: 'user',
+          IdxNo: idx + 1
+        }
       })
+      await PostAUserRole(usersToInsert)
       message.success(
         t('Đã gán {{count}} người dùng vào nhóm quyền thành công!', {
           count: selectedUserKeys.length
@@ -84,13 +91,20 @@ export default function RoleGroupMembersModal({
   }
 
   // 3. Xóa người dùng khỏi nhóm quyền
-  const handleRemoveUser = async (userId) => {
-    if (!userId) return
+  const handleRemoveUser = async (recordOrId) => {
+    if (!recordOrId) return
     try {
-      await PostDUserRole({
-        groupId: String(groupId),
-        userIds: [String(userId)]
-      })
+      const recordId = typeof recordOrId === 'object' ? recordOrId.Id : Number(recordOrId)
+      const userId = typeof recordOrId === 'object' ? recordOrId.UserId : String(recordOrId)
+
+      if (recordId && !isNaN(Number(recordId)) && Number(recordId) > 0) {
+        await PostDUserRole([{ Id: Number(recordId), Sheet: 'user' }])
+      } else {
+        await PostDUserRole({
+          groupId: String(groupId),
+          userIds: [String(userId)]
+        })
+      }
       message.success(t('Đã xóa người dùng khỏi nhóm quyền thành công!'))
       fetchMembers()
     } catch (err) {

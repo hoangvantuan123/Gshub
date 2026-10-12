@@ -7,10 +7,36 @@ export const PostDRole = (result, options = {}) => apiPost('/role/RoleD', { resu
 export const PostQRole = (result, options = {}) => apiPost('/role/RoleQ', { result }, options)
 
 // Gán tài khoản vào nhóm quyền (User-Role Mapping)
-export const PostAUserRole = (result, options = {}) =>
-  apiPost('/role/UserRoleA', { result }, options)
-export const PostDUserRole = (result, options = {}) =>
-  apiPost('/role/UserRoleD', { result }, options)
+export const PostAUserRole = (result, options = {}) => {
+  let finalResult = result
+  if (result && !Array.isArray(result) && result.userIds && Array.isArray(result.userIds)) {
+    finalResult = result.userIds.map((uid, idx) => ({
+      GroupId: Number(result.groupId || result.GroupId || 0),
+      UserId: String(uid),
+      Type: 'user',
+      IdxNo: idx + 1
+    }))
+  }
+  return apiPost('/role/UserRoleA', { result: finalResult }, options)
+}
+
+export const PostDUserRole = (result, options = {}) => {
+  let finalResult = result
+  if (result && !Array.isArray(result)) {
+    if (result.userIds && Array.isArray(result.userIds)) {
+      finalResult = result.userIds.map((uid, idx) => ({
+        Id: Number(uid) || 0,
+        UserId: String(uid),
+        GroupId: Number(result.groupId || result.GroupId || 0),
+        Sheet: 'user'
+      }))
+    } else if (result.Id || result.id) {
+      finalResult = [{ Id: Number(result.Id || result.id), Sheet: 'user' }]
+    }
+  }
+  return apiPost('/role/UserRoleD', { result: finalResult }, options)
+}
+
 export const PostUUserRole = (result, options = {}) =>
   apiPost('/role/UserRoleU', { result }, options)
 export const PostQUserRole = (result, options = {}) =>
@@ -28,9 +54,13 @@ export const PostURootMenuRole = (result, options = {}) =>
 
 // Quyền Action / Nút Lệnh theo Menu & Vai trò
 export const PostQActionRole = (result, options = {}) =>
-  apiPost('/role/ActionRoleQ', { result }, options)
+  apiPost('/role/RoleQ', { result: { Sheet: 'action', ...result } }, options).catch(() =>
+    apiPost('/role/PermActionsQ', { result }, options)
+  )
 export const PostUActionRole = (result, options = {}) =>
-  apiPost('/role/ActionRoleU', { result }, options)
+  apiPost('/role/RoleU', { result }, options).catch(() =>
+    apiPost('/role/PermActionsU', { result }, options)
+  )
 
 // Ma trận quyền tài nguyên & cây menu
 export const PostQPermResourceTree = (result = {}, options = {}) =>

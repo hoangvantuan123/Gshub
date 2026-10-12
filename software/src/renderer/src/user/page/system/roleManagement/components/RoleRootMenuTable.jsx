@@ -115,42 +115,11 @@ export default function RoleRootMenuTable({
         }
       }
 
-      if (colId && BOOLEAN_COLS.has(colId) && canEdit) {
-        const rowData = gridData[rowIndex]
-        if (rowData) {
-          const currentVal = Boolean(
-            rowData[colId] === true ||
-            rowData[colId] === 1 ||
-            rowData[colId] === '1' ||
-            String(rowData[colId]).toLowerCase() === 'true'
-          )
-          const nextVal = !currentVal
-          setGridData((prev) => {
-            const next = [...prev]
-            if (!next[rowIndex]) return prev
-            const curStatus = next[rowIndex].WorkingTag || next[rowIndex].Status || ''
-            const statusVal = curStatus === 'A' ? 'A' : 'U'
-            next[rowIndex] = {
-              ...next[rowIndex],
-              [colId]: nextVal,
-              WorkingTag: statusVal,
-              Status: statusVal,
-              isEdited: true
-            }
-            if (selectedGroupId && !next[rowIndex].GroupId) {
-              next[rowIndex].GroupId = selectedGroupId
-            }
-            return next
-          })
-          return
-        }
-      }
-
       if (baseOnCellClicked) {
         baseOnCellClicked(cell, event)
       }
     },
-    [baseOnCellClicked, cols, canEdit, gridData, selectedGroupId, setGridData, setSelection]
+    [baseOnCellClicked, cols, setSelection]
   )
 
   const colMetadata = useMemo(() => {

@@ -368,23 +368,30 @@ export function useRoleManagement({
   }, [canView, fetchRoleGroups])
 
   const [selectedRootMenuId, setSelectedRootMenuId] = useState('')
+  const lastFetchedMenuRef = useRef('')
 
   // Tự động nạp phân quyền khi chọn/đổi nhóm quyền (tải toàn bộ cây phân quyền đầy đủ)
   useEffect(() => {
     if (groupId) {
+      lastFetchedMenuRef.current = ''
       fetchGroupRoles(groupId, '')
     }
   }, [groupId, fetchGroupRoles])
 
-  // Tự động nạp Action & Setup Cột & Scope của riêng Menu khi chọn dòng menu trong Bảng B
+  // Tự động nạp Action của Menu khi CHUYỂN SANG menu khác trong Bảng B (Không spam khi click sửa cell)
+  const currentMenuId = selectedMenuInGrid?.MenuId || selectedMenuInGrid?.Id || ''
   useEffect(() => {
-    if (selectedMenuInGrid && (selectedMenuInGrid.MenuId || selectedMenuInGrid.Id)) {
-      const mId = selectedMenuInGrid.MenuId || selectedMenuInGrid.Id
+    if (currentMenuId && groupId) {
+      const cacheKey = `${groupId}_${currentMenuId}`
+      if (lastFetchedMenuRef.current === cacheKey) {
+        return
+      }
+      lastFetchedMenuRef.current = cacheKey
       const mName = selectedMenuInGrid.RawLabel || selectedMenuInGrid.MenuLabel || ''
       const mKey = selectedMenuInGrid.MenuKey || selectedMenuInGrid.Key || ''
-      fetchMenuViewDetails(mId, groupId, mName, mKey)
+      fetchMenuViewDetails(currentMenuId, groupId, mName, mKey)
     }
-  }, [selectedMenuInGrid, groupId, fetchMenuViewDetails])
+  }, [currentMenuId, groupId, fetchMenuViewDetails])
 
   // Lọc tìm kiếm nhóm theo ô query
   const handleSearch = useCallback(() => {

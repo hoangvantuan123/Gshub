@@ -35,10 +35,12 @@ func NewRoleUsersService(db *sqlx.DB) *RoleUsersService {
 }
 
 type RoleUsersQueryOptions struct {
-	Type    string
-	GroupId int
-	UserId  int
-	Select  []string
+	Type     string
+	GroupId  int
+	UserId   int
+	UserCode string
+	MenuId   int
+	Select   []string
 }
 
 func (s *RoleUsersService) publishKafkaEvent(eventType string, payload interface{}) {

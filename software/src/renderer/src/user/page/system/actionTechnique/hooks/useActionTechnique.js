@@ -85,28 +85,54 @@ export function useActionTechnique({
           pageSize: 1000
         }
         const res = await ActionQ(queryParams)
-        if (res && res.success && Array.isArray(res.data)) {
-          setGridData(res.data)
-          setNumRows(res.data.length)
+        const rawList = res?.data || res?.data?.data || []
+        const list = Array.isArray(rawList) ? rawList : (Array.isArray(res?.data?.items) ? res.data.items : [])
+
+        if (Array.isArray(list) && list.length > 0) {
+          const mappedData = list.map((item, idx) => ({
+            ...item,
+            Id: item.IdSeq || item.Id || `action_${idx}`,
+            IdSeq: item.IdSeq || item.Id || '',
+            OrderSeq: item.IdxNo ?? item.OrderSeq ?? idx + 1,
+            IdxNo: item.IdxNo ?? item.OrderSeq ?? idx + 1,
+            ActionKey: item.ActionCode || item.ActionKey || '',
+            ActionCode: item.ActionCode || item.ActionKey || '',
+            ActionName: item.ActionName || '',
+            Description: item.Comment || item.Description || '',
+            Comment: item.Comment || item.Description || '',
+            Icon: item.Icon || 'Activity',
+            Active: item.IsDefaultAllow !== undefined ? Boolean(item.IsDefaultAllow) : Boolean(item.Active !== false),
+            IsDefaultAllow: item.IsDefaultAllow !== undefined ? Boolean(item.IsDefaultAllow) : Boolean(item.Active !== false),
+            CreatedAt: item.CreatedAt ? String(item.CreatedAt).substring(0, 19).replace('T', ' ') : '',
+            UpdatedAt: item.UpdatedAt ? String(item.UpdatedAt).substring(0, 19).replace('T', ' ') : '',
+            CreatedByName: item.CreatedByName || item.CreatedBy || '',
+            UpdatedByName: item.UpdatedByName || item.UpdatedBy || '',
+            RowVersion: item.RowVersion || 1,
+            WorkingTag: '',
+            Status: ''
+          }))
+
+          setGridData(mappedData)
+          setNumRows(mappedData.length)
           isDirtyRef.current = false
 
           // Cập nhật PageData & Status Bottom Bar
           const pageInfo = {
-            page: res.page || 1,
-            pageSize: res.pageSize || 1000,
-            totalRows: res.totalRows ?? res.total ?? res.data.length,
-            total: res.total ?? res.totalRows ?? res.data.length,
-            totalPages: res.totalPages || 1,
-            totalAll: res.totalAll ?? res.totalRows ?? res.data.length,
-            loadedCount: res.loadedCount ?? res.data.length,
-            totalColumns: res.totalColumns || defaultCols?.length || 11
+            page: res?.page || 1,
+            pageSize: res?.pageSize || 1000,
+            totalRows: res?.totalRows ?? res?.total ?? mappedData.length,
+            total: res?.total ?? res?.totalRows ?? mappedData.length,
+            totalPages: res?.totalPages || 1,
+            totalAll: res?.totalAll ?? mappedData.length,
+            loadedCount: mappedData.length,
+            totalColumns: defaultCols?.length || 11
           }
           setPageData?.(pageInfo)
 
           if (setStatusMessage) {
             setStatusMessage(
               t('Đã tải {{count}} hành động (Tổng cộng: {{total}} dòng).', {
-                count: res.data.length,
+                count: mappedData.length,
                 total: pageInfo.totalRows
               })
             )

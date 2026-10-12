@@ -63,6 +63,20 @@ func Register(v2 *gin.RouterGroup, pool *grpcclient.Pool) {
 	regMenus(v2.Group("/system-users"))       // Chuẩn alias
 	regMenus(v2.Group("/menu"))               // Chuẩn alias ngắn gọn
 
+	// Actions (/api/v2/action)
+	regActions := func(g *gin.RouterGroup) {
+		g.POST("/ActionA", auth_roles.PermActionsA(pool))
+		g.POST("/ActionU", auth_roles.PermActionsU(pool))
+		g.POST("/ActionD", auth_roles.PermActionsD(pool))
+		g.POST("/ActionQ", auth_roles.PermActionsQ(pool))
+		g.POST("/PermActionsA", auth_roles.PermActionsA(pool))
+		g.POST("/PermActionsU", auth_roles.PermActionsU(pool))
+		g.POST("/PermActionsD", auth_roles.PermActionsD(pool))
+		g.POST("/PermActionsQ", auth_roles.PermActionsQ(pool))
+	}
+	regActions(v2.Group("/action"))
+	regActions(v2.Group("/system/action"))
+
 	// 4. Role & Techniques & Permissions (/api/v2/role)
 	role := v2.Group("/role")
 	{

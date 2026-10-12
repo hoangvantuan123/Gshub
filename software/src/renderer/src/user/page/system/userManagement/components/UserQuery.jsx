@@ -46,14 +46,6 @@ export default function UserQuery({
         onCodeHelp: onOpenCodeHelp
       },
       { key: 'Email', label: 'Email', type: 'text', placeholder: 'Tìm theo Email...' },
-      { key: 'EmpCode', label: 'Mã nhân viên', type: 'text', placeholder: 'Tìm theo mã NV...' },
-      { key: 'EmpName', label: 'Nhân viên', type: 'text', placeholder: 'Tìm theo tên NV...' },
-      {
-        key: 'DeptName',
-        label: 'Bộ phận làm việc',
-        type: 'text',
-        placeholder: 'Tìm theo bộ phận...'
-      },
       { key: 'ManagerName', label: 'Quản lý', type: 'text', placeholder: 'Tìm theo quản lý...' },
       { key: 'Remark', label: 'Ghi chú', type: 'text', placeholder: 'Tìm theo ghi chú...' },
       { key: 'CreatedAt', label: 'Thời gian tạo', type: 'date-range', colSpan: 2 },

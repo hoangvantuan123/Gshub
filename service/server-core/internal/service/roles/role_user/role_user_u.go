@@ -33,6 +33,7 @@ func (s *RoleUsersService) RoleUsersU(ctx context.Context, roles []domain.ERPRol
 				"MenuId" = :MenuId, 
 				"RootMenuId" = :RootMenuId, 
 				"Type" = :Type, 
+				"Name" = COALESCE(:Name, "Name"),
 				"View" = :View, 
 				"Edit" = :Edit, 
 				"Create" = :Create, 
@@ -41,7 +42,7 @@ func (s *RoleUsersService) RoleUsersU(ctx context.Context, roles []domain.ERPRol
 				"UpdatedAt" = NOW(), 
 				"IdxNo" = :IdxNo 
 			  WHERE "Id" = :Id
-			  RETURNING "Id", "GroupId", "UserId", "UserSeq", "MenuId", "RootMenuId", "Type", "View", "Edit", "Create", "Delete", "UpdatedBy", "UpdatedAt", "IdxNo"`
+			  RETURNING "Id", "GroupId", "UserId", "UserSeq", "MenuId", "RootMenuId", "Type", "Name", "View", "Edit", "Create", "Delete", "UpdatedBy", "UpdatedAt", "IdxNo"`
 
 	stmt, err := tx.PrepareNamedContext(ctx, query)
 	if err != nil {

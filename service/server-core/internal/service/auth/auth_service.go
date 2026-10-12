@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"server-core/internal/config"
 	domain "server-core/internal/models/auth"
 	"server-core/internal/worker"
@@ -231,7 +232,7 @@ func (s *authService) getDataRolesUserRaw(ctx context.Context, userId string, us
 		FROM "_ERPRolesUsers" r
 		LEFT JOIN "_ERPMenus" m ON r."MenuId" = m."Id" AND (r."Type" = 'menu' OR r."Type" = 'menuitem')
 		LEFT JOIN "_ERPRootMenus" rm ON r."RootMenuId" = rm."Id" AND r."Type" = 'rootmenu'
-		WHERE r."GroupId" IN (?) AND r."Type" IN ('rootmenu', 'menu', 'menuitem')
+		WHERE r."GroupId" IN (?) AND r."Type" IN ('rootmenu', 'menu', 'menuitem', 'action')
 	`
 	query, args, err := sqlx.In(queryData, groupIds)
 	if err != nil {
@@ -415,6 +416,21 @@ func (s *authService) mergePermissions(data []map[string]interface{}) map[string
 				existing["Create"] = s.asBool(existing["Create"]) || s.asBool(getVal("create"))
 				existing["Edit"] = s.asBool(existing["Edit"]) || s.asBool(getVal("edit"))
 				existing["Delete"] = s.asBool(existing["Delete"]) || s.asBool(getVal("delete"))
+			}
+		} else if idType == "action" {
+			menuId := s.asInt(getVal("menuid"))
+			actKey := fmt.Sprintf("%v", getVal("name"))
+			actKey = strings.TrimSpace(actKey)
+			if menuId > 0 && actKey != "" {
+				isAllow := s.asBool(getVal("view"))
+				if targetMenu, exists := menus[menuId]; exists {
+					targetMenu[actKey] = isAllow
+					if actionsMap, ok := targetMenu["actions"].(map[string]bool); ok {
+						actionsMap[actKey] = isAllow
+					} else {
+						targetMenu["actions"] = map[string]bool{actKey: isAllow}
+					}
+				}
 			}
 		}
 	}

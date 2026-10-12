@@ -3,12 +3,7 @@ import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { togglePageInteraction } from '../../../../../utils/togglePageInteraction'
 import { updateIndexNo } from '../../../../components/sheet/js/updateIndexNo'
-import {
-  PostUUserRole,
-  PostAUserRole,
-  PostURootMenuRole,
-  PostUActionRole
-} from '../../../../../api/system'
+import { PostARole, PostURole, PostDRole, PostUActionRole } from '../../../../../api/system'
 
 export function useRoleManagementMutation({
   gridDataA,
@@ -60,81 +55,186 @@ export function useRoleManagementMutation({
       return
     }
 
-    const allMenuPermissions = (gridDataB || []).map((m) => ({
-      MenuId: String(m.MenuId || m.Id || ''),
-      RootMenuId: String(m.RootMenuId || m.MenuRootId || ''),
-      MenuLabel: m.MenuLabel || m.Label || '',
-      CanView: Boolean(m.View || m.CanView),
-      View: Boolean(m.View || m.CanView)
-    }))
-
-    const allRootMenuPermissions = (gridDataA || []).map((rm) => {
-      const rmId = String(rm.RootMenuId || rm.Id || '')
-      const hasCheckedChild = (gridDataB || []).some(
-        (m) =>
-          (String(m.RootMenuId || m.MenuRootId || '') === rmId ||
-            (rm.RootMenuKey &&
-              String(m.RootMenuKey || m.MenuKey || '').startsWith(rm.RootMenuKey))) &&
-          Boolean(m.View || m.CanView)
-      )
-      const canView = Boolean(rm.View || rm.CanView || hasCheckedChild)
-      return {
-        RootMenuId: rmId,
-        RootMenuName: rm.RootMenuLabel || rm.RootMenuName || rm.Label || '',
-        CanView: canView,
-        View: canView
-      }
-    })
-
-    const validUserIds = (gridDataUsers || [])
-      .map((u) => String(u?.UserId || '').trim())
-      .filter(Boolean)
-
-    const selectedMenuId = String(selectedMenuInGrid?.MenuId || selectedMenuInGrid?.Id || '').trim()
-
     togglePageInteraction(true, t('Đang lưu dữ liệu phân quyền và thành viên nhóm...'))
     loadingBarRef?.current?.continuousStart?.()
 
     try {
-      const savePromises = [
-        PostUUserRole({
-          groupId: String(selectedGroupId),
-          permissions: allMenuPermissions
+      const itemsToInsert = []
+      const itemsToUpdate = []
+      const itemsToDelete = []
+
+      // A. Phân quyền Menu (Cột B)
+      ;(gridDataB || []).forEach((m, idx) => {
+        if (m.Type === 'Phân hệ' || m.Type === 'Submenu' || m.IsGroup) return
+
+        const hasPerm = Boolean(m.View || m.CanView)
+        const isExistingRecord = Boolean(m.RoleRecordId)
+        const isModified = m.isEdited || m.WorkingTag === 'U' || m.WorkingTag === 'A'
+
+        if (isExistingRecord) {
+          if (isModified) {
+            itemsToUpdate.push({
+              Id: Number(m.RoleRecordId),
+              Sheet: 'menu',
+              Type: 'menu',
+              GroupId: Number(selectedGroupId),
+              MenuId: Number(m.RawId || m.MenuId || m.Id || 0),
+              RootMenuId: Number(m.RootMenuId || 0),
+              View: hasPerm,
+              Create: Boolean(m.Create),
+              Edit: Boolean(m.Edit),
+              Delete: Boolean(m.Delete),
+              IdxNo: idx + 1,
+              RowVersion: Number(m.RowVersion || 1)
+            })
+          }
+        } else if (isModified || hasPerm) {
+          itemsToInsert.push({
+            Sheet: 'menu',
+            Type: 'menu',
+            GroupId: Number(selectedGroupId),
+            MenuId: Number(m.RawId || m.MenuId || m.Id || 0),
+            RootMenuId: Number(m.RootMenuId || 0),
+            View: hasPerm,
+            Create: Boolean(m.Create),
+            Edit: Boolean(m.Edit),
+            Delete: Boolean(m.Delete),
+            IdxNo: idx + 1
+          })
+        }
+      })
+
+      // B. Phân quyền Root Menu (Cột A)
+      ;(gridDataA || []).forEach((rm, idx) => {
+        const hasPerm = Boolean(rm.View || rm.CanView)
+        const isExistingRecord = Boolean(rm.RoleRecordId)
+        const isModified = rm.isEdited || rm.WorkingTag === 'U' || rm.WorkingTag === 'A'
+
+        if (isExistingRecord) {
+          if (isModified) {
+            itemsToUpdate.push({
+              Id: Number(rm.RoleRecordId),
+              Sheet: 'rootmenu',
+              Type: 'rootmenu',
+              GroupId: Number(selectedGroupId),
+              RootMenuId: Number(rm.RawId || rm.RootMenuId || rm.Id || 0),
+              View: hasPerm,
+              IdxNo: idx + 1,
+              RowVersion: Number(rm.RowVersion || 1)
+            })
+          }
+        } else if (isModified || hasPerm) {
+          itemsToInsert.push({
+            Sheet: 'rootmenu',
+            Type: 'rootmenu',
+            GroupId: Number(selectedGroupId),
+            RootMenuId: Number(rm.RawId || rm.RootMenuId || rm.Id || 0),
+            View: hasPerm,
+            IdxNo: idx + 1
+          })
+        }
+      })
+
+      // C. Thành viên thuộc nhóm (Tab 2)
+      ;(gridDataUsers || []).forEach((u, idx) => {
+        if (u.WorkingTag === 'A' || (!u.Id && u.UserId)) {
+          itemsToInsert.push({
+            Sheet: 'user',
+            Type: 'user',
+            GroupId: Number(selectedGroupId),
+            UserId: String(u.UserId || ''),
+            UserSeq: String(u.UserSeq || ''),
+            IdxNo: idx + 1
+          })
+        } else if (u.WorkingTag === 'D' && u.Id) {
+          itemsToDelete.push({
+            Id: Number(u.Id),
+            Sheet: 'user',
+            Type: 'user'
+          })
+        } else if (u.WorkingTag === 'U' && u.Id) {
+          itemsToUpdate.push({
+            Id: Number(u.Id),
+            Sheet: 'user',
+            Type: 'user',
+            GroupId: Number(selectedGroupId),
+            UserId: String(u.UserId || ''),
+            UserSeq: String(u.UserSeq || ''),
+            IdxNo: idx + 1,
+            RowVersion: Number(u.RowVersion || 1)
+          })
+        }
+      })
+
+      // D. Quyền Action & Nút Lệnh
+      const selectedMenuId = String(
+        selectedMenuInGrid?.MenuId || selectedMenuInGrid?.Id || ''
+      ).trim()
+      if (
+        selectedMenuId &&
+        Array.isArray(gridDataAction) &&
+        gridDataAction.some((a) => a.isEdited || a.WorkingTag === 'U' || a.WorkingTag === 'A')
+      ) {
+        gridDataAction.forEach((act, idx) => {
+          const isModified = act.isEdited || act.WorkingTag === 'U' || act.WorkingTag === 'A'
+          const recordId = act.RoleRecordId || (act.Id && !isNaN(Number(act.Id)) ? act.Id : null)
+          const hasDbRecord = Boolean(recordId && Number(recordId) > 0)
+
+          if (hasDbRecord) {
+            if (isModified) {
+              itemsToUpdate.push({
+                Id: Number(recordId),
+                Sheet: 'action',
+                Type: 'action',
+                GroupId: Number(selectedGroupId),
+                MenuId: Number(selectedMenuId),
+                Name: String(act.ActionKey || act.Key || act.ActionCode || ''),
+                View: Boolean(act.Allow),
+                IdxNo: idx + 1,
+                RowVersion: Number(act.RowVersion || 1)
+              })
+            }
+          } else if (isModified || act.Allow) {
+            itemsToInsert.push({
+              Sheet: 'action',
+              Type: 'action',
+              GroupId: Number(selectedGroupId),
+              MenuId: Number(selectedMenuId),
+              Name: String(act.ActionKey || act.Key || act.ActionCode || ''),
+              View: Boolean(act.Allow),
+              IdxNo: idx + 1
+            })
+          }
         })
-      ]
-
-      if (allRootMenuPermissions.length > 0) {
-        savePromises.push(
-          PostURootMenuRole({
-            groupId: String(selectedGroupId),
-            rootMenus: allRootMenuPermissions
-          })
-        )
       }
 
-      if (selectedMenuId && Array.isArray(gridDataAction) && gridDataAction.length > 0) {
-        savePromises.push(
-          PostUActionRole({
-            groupId: String(selectedGroupId),
-            menuId: selectedMenuId,
-            actions: gridDataAction.map((a) => ({
-              ActionKey: a.ActionKey || a.Key || '',
-              Allow: Boolean(a.Allow)
-            }))
-          })
-        )
+      const savePromises = []
+      if (itemsToInsert.length > 0) {
+        savePromises.push(PostARole(itemsToInsert))
+      }
+      if (itemsToUpdate.length > 0) {
+        savePromises.push(PostURole(itemsToUpdate))
+      }
+      if (itemsToDelete.length > 0) {
+        savePromises.push(PostDRole(itemsToDelete))
       }
 
-      if (Array.isArray(gridDataUsers)) {
-        savePromises.push(
-          PostAUserRole({
-            groupId: String(selectedGroupId),
-            userIds: validUserIds
+      if (savePromises.length === 0) {
+        if (setStatusMessage) {
+          setStatusMessage({
+            type: 'info',
+            text: t('Không có thay đổi nào cần lưu.')
           })
-        )
+        }
+        return
       }
 
       await Promise.all(savePromises)
+
+      // Cập nhật lại dữ liệu từ server
+      if (fetchGroupRoles) {
+        await fetchGroupRoles(selectedGroupId)
+      }
 
       // Reset status 'U' và isEdited
       setGridDataA((prev) =>
@@ -168,7 +268,7 @@ export function useRoleManagementMutation({
         setStatusMessage({
           type: 'error',
           text: t('system.savePermissionsError', 'Lỗi lưu phân quyền: {{msg}}', {
-            msg: err?.response?.data?.message || err?.message || 'Unknown error'
+            msg: err?.response?.data?.message || err?.message || 'Lỗi khi xử lý dữ liệu'
           })
         })
       }
@@ -179,6 +279,7 @@ export function useRoleManagementMutation({
   }, [
     canCreate,
     canEdit,
+    fetchGroupRoles,
     gridDataA,
     gridDataB,
     gridDataAction,
@@ -229,14 +330,19 @@ export function useRoleManagementMutation({
       )
       if (hasValidRow && setGridDataUsers) {
         setGridDataUsers((prev) => {
-          const next = prev.filter((_, idx) => !selectedUserRowIndices.has(idx))
+          const next = prev.map((item, idx) => {
+            if (selectedUserRowIndices.has(idx)) {
+              return { ...item, WorkingTag: 'D', Status: 'D', isEdited: true }
+            }
+            return item
+          })
           return updateIndexNo(next)
         })
         if (setStatusMessage) {
           setStatusMessage({
             type: 'info',
             text: t(
-              'Đã gỡ người dùng được chọn khỏi bảng. Nhấn LƯU (Ctrl+S) để cập nhật vào hệ thống!'
+              'Đã đánh dấu xóa người dùng được chọn. Nhấn LƯU (Ctrl+S) để cập nhật vào hệ thống!'
             )
           })
         }

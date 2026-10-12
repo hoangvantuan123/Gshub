@@ -79,11 +79,16 @@ func (h *RoleHandler) RoleQ(ctx context.Context, req *pb_role.RoleQRequest) (*pb
 		if err != nil {
 			return utils.ErrorResponse[pb_role.Response](err.Error()), nil
 		}
+		actionRoles, err := h.roleUsersSvc.RoleUsersQ(ctx, roleUserSvc.RoleUsersQueryOptions{Type: "action", GroupId: groupId})
+		if err != nil {
+			actionRoles = []map[string]interface{}{}
+		}
 
 		result := map[string]interface{}{
 			"rootmenu": rootmenuRoles,
 			"menu":     menuRoles,
 			"user":     userRoles,
+			"action":   actionRoles,
 		}
 		return utils.SuccessResponse[pb_role.Response]("Truy vấn thành công", result), nil
 	}
@@ -112,10 +117,27 @@ func (h *RoleHandler) RoleQ(ctx context.Context, req *pb_role.RoleQRequest) (*pb
 		}
 		return utils.SuccessResponse[pb_role.Response]("Truy vấn thành công", data), nil
 
+	case "action", "actions", "role_action", "role_actions":
+		menuId := 0
+		for k, v := range filters {
+			if strings.EqualFold(k, "MenuId") || strings.EqualFold(k, "KeyItem2") {
+				if id, err := strconv.Atoi(v); err == nil {
+					menuId = id
+				}
+			}
+		}
+		opts := roleUserSvc.RoleUsersQueryOptions{Type: "action", GroupId: groupId, MenuId: menuId}
+		data, err := h.roleUsersSvc.RoleUsersQ(ctx, opts)
+		if err != nil {
+			return utils.ErrorResponse[pb_role.Response](err.Error()), nil
+		}
+		return utils.SuccessResponse[pb_role.Response]("Truy vấn thành công", data), nil
+
 	case "user", "users", "role_user", "role_users":
 		opts := roleUserSvc.RoleUsersQueryOptions{Type: "user", GroupId: groupId}
 		for k, v := range filters {
 			if strings.EqualFold(k, "UserId") || strings.EqualFold(k, "UserSeq") {
+				opts.UserCode = v
 				if id, err := strconv.Atoi(v); err == nil {
 					opts.UserId = id
 				}
@@ -722,7 +744,9 @@ func (h *RoleHandler) UserRoleU(ctx context.Context, req *pb_role.UserRoleUReque
 func (h *RoleHandler) UserRoleD(ctx context.Context, req *pb_role.UserRoleDRequest) (*pb_role.Response, error) {
 	var ids []string
 	for _, item := range req.Result {
-		ids = append(ids, fmt.Sprintf("%v", item.Id))
+		if item.Id != 0 {
+			ids = append(ids, fmt.Sprintf("%v", item.Id))
+		}
 	}
 
 	data, err := h.roleUsersSvc.RoleUsersD(ctx, ids)
@@ -759,6 +783,7 @@ func (h *RoleHandler) UserRoleQ(ctx context.Context, req *pb_role.UserRoleQReque
 			}
 		}
 		if strings.EqualFold(k, "UserId") || strings.EqualFold(k, "UserSeq") {
+			opts.UserCode = v
 			if id, err := strconv.Atoi(v); err == nil {
 				opts.UserId = id
 			}

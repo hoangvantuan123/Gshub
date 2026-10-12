@@ -1,8 +1,11 @@
+/* eslint-disable no-empty */
 /**
  * SQLite IPC Handlers for Architecture Files (4 Files)
  * Quản lý lưu trữ/truy vấn 4 file kiến trúc theo Chunking và Phân trang (1.500 dòng/trang)
  */
-import { ipcMain } from 'electron'
+import { ipcMain, app } from 'electron'
+import path from 'path'
+import fs from 'fs'
 import { getDb, getFullDataForFileType } from './db.js'
 
 export function setupFilesIpc() {
@@ -512,6 +515,119 @@ export function setupFilesIpc() {
       }
     } catch (err) {
       console.error('[SQLite IPC] Lỗi dọn dẹp cache:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 9. Lấy thông tin thống kê dung lượng lưu trữ CSDL SQLite
+  ipcMain.handle('sqlite:get-storage-stats', async () => {
+    const db = getDb()
+    try {
+      const userDataPath = app.getPath('userData')
+      const dbPath = path.join(userDataPath, 'databases', 'gshub_production_calc.db')
+      const walPath = `${dbPath}-wal`
+      let fileSizeBytes = 0
+      let walSizeBytes = 0
+      if (fs.existsSync(dbPath)) {
+        try {
+          fileSizeBytes = fs.statSync(dbPath).size
+        } catch {}
+      }
+      if (fs.existsSync(walPath)) {
+        try {
+          walSizeBytes = fs.statSync(walPath).size
+        } catch {}
+      }
+
+      let masterCount = 0
+      let fileCount = 0
+      let chunkCount = 0
+      let calcResultsCount = 0
+      let bundleCount = 0
+
+      if (db) {
+        try {
+          masterCount =
+            db.prepare('SELECT COUNT(*) as cnt FROM calc_master_registrations').get()?.cnt || 0
+        } catch {}
+        try {
+          fileCount =
+            db.prepare('SELECT COUNT(*) as cnt FROM calc_architecture_files').get()?.cnt || 0
+        } catch {}
+        try {
+          chunkCount =
+            db.prepare('SELECT COUNT(*) as cnt FROM calc_architecture_chunks').get()?.cnt || 0
+        } catch {}
+        try {
+          calcResultsCount = db.prepare('SELECT COUNT(*) as cnt FROM calc_results').get()?.cnt || 0
+        } catch {}
+        try {
+          bundleCount =
+            db.prepare('SELECT COUNT(*) as cnt FROM calc_versioned_bundles').get()?.cnt || 0
+        } catch {}
+      }
+
+      return {
+        success: true,
+        dbPath,
+        fileSizeBytes,
+        walSizeBytes,
+        totalSizeBytes: fileSizeBytes + walSizeBytes,
+        masterCount,
+        fileCount,
+        chunkCount,
+        calcResultsCount,
+        bundleCount
+      }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi lấy thông tin lưu trữ:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 10. Xóa toàn bộ cache dữ liệu tính toán trong SQLite
+  ipcMain.handle('sqlite:clear-all-calc-cache', async (_, options = {}) => {
+    const db = getDb()
+    if (!db) return { success: false, error: 'Database SQLite chưa khởi tạo' }
+    try {
+      const { preserveMasters = false } = options || {}
+
+      const delFiles = db.prepare('DELETE FROM calc_architecture_files').run()
+      const delChunks = db.prepare('DELETE FROM calc_architecture_chunks').run()
+      const delResults = db.prepare('DELETE FROM calc_results').run()
+      const delBundles = db.prepare('DELETE FROM calc_versioned_bundles').run()
+      let delMasters = { changes: 0 }
+      if (!preserveMasters) {
+        delMasters = db.prepare('DELETE FROM calc_master_registrations').run()
+      }
+
+      try {
+        db.exec('VACUUM;')
+      } catch {}
+
+      return {
+        success: true,
+        deletedFiles: delFiles.changes,
+        deletedChunks: delChunks.changes,
+        deletedResults: delResults.changes,
+        deletedBundles: delBundles.changes,
+        deletedMasters: delMasters.changes
+      }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi xóa toàn bộ cache:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 11. Tối ưu hóa dung lượng (VACUUM)
+  ipcMain.handle('sqlite:vacuum-db', async () => {
+    const db = getDb()
+    if (!db) return { success: false, error: 'Database SQLite chưa khởi tạo' }
+    try {
+      db.exec('VACUUM;')
+      return { success: true }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi VACUUM:', err)
       return { success: false, error: err.message }
     }
   })

@@ -1,3 +1,4 @@
+import { fromRootMenuApi } from '../rootMenuOrder.js'
 /* eslint-disable react/prop-types, no-unused-vars, no-empty */
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -122,7 +123,7 @@ export function useRootMenuFetch({
           }
 
           const resPage = response?.page || {}
-          const rawItems = Array.isArray(data) ? data : []
+          const rawItems = (Array.isArray(data) ? data : []).map(fromRootMenuApi)
           const realCount = rawItems.length
           const total = resPage.total !== undefined ? resPage.total : realCount
           const totalAll = resPage.totalAll !== undefined ? resPage.totalAll : total
@@ -279,7 +280,7 @@ export function useRootMenuFetch({
                       return isNaN(id) || !existingDbIds.has(id)
                     })
 
-                    const updatedRealRows = [...realRows, ...deduplicatedNew]
+                    const updatedRealRows = [...realRows, ...deduplicatedNew.map(fromRootMenuApi)]
                     const emptyRows = canCreateRef.current
                       ? generateEmptyData(EMPTY_TEMPLATE_COUNT, defaultColsRef.current)
                       : []

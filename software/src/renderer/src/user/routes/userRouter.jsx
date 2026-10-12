@@ -37,6 +37,8 @@ import Home from '../page/home/home'
 import Login from '../auth/login'
 import SettingsPage from '../auth/settingsPage'
 import decodeJWT from '../../utils/decode-JWT'
+import { parseRolesMenu } from '../../utils/parseRolesMenu'
+import { clearLegacyPermissionStorage } from '../../utils/authStorage.js'
 import { transformDataMenu } from '../../utils/transformDataMenu'
 import ErrorPage from '../page/default/errorPage'
 import { buildPermissionsTree } from '../../utils/buildPermissionsTree'
@@ -182,6 +184,8 @@ const AuthorizedRouteElement = memo(
     public: isPublic,
     fallback: Fallback,
     userPermissions,
+    isPermissionsLoaded = true,
+    hasAuthTokens = true,
     roleTable,
     isMobile,
     cancelAllRequests,
@@ -220,6 +224,10 @@ const AuthorizedRouteElement = memo(
           menuTransForm={menuTransForm}
         />
       )
+    }
+
+    if (!isPermissionsLoaded && hasAuthTokens) {
+      return <Spinner />
     }
 
     if (canView) {
@@ -276,6 +284,7 @@ const UserRouter = () => {
   const [roleTable, setRoleTable] = useState(() => initialMenuData.permissionsTree)
   const [errorMenu, setErrorMenu] = useState(false)
   const [userPermissions, setUserPermissions] = useState(() => initialMenuData.settingItems)
+  const [isPermissionsLoaded, setIsPermissionsLoaded] = useState(false)
   const { t } = useTranslation()
   const [sessionExpiredModalOpen, setSessionExpiredModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -287,6 +296,7 @@ const UserRouter = () => {
   useEffect(() => {
     let isMounted = true
     const initMenuFromIDB = async () => {
+      clearLegacyPermissionStorage()
       try {
         const record = await getMenuData()
         if (record && isMounted) {
@@ -295,8 +305,12 @@ const UserRouter = () => {
             record.rootMenuItems || [],
             record.menuItemList || []
           )
-          if (merged.settingItems && merged.settingItems.length > 0) {
-            setUserPermissions(merged.settingItems)
+          const allPermissions = [
+            ...(merged.settingItems || []),
+            ...(merged.menuItemList || [])
+          ]
+          if (allPermissions.length > 0) {
+            setUserPermissions(allPermissions)
           }
           if (merged.rootMenuItems && merged.rootMenuItems.length > 0) {
             setRootMenuItems(merged.rootMenuItems)
@@ -310,6 +324,10 @@ const UserRouter = () => {
         }
       } catch (e) {
         console.warn('Lỗi load menu IndexedDB ban đầu:', e)
+      } finally {
+        if (isMounted) {
+          setIsPermissionsLoaded(true)
+        }
       }
     }
     initMenuFromIDB()
@@ -352,19 +370,16 @@ const UserRouter = () => {
       // 1. Nếu có chuỗi rolesMenuJwt truyền trực tiếp từ Login (In-Memory)
       if (rolesMenuJwt && typeof rolesMenuJwt === 'string') {
         lastProcessedRolesMenuRef.current = rolesMenuJwt
-        const data = decodeJWT(rolesMenuJwt)
-        const settingItems = data?.data?.find((x) => x.menu)?.menu || data?.data[0]?.menu || []
-        const rootMenuItems =
-          data?.data?.find((x) => x.rootMenu)?.rootMenu || data?.data[1]?.rootMenu || []
-        const menuItemList =
-          data?.data?.find((x) => x.menuItem)?.menuItem || data?.data[2]?.menuItem || []
-        const roleTable =
-          data?.data?.find((x) => x.roleTable)?.roleTable || data?.data[3]?.roleTable || []
+        const currentUser = JSON.parse(localStorage.getItem('userInfo') || '{}')
+        const { settingItems, rootMenuItems, menuItemList, roleTable } = parseRolesMenu(
+          rolesMenuJwt,
+          currentUser
+        )
 
         const merged = mergeWithDefaultMenuConfig(settingItems, rootMenuItems, menuItemList)
         const permissionsTree = buildPermissionsTree(roleTable)
 
-        setUserPermissions(merged.settingItems)
+        setUserPermissions([...merged.settingItems, ...merged.menuItemList])
         setRootMenuItems(merged.rootMenuItems)
         setMenuTransForm(merged.transformedMenu)
         setRoleTable(permissionsTree)
@@ -373,8 +388,9 @@ const UserRouter = () => {
 
       // 2. Khi F5 / Khởi động lại: Đọc và giải mã bảo mật AES-256 từ IndexedDB
       const idbData = await getMenuData()
-      if (idbData && (idbData.settingItems || idbData.transformedMenu)) {
-        setUserPermissions(idbData.settingItems || [])
+      if (idbData && (idbData.settingItems || idbData.transformedMenu || idbData.menuItemList)) {
+        setUserPermissions([...(idbData.settingItems || []), ...(idbData.menuItemList || [])])
+        setIsPermissionsLoaded(true)
         setRootMenuItems(idbData.rootMenuItems || [])
         setMenuTransForm(idbData.transformedMenu || [])
         setRoleTable(idbData.permissionsTree || [])
@@ -383,15 +399,17 @@ const UserRouter = () => {
 
       // 3. Fallback an toàn
       const merged = mergeWithDefaultMenuConfig([], [], [])
-      setUserPermissions(merged.settingItems)
+      setUserPermissions([...merged.settingItems, ...merged.menuItemList])
       setRootMenuItems(merged.rootMenuItems)
       setMenuTransForm(merged.transformedMenu)
+      setRoleTable([])
     } catch (error) {
       console.warn('Could not parse roles menu:', error)
       const merged = mergeWithDefaultMenuConfig([], [], [])
-      setUserPermissions(merged.settingItems)
+      setUserPermissions([...merged.settingItems, ...merged.menuItemList])
       setRootMenuItems(merged.rootMenuItems)
       setMenuTransForm(merged.transformedMenu)
+      setRoleTable([])
     }
   }, [])
 
@@ -619,6 +637,8 @@ const UserRouter = () => {
                               public={route.public}
                               fallback={route.fallback}
                               userPermissions={userPermissions}
+                              isPermissionsLoaded={isPermissionsLoaded}
+                              hasAuthTokens={hasAuthTokens()}
                               roleTable={roleTable}
                               isMobile={isMobile}
                               cancelAllRequests={cancelAllRequests}
@@ -670,6 +690,8 @@ const UserRouter = () => {
                                         public={route.public}
                                         fallback={route.fallback}
                                         userPermissions={userPermissions}
+                                        isPermissionsLoaded={isPermissionsLoaded}
+                                        hasAuthTokens={hasAuthTokens()}
                                         roleTable={roleTable}
                                         isMobile={isMobile}
                                         cancelAllRequests={cancelAllRequests}

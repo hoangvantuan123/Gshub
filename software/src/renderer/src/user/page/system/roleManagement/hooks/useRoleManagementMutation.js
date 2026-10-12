@@ -16,6 +16,7 @@ export function useRoleManagementMutation({
   selectionUsers,
   canCreate,
   canEdit,
+  canSave,
   canDelete,
   loadingBarRef,
   setStatusMessage,
@@ -50,6 +51,7 @@ export function useRoleManagementMutation({
         return
       }
       if (
+        ((batch.insert.length || batch.update.length) && canSave === false) ||
         (batch.insert.length && !canCreate) ||
         (batch.update.length && !canEdit) ||
         (batch.delete.length && !canDelete)
@@ -81,6 +83,7 @@ export function useRoleManagementMutation({
     selectedGroupId,
     canCreate,
     canEdit,
+    canSave,
     canDelete,
     setRows,
     onSaved,

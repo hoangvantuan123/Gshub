@@ -815,3 +815,68 @@ export const saveVersionedBundleIDB = async (payload) => {
     return { success: false }
   }
 }
+
+/**
+ * Lấy thông tin thống kê dung lượng lưu trữ IndexedDB
+ */
+export const getStorageStatsIDB = async () => {
+  try {
+    const db = await getCalcProductionDB()
+    const masterCount = (await db.count(STORAGE_KEYS.STORE_MASTER)) || 0
+    const fileCount = (await db.count(STORAGE_KEYS.STORE_FILES)) || 0
+    const chunkCount = (await db.count(STORAGE_KEYS.STORE_FILE_CHUNKS)) || 0
+    const calcResultsCount = (await db.count(STORAGE_KEYS.STORE_CALC_RESULTS)) || 0
+    let bundleCount = 0
+    if (db.objectStoreNames.contains('calc_versioned_bundles')) {
+      bundleCount = (await db.count('calc_versioned_bundles')) || 0
+    }
+
+    let quotaBytes = 0
+    let usageBytes = 0
+    if (navigator?.storage?.estimate) {
+      try {
+        const estimate = await navigator.storage.estimate()
+        quotaBytes = estimate.quota || 0
+        usageBytes = estimate.usage || 0
+      } catch {}
+    }
+
+    return {
+      success: true,
+      masterCount,
+      fileCount,
+      chunkCount,
+      calcResultsCount,
+      bundleCount,
+      usageBytes,
+      quotaBytes,
+      totalSizeBytes: usageBytes
+    }
+  } catch (err) {
+    console.warn('[IndexedDB] Lỗi lấy storage stats:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+/**
+ * Xóa toàn bộ cache dữ liệu tính toán trong IndexedDB
+ */
+export const clearAllCalcCacheIDB = async (options = {}) => {
+  const { preserveMasters = false } = options || {}
+  try {
+    const db = await getCalcProductionDB()
+    await db.clear(STORAGE_KEYS.STORE_FILES)
+    await db.clear(STORAGE_KEYS.STORE_FILE_CHUNKS)
+    await db.clear(STORAGE_KEYS.STORE_CALC_RESULTS)
+    if (db.objectStoreNames.contains('calc_versioned_bundles')) {
+      await db.clear('calc_versioned_bundles')
+    }
+    if (!preserveMasters) {
+      await db.clear(STORAGE_KEYS.STORE_MASTER)
+    }
+    return { success: true }
+  } catch (err) {
+    console.error('[IndexedDB] Lỗi xóa toàn bộ cache IndexedDB:', err)
+    return { success: false, error: err.message }
+  }
+}

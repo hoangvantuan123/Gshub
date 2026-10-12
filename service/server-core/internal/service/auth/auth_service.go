@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"server-core/internal/config"
 	domain "server-core/internal/models/auth"
+	"server-core/internal/proof"
 	"server-core/internal/worker"
 	"sort"
 	"strconv"
@@ -158,22 +159,28 @@ func (s *authService) LoginUserB(ctx context.Context, login, password string, de
 		"EmpSeq":     user.EmpSeq,
 		"Remark":     user.Remark,
 		"CompanySeq": user.CompanySeq,
+		"cnf":        map[string]string{"jkt": proof.SessionKey(ctx)},
 		"exp":        time.Now().Add(time.Hour * 8).Unix(),
 	})
-	tokenString, _ := token.SignedString([]byte(jwtSecret))
+	tokenString, err := token.SignedString([]byte(jwtSecret))
+	if err != nil {
+		return nil, err
+	}
 
 	canonicalUserID := login
 	if user.UserId != nil {
 		canonicalUserID = *user.UserId
 	}
-	rolesUserMenu, _, _ := s.getDataRolesUserRaw(ctx, canonicalUserID, user.UserSeq)
+	rolesUserMenu, _, err := s.getDataRolesUserRaw(ctx, canonicalUserID, user.UserSeq)
+	if err != nil {
+		return nil, fmt.Errorf("load permissions: %w", err)
+	}
 
-	// 8. Generate Roles Token
-	rolesToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"data": rolesUserMenu,
-		"exp":  time.Now().Add(time.Hour * 8).Unix(),
-	})
-	rolesTokenString, _ := rolesToken.SignedString([]byte(jwtSecret))
+	// The snapshot is signed; HTTPS protects the login response in transit.
+	rolesTokenString, err := signRolesSnapshot(user.UserSeq, rolesUserMenu, time.Now().Add(time.Hour*8))
+	if err != nil {
+		return nil, err
+	}
 
 	s.writeLog(ctx, login, user.UserSeq, "SUCCESS", deviceInfo)
 
@@ -204,9 +211,13 @@ func (s *authService) sanitizeInput(input string) string {
 
 func (s *authService) getDataRolesUserRaw(ctx context.Context, userId string, userSeq interface{}) ([]map[string]interface{}, []map[string]interface{}, error) {
 	var groupIds []interface{}
-	err := s.db.SelectContext(ctx, &groupIds, `SELECT DISTINCT "GroupId" FROM "_ERPRolesUsers" WHERE LOWER(TRIM("UserId")) = LOWER(TRIM($1)) OR CAST("UserSeq" AS VARCHAR) = CAST($2 AS VARCHAR)`, userId, userSeq)
-	if err != nil || len(groupIds) == 0 {
-		return []map[string]interface{}{}, []map[string]interface{}{}, nil
+	err := s.db.SelectContext(ctx, &groupIds, `SELECT DISTINCT "GroupId" FROM "_ERPRolesUsers" WHERE "Type" = 'user' AND "UserSeq" = $1`, userSeq)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(groupIds) == 0 {
+		// Keep the complete response shape and still load direct table grants.
+		groupIds = []interface{}{nil}
 	}
 
 	queryData := `
@@ -215,6 +226,8 @@ func (s *authService) getDataRolesUserRaw(ctx context.Context, userId string, us
 			r."Edit" AS "Edit",
 			r."Create" AS "Create",
 			r."Delete" AS "Delete",
+			COALESCE((to_jsonb(r)->>'Import')::boolean, false) AS "Import",
+			COALESCE((to_jsonb(r)->>'Export')::boolean, false) AS "Export",
 			r."MenuId" AS "MenuId",
 			r."GroupId" AS "GroupId",
 			r."UserId" AS "UserId",
@@ -232,11 +245,12 @@ func (s *authService) getDataRolesUserRaw(ctx context.Context, userId string, us
 			rm."Label" AS "RootMenuLabel",
 			rm."Icon" AS "RootMenuIcon",
 			rm."Link" AS "RootMenuLink",
-			rm."Utilities" AS "RootMenuUtilities"
+			rm."Utilities" AS "RootMenuUtilities",
+			rm."IdxNo" AS "RootMenuOrderSeq"
 		FROM "_ERPRolesUsers" r
-		LEFT JOIN "_ERPMenus" m ON r."MenuId" = m."Id" AND (r."Type" = 'menu' OR r."Type" = 'menuitem')
-		LEFT JOIN "_ERPRootMenus" rm ON r."RootMenuId" = rm."Id" AND r."Type" = 'rootmenu'
-		WHERE r."GroupId" IN (?) AND r."Type" IN ('rootmenu', 'menu', 'menuitem', 'action')
+		LEFT JOIN "_ERPMenus" m ON r."MenuId" = m."Id" AND r."Type" IN ('menu', 'submenu', 'menuitem', 'action')
+		LEFT JOIN "_ERPRootMenus" rm ON r."RootMenuId" = rm."Id" AND r."Type" IN ('rootmenu', 'root')
+		WHERE r."GroupId" IN (?) AND r."Type" IN ('rootmenu', 'root', 'menu', 'submenu', 'menuitem', 'action')
 	`
 	query, args, err := sqlx.In(queryData, groupIds)
 	if err != nil {
@@ -253,9 +267,17 @@ func (s *authService) getDataRolesUserRaw(ctx context.Context, userId string, us
 	var rawDatas []map[string]interface{}
 	for rows.Next() {
 		m := make(map[string]interface{})
-		if err := rows.MapScan(m); err == nil {
-			rawDatas = append(rawDatas, m)
+		if err := rows.MapScan(m); err != nil {
+			return nil, nil, err
 		}
+		rawDatas = append(rawDatas, m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, nil, err
 	}
 
 	queryRoleTable := `
@@ -281,215 +303,183 @@ func (s *authService) getDataRolesUserRaw(ctx context.Context, userId string, us
 		ORDER BY p."IdxNo" ASC
 	`
 	rowsRT, err := s.db.QueryxContext(ctx, queryRoleTable, userSeq)
-	var roleTables []map[string]interface{}
-	if err == nil {
-		defer rowsRT.Close()
-		for rowsRT.Next() {
-			m := make(map[string]interface{})
-			if err := rowsRT.MapScan(m); err == nil {
-				roleTables = append(roleTables, m)
-			}
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rowsRT.Close()
+	roleTables := make([]map[string]interface{}, 0)
+	for rowsRT.Next() {
+		m := make(map[string]interface{})
+		if err := rowsRT.MapScan(m); err != nil {
+			return nil, nil, err
 		}
+		roleTables = append(roleTables, m)
+	}
+	if err := rowsRT.Err(); err != nil {
+		return nil, nil, err
 	}
 
 	merged := s.mergePermissions(rawDatas)
+	if err := s.addNavigationAncestors(ctx, merged); err != nil {
+		return nil, nil, err
+	}
 
 	result := []map[string]interface{}{
 		{"menu": merged["menu"]},
 		{"rootMenu": merged["rootMenu"]},
 		{"menuItem": merged["menuItem"]},
 		{"roleTable": roleTables},
+		{"action": merged["action"]},
 	}
 
 	return result, nil, nil
 }
 
+// normalizePermissionRow handles both SQL driver bytes and regular maps.
+func normalizePermissionRow(item map[string]interface{}) map[string]interface{} {
+	row := make(map[string]interface{}, len(item))
+	for key, value := range item {
+		if bytes, ok := value.([]byte); ok {
+			value = string(bytes)
+		}
+		row[strings.ToLower(key)] = value
+	}
+	return row
+}
+
 func (s *authService) mergePermissions(data []map[string]interface{}) map[string]interface{} {
 	menus := make(map[int]map[string]interface{})
-	rootMenus := make(map[int]map[string]interface{})
-	menuItems := make(map[int]map[string]interface{})
-	actionGrants := make(map[int]map[string]bool)
-
-	for _, item := range data {
-		normItem := make(map[string]interface{}, len(item))
-		for k, v := range item {
-			var val interface{} = v
-			if b, ok := v.([]byte); ok {
-				val = string(b)
-			}
-			normItem[strings.ToLower(k)] = val
-		}
-
-		getVal := func(key string) interface{} {
-			return normItem[strings.ToLower(key)]
-		}
-
-		idType, _ := getVal("type").(string)
-		idType = strings.TrimSpace(idType)
-
-		if idType == "menu" {
-			menuId := s.asInt(getVal("menuid"))
-			if menuId == 0 {
+	roots := make(map[int]map[string]interface{})
+	items := make(map[int]map[string]interface{})
+	grants := make(map[int]map[string]bool)
+	operations := []string{"View", "Create", "Edit", "Delete", "Import", "Export"}
+	for _, source := range data {
+		row := normalizePermissionRow(source)
+		kind := strings.ToLower(strings.TrimSpace(fmt.Sprint(row["type"])))
+		var target map[string]interface{}
+		if kind == "rootmenu" || kind == "root" {
+			id := s.asInt(row["rootmenuid"])
+			if id <= 0 {
 				continue
 			}
-
-			if existing, exists := menus[menuId]; !exists {
-				menus[menuId] = map[string]interface{}{
-					"Id":            s.asInt(getVal("id")),
-					"View":          s.asBool(getVal("view")),
-					"Edit":          s.asBool(getVal("edit")),
-					"Create":        s.asBool(getVal("create")),
-					"Delete":        s.asBool(getVal("delete")),
-					"GroupId":       s.asInt(getVal("groupid")),
-					"UserId":        getVal("userid"),
-					"MenuId":        menuId,
-					"OrderSeq":      s.asInt(getVal("orderseq")),
-					"Type":          idType,
-					"Name":          getVal("name"),
-					"MenuKey":       getVal("menukey"),
-					"MenuLabel":     getVal("menulabel"),
-					"MenuLink":      getVal("menulink"),
-					"MenuType":      getVal("menutype"),
-					"MenuRootId":    s.asInt(getVal("menurootid")),
-					"MenuSubRootId": s.asInt(getVal("menusubrootid")),
+			target = roots[id]
+			if target == nil {
+				target = map[string]interface{}{
+					"Id": id, "RootMenuId": id, "Type": "rootmenu",
+					"RootMenuKey": row["rootmenukey"], "RootMenuLabel": row["rootmenulabel"],
+					"RootMenuIcon": row["rootmenuicon"], "RootMenuLink": row["rootmenulink"],
+					"RootMenuUtilities": s.asBool(row["rootmenuutilities"]),
+					"OrderSeq":          s.asInt(row["rootmenuorderseq"]),
 				}
-			} else {
-				existing["View"] = s.asBool(existing["View"]) || s.asBool(getVal("view"))
-				existing["Create"] = s.asBool(existing["Create"]) || s.asBool(getVal("create"))
-				existing["Edit"] = s.asBool(existing["Edit"]) || s.asBool(getVal("edit"))
-				existing["Delete"] = s.asBool(existing["Delete"]) || s.asBool(getVal("delete"))
+				roots[id] = target
 			}
-		} else if idType == "menuitem" {
-			menuItemId := s.asInt(getVal("menuid"))
-			if menuItemId == 0 {
+		} else if kind == "menu" || kind == "submenu" || kind == "menuitem" || kind == "action" {
+			id := s.asInt(row["menuid"])
+			if id <= 0 {
 				continue
 			}
-
-			if existing, exists := menuItems[menuItemId]; !exists {
-				menuItems[menuItemId] = map[string]interface{}{
-					"Id":            s.asInt(getVal("id")),
-					"View":          s.asBool(getVal("view")),
-					"Edit":          s.asBool(getVal("edit")),
-					"Create":        s.asBool(getVal("create")),
-					"Delete":        s.asBool(getVal("delete")),
-					"GroupId":       s.asInt(getVal("groupid")),
-					"UserId":        getVal("userid"),
-					"MenuId":        menuItemId,
-					"OrderSeq":      s.asInt(getVal("orderseq")),
-					"Type":          idType,
-					"Name":          getVal("name"),
-					"MenuKey":       getVal("menukey"),
-					"MenuLabel":     getVal("menulabel"),
-					"MenuLink":      getVal("menulink"),
-					"MenuType":      getVal("menutype"),
-					"MenuRootId":    s.asInt(getVal("menurootid")),
-					"MenuSubRootId": s.asInt(getVal("menusubrootid")),
+			menuType := strings.ToLower(strings.TrimSpace(fmt.Sprint(row["menutype"])))
+			if menuType == "<nil>" || menuType == "" {
+				menuType = kind
+				if menuType == "action" {
+					menuType = "menu"
 				}
-			} else {
-				existing["View"] = s.asBool(existing["View"]) || s.asBool(getVal("view"))
-				existing["Create"] = s.asBool(existing["Create"]) || s.asBool(getVal("create"))
-				existing["Edit"] = s.asBool(existing["Edit"]) || s.asBool(getVal("edit"))
-				existing["Delete"] = s.asBool(existing["Delete"]) || s.asBool(getVal("delete"))
 			}
-		} else if idType == "rootmenu" {
-			rootMenuId := s.asInt(getVal("rootmenuid"))
-			if rootMenuId == 0 {
+			bucket := menus
+			if kind == "menuitem" || menuType == "menuitem" {
+				bucket = items
+			}
+			target = bucket[id]
+			if kind == "action" {
+				key, _ := row["name"].(string)
+				key = strings.ToUpper(strings.TrimSpace(key))
+				if key == "" {
+					continue
+				}
+				if grants[id] == nil {
+					grants[id] = make(map[string]bool)
+				}
+				grants[id][key] = grants[id][key] || s.asBool(row["view"])
+				// An action may exist without a legacy menu grant. Keep it only
+				// when its MenuId still resolves to a real catalogue entry.
+				if target == nil && (row["menukey"] == nil || row["menukey"] == "") {
+					continue
+				}
+			}
+			if target == nil {
+				target = map[string]interface{}{
+					"Id": id, "MenuId": id, "Type": menuType, "MenuType": menuType,
+					"MenuKey": row["menukey"], "MenuLabel": row["menulabel"], "MenuLink": row["menulink"],
+					"MenuRootId": s.asInt(row["menurootid"]), "MenuSubRootId": s.asInt(row["menusubrootid"]),
+					"OrderSeq": s.asInt(row["orderseq"]),
+				}
+				bucket[id] = target
+			}
+			if kind == "action" {
 				continue
 			}
-
-			if existing, exists := rootMenus[rootMenuId]; !exists {
-				rootMenus[rootMenuId] = map[string]interface{}{
-					"Id":                s.asInt(getVal("id")),
-					"View":              s.asBool(getVal("view")),
-					"Edit":              s.asBool(getVal("edit")),
-					"Create":            s.asBool(getVal("create")),
-					"Delete":            s.asBool(getVal("delete")),
-					"GroupId":           s.asInt(getVal("groupid")),
-					"UserId":            getVal("userid"),
-					"RootMenuId":        rootMenuId,
-					"OrderSeq":          s.asInt(getVal("orderseq")),
-					"Type":              idType,
-					"Name":              getVal("name"),
-					"RootMenuKey":       getVal("rootmenukey"),
-					"RootMenuLabel":     getVal("rootmenulabel"),
-					"RootMenuIcon":      getVal("rootmenuicon"),
-					"RootMenuLink":      getVal("rootmenulink"),
-					"RootMenuUtilities": getVal("rootmenuutilities"),
-				}
-			} else {
-				existing["View"] = s.asBool(existing["View"]) || s.asBool(getVal("view"))
-				existing["Create"] = s.asBool(existing["Create"]) || s.asBool(getVal("create"))
-				existing["Edit"] = s.asBool(existing["Edit"]) || s.asBool(getVal("edit"))
-				existing["Delete"] = s.asBool(existing["Delete"]) || s.asBool(getVal("delete"))
-			}
-		} else if idType == "action" {
-			menuId := s.asInt(getVal("menuid"))
-			actKey := fmt.Sprintf("%v", getVal("name"))
-			actKey = strings.TrimSpace(actKey)
-			if menuId > 0 && actKey != "" {
-				isAllow := s.asBool(getVal("view"))
-				if actionGrants[menuId] == nil {
-					actionGrants[menuId] = make(map[string]bool)
-				}
-				key := strings.ToUpper(actKey)
-				actionGrants[menuId][key] = actionGrants[menuId][key] || isAllow
-			}
-		}
-	}
-
-	// Apply action grants after all menu rows have been merged, regardless of SQL row order.
-	for menuId, grants := range actionGrants {
-		targetMenu, exists := menus[menuId]
-		if !exists {
+		} else {
 			continue
 		}
-		targetMenu["actions"] = grants
-		for key, allow := range grants {
-			targetMenu[key] = s.asBool(targetMenu[key]) || allow
-			operation := strings.TrimPrefix(key, "BTN_")
-			switch operation {
-			case "VIEW", "CREATE", "EDIT", "DELETE", "IMPORT", "EXPORT", "COPY", "SEARCH":
-				field := strings.ToUpper(operation[:1]) + strings.ToLower(operation[1:])
-				targetMenu[field] = s.asBool(targetMenu[field]) || allow
-			}
+		for _, operation := range operations {
+			target[operation] = s.asBool(target[operation]) || s.asBool(row[strings.ToLower(operation)])
 		}
 	}
 
-	var menuKeys []int
-	for k := range menus {
-		menuKeys = append(menuKeys, k)
+	actions := make([]map[string]interface{}, 0)
+	for _, bucket := range []map[int]map[string]interface{}{menus, items} {
+		for id, menu := range bucket {
+			menuActions := make(map[string]bool)
+			for _, operation := range operations {
+				menu[operation] = s.asBool(menu[operation])
+				menuActions["BTN_"+strings.ToUpper(operation)] = s.asBool(menu[operation])
+			}
+			for key, allow := range grants[id] {
+				menuActions[key] = menuActions[key] || allow
+				menu[key] = allow
+				operation := strings.TrimPrefix(key, "BTN_")
+				for _, field := range operations {
+					if strings.EqualFold(field, operation) {
+						menu[field] = s.asBool(menu[field]) || allow
+					}
+				}
+			}
+			// The nested map is the complete source for standard and custom actions.
+			for _, operation := range operations {
+				menuActions["BTN_"+strings.ToUpper(operation)] = s.asBool(menu[operation])
+			}
+			menu["actions"] = menuActions
+			keys := make([]string, 0, len(menuActions))
+			for key := range menuActions {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				actions = append(actions, map[string]interface{}{"MenuId": id, "MenuKey": menu["MenuKey"], "ActionKey": key, "Allow": menuActions[key]})
+			}
+		}
 	}
-	sort.Ints(menuKeys)
-	menuList := make([]map[string]interface{}, 0)
-	for _, id := range menuKeys {
-		menuList = append(menuList, menus[id])
-	}
+	sort.Slice(actions, func(i, j int) bool {
+		a, b := s.asInt(actions[i]["MenuId"]), s.asInt(actions[j]["MenuId"])
+		if a != b {
+			return a < b
+		}
+		return fmt.Sprint(actions[i]["ActionKey"]) < fmt.Sprint(actions[j]["ActionKey"])
+	})
+	return map[string]interface{}{"menu": sortedPermissionRows(menus), "rootMenu": sortedPermissionRows(roots), "menuItem": sortedPermissionRows(items), "action": actions}
+}
 
-	var rootMenuKeys []int
-	for k := range rootMenus {
-		rootMenuKeys = append(rootMenuKeys, k)
+func sortedPermissionRows(rows map[int]map[string]interface{}) []map[string]interface{} {
+	ids := make([]int, 0, len(rows))
+	for id := range rows {
+		ids = append(ids, id)
 	}
-	sort.Ints(rootMenuKeys)
-	rootMenuList := make([]map[string]interface{}, 0)
-	for _, id := range rootMenuKeys {
-		rootMenuList = append(rootMenuList, rootMenus[id])
+	sort.Ints(ids)
+	result := make([]map[string]interface{}, 0, len(ids))
+	for _, id := range ids {
+		result = append(result, rows[id])
 	}
-
-	var menuItemKeys []int
-	for k := range menuItems {
-		menuItemKeys = append(menuItemKeys, k)
-	}
-	sort.Ints(menuItemKeys)
-	menuItemList := make([]map[string]interface{}, 0)
-	for _, id := range menuItemKeys {
-		menuItemList = append(menuItemList, menuItems[id])
-	}
-
-	return map[string]interface{}{
-		"menu":     menuList,
-		"rootMenu": rootMenuList,
-		"menuItem": menuItemList,
-	}
+	return result
 }
 
 func (s *authService) writeLog(ctx context.Context, login string, userSeq interface{}, status string, deviceInfo any) {

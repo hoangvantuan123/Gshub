@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { findMenuByKey, resolveMenuOperation } from '../../permissions'
+import { findMenuByKey, resolveMenuOperation } from '../../permissions.js'
 
 /**
  * Hook phân quyền tổng hợp chuẩn hóa cho toàn bộ Page trong ERP.
@@ -38,20 +38,24 @@ export function usePagePermissions({
     // a. Nếu canView được truyền tường minh từ Router -> dùng canView
     // b. Nếu tìm thấy menu trong permissions -> dùng currentMenuPerm.View
     // c. Nếu có permissions list mà không có menu này -> chặn tuyệt đối (false)
-    let computedCanView = true
-    if (canView !== undefined) {
-      computedCanView = Boolean(canView)
-    } else if (currentMenuPerm && currentMenuPerm.View !== undefined) {
-      computedCanView = Boolean(currentMenuPerm.View)
-    } else {
-      computedCanView = true
-    }
+    const computedCanView = currentMenuPerm
+      ? resolveMenuOperation(currentMenuPerm, 'View') && canView !== false
+      : !menuKey && resolveMenuOperation({ View: canView }, 'View')
 
     const actions = {
       canView: computedCanView,
       canSearch:
         computedCanView && resolveMenuOperation(currentMenuPerm, 'Search', computedCanView),
       canCreate: computedCanView && resolveMenuOperation(currentMenuPerm, 'Create', canCreate),
+      canPrint: computedCanView && resolveMenuOperation(currentMenuPerm, 'Print'),
+      canSave:
+        computedCanView &&
+        resolveMenuOperation(
+          currentMenuPerm,
+          'Save',
+          resolveMenuOperation(currentMenuPerm, 'Create', canCreate) ||
+            resolveMenuOperation(currentMenuPerm, 'Edit', canEdit)
+        ),
       canEdit: computedCanView && resolveMenuOperation(currentMenuPerm, 'Edit', canEdit),
       canDelete: computedCanView && resolveMenuOperation(currentMenuPerm, 'Delete', canDelete),
       canCopy:
@@ -64,12 +68,18 @@ export function usePagePermissions({
 
     // 3. Nhóm quyền quy trình nghiệp vụ (Workflow / Approvals)
     const workflow = {
-      canSubmit: currentMenuPerm?.Submit ?? extraProps?.canSubmit ?? false,
-      canApprove: currentMenuPerm?.Approve ?? extraProps?.canApprove ?? false,
-      canReject: currentMenuPerm?.Reject ?? extraProps?.canReject ?? false,
-      canCancel: currentMenuPerm?.Cancel ?? extraProps?.canCancel ?? false,
-      canConfirm: currentMenuPerm?.Confirm ?? extraProps?.canConfirm ?? false,
-      canExecute: currentMenuPerm?.Execute ?? extraProps?.canExecute ?? false
+      canSubmit:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Submit', extraProps?.canSubmit),
+      canApprove:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Approve', extraProps?.canApprove),
+      canReject:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Reject', extraProps?.canReject),
+      canCancel:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Cancel', extraProps?.canCancel),
+      canConfirm:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Confirm', extraProps?.canConfirm),
+      canExecute:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Execute', extraProps?.canExecute)
     }
 
     // 4. Nhóm quyền phạm vi dữ liệu (Data Scope)
@@ -85,21 +95,39 @@ export function usePagePermissions({
 
     // 5. Nhóm quyền kiểm soát kỳ & đóng mở dữ liệu (Audit & Period Control)
     const control = {
-      canLock: currentMenuPerm?.Lock ?? extraProps?.canLock ?? false,
-      canUnlock: currentMenuPerm?.Unlock ?? extraProps?.canUnlock ?? false,
-      canClosePeriod: currentMenuPerm?.ClosePeriod ?? extraProps?.canClosePeriod ?? false,
-      canReopenPeriod: currentMenuPerm?.ReopenPeriod ?? extraProps?.canReopenPeriod ?? false,
-      canAdjust: currentMenuPerm?.Adjust ?? extraProps?.canAdjust ?? false,
-      canCreateVersion: currentMenuPerm?.CreateVersion ?? extraProps?.canCreateVersion ?? false
+      canLock:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Lock', extraProps?.canLock),
+      canUnlock:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Unlock', extraProps?.canUnlock),
+      canClosePeriod:
+        computedCanView &&
+        resolveMenuOperation(currentMenuPerm, 'ClosePeriod', extraProps?.canClosePeriod),
+      canReopenPeriod:
+        computedCanView &&
+        resolveMenuOperation(currentMenuPerm, 'ReopenPeriod', extraProps?.canReopenPeriod),
+      canAdjust:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Adjust', extraProps?.canAdjust),
+      canCreateVersion:
+        computedCanView &&
+        resolveMenuOperation(currentMenuPerm, 'CreateVersion', extraProps?.canCreateVersion)
     }
 
     // 6. Nhóm quyền quản trị hệ thống (System & Administration)
     const admin = {
-      canConfig: currentMenuPerm?.Config ?? extraProps?.canConfig ?? false,
-      canAssignPerm: currentMenuPerm?.AssignPerm ?? extraProps?.canAssignPerm ?? false,
-      canChangeWorkflow: currentMenuPerm?.ChangeWorkflow ?? extraProps?.canChangeWorkflow ?? false,
-      canManageDict: currentMenuPerm?.ManageDict ?? extraProps?.canManageDict ?? false,
-      canViewAuditLog: currentMenuPerm?.ViewAuditLog ?? extraProps?.canViewAuditLog ?? false
+      canConfig:
+        computedCanView && resolveMenuOperation(currentMenuPerm, 'Config', extraProps?.canConfig),
+      canAssignPerm:
+        computedCanView &&
+        resolveMenuOperation(currentMenuPerm, 'AssignPerm', extraProps?.canAssignPerm),
+      canChangeWorkflow:
+        computedCanView &&
+        resolveMenuOperation(currentMenuPerm, 'ChangeWorkflow', extraProps?.canChangeWorkflow),
+      canManageDict:
+        computedCanView &&
+        resolveMenuOperation(currentMenuPerm, 'ManageDict', extraProps?.canManageDict),
+      canViewAuditLog:
+        computedCanView &&
+        resolveMenuOperation(currentMenuPerm, 'ViewAuditLog', extraProps?.canViewAuditLog)
     }
 
     // 7. Nhóm quyền kiểm soát trường dữ liệu (Field-Level Permissions)
@@ -136,7 +164,27 @@ export function usePagePermissions({
     extraProps?.hiddenFields,
     extraProps?.readOnlyFields,
     extraProps?.requiredFields,
-    extraProps?.dataScope
+    extraProps?.dataScope,
+    extraProps?.canCopy,
+    extraProps?.canImport,
+    extraProps?.canExport,
+    extraProps?.canSubmit,
+    extraProps?.canApprove,
+    extraProps?.canReject,
+    extraProps?.canCancel,
+    extraProps?.canConfirm,
+    extraProps?.canExecute,
+    extraProps?.canLock,
+    extraProps?.canUnlock,
+    extraProps?.canClosePeriod,
+    extraProps?.canReopenPeriod,
+    extraProps?.canAdjust,
+    extraProps?.canCreateVersion,
+    extraProps?.canConfig,
+    extraProps?.canAssignPerm,
+    extraProps?.canChangeWorkflow,
+    extraProps?.canManageDict,
+    extraProps?.canViewAuditLog
   ])
 }
 

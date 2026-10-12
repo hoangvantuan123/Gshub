@@ -265,6 +265,102 @@ export const storageAdapter = {
   getTabSearchState: async (tabId) => {
     const { getTabSearchStateIDB } = await import('./indexedDbStorage')
     return await getTabSearchStateIDB(tabId)
+  },
+
+  getStorageStats: async () => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      try {
+        const { getStorageStatsSQLite } = await import('./sqliteStorage')
+        const sqliteStats = await getStorageStatsSQLite()
+        if (sqliteStats && sqliteStats.success) {
+          return {
+            mode: 'sqlite',
+            ...sqliteStats
+          }
+        }
+      } catch (e) {
+        console.warn('Lỗi getStorageStatsSQLite fallback to IDB:', e)
+      }
+    }
+    const { getStorageStatsIDB } = await import('./indexedDbStorage')
+    const idbStats = await getStorageStatsIDB()
+    return {
+      mode: 'indexeddb',
+      ...idbStats
+    }
+  },
+
+  clearAllCalcCache: async (options = {}) => {
+    const mode = getStorageMode()
+    let res = { success: true }
+    if (mode === 'sqlite') {
+      try {
+        const { clearAllCalcCacheSQLite } = await import('./sqliteStorage')
+        res = await clearAllCalcCacheSQLite(options)
+      } catch (e) {
+        console.warn('Lỗi clearAllCalcCacheSQLite:', e)
+      }
+    }
+    try {
+      const { clearAllCalcCacheIDB } = await import('./indexedDbStorage')
+      await clearAllCalcCacheIDB(options)
+    } catch {}
+
+    // Dọn dẹp RAM SWR Cache
+    try {
+      const { clearReportCache } = await import('../../../common/reportDataCache')
+      clearReportCache()
+    } catch {}
+
+    // Dọn dẹp localStorage & sessionStorage
+    try {
+      if (typeof window !== 'undefined') {
+        const keysToRemove = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (
+            k &&
+            (k.startsWith('S_MASTER_REG_') ||
+              k.startsWith('S_CALC_RESULTS_') ||
+              k === 'GS_ACTIVE_DETAIL_REG_CODE')
+          ) {
+            keysToRemove.push(k)
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k))
+
+        const sKeysToRemove = []
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const k = sessionStorage.key(i)
+          if (k && (k.startsWith('S_MASTER_REG_') || k.startsWith('S_CALC_RESULTS_'))) {
+            sKeysToRemove.push(k)
+          }
+        }
+        sKeysToRemove.forEach((k) => sessionStorage.removeItem(k))
+      }
+    } catch {}
+
+    return res
+  },
+
+  vacuumDb: async () => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { vacuumDbSQLite } = await import('./sqliteStorage')
+      return await vacuumDbSQLite()
+    }
+    return { success: true }
+  },
+
+  clearMemoryCache: async () => {
+    try {
+      const { clearReportCache } = await import('../../../common/reportDataCache')
+      clearReportCache()
+      return { success: true }
+    } catch (e) {
+      return { success: false, error: e?.message }
+    }
   }
 }
 

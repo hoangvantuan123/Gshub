@@ -86,7 +86,11 @@ export function useActionTechnique({
         }
         const res = await ActionQ(queryParams)
         const rawList = res?.data || res?.data?.data || []
-        const list = Array.isArray(rawList) ? rawList : (Array.isArray(res?.data?.items) ? res.data.items : [])
+        const list = Array.isArray(rawList)
+          ? rawList
+          : Array.isArray(res?.data?.items)
+            ? res.data.items
+            : []
 
         if (Array.isArray(list) && list.length > 0) {
           const mappedData = list.map((item, idx) => ({
@@ -101,10 +105,20 @@ export function useActionTechnique({
             Description: item.Comment || item.Description || '',
             Comment: item.Comment || item.Description || '',
             Icon: item.Icon || 'Activity',
-            Active: item.IsDefaultAllow !== undefined ? Boolean(item.IsDefaultAllow) : Boolean(item.Active !== false),
-            IsDefaultAllow: item.IsDefaultAllow !== undefined ? Boolean(item.IsDefaultAllow) : Boolean(item.Active !== false),
-            CreatedAt: item.CreatedAt ? String(item.CreatedAt).substring(0, 19).replace('T', ' ') : '',
-            UpdatedAt: item.UpdatedAt ? String(item.UpdatedAt).substring(0, 19).replace('T', ' ') : '',
+            Active:
+              item.IsDefaultAllow !== undefined
+                ? Boolean(item.IsDefaultAllow)
+                : Boolean(item.Active !== false),
+            IsDefaultAllow:
+              item.IsDefaultAllow !== undefined
+                ? Boolean(item.IsDefaultAllow)
+                : Boolean(item.Active !== false),
+            CreatedAt: item.CreatedAt
+              ? String(item.CreatedAt).substring(0, 19).replace('T', ' ')
+              : '',
+            UpdatedAt: item.UpdatedAt
+              ? String(item.UpdatedAt).substring(0, 19).replace('T', ' ')
+              : '',
             CreatedByName: item.CreatedByName || item.CreatedBy || '',
             UpdatedByName: item.UpdatedByName || item.UpdatedBy || '',
             RowVersion: item.RowVersion || 1,

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { attachSessionProof } from './sessionProof.js'
 import CryptoJS from 'crypto-js'
 import { accessToken } from './tokenService'
 import { HOST_API_SERVER_1 } from '.'
@@ -18,9 +19,9 @@ const apiService = axios.create({
 
 /**
  * Interceptor tự động tạo chữ ký số HMAC-SHA256, Nonce, Timestamp cho mọi request
- * Ngăn chặn tuyệt đối việc copy URL gọi qua Postman, cURL, hoặc can thiệp F12
+ * Chữ ký kiểm tra request; quyền truy cập vẫn phải được kiểm tra ở backend.
  */
-apiService.interceptors.request.use((config) => {
+apiService.interceptors.request.use(async (config) => {
   if (HOST_API_SERVER_1) {
     config.baseURL = HOST_API_SERVER_1
   }
@@ -75,7 +76,7 @@ apiService.interceptors.request.use((config) => {
   config.headers['X-App-Nonce'] = nonce
   config.headers['X-Client-Platform'] = 'ELECTRON_SECURE_DESKTOP'
 
-  return config
+  return attachSessionProof(config)
 })
 
 apiService.interceptors.response.use(

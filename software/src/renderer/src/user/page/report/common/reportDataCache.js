@@ -72,6 +72,19 @@ export function clearReportCache(cacheKey) {
   }
 }
 
+export function getMemoryCacheStats() {
+  const masterKeys = Object.keys(memoryCache.masters || {})
+  const detailKeys = Object.keys(memoryCache.details || {})
+  const activeKeys = Object.keys(memoryCache.activeMaster || {})
+  return {
+    masterCount: masterKeys.length,
+    detailCount: detailKeys.length,
+    activeMasterCount: activeKeys.length,
+    masterKeys,
+    detailKeys
+  }
+}
+
 export default {
   getCachedMasters,
   setCachedMasters,
@@ -80,5 +93,6 @@ export default {
   getCachedActiveMaster,
   setCachedActiveMaster,
   isCacheFresh,
-  clearReportCache
+  clearReportCache,
+  getMemoryCacheStats
 }

@@ -292,7 +292,7 @@ export function useRoleGroupMutation({
           if (setStatusMessage) {
             setStatusMessage({
               type: 'error',
-              text: response?.message || t('Lỗi khi xóa dữ liệu!')
+              text: t(response?.message) || response?.message || t('Lỗi khi xóa dữ liệu!')
             })
           }
         }

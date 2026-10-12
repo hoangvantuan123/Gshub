@@ -95,13 +95,16 @@ export default function CancelMasterModal({
           {/* Nhập lý do hủy */}
           <div className="space-y-1.5">
             <label className="font-semibold text-slate-700 block">
-              {t('Lý do hủy phiếu')} <span className="text-slate-400 font-normal">({t('tùy chọn')})</span>:
+              {t('Lý do hủy phiếu')}{' '}
+              <span className="text-slate-400 font-normal">({t('tùy chọn')})</span>:
             </label>
             <Input.TextArea
               rows={2}
               value={reason}
               onChange={(e) => handleReasonChange(e.target.value)}
-              placeholder={t('Nhập lý do hủy phiếu (ví dụ: Kế hoạch thay đổi, tính lại phiên bản mới...)')}
+              placeholder={t(
+                'Nhập lý do hủy phiếu (ví dụ: Kế hoạch thay đổi, tính lại phiên bản mới...)'
+              )}
               className="text-xs"
             />
             {/* Gợi ý lý do nhanh */}
@@ -124,7 +127,9 @@ export default function CancelMasterModal({
 
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500 italic">
             <ShieldAlert size={13} className="text-slate-400 shrink-0" />
-            <span>{t('Sau khi hủy, phiếu sẽ không còn được dùng để làm báo cáo KHSX và TKSX.')}</span>
+            <span>
+              {t('Sau khi hủy, phiếu sẽ không còn được dùng để làm báo cáo KHSX và TKSX.')}
+            </span>
           </div>
         </div>
 

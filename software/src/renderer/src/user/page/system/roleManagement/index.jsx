@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 
 import { usePageHotkeys } from '../../../hooks/usePageHotkeys'
 import { usePagePermissions } from '../../../hooks/usePagePermissions'
+import { usePageData } from '../../../../context/PageDataContext'
 import DataPageContainer from '../../../components/layout/DataPageContainer'
 import WindowsConfirmModal from '../../../components/modal/WindowsConfirmModal'
 
@@ -23,6 +24,7 @@ import RoleMenuColumnActionPanel from './components/RoleMenuColumnActionPanel'
 import RoleGroupUsersTable from './components/RoleGroupUsersTable'
 import RoleGroupMembersModal from './components/RoleGroupMembersModal'
 import { useRoleManagement } from './hooks/useRoleManagement'
+import { hasPendingChanges } from './utils/permissionRows'
 
 export default function RoleManagementPage({
   permissions,
@@ -36,6 +38,7 @@ export default function RoleManagementPage({
   ...restProps
 }) {
   const { t } = useTranslation()
+  const { setStatusMessage } = usePageData() || {}
   const loadingBarRef = useRef(null)
   const [activeTab, setActiveTab] = useState('permissions')
   const [permissionSheet, setPermissionSheet] = useState('menu')
@@ -154,6 +157,7 @@ export default function RoleManagementPage({
   } = useRoleManagement({
     activeSheet,
     canCreate: pagePerms.canCreate,
+    canSave: pagePerms.canSave,
     canEdit: pagePerms.canEdit,
     canDelete: pagePerms.canDelete,
     canView: pagePerms.canView,
@@ -189,14 +193,15 @@ export default function RoleManagementPage({
     return () => window.removeEventListener('keydown', openFilter, true)
   }, [activeSheet, setShowSearchUsers, setShowSearchAction, setShowSearchB])
 
-  const hasPendingChanges = (rows) =>
-    rows.some((row) => ['A', 'U', 'D'].includes(row.WorkingTag || row.Status))
   const canSelectMenu = (row) => {
     if (
       String(row?.MenuId) !== String(selectedMenuInGrid?.MenuId) &&
       hasPendingChanges(gridDataAction)
     ) {
-      message.warning('Vui lòng lưu quyền thao tác trước khi chọn menu khác.')
+      setStatusMessage?.({
+        type: 'warning',
+        text: 'Vui lòng lưu quyền thao tác trước khi chọn menu khác.'
+      })
       return false
     }
     return true
@@ -317,7 +322,10 @@ export default function RoleManagementPage({
       String(g.Id) !== String(groupId) &&
       [gridDataB, gridDataAction, gridDataUsers].some(hasPendingChanges)
     ) {
-      message.warning('Vui lòng lưu thay đổi ở từng bảng trước khi chuyển nhóm quyền.')
+      setStatusMessage?.({
+        type: 'warning',
+        text: 'Vui lòng lưu thay đổi ở từng bảng trước khi chuyển nhóm quyền.'
+      })
       return
     }
     setGroupId(String(g.Id || ''))

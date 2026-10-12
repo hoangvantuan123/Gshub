@@ -698,8 +698,13 @@ export const useProductionStatisticsLogic = ({
         AutoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || null,
         autoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || null,
         operator: rawMainWorker,
-        AuditCategory: durMinutes < 5 ? 'UNDER_5MIN' : durMinutes > 720 ? 'OVER_12H' : '5MIN_12H',
-        auditCategory: durMinutes < 5 ? 'UNDER_5MIN' : durMinutes > 720 ? 'OVER_12H' : '5MIN_12H'
+        AuditCategory: isTimeReversed
+          ? 'INVALID_TIME'
+          : durMinutes < 5
+            ? 'UNDER_5MIN'
+            : durMinutes > 720 && a < 50000
+              ? 'OVER_12H'
+              : 'NORMAL'
       }
     })
   }, [inputDataset, plantKey])

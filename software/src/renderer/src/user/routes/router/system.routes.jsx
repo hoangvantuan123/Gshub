@@ -160,25 +160,25 @@ export const systemsRoutes = [
     path: '/erp/u/system/users',
     element: UserManagement,
     permission: 'user_mgmt',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system/users/*',
     element: UserManagement,
     permission: 'user_mgmt',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system-settings/users/user-management',
     element: UserManagement,
     permission: 'user_mgmt',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system/user-detail',
     element: UserDetailPage,
     permission: 'user_mgmt',
-    public: true
+    public: false
   },
 
   // 2.2 Đăng ký menu hệ thống (system_menus / menuTechnique)
@@ -186,19 +186,19 @@ export const systemsRoutes = [
     path: '/erp/u/system/menus',
     element: MenuTechnique,
     permission: 'system_menus',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system/menus/*',
     element: MenuTechnique,
     permission: 'system_menus',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system-settings/structure/menus',
     element: MenuTechnique,
     permission: 'system_menus',
-    public: true
+    public: false
   },
 
   // 2.3 Đăng ký module gốc (rootMenuTechnique)
@@ -206,13 +206,13 @@ export const systemsRoutes = [
     path: '/erp/u/system/modules',
     element: RootMenuTechnique,
     permission: 'system_modules',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system-settings/structure/modules',
     element: RootMenuTechnique,
     permission: 'system_modules',
-    public: true
+    public: false
   },
 
   // 2.4 Đăng ký danh mục hành động / quyền nút (actionTechnique)
@@ -220,19 +220,19 @@ export const systemsRoutes = [
     path: '/erp/u/system/actions',
     element: ActionTechnique,
     permission: 'system_actions',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system/actions/*',
     element: ActionTechnique,
     permission: 'system_actions',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system-settings/structure/actions',
     element: ActionTechnique,
     permission: 'system_actions',
-    public: true
+    public: false
   },
 
   // 2.4 Quản lý vai trò & Phân quyền (roleManagement & roleGroup)
@@ -240,37 +240,37 @@ export const systemsRoutes = [
     path: '/erp/u/system/permissions',
     element: RoleManagement,
     permission: 'system_permissions',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system/permissions/*',
     element: RoleManagement,
     permission: 'system_permissions',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system/role-management',
     element: RoleManagement,
     permission: 'perm_assign',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system-settings/roles/permission-assignment',
     element: RoleManagement,
     permission: 'perm_assign',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system/role-groups',
     element: RoleGroupPage,
     permission: 'role_group',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/system-settings/roles/role-management',
     element: RoleGroupPage,
     permission: 'role_mgmt',
-    public: true
+    public: false
   },
 
   // =========================================================================
@@ -281,25 +281,25 @@ export const systemsRoutes = [
     path: '/erp/u/report/production/hanoi-gs1/statistics',
     element: HanoiGs1StatPage,
     permission: 'report_hanoi_gs1_stat',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/hanoi-gs1/statistics/*',
     element: HanoiGs1StatPage,
     permission: 'report_hanoi_gs1_stat',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/hanoi-gs1/plan',
     element: HanoiGs1PlanPage,
     permission: 'report_hanoi_gs1_plan',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/hanoi-gs1/plan/*',
     element: HanoiGs1PlanPage,
     permission: 'report_hanoi_gs1_plan',
-    public: true
+    public: false
   },
 
   // ── GS5 Quế Võ 1B ───────────────────────────────────────────────────────
@@ -307,25 +307,25 @@ export const systemsRoutes = [
     path: '/erp/u/report/production/quevo-gs5/statistics',
     element: QuevoGs5StatPage,
     permission: 'report_quevo_gs5_stat',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/quevo-gs5/statistics/*',
     element: QuevoGs5StatPage,
     permission: 'report_quevo_gs5_stat',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/quevo-gs5/plan',
     element: QuevoGs5PlanPage,
     permission: 'report_quevo_gs5_plan',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/quevo-gs5/plan/*',
     element: QuevoGs5PlanPage,
     permission: 'report_quevo_gs5_plan',
-    public: true
+    public: false
   },
 
   // ── Tổng hợp Thống kê Sản xuất (TKSX) Toàn Thời Gian ───────────────────
@@ -333,13 +333,13 @@ export const systemsRoutes = [
     path: '/erp/u/report/production/summary/statistics',
     element: SummaryStatisticsReportPage,
     permission: 'report_summary_stat',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/summary/statistics/*',
     element: SummaryStatisticsReportPage,
     permission: 'report_summary_stat',
-    public: true
+    public: false
   },
 
   // ── Tổng hợp Kế hoạch Sản xuất (KHSX) Toàn Thời Gian ───────────────────
@@ -347,13 +347,13 @@ export const systemsRoutes = [
     path: '/erp/u/report/production/summary/plan',
     element: SummaryPlanReportPage,
     permission: 'report_summary_plan',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/summary/plan/*',
     element: SummaryPlanReportPage,
     permission: 'report_summary_plan',
-    public: true
+    public: false
   },
 
   // ── Alias tương thích ngược cho Timeline Summary ─────────────────────────
@@ -361,25 +361,25 @@ export const systemsRoutes = [
     path: '/erp/u/report/production/timeline-summary',
     element: TimelineSummaryReportPage,
     permission: 'report_timeline_summary',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/timeline-summary/*',
     element: TimelineSummaryReportPage,
     permission: 'report_timeline_summary',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/timeline-summary/stat',
     element: TimelineSummaryReportPage,
     permission: 'report_timeline_summary',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/production/timeline-summary/plan',
     element: SummaryPlanReportPage,
     permission: 'report_timeline_summary',
-    public: true
+    public: false
   },
 
   // ── Đăng ký báo cáo KHSX & TKSX ─────────────────────────────────────────
@@ -387,123 +387,125 @@ export const systemsRoutes = [
     path: '/erp/u/report/registration',
     element: RegistrationPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/registration/*',
     element: RegistrationPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/registration/create',
     element: PlanRegistrationCreateView,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/registration/detail/:regCode',
     element: PlanRegistrationDetailView,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/plan-query',
     element: PlanDetailQueryPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/plan-query/*',
     element: PlanDetailQueryPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/registration/plan-query',
     element: PlanDetailQueryPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/registration/plan-query/*',
     element: PlanDetailQueryPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/stat-query',
     element: StatDetailQueryPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/stat-query/*',
     element: StatDetailQueryPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/registration/stat-query',
     element: StatDetailQueryPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/registration/stat-query/*',
     element: StatDetailQueryPage,
     permission: 'report_registration',
-    public: true
+    public: false
   },
 
   // ── Tính KHSX và TKSX ──────────────────────────────────────────────────
   {
     path: '/erp/u/report/calc-production',
     element: CalcProductionPage,
-    permission: 'report_calc_production',
-    public: true
+    permission: 'report_calc_production_query',
+    fallback: CalcProductionPage,
+    public: false
   },
   {
     path: '/erp/u/report/calc-production/*',
     element: CalcProductionPage,
-    permission: 'report_calc_production',
-    public: true
+    permission: 'report_calc_production_query',
+    fallback: CalcProductionPage,
+    public: false
   },
   {
     path: '/erp/u/report/calc-production-query',
     element: CalcProductionQueryPage,
     permission: 'report_calc_production_query',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/calc-production-query/detail',
     element: CalcProductionDetailPage,
     permission: 'report_calc_production_query',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/calc-production-query/detail/:seq',
     element: CalcProductionDetailPage,
     permission: 'report_calc_production_query',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/calc-production-query/detail/*',
     element: CalcProductionDetailPage,
     permission: 'report_calc_production_query',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/calc-production-query/:seq',
     element: CalcProductionDetailPage,
     permission: 'report_calc_production_query',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/calc-production-query/*',
     element: CalcProductionQueryPage,
     permission: 'report_calc_production_query',
-    public: true
+    public: false
   },
 
   // ── Cẩm nang công thức & Từ điển dữ liệu ────────────────────────────────
@@ -511,13 +513,13 @@ export const systemsRoutes = [
     path: '/erp/u/report/handbook/formula',
     element: FormulaHandbookPage,
     permission: 'report_handbook',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/handbook/formula/*',
     element: FormulaHandbookPage,
     permission: 'report_handbook',
-    public: true
+    public: false
   },
 
   // Alias tương thích ngược cho các route cũ
@@ -525,36 +527,36 @@ export const systemsRoutes = [
     path: '/erp/u/report/data/register',
     element: RegistrationPage,
     permission: 'report_data_import',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/data/register/*',
     element: RegistrationPage,
     permission: 'report_data_import',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/data/import',
     element: RegistrationPage,
     permission: 'report_data_import',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/data/import/*',
     element: RegistrationPage,
     permission: 'report_data_import',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/data/create',
     element: PlanRegistrationCreateView,
     permission: 'report_data_import',
-    public: true
+    public: false
   },
   {
     path: '/erp/u/report/data/detail/:regCode',
     element: PlanRegistrationDetailView,
     permission: 'report_data_import',
-    public: true
+    public: false
   }
 ]

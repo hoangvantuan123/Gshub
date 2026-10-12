@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"server-core/internal/constants"
 	domain "server-core/internal/models/auth"
@@ -137,8 +138,14 @@ func (s *UserAuthService) UPasswordForUsers(ctx context.Context, users []domain.
 
 	var updatedCount int64
 	for _, u := range users {
+		if u.UserId == nil || strings.TrimSpace(*u.UserId) == "" {
+			return nil, fmt.Errorf("UserId is required for password reset")
+		}
 		defaultPass := "@" + *u.UserId
-		hashed, _ := s.hashPassword(defaultPass)
+		hashed, err := s.hashPassword(defaultPass)
+		if err != nil {
+			return nil, fmt.Errorf("hash reset password: %w", err)
+		}
 
 		res, err := tx.ExecContext(ctx, `UPDATE "_ERPUsers" SET "Password2" = $1, "CheckPass1" = false WHERE "UserSeq" = $2`, hashed, u.UserSeq)
 		if err != nil {

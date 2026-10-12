@@ -27,6 +27,8 @@ import {
 import { LoginAuth } from '../../api/auth/login'
 import { ChangePassword } from '../../api/auth/changePassword'
 import decodeJWT from '../../utils/decode-JWT'
+import { parseRolesMenu } from '../../utils/parseRolesMenu'
+import { stripPermissionData, clearLegacyPermissionStorage } from '../../utils/authStorage.js'
 import { HandleSuccess } from '../page/default/handleSuccess'
 
 // --- Storage & Config ---
@@ -406,8 +408,11 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
                 ? response.typeLanguage
                 : undefined
 
+          parseRolesMenu(rolesMenuVal, userObj)
+          clearLegacyPermissionStorage()
+
           if (userObj) {
-            localStorage.setItem('userInfo', JSON.stringify(userObj))
+            localStorage.setItem('userInfo', JSON.stringify(stripPermissionData(userObj)))
           }
           localStorage.setItem('last_login_username', loginVal)
           localStorage.setItem('datahub_remember_username', loginVal)
@@ -415,9 +420,7 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
 
           if (rolesMenuVal) {
             // Mã hóa AES-256 bảo mật và lưu cấu trúc menu & phân quyền vào IndexedDB (Tuyệt đối không lưu plaintext roles_menu vào localStorage)
-            await saveEncryptedMenuFromRolesMenu(rolesMenuVal, userObj).catch((e) =>
-              console.warn('Lỗi lưu menu bảo mật IndexedDB khi login:', e)
-            )
+            await saveEncryptedMenuFromRolesMenu(rolesMenuVal, userObj)
           } else {
             // Xóa menu cũ nếu không có rolesMenu
             clearMenuData().catch((e) => console.warn('Lỗi clear menu IndexedDB:', e))
@@ -461,14 +464,6 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
 
           // 2. Chạy ngầm mã hóa IndexedDB và ghi log file trong nền (Non-blocking)
           setTimeout(() => {
-            if (rolesMenuVal) {
-              saveEncryptedMenuFromRolesMenu(rolesMenuVal, userObj).catch((e) =>
-                console.warn('Lỗi lưu menu bảo mật IndexedDB khi login:', e)
-              )
-            } else {
-              clearMenuData().catch((e) => console.warn('Lỗi clear menu IndexedDB:', e))
-            }
-
             const currentUser = {
               ...(userObj || {}),
               LastLoginTime: new Date().toISOString(),
@@ -639,8 +634,9 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
     const token = queryParams.get('token')
     const decoded = decodeJWT(token)
     if (token && decoded) {
+      if (stripPermissionData(token) === undefined) return
       localStorage.setItem('token', token)
-      localStorage.setItem('userInfo', JSON.stringify(decoded))
+      localStorage.setItem('userInfo', JSON.stringify(stripPermissionData(decoded)))
       localStorage.setItem('COLLAPSED_STATE', JSON.stringify(true))
       window.location.href = '/erp/u/home'
     }

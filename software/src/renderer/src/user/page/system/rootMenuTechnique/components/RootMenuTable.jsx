@@ -143,7 +143,6 @@ export default function RootMenuTable({
         if (k === 'Label') value = item.RootMenuLabel || item.RootMenuName || item.Name
         else if (k === 'Key') value = item.RootMenuKey
         else if (k === 'OrderSeq') value = item.IdxNo
-        else if (k === 'Utilities') value = item.View
         else if (k === 'CreatedByName') value = item.CreatedBy
         else if (k === 'UpdatedByName') value = item.UpdatedBy
         else value = item[k.charAt(0).toLowerCase() + k.slice(1)] ?? ''

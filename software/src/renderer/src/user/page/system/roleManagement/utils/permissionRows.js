@@ -10,7 +10,32 @@ export const permissionType = (row) => {
       : 'menu'
 }
 
-export const recordId = (row, sheet) => (sheet === 'users' ? row.Id : row.RoleRecordId)
+export const recordId = (row, sheet) => {
+  if (sheet === 'users') {
+    const id = row?.Id
+    if (id !== undefined && id !== null && String(id).trim() !== '') {
+      const num = Number(id)
+      if (!isNaN(num) && num > 0) return String(num)
+    }
+    return null
+  }
+  return row?.RoleRecordId || null
+}
+
+export const hasPendingChanges = (rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) return false
+  return rows.some((row) => {
+    if (!row) return false
+    const tag = row.WorkingTag || row.Status
+    if (tag === 'U' || tag === 'D' || tag === 'E') return true
+    if (tag === 'A') {
+      if (row.isEdited) return true
+      if (row.UserId && String(row.UserId).trim() !== '') return true
+      return false
+    }
+    return false
+  })
+}
 
 export const markEdited = (row, changes, sheet = 'menu') => {
   if ((row.WorkingTag || row.Status) === 'D') return row
@@ -73,7 +98,10 @@ export function buildPermissionBatch(rows, sheet, groupId) {
       RowVersion: Number(row.RowVersion || 1)
     }
     if (type === 'user') {
-      if (!row.UserId && !row.UserSeq) throw new Error('Vui lòng chọn tài khoản cho dòng mới.')
+      if (!row.UserId && !row.UserSeq) {
+        if (tag === 'A') return
+        throw new Error('Vui lòng chọn tài khoản cho dòng mới.')
+      }
       Object.assign(item, { UserId: String(row.UserId || ''), UserSeq: String(row.UserSeq || '') })
     } else if (type === 'action') {
       Object.assign(item, {

@@ -24,6 +24,7 @@ import { performLogout } from '../../../utils/logout'
 import { usePageData } from '../../../context/PageDataContext'
 import { isPageBusy } from '../../../utils/togglePageInteraction'
 import { preloadRoute } from '../../routes/router/system.routes'
+import { buildSidebarNavigation, getSidebarModuleItems } from '../../../utils/sidebarNavigation.js'
 
 // Custom Tooltip component in GsHub Desktop style
 const Tooltip = ({ title, children, side = 'right', className = '' }) => {
@@ -217,11 +218,16 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  const navigation = useMemo(
+    () => buildSidebarNavigation(rootMenu, menuTransForm, permissions),
+    [rootMenu, menuTransForm, permissions]
+  )
+
   // Pre-index toàn bộ Route -> Module mapping O(1) tránh lặp 4 vòng lồng nhau khi đổi trang
   const routePathMap = useMemo(() => {
     const map = new Map()
-    const roots = Array.isArray(rootMenu) ? rootMenu : []
-    const menus = Array.isArray(menuTransForm) ? menuTransForm : []
+    const roots = navigation.roots
+    const menus = navigation.menus
 
     for (const root of roots) {
       if (!root) continue
@@ -268,7 +274,7 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
       }
     }
     return map
-  }, [rootMenu, menuTransForm])
+  }, [navigation])
 
   // 3. Auto sync Route URL with Menu Tree (Auto-expand & Highlight on route change only)
   useEffect(() => {
@@ -450,30 +456,11 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
     [handleSafeClick]
   )
 
-  // Filtered menu items for active module
-  const currentModuleItems = useMemo(() => {
-    return (Array.isArray(menuTransForm) ? menuTransForm : []).filter(
-      (item) =>
-        (item?.RootMenuKey === isMenu ||
-          item?.MenuKey === isMenu ||
-          item?.MenuRootId === isMenu ||
-          (item?.MenuRootId &&
-            rootMenu.some(
-              (r) =>
-                r &&
-                (r.RootMenuKey === isMenu || r.Id === isMenu || r.RootMenuId === isMenu) &&
-                (r.Id === item.MenuRootId ||
-                  r.RootMenuId === item.MenuRootId ||
-                  r.RootMenuKey === item.MenuRootId)
-            ))) &&
-        item?.View !== false
-    )
-  }, [menuTransForm, isMenu, rootMenu])
-
-  // Root menu list for overview
-  const rootMenuOverviewList = useMemo(() => {
-    return (Array.isArray(rootMenu) ? rootMenu : []).filter((item) => item?.View !== false)
-  }, [rootMenu])
+  const currentModuleItems = useMemo(
+    () => getSidebarModuleItems(navigation, isMenu),
+    [navigation, isMenu]
+  )
+  const rootMenuOverviewList = navigation.roots
 
   const userInitials = useMemo(() => {
     const name = userFromLocalStorage?.UserName || 'User'
@@ -535,29 +522,30 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                 })()}
 
                 {/* All Modules / Overview Toggle */}
-                {(() => {
-                  const isAllModulesActive = Boolean(menu)
+                {rootMenuOverviewList.length > 0 &&
+                  (() => {
+                    const isAllModulesActive = Boolean(menu)
 
-                  return (
-                    <Tooltip title={t('Tất cả chức năng')} className="w-full">
-                      <button
-                        type="button"
-                        onClick={handleToggleMenuRootList}
-                        className={`w-full h-10 flex items-center justify-center border-b border-slate-200 transition-colors cursor-pointer ${
-                          isAllModulesActive
-                            ? 'bg-slate-200 text-slate-900 font-semibold'
-                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                        }`}
-                      >
-                        <LayoutGrid size={15} strokeWidth={1.75} />
-                      </button>
-                    </Tooltip>
-                  )
-                })()}
+                    return (
+                      <Tooltip title={t('Tất cả chức năng')} className="w-full">
+                        <button
+                          type="button"
+                          onClick={handleToggleMenuRootList}
+                          className={`w-full h-10 flex items-center justify-center border-b border-slate-200 transition-colors cursor-pointer ${
+                            isAllModulesActive
+                              ? 'bg-slate-200 text-slate-900 font-semibold'
+                              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                          }`}
+                        >
+                          <LayoutGrid size={15} strokeWidth={1.75} />
+                        </button>
+                      </Tooltip>
+                    )
+                  })()}
 
                 {/* Root Modules Quick Icons */}
-                {(Array.isArray(rootMenu) ? rootMenu : []).map((item) => {
-                  if (item?.View === true && item.RootMenuUtilities) {
+                {rootMenuOverviewList.map((item) => {
+                  if (item?.View === true && item.RootMenuUtilities === true) {
                     const isUtilityActive = !menu && isMenu === item.RootMenuKey
 
                     return (
@@ -720,7 +708,7 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
           {/* ========================================================================= */}
           {/* COLUMN 2B: MODULE SUBMENU TREE (RESIZABLE)                                */}
           {/* ========================================================================= */}
-          {isMenu !== null && (
+          {isMenu !== null && currentModuleItems.length > 0 && (
             <div
               style={
                 collapsed
@@ -742,7 +730,10 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="size-1.5 rounded-[1px] bg-slate-700 shrink-0" />
                       <span className="text-xs font-semibold text-slate-800 truncate tracking-tight">
-                        {t(labelMenu)}
+                        {t(
+                          navigation.roots.find((root) => root.RootMenuKey === isMenu)
+                            ?.RootMenuLabel || labelMenu
+                        )}
                       </span>
                     </div>
                     <SidebarContent collapsed={collapsed} toggleSidebar={toggleSidebar} />

@@ -14,7 +14,7 @@ export default function RoleManagementActions({
   const { t } = useTranslation()
 
   const canSearch = permissions.canSearch !== undefined ? Boolean(permissions.canSearch) : true
-  const canSave = Boolean(permissions.canEdit || permissions.canCreate)
+  const canSave = Boolean(permissions.canSave ?? (permissions.canEdit || permissions.canCreate))
   const canDelete = Boolean(permissions.canDelete)
 
   return (

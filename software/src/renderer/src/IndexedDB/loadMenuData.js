@@ -1,8 +1,8 @@
 import { openDB } from 'idb'
 import CryptoJS from 'crypto-js'
-import decodeJWT from '../utils/decode-JWT'
-import { mergeWithDefaultMenuConfig } from '../config/menuConfig'
-import { buildPermissionsTree } from '../utils/buildPermissionsTree'
+import { parseRolesMenu } from '../utils/parseRolesMenu.js'
+import { mergeWithDefaultMenuConfig } from '../config/menuConfig.js'
+import { buildPermissionsTree } from '../utils/buildPermissionsTree.js'
 
 const DB_NAME = 'menuDatabase'
 const DB_VERSION = 1
@@ -89,7 +89,10 @@ export async function saveMenuData(menuData, rawRolesMenu = '') {
       transformedMenu: menuData.transformedMenu || [],
       permissionsTree: menuData.permissionsTree || [],
       roleTable: menuData.roleTable || [],
-      userId: menuData.userId || localStorage.getItem('last_login_username') || ''
+      actions: menuData.actions || [],
+      userId: menuData.userId || '',
+      userSeq: menuData.userSeq || '',
+      expiresAt: menuData.expiresAt || 0
     }
 
     const encryptedData = encryptMenuPayload(rawPayload)
@@ -118,45 +121,25 @@ export async function saveMenuData(menuData, rawRolesMenu = '') {
  */
 export async function saveEncryptedMenuFromRolesMenu(rawRolesMenu, userInfo = {}) {
   try {
+    await clearMenuData()
     if (!rawRolesMenu) return null
-    let settingItems = []
-    let rootMenuItems = []
-    let menuItemList = []
-    let roleTable = []
-
-    const data = decodeJWT(rawRolesMenu)
-    if (data && data.data) {
-      settingItems = data?.data?.find((x) => x.menu)?.menu || data?.data[0]?.menu || []
-      rootMenuItems = data?.data?.find((x) => x.rootMenu)?.rootMenu || data?.data[1]?.rootMenu || []
-      menuItemList = data?.data?.find((x) => x.menuItem)?.menuItem || data?.data[2]?.menuItem || []
-      roleTable = data?.data?.find((x) => x.roleTable)?.roleTable || data?.data[3]?.roleTable || []
-    }
-
-    const merged = mergeWithDefaultMenuConfig(settingItems, rootMenuItems, menuItemList)
-    const permissionsTree = buildPermissionsTree(roleTable)
-
-    const userId =
-      userInfo?.UserId ||
-      userInfo?.UserName ||
-      userInfo?.EmpID ||
-      localStorage.getItem('last_login_username') ||
-      ''
-
+    const snapshot = parseRolesMenu(rawRolesMenu, userInfo)
+    const merged = mergeWithDefaultMenuConfig(
+      snapshot.settingItems,
+      snapshot.rootMenuItems,
+      snapshot.menuItemList
+    )
     const menuPayload = {
-      settingItems: merged.settingItems,
-      rootMenuItems: merged.rootMenuItems,
-      menuItemList: merged.menuItemList,
-      transformedMenu: merged.transformedMenu,
-      permissionsTree,
-      roleTable,
-      userId
+      ...snapshot,
+      ...merged,
+      permissionsTree: buildPermissionsTree(snapshot.roleTable)
     }
 
     await saveMenuData(menuPayload, rawRolesMenu)
     return menuPayload
   } catch (err) {
     console.warn('Lỗi saveEncryptedMenuFromRolesMenu:', err)
-    return null
+    throw err
   }
 }
 
@@ -169,21 +152,44 @@ export async function getMenuData() {
     const record = await db.get(STORE_NAME, 'active_menu')
     if (!record) return null
 
+    // Cache is only UI data, never proof of authorization.
+    let currentUser
+    try {
+      currentUser = JSON.parse(localStorage.getItem('userInfo') || 'null')
+    } catch {
+      return null
+    }
+    if (
+      !currentUser?.UserId ||
+      String(record.userId).toLowerCase() !== String(currentUser.UserId).toLowerCase()
+    )
+      return null
+
     // Nếu bản ghi được mã hóa AES
     if (record.isEncrypted && record.encryptedData) {
       const decrypted = decryptMenuPayload(record.encryptedData)
-      if (decrypted) {
+      if (
+        decrypted &&
+        String(decrypted.userSeq) === String(currentUser.UserSeq) &&
+        Number.isFinite(decrypted.expiresAt) &&
+        decrypted.expiresAt > Date.now()
+      ) {
         return {
           versionHash: record.versionHash || '',
           userId: record.userId || '',
           updatedAt: record.updatedAt || 0,
-          ...decrypted
+          ...decrypted,
+          ...mergeWithDefaultMenuConfig(
+            decrypted.settingItems,
+            decrypted.rootMenuItems,
+            decrypted.menuItemList
+          )
         }
       }
     }
 
     // Fallback nếu bản ghi cũ chưa mã hóa
-    return record || null
+    return null
   } catch (error) {
     console.warn('Lỗi khi đọc dữ liệu Menu từ IndexedDB:', error)
     return null

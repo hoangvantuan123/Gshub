@@ -29,15 +29,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"os/signal"
 	"server-core/internal/app"
 	"server-core/internal/config"
 	"server-core/internal/database"
 	"server-core/internal/logger"
 	"server-core/internal/middleware"
 	"server-core/internal/worker"
-	"net"
-	"os"
-	"os/signal"
 	"syscall"
 	"time"
 
@@ -108,13 +108,14 @@ func main() {
 	s := grpc.NewServer(
 		grpc.KeepaliveEnforcementPolicy(kaPolicy),
 		grpc.KeepaliveParams(kaParams),
-		grpc.MaxConcurrentStreams(100000), // Cho phép tối đa 100,000 active streams song song
+		grpc.MaxConcurrentStreams(100000),  // Cho phép tối đa 100,000 active streams song song
 		grpc.MaxRecvMsgSize(100*1024*1024), // 100MB payload support
 		grpc.MaxSendMsgSize(100*1024*1024), // 100MB payload support
 		grpc.ChainUnaryInterceptor(
-			middleware.RecoveryInterceptor(log),                  // Bảo vệ server khỏi crash (Panic)
-			middleware.RateLimitInterceptor,                      // Giới hạn tần suất request (Anti Brute-force)
-			middleware.AuthInterceptor,                           // Bảo mật: Kiểm tra Token gRPC & set User info vào context
+			middleware.RecoveryInterceptor(log), // Bảo vệ server khỏi crash (Panic)
+			middleware.RateLimitInterceptor,     // Giới hạn tần suất request (Anti Brute-force)
+			middleware.AuthInterceptor,
+			middleware.PermissionInterceptor(database.SqlxDB),    // Bảo mật: Kiểm tra Token gRPC & set User info vào context
 			middleware.LoggingInterceptor(container.AuditLogSvc), // Full Audit Log (Asynchronous)
 		),
 	)

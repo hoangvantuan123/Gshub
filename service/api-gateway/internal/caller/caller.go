@@ -350,6 +350,11 @@ func Invoke(
 		metaPairs = append(metaPairs, "x-request-id", requestID)
 	}
 	mdMD := metadata.Pairs(metaPairs...)
+	if proofMD, ok := metadata.FromOutgoingContext(ctx); ok {
+		for _, key := range []string{"dpop", "dpop-htm", "dpop-htu"} {
+			mdMD[key] = proofMD.Get(key)
+		}
+	}
 	ctx = metadata.NewOutgoingContext(ctx, mdMD)
 
 	respMsg := dynamic.NewMessage(md.GetOutputType())

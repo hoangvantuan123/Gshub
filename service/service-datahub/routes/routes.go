@@ -35,6 +35,7 @@ func SetupRouter(
 	r.Use(middleware.BodyLimit(100<<20, logger)) // 100MB Payload limit
 	r.Use(middleware.CorsMiddleware())
 	r.Use(middleware.LoggerMiddleware(logger))
+	r.Use(middleware.SessionProofContext())
 	r.Use(middleware.BotFilter(logger))
 	r.Use(middleware.AntiSpamMiddleware(logger))
 

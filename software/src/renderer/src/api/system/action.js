@@ -16,11 +16,9 @@ export const ActionQ = async (data = {}, options = {}) => {
     Page: String(data.page || data.Page || 1)
   }
 
-  return apiPost(
-    '/action/ActionQ',
-    { result, metadata },
-    options
-  ).catch(() => apiPost('/role/PermActionsQ', { result, metadata }, options))
+  return apiPost('/action/ActionQ', { result, metadata }, options).catch(() =>
+    apiPost('/role/PermActionsQ', { result, metadata }, options)
+  )
 }
 
 export const ActionA = async (data = {}, options = {}) => {
@@ -31,14 +29,13 @@ export const ActionA = async (data = {}, options = {}) => {
     Comment: item.Description || item.Comment || '',
     IdxNo: Number(item.OrderSeq || item.IdxNo || 1),
     IsDefaultAllow: Boolean(item.Active ?? item.IsDefaultAllow ?? true),
-    LangKey: item.LangKey || `action.${String(item.ActionKey || item.ActionCode || '').toLowerCase()}`
+    LangKey:
+      item.LangKey || `action.${String(item.ActionKey || item.ActionCode || '').toLowerCase()}`
   }
 
-  return apiPost(
-    '/action/ActionA',
-    { result: [resultItem] },
-    options
-  ).catch(() => apiPost('/role/PermActionsA', { result: [resultItem] }, options))
+  return apiPost('/action/ActionA', { result: [resultItem] }, options).catch(() =>
+    apiPost('/role/PermActionsA', { result: [resultItem] }, options)
+  )
 }
 
 export const ActionU = async (data = {}, options = {}) => {
@@ -50,23 +47,19 @@ export const ActionU = async (data = {}, options = {}) => {
     Comment: item.Description || item.Comment || '',
     IdxNo: Number(item.OrderSeq || item.IdxNo || 1),
     IsDefaultAllow: Boolean(item.Active ?? item.IsDefaultAllow ?? true),
-    LangKey: item.LangKey || `action.${String(item.ActionKey || item.ActionCode || '').toLowerCase()}`,
+    LangKey:
+      item.LangKey || `action.${String(item.ActionKey || item.ActionCode || '').toLowerCase()}`,
     RowVersion: Number(item.RowVersion || 1)
   }
 
-  return apiPost(
-    '/action/ActionU',
-    { result: [resultItem] },
-    options
-  ).catch(() => apiPost('/role/PermActionsU', { result: [resultItem] }, options))
+  return apiPost('/action/ActionU', { result: [resultItem] }, options).catch(() =>
+    apiPost('/role/PermActionsU', { result: [resultItem] }, options)
+  )
 }
 
 export const ActionD = async (data = {}, options = {}) => {
   const idSeq = String(data.id || data.IdSeq || data.Id || '')
-  return apiPost(
-    '/action/ActionD',
-    { result: [{ IdSeq: idSeq }] },
-    options
-  ).catch(() => apiPost('/role/PermActionsD', { result: [{ IdSeq: idSeq }] }, options))
+  return apiPost('/action/ActionD', { result: [{ IdSeq: idSeq }] }, options).catch(() =>
+    apiPost('/role/PermActionsD', { result: [{ IdSeq: idSeq }] }, options)
+  )
 }
-

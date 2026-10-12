@@ -5,6 +5,7 @@
  */
 
 import Cookies from 'js-cookie'
+import { stripPermissionData, clearLegacyPermissionStorage } from '../utils/authStorage.js'
 import { getDefaultDataHubUrl } from '../config/serverConfig'
 
 const STORAGE_KEY_AUTH_SESSION = 'datahub_auth_session'
@@ -21,11 +22,12 @@ export const gshubAuthService = {
    */
   getSavedSession() {
     try {
+      clearLegacyPermissionStorage()
       const raw =
         localStorage.getItem(STORAGE_KEY_AUTH_SESSION) ||
         localStorage.getItem(STORAGE_KEY_GSHUB_AUTH_SESSION)
       if (!raw) return null
-      const parsed = JSON.parse(raw)
+      const parsed = stripPermissionData(JSON.parse(raw))
       return parsed
     } catch {
       return null
@@ -37,20 +39,23 @@ export const gshubAuthService = {
    */
   saveSession(sessionData) {
     try {
-      const serialized = JSON.stringify(sessionData)
+      clearLegacyPermissionStorage()
+      const safeSessionData = stripPermissionData(sessionData)
+      if (!safeSessionData || typeof safeSessionData !== 'object') return
+      const serialized = JSON.stringify(safeSessionData)
       localStorage.setItem(STORAGE_KEY_AUTH_SESSION, serialized)
       localStorage.setItem(STORAGE_KEY_GSHUB_AUTH_SESSION, serialized)
-      if (sessionData?.config_key) {
+      if (safeSessionData?.config_key) {
         localStorage.setItem(STORAGE_KEY_LAST_CONFIG, sessionData.config_key)
         localStorage.setItem('gshub_last_config_key', sessionData.config_key)
       }
-      const payload = sessionData?.data || sessionData || {}
+      const payload = safeSessionData?.data || safeSessionData || {}
       const accToken =
         payload?.access_token ||
         payload?.token ||
         payload?.session?.access_token ||
-        sessionData?.access_token ||
-        sessionData?.session?.access_token ||
+        safeSessionData?.access_token ||
+        safeSessionData?.session?.access_token ||
         null
       if (accToken) {
         Cookies.set('a_a', accToken, { expires: 7, path: '/' })
@@ -62,8 +67,8 @@ export const gshubAuthService = {
         payload?.refresh_token ||
         payload?.refreshToken ||
         payload?.session?.refresh_token ||
-        sessionData?.refresh_token ||
-        sessionData?.session?.refresh_token ||
+        safeSessionData?.refresh_token ||
+        safeSessionData?.session?.refresh_token ||
         null
       if (refToken) {
         Cookies.set('r_t', refToken, { expires: 30, path: '/' })

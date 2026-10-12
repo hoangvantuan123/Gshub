@@ -39,7 +39,9 @@ export default function DeleteMasterModal({
           <div className="flex items-center gap-2">
             <Trash2 size={16} className={isMyRecord ? 'text-rose-600' : 'text-amber-600'} />
             <span className="font-bold text-xs text-slate-800 uppercase tracking-wide">
-              {isMyRecord ? t('Xác nhận xóa phiếu tính sản xuất') : t('Xóa bộ nhớ đệm (Cache) trên máy')}
+              {isMyRecord
+                ? t('Xác nhận xóa phiếu tính sản xuất')
+                : t('Xóa bộ nhớ đệm (Cache) trên máy')}
             </span>
           </div>
           <button

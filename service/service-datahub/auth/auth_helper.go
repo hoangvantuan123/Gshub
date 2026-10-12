@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"service-datahub/proof"
 	"strings"
 	"time"
 
@@ -149,6 +150,29 @@ func AuthenticateUserWithToken(ctx context.Context, db *gorm.DB, tokenStr string
 		return nil, errors.New("Token không hợp lệ, chữ ký không khớp hoặc đã hết hạn!")
 	}
 
+	if cnf, ok := verifiedClaims["cnf"].(map[string]interface{}); ok {
+		if expected, ok := cnf["jkt"].(string); ok && expected != "" {
+			key := proof.VerifiedKey(ctx, token)
+			if key == "" {
+				md, _ := metadata.FromIncomingContext(ctx)
+				get := func(k string) string {
+					v := md.Get(k)
+					if len(v) > 0 {
+						return v[0]
+					}
+					return ""
+				}
+				var err error
+				key, err = proof.Verify(get("dpop"), get("dpop-htm"), get("dpop-htu"), token, expected)
+				if err != nil {
+					return nil, errors.New("invalid session proof")
+				}
+			}
+			if key != expected {
+				return nil, errors.New("session key mismatch")
+			}
+		}
+	}
 	// Trích xuất UserSeq & UserId từ claims đã được xác thực an toàn
 	var claimUserSeq string
 	var claimUserId string

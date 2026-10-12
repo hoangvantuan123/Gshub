@@ -66,6 +66,9 @@ func (s *RoleUsersService) RoleUsersA(ctx context.Context, roles []domain.ERPRol
 			}
 		}
 
+		if err := validateActionAssignment(ctx, tx, &r); err != nil {
+			return nil, err
+		}
 		var newRole domain.ERPRolesUsers
 		err = stmt.GetContext(ctx, &newRole, r)
 		if err != nil {

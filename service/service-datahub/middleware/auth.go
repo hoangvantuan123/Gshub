@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"service-datahub/proof"
 	"strings"
 	"sync"
 	"time"
@@ -107,6 +108,13 @@ func JwtAuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			if cnf, ok := claims["cnf"].(map[string]interface{}); ok {
+				if expected, ok := cnf["jkt"].(string); ok && expected != "" && proof.VerifiedKey(c.Request.Context(), tokenString) != expected {
+					c.AbortWithStatusJSON(401, gin.H{"success": false, "message": "Session key mismatch"})
+					return
+				}
+			}
+
 			if userId, ok := claims["UserId"].(string); ok {
 				c.Set("user_id", userId)
 				c.Set("UserId", userId)
@@ -145,6 +153,13 @@ func OptionalJwtAuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 				})
 				if err == nil && token.Valid {
 					if claims, ok := token.Claims.(jwt.MapClaims); ok {
+						if cnf, ok := claims["cnf"].(map[string]interface{}); ok {
+							if expected, ok := cnf["jkt"].(string); ok && expected != "" && proof.VerifiedKey(c.Request.Context(), tokenString) != expected {
+								c.AbortWithStatusJSON(401, gin.H{"success": false, "message": "Session key mismatch"})
+								return
+							}
+						}
+
 						if userId, ok := claims["UserId"].(string); ok {
 							c.Set("user_id", userId)
 							c.Set("UserId", userId)

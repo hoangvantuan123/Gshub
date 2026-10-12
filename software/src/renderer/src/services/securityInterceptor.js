@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { attachSessionProof } from './sessionProof.js'
 import CryptoJS from 'crypto-js'
 import { saveApiLog, getCurrentRoute } from '../IndexedDB/loadApiLogData'
 import { isSessionExpiredError, triggerSessionExpired } from '../utils/sessionExpiredHelper'
@@ -6,7 +7,7 @@ import { isSessionExpiredError, triggerSessionExpired } from '../utils/sessionEx
 const APP_SECRET_KEY = 'ERP_ELECTRON_SECURE_KEY_2026_@ANTIGRAVITY#X'
 
 // Gắn Interceptor toàn cục vào axios mặc định (bao gồm cả các component tự import axios trực tiếp)
-axios.interceptors.request.use((config) => {
+axios.interceptors.request.use(async (config) => {
   const timestamp = Math.floor(Date.now() / 1000).toString()
   const nonce = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}`
   const method = (config.method || 'GET').toUpperCase()
@@ -46,7 +47,7 @@ axios.interceptors.request.use((config) => {
   config.headers['X-App-Nonce'] = nonce
   config.headers['X-Client-Platform'] = 'ELECTRON_SECURE_DESKTOP'
 
-  return config
+  return attachSessionProof(config)
 })
 
 // Interceptor bắt kết quả trả về từ Axios và chỉ lưu vào IndexedDB khi có LỖI hoặc CẢNH BÁO
@@ -190,7 +191,8 @@ if (typeof window !== 'undefined' && window.fetch) {
     headers.set('X-App-Nonce', nonce)
     headers.set('X-Client-Platform', 'ELECTRON_SECURE_DESKTOP')
 
-    init.headers = headers
+    const proofConfig = await attachSessionProof({ url, method, headers })
+    init.headers = proofConfig.headers
 
     try {
       const response = await originalFetch(input, init)

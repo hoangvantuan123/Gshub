@@ -1,7 +1,14 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@renderer/components/ui/button'
-import { Search, Calculator, SquareArrowOutUpRight, Trash2, FileSpreadsheet, Ban } from 'lucide-react'
+import {
+  Search,
+  Calculator,
+  SquareArrowOutUpRight,
+  Trash2,
+  FileSpreadsheet,
+  Ban
+} from 'lucide-react'
 
 const CalcMasterQueryActions = memo(function CalcMasterQueryActions({
   onQuery,

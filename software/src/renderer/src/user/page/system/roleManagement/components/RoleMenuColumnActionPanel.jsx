@@ -153,28 +153,7 @@ export default function RoleMenuColumnActionPanel({
       ref={panelRef}
       className="h-full w-full flex flex-col bg-white overflow-hidden border border-slate-300"
     >
-      {/* 1. THANH HEADER THÔNG TIN CÂY PHÂN QUYỀN VÀ MENU ĐANG CHỌN */}
-      <div
-        className="flex gap-1 px-2 pt-1 border-b border-slate-300 bg-slate-100 text-xs"
-        role="tablist"
-        aria-label="Bảng phân quyền đang làm việc"
-      >
-        {[
-          ['menu', 'Quyền menu'],
-          ['actions', 'Quyền thao tác']
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={activeSheet === key}
-            onClick={() => onActivateSheet?.(key)}
-            className={`px-3 py-1 border-t-2 ${activeSheet === key ? 'bg-white border-blue-700 text-blue-700 font-semibold' : 'border-transparent text-slate-600'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* 1. THANH HEADER THÔNG TIN CÂY PHÂN QUYỀN */}
       <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 shrink-0 flex items-center justify-between text-xs gap-2">
         <div className="flex items-center gap-2">
           <span className="w-2 h-4 bg-blue-700 rounded-xs" />
@@ -188,13 +167,6 @@ export default function RoleMenuColumnActionPanel({
             </span>
           </span>
           <span className="text-[11px] text-slate-500 font-normal">({numRowsB} mục)</span>
-        </div>
-
-        <div className="flex items-center gap-2 text-slate-600 shrink-0">
-          <span className="font-medium text-slate-500">{t('Menu đang chọn')}:</span>
-          <span className="font-bold text-blue-900 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
-            {currentMenuName}
-          </span>
         </div>
       </div>
 

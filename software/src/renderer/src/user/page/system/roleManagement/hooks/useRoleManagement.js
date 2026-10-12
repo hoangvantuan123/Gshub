@@ -14,11 +14,13 @@ import { useRoleGroupUsersColumns } from '../columns/roleGroupUsersColumns'
 
 import { useRoleManagementFetch } from './useRoleManagementFetch'
 import { useRoleManagementMutation } from './useRoleManagementMutation'
+import { hasPendingChanges } from '../utils/permissionRows'
 
 export function useRoleManagement({
   activeSheet = 'menu',
   canCreate,
   canEdit,
+  canSave,
   canDelete,
   canView,
   loadingBarRef,
@@ -166,9 +168,7 @@ export function useRoleManagement({
       const current = contextRef.current
       if (
         String(nextId) !== String(current.groupId) &&
-        [current.gridDataB, current.gridDataAction, current.gridDataUsers].some((rows) =>
-          rows.some((row) => ['A', 'U', 'D'].includes(row.WorkingTag || row.Status))
-        )
+        [current.gridDataB, current.gridDataAction, current.gridDataUsers].some(hasPendingChanges)
       ) {
         setStatusMessage?.({
           type: 'warning',
@@ -347,6 +347,8 @@ export function useRoleManagement({
       resetTableAction,
       resetTableScope,
       canView,
+      canCreate,
+      defaultColsUsers,
       loadingBarRef,
       controllers,
       setStatusMessage
@@ -379,6 +381,7 @@ export function useRoleManagement({
     getSelectedRowsUsers,
     canCreate,
     canEdit,
+    canSave,
     canDelete,
     loadingBarRef,
     userFrom,
@@ -463,7 +466,7 @@ export function useRoleManagement({
         : activeSheet === 'actions'
           ? gridDataAction
           : gridDataB
-    if (rows.some((row) => ['A', 'U', 'D'].includes(row.WorkingTag || row.Status))) {
+    if (hasPendingChanges(rows)) {
       setStatusMessage?.({
         type: 'warning',
         text: 'Vui lòng lưu thay đổi của bảng đang làm việc trước khi truy vấn lại.'

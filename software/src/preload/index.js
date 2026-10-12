@@ -154,6 +154,9 @@ const api = {
     deleteFile: (fileType, regCode = '') =>
       ipcRenderer.invoke('sqlite:delete-calc-file', { fileType, regCode }),
     cleanCache: () => ipcRenderer.invoke('sqlite:clean-cache'),
+    getStorageStats: () => ipcRenderer.invoke('sqlite:get-storage-stats'),
+    clearAllCalcCache: (payload) => ipcRenderer.invoke('sqlite:clear-all-calc-cache', payload),
+    vacuumDb: () => ipcRenderer.invoke('sqlite:vacuum-db'),
     calculateProduction: () => ipcRenderer.invoke('sqlite:calculate-production'),
     saveCalcResults: (idOrPayload, maybeData) => {
       const payload =

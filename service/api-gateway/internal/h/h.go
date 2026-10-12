@@ -1,8 +1,11 @@
 package h
 
 import (
+	"api-gateway/internal/proof"
 	"encoding/json"
+	"google.golang.org/grpc/metadata"
 	"strconv"
+	"strings"
 
 	"api-gateway/internal/caller"
 	"api-gateway/internal/grpcclient"
@@ -66,7 +69,23 @@ func HandleWithDefaults(pool *grpcclient.Pool, host, methodPath string, defaults
 		}
 
 		// Gọi gRPC qua Goroutine tự nhiên kết hợp Context của request
-		result := caller.Invoke(c.Request.Context(), conn, methodPath, body, auth, clientIP, requestID, timeoutSec)
+		ctx := c.Request.Context()
+		if raw := c.GetHeader("DPoP"); raw != "" {
+			scheme := "http"
+			if c.Request.TLS != nil {
+				scheme = "https"
+			}
+			if c.GetHeader("X-Forwarded-Proto") == "https" {
+				scheme = "https"
+			}
+			uri := scheme + "://" + c.Request.Host + c.Request.URL.EscapedPath()
+			if _, err := proof.Verify(raw, c.Request.Method, uri, strings.TrimPrefix(auth, "Bearer "), ""); err != nil {
+				c.AbortWithStatusJSON(401, gin.H{"success": false, "message": "Invalid session proof. Please log in again."})
+				return
+			}
+			ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("dpop", raw, "dpop-htm", c.Request.Method, "dpop-htu", uri))
+		}
+		result := caller.Invoke(ctx, conn, methodPath, body, auth, clientIP, requestID, timeoutSec)
 
 		// Trả kết quả về cho client
 		if !result.Success {

@@ -10,6 +10,9 @@ import (
 
 // Claims phải match chính xác với key trong MapClaims của auth_service.go (hỗ trợ UserSeq dạng UUIDv7 string)
 type Claims struct {
+	Confirmation struct {
+		JKT string `json:"jkt"`
+	} `json:"cnf"`
 	UserId     string      `json:"UserId"`
 	UserSeq    interface{} `json:"UserSeq"`
 	EmpSeq     interface{} `json:"EmpSeq"`
@@ -24,17 +27,20 @@ func VerifyToken(tokenString string) (*Claims, error) {
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		// Validate the signing algorithm
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(secret), nil
-	})
+	}, jwt.WithExpirationRequired())
 
 	if err != nil {
 		return nil, err
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		if claims.UserId == "" || claims.UserSeq == nil || fmt.Sprint(claims.UserSeq) == "" {
+			return nil, errors.New("missing user identity")
+		}
 		return claims, nil
 	}
 

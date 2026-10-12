@@ -28,7 +28,7 @@ export const LoginAuth = async (params = {}) => {
     }
   }
 
-  // Mã hóa Base64 password an toàn để gửi qua mạng theo chuẩn Server-Core
+  // Base64 là định dạng truyền cho Server-Core; HTTPS bảo vệ mật khẩu trên mạng.
   const encodedPassword =
     typeof password === 'string' ? btoa(unescape(encodeURIComponent(password))) : password
 

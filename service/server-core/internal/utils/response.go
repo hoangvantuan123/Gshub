@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -59,79 +58,80 @@ var exactCodeMap = map[string]string{
 	"RATE_LIMIT_EXCEEDED":    "1008",
 }
 
-// NormalizeCode converts plain text error/success messages into standardized numeric string codes (WordSeq)
+var reBracketWithText = regexp.MustCompile(`^\[\d+\]\s*(.+)`)
+
+var codeToVietnameseMap = map[string]string{
+	// 1000 - 1999 Auth
+	"1001": "Tài khoản không tồn tại hoặc thông tin đăng nhập không hợp lệ",
+	"1002": "Thông tin đăng nhập không hợp lệ. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu",
+	"1003": "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ bộ phận hỗ trợ",
+	"1004": "Tài khoản chưa được kích hoạt. Vui lòng đổi mật khẩu để tiếp tục",
+	"1005": "Vui lòng nhập đầy đủ thông tin đăng nhập",
+	"1006": "Tài khoản chưa khởi tạo mật khẩu",
+	"1007": "Mật khẩu cũ không chính xác",
+	"1008": "Quá nhiều yêu cầu đăng nhập. Vui lòng thử lại sau 1 phút",
+
+	// 2000 - 2999 Success
+	"2000": "Thành công",
+	"2001": "Đã thêm mới thành công",
+	"2002": "Đã cập nhật thành công",
+	"2003": "Đã xóa thành công",
+
+	// 4000 - 4999 Client & Validation
+	"4001": "Dữ liệu yêu cầu không hợp lệ",
+	"4004": "Không tìm thấy dữ liệu yêu cầu",
+	"4009": "Không thể xóa bản ghi do có ràng buộc dữ liệu liên quan",
+	"4010": "Phiên làm việc hết hạn hoặc token không hợp lệ",
+	"4030": "Bạn không có quyền thực hiện thao tác này",
+	"4090": "Dữ liệu đã tồn tại trong hệ thống",
+
+	// 5000 - 5999 System
+	"5000": "Lỗi xử lý hệ thống nội bộ",
+	"5001": "Lỗi thao tác cơ sở dữ liệu",
+}
+
+// NormalizeCode returns user-friendly Vietnamese messages instead of numeric error codes
 func NormalizeCode(msg string, success bool) string {
 	msg = strings.TrimSpace(msg)
 
-	// If empty, return default success/error code
+	// If empty, return default success/error message
 	if msg == "" {
 		if success {
-			return "2000"
+			return "Thành công"
 		}
-		return "5000"
+		return "Lỗi xử lý hệ thống nội bộ"
 	}
 
-	// 1. If message is already a pure integer string (e.g. "2000", "1002", "4001"), return it directly
-	if _, err := strconv.Atoi(msg); err == nil {
-		return msg
+	// 1. If message is formatted like "[4009] Không thể xóa...", extract and return the Vietnamese detail text
+	if matches := reBracketWithText.FindStringSubmatch(msg); len(matches) > 1 {
+		detailMsg := strings.TrimSpace(matches[1])
+		if detailMsg != "" {
+			return detailMsg
+		}
 	}
 
-	// 2. If message is formatted like "[4001] Message...", extract "4001"
+	// 2. If message is formatted like "[4009]", convert code to Vietnamese message
 	if matches := reSquareBracket.FindStringSubmatch(msg); len(matches) > 1 {
+		if text, found := codeToVietnameseMap[matches[1]]; found {
+			return text
+		}
 		return matches[1]
 	}
 
-	// 3. Exact Lookup Match
-	lowerMsg := strings.ToLower(msg)
-	if code, found := exactCodeMap[lowerMsg]; found {
-		return code
+	// 3. If message is already a pure integer string (e.g. "4009", "1002", "2000"), convert to Vietnamese text
+	if text, found := codeToVietnameseMap[msg]; found {
+		return text
 	}
+
+	// 4. If message is an English error code string (e.g. USER_NOT_FOUND)
 	if code, found := exactCodeMap[msg]; found {
-		return code
-	}
-
-	// 4. Fallbacks based on message content for Success / Error
-	if success {
-		if strings.Contains(lowerMsg, "thêm") || strings.Contains(lowerMsg, "add") {
-			return "2001"
+		if text, foundText := codeToVietnameseMap[code]; foundText {
+			return text
 		}
-		if strings.Contains(lowerMsg, "cập nhật") || strings.Contains(lowerMsg, "update") {
-			return "2002"
-		}
-		if strings.Contains(lowerMsg, "xóa") || strings.Contains(lowerMsg, "delete") {
-			return "2003"
-		}
-		return "2000"
 	}
 
-	// For descriptive error messages containing specific details (e.g. line numbers, conflict details, duplicate key names, newlines):
-	// Preserve the exact detailed message so the user can see what failed instead of a generic code.
-	if strings.Contains(msg, "\n") || strings.Contains(msg, ":") || strings.Contains(lowerMsg, "dòng ") ||
-		strings.Contains(lowerMsg, "xung đột") || strings.Contains(lowerMsg, "bị khóa") ||
-		strings.Contains(lowerMsg, "không được để trống") || strings.Contains(lowerMsg, "trùng lặp") ||
-		strings.Contains(lowerMsg, "tồn tại") {
-		return msg
-	}
-
-	if strings.Contains(lowerMsg, "không thể xóa") || strings.Contains(lowerMsg, "ràng buộc") || strings.Contains(lowerMsg, "conflict") {
-		return "4009"
-	}
-	if strings.Contains(lowerMsg, "không tìm thấy") || strings.Contains(lowerMsg, "not found") {
-		return "4004"
-	}
-	if strings.Contains(lowerMsg, "không có quyền") || strings.Contains(lowerMsg, "forbidden") {
-		return "4030"
-	}
-	if strings.Contains(lowerMsg, "hết hạn") || strings.Contains(lowerMsg, "unauthorized") {
-		return "4010"
-	}
-
-	// If the message is already descriptive (> 20 chars), preserve it as is
-	if len(msg) > 20 {
-		return msg
-	}
-
-	return "4001"
+	// 5. If message is already plain text (Vietnamese), PRESERVE IT AS-IS!
+	return msg
 }
 
 // SetResponseFields uses reflection to set Success, Message, Data, and Error fields on a gRPC response struct.

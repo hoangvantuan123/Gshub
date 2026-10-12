@@ -546,3 +546,57 @@ export const saveVersionedBundleSQLite = async (payload) => {
   }
   return { success: false }
 }
+
+/**
+ * Lấy thông tin thống kê dung lượng lưu trữ CSDL SQLite
+ */
+export const getStorageStatsSQLite = async () => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.getStorageStats) {
+        return await window.electron.sqlite.getStorageStats()
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:get-storage-stats')
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi lấy thông tin thống kê CSDL:', error)
+    }
+  }
+  return null
+}
+
+/**
+ * Xóa toàn bộ cache dữ liệu tính toán trong SQLite
+ */
+export const clearAllCalcCacheSQLite = async (options = {}) => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.clearAllCalcCache) {
+        return await window.electron.sqlite.clearAllCalcCache(options)
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:clear-all-calc-cache', options)
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi xóa toàn bộ cache SQLite:', error)
+    }
+  }
+  return { success: false }
+}
+
+/**
+ * Tối ưu hóa / Thu hồi dung lượng SQLite (VACUUM)
+ */
+export const vacuumDbSQLite = async () => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.vacuumDb) {
+        return await window.electron.sqlite.vacuumDb()
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:vacuum-db')
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] Lỗi VACUUM SQLite:', error)
+    }
+  }
+  return { success: false }
+}

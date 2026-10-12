@@ -80,66 +80,6 @@ export const useRootMenuColumns = ({ isFieldVisible, isFieldReadOnly } = {}) => 
         trailingRowOptions: { disabled: true }
       },
       {
-        title: t('system.permView', 'Xem (View)'),
-        id: 'View',
-        kind: 'Boolean',
-        readonly: false,
-        width: 95,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.permCreate', 'Thêm (Create)'),
-        id: 'Create',
-        kind: 'Boolean',
-        readonly: false,
-        width: 105,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.permEdit', 'Sửa (Edit)'),
-        id: 'Edit',
-        kind: 'Boolean',
-        readonly: false,
-        width: 95,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.permDelete', 'Xóa (Delete)'),
-        id: 'Delete',
-        kind: 'Boolean',
-        readonly: false,
-        width: 95,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.permImport', 'Nhập (Import)'),
-        id: 'Import',
-        kind: 'Boolean',
-        readonly: false,
-        width: 105,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
-        title: t('system.permExport', 'Xuất (Export)'),
-        id: 'Export',
-        kind: 'Boolean',
-        readonly: false,
-        width: 105,
-        hasMenu: true,
-        visible: true,
-        trailingRowOptions: { disabled: true }
-      },
-      {
         title: t('system.createdBy', 'Người tạo'),
         id: 'CreatedByName',
         kind: 'Text',

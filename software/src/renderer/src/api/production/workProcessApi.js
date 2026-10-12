@@ -257,7 +257,7 @@ export async function fetchWorkProcessFactories({
     }
 
     const response = await axios.post(
-      `${DATAHUB_API_URL}/api/v1/work-process/factories`,
+      `${getApiUrl()}/api/v1/work-process/factories`,
       {
         config_key,
         menu_key,

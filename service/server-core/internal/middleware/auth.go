@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"os"
+	"server-core/internal/proof"
 	"server-core/internal/utils"
 	"strings"
 
@@ -15,6 +17,26 @@ import (
 func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	// Skip auth for public methods (e.g., Login, ChangePass)
 	if isPublicMethod(info.FullMethod) {
+		lower := strings.ToLower(info.FullMethod)
+		if strings.HasSuffix(lower, "/login") || strings.HasSuffix(lower, "/loginuserb") || strings.HasSuffix(lower, "/loginapp") {
+			md, _ := metadata.FromIncomingContext(ctx)
+			get := func(k string) string {
+				v := md.Get(k)
+				if len(v) > 0 {
+					return v[0]
+				}
+				return ""
+			}
+			if get("dpop") != "" {
+				key, err := proof.Verify(get("dpop"), get("dpop-htm"), get("dpop-htu"), strings.TrimPrefix(get("authorization"), "Bearer "), "")
+				if err != nil {
+					return nil, status.Error(codes.Unauthenticated, "invalid login session proof")
+				}
+				ctx = proof.WithKey(ctx, key)
+			} else if os.Getenv("REQUIRE_SESSION_PROOF") == "true" {
+				return nil, status.Error(codes.Unauthenticated, "session proof required")
+			}
+		}
 		return handler(ctx, req)
 	}
 
@@ -41,6 +63,20 @@ func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServe
 		return nil, status.Errorf(codes.Unauthenticated, "invalid token: %v", err)
 	}
 
+	if claims.Confirmation.JKT != "" {
+		get := func(k string) string {
+			v := md.Get(k)
+			if len(v) > 0 {
+				return v[0]
+			}
+			return ""
+		}
+		if _, err := proof.Verify(get("dpop"), get("dpop-htm"), get("dpop-htu"), token, claims.Confirmation.JKT); err != nil {
+			return nil, status.Error(codes.Unauthenticated, "invalid session proof")
+		}
+	} else if os.Getenv("REQUIRE_SESSION_PROOF") == "true" {
+		return nil, status.Error(codes.Unauthenticated, "legacy session: please log in again")
+	}
 	// Add claims to context for use in handlers
 	newCtx := context.WithValue(ctx, "user_seq", claims.UserSeq)
 	newCtx = context.WithValue(newCtx, "user_id", claims.UserId)
@@ -67,4 +103,4 @@ func isPublicMethod(method string) bool {
 		}
 	}
 	return false
-}
+}

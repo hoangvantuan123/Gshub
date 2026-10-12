@@ -1,7 +1,8 @@
-import { asBoolean } from './permissionRows.js'
+import { asBoolean, recordId } from './permissionRows.js'
 
 export function buildActionRows(catalog, granted, menuId, groupId, menuName = '') {
   const definitions = new Map()
+  const grantsByKey = new Map()
   for (const action of catalog) {
     const key = String(action.ActionCode || action.ActionKey || action.Key || '')
       .trim()
@@ -13,13 +14,12 @@ export function buildActionRows(catalog, granted, menuId, groupId, menuName = ''
       .trim()
       .toUpperCase()
     if (key && !definitions.has(key)) definitions.set(key, permission)
+    if (key && !grantsByKey.has(key)) grantsByKey.set(key, permission)
   }
   return [...definitions]
     .sort(([, a], [, b]) => Number(a.IdxNo || 0) - Number(b.IdxNo || 0))
     .map(([key, definition], index) => {
-      const permission = granted.find(
-        (item) => String(item.ActionKey || item.Name || item.ActionCode || '').toUpperCase() === key
-      )
+      const permission = grantsByKey.get(key)
       return {
         ...definition,
         Id: permission?.Id ? String(permission.Id) : '',
@@ -99,8 +99,8 @@ export function reconcilePermissionRows(rows, sheet, batch, response) {
     throw new Error('BE chưa xác nhận các ID đã xóa.')
   }
   return rows.flatMap((row) => {
-    const id = sheet === 'users' ? row.Id : row.RoleRecordId
-    if (removed.has(String(id))) {
+    const id = recordId(row, sheet)
+    if (id && removed.has(String(id))) {
       if (sheet === 'users') return []
       return [
         {
@@ -132,7 +132,8 @@ export function reconcilePermissionRows(rows, sheet, batch, response) {
             )
           })
         : null
-    const saved = updated.get(String(id)) || (submitted && inserted.get(identity(submitted)))
+    const saved =
+      (id && updated.get(String(id))) || (submitted && inserted.get(identity(submitted)))
     if (!saved) return [row]
     const next = {
       ...row,

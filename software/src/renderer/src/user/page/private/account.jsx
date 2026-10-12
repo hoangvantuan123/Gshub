@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react'
-import { UserOutlined, LockOutlined, DeleteOutlined, HistoryOutlined } from '@ant-design/icons'
-import { Typography, List, Modal, Input, Button } from 'antd'
+import { User, Trash2, Building, Mail, Phone, ShieldCheck } from 'lucide-react'
+import { showToast } from './toast'
 
-export default function Account() {
+export default function AccountTab() {
   const userFromLocalStorage = JSON.parse(localStorage.getItem('userInfo') || '{}')
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [oldPassword, setOldPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [errorPass, setErrorPass] = useState('')
   const [loggedUsers, setLoggedUsers] = useState([])
 
   const loadLoggedUsers = async () => {
@@ -47,197 +42,205 @@ export default function Account() {
         console.error(e)
       }
     }
+    showToast('Đã xóa tài khoản khỏi lịch sử thiết bị')
   }
 
-  const handleChangePassword = async () => {
-    if (!oldPassword || !newPassword || !confirmPassword) {
-      setErrorPass('Vui lòng nhập đầy đủ thông tin!')
-      return
+  const handleClearAllLogs = async () => {
+    setLoggedUsers([])
+    localStorage.removeItem('save_users_log')
+    if (window?.electron?.saveDataToFile) {
+      try {
+        await window.electron.saveDataToFile('save_users_log.json', [])
+      } catch (e) {
+        console.error(e)
+      }
     }
-    const isValidLength =
-      newPassword.length >= 15 ||
-      (newPassword.length >= 8 && /[a-zA-Z]/.test(newPassword) && /\d/.test(newPassword))
-
-    if (!isValidLength) {
-      setErrorPass(
-        'Mật khẩu mới phải có ít nhất 15 ký tự hoặc ít nhất 8 ký tự bao gồm cả chữ và số!'
-      )
-      return
-    }
-
-    if (newPassword !== confirmPassword) {
-      setErrorPass('Mật khẩu mới không khớp!')
-      return
-    }
-
-    if (newPassword === oldPassword) {
-      setErrorPass('Mật khẩu mới không được giống với mật khẩu cũ. Vui lòng chọn mật khẩu khác!')
-      return
-    }
-
-    try {
-      /*   const response = await ChangePassword(userFromLocalStorage.UserId, oldPassword, newPassword);
-              if (response.success) {
-                  message.success(response.message || 'Đã đổi mật khẩu thành công!');
-                  setNewPassword('');
-                  setConfirmPassword('');
-                  setOldPassword('');
-                  setErrorPass('');
-                  setIsModalOpen(false)
-              } else {
-                  setErrorPass(response.message);
-              } */
-    } catch (error) {
-      setErrorPass('Đã xảy ra lỗi khi thay đổi mật khẩu. Vui lòng thử lại sau.')
-    }
+    showToast('Đã xóa toàn bộ lịch sử tài khoản trên máy')
   }
 
-  const handleOpenModal = () => {
-    setOldPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-    setIsModalOpen(true)
-  }
+  const userInitial = (
+    userFromLocalStorage.UserName?.charAt(0) ||
+    userFromLocalStorage.UserId?.charAt(0) ||
+    'U'
+  ).toUpperCase()
+
   return (
-    <div>
-      <Typography.Title level={5}>Tài khoản</Typography.Title>
-      <Typography.Text type="secondary" className="text-xs italic">
-        Điều chỉnh các tùy chọn liên quan đến tài khoản và quyền riêng tư.
-      </Typography.Text>
-      {/* Bảo mật tài khoản */}
-      <div className="mt-6">
-        <h3 className="text-md font-semibold text-gray-700">Bảo mật tài khoản</h3>
-        <List className="mt-3">
-          <List.Item>
-            <List.Item.Meta
-              avatar={<UserOutlined />}
-              title="Tên đăng nhập"
-              description={userFromLocalStorage?.UserId || 'N/A'}
-            />
-          </List.Item>
-          <List.Item
-            actions={[
-              <Button type="link" onClick={handleOpenModal}>
-                Đổi mật khẩu
-              </Button>
-            ]}
-          >
-            <List.Item.Meta avatar={<LockOutlined />} title="Mật khẩu" description="••••••••" />
-          </List.Item>
-        </List>
+    <div className="w-full space-y-6 animate-in fade-in duration-150 font-sans pb-20 pt-2 text-[#37352F] dark:text-[#E6E6E5]">
+      {/* 1. NOTION PAGE HEADER */}
+      <div className="space-y-1">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#37352F] dark:text-[#E6E6E5]">
+          Tài khoản & Hồ sơ
+        </h1>
+        <p className="text-sm text-[#787774] dark:text-[#9B9A97] leading-relaxed">
+          Thông tin tài khoản đăng nhập, hồ sơ cá nhân và lịch sử thiết bị.
+        </p>
       </div>
 
-      {/* Nhật ký tài khoản đã đăng nhập */}
-      <div className="mt-6">
-        <h3 className="text-md font-semibold text-gray-700 flex items-center gap-1.5 mb-3">
-          <HistoryOutlined />
-          <span>Tài khoản</span>
+      <hr className="border-t border-[#EDEDEB] dark:border-[#2F2F2F]" />
+
+      {/* 2. TÀI KHOẢN HIỆN TẠI (KHỐI THẺ CHÍNH NOTION) */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-[#787774] dark:text-[#9B9A97]">
+          Tài khoản hiện tại
         </h3>
-        <List
-          className="bg-white rounded border border-gray-200"
-          dataSource={loggedUsers}
-          locale={{ emptyText: 'Chưa có lịch sử tài khoản nào' }}
-          renderItem={(user) => (
-            <List.Item
-              actions={[
-                <Button
-                  key="delete"
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleDeleteUserLog(user.UserSeq, user.UserId)}
-                >
-                  Xóa
-                </Button>
-              ]}
-            >
-              <List.Item.Meta
-                avatar={
-                  <div className="w-8 h-8 rounded-full bg-[#163B2B] text-white flex items-center justify-center text-xs font-bold">
-                    {user.UserName?.charAt(0)?.toUpperCase() ||
-                      user.UserId?.charAt(0)?.toUpperCase() ||
-                      'U'}
-                  </div>
-                }
-                title={
-                  <span className="font-semibold text-xs text-gray-800">
-                    {user.UserName ? `${user.UserName} (${user.UserId})` : user.UserId}
+
+        <div className="border border-[#EDEDEB] dark:border-[#2F2F2F] rounded-md bg-white dark:bg-[#191919] p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-lg bg-[#2B3A42] text-white flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
+                {userInitial}
+              </div>
+
+              <div className="min-w-0 space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-[#37352F] dark:text-[#E6E6E5] truncate">
+                    {userFromLocalStorage?.UserName || userFromLocalStorage?.UserId || 'Người dùng'}
                   </span>
-                }
-                description={
-                  <span className="text-[11px] text-gray-500">
-                    Đăng nhập gần nhất:{' '}
-                    {user.LastLoginTime
-                      ? new Date(user.LastLoginTime).toLocaleString('vi-VN')
-                      : 'N/A'}
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-300">
+                    Đang hoạt động
                   </span>
-                }
-              />
-            </List.Item>
-          )}
-        />
+                </div>
+                <p className="text-xs text-[#787774] dark:text-[#9B9A97]">
+                  Mã tài khoản:{' '}
+                  <span className="font-mono text-[#37352F] dark:text-[#E6E6E5] font-medium">
+                    {userFromLocalStorage?.UserId || '---'}
+                  </span>
+                  {userFromLocalStorage.DeptName && ` • Bộ phận: ${userFromLocalStorage.DeptName}`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Modal
-        title={
-          <div className="flex items-center gap-2">
-            <LockOutlined className="text-blue-500 text-lg" />
-            <span>Đổi Mật Khẩu</span>
+      {/* 3. CHI TIẾT HỒ SƠ */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-[#787774] dark:text-[#9B9A97]">
+          Chi tiết hồ sơ nhân sự
+        </h3>
+
+        <div className="border border-[#EDEDEB] dark:border-[#2F2F2F] rounded-md divide-y divide-[#EDEDEB] dark:divide-[#2F2F2F] bg-white dark:bg-[#191919]">
+          <div className="px-3.5 py-2.5 flex items-center justify-between text-xs hover:bg-[#F7F6F3] dark:hover:bg-[#202020] transition-colors">
+            <span className="text-[#787774] dark:text-[#9B9A97] flex items-center gap-2">
+              <User className="w-3.5 h-3.5" />
+              <span>Họ và tên</span>
+            </span>
+            <span className="font-medium text-[#37352F] dark:text-[#E6E6E5]">
+              {userFromLocalStorage.UserName || 'Chưa cập nhật'}
+            </span>
           </div>
-        }
-        open={isModalOpen}
-        centered
-        closable={false}
-        onCancel={() => setIsModalOpen(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setIsModalOpen(false)}>
-            Hủy
-          </Button>,
-          <Button key="submit" type="primary" onClick={handleChangePassword}>
-            Xác nhận
-          </Button>
-        ]}
-      >
-        {/* Mô tả */}
-        <div className="mb-4 p-3 bg-gray-100 rounded-md">
-          <h3 className="text-sm font-medium">Đặt mật khẩu</h3>
-          <p className="text-xs text-gray-600 italic">
-            Sử dụng mật khẩu dài ít nhất <b>15 ký tự</b> hoặc dài ít nhất <b>8 ký tự</b> bao gồm cả
-            chữ cái và số.
-          </p>
+
+          <div className="px-3.5 py-2.5 flex items-center justify-between text-xs hover:bg-[#F7F6F3] dark:hover:bg-[#202020] transition-colors">
+            <span className="text-[#787774] dark:text-[#9B9A97] flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Mã định danh (User ID)</span>
+            </span>
+            <span className="font-mono text-[#37352F] dark:text-[#E6E6E5]">
+              {userFromLocalStorage.UserId || '---'}
+            </span>
+          </div>
+
+          <div className="px-3.5 py-2.5 flex items-center justify-between text-xs hover:bg-[#F7F6F3] dark:hover:bg-[#202020] transition-colors">
+            <span className="text-[#787774] dark:text-[#9B9A97] flex items-center gap-2">
+              <Building className="w-3.5 h-3.5" />
+              <span>Bộ phận / Đơn vị</span>
+            </span>
+            <span className="text-[#37352F] dark:text-[#E6E6E5]">
+              {userFromLocalStorage.DeptName ||
+                userFromLocalStorage.Dept ||
+                'Văn phòng / Phân xưởng'}
+            </span>
+          </div>
+
+          <div className="px-3.5 py-2.5 flex items-center justify-between text-xs hover:bg-[#F7F6F3] dark:hover:bg-[#202020] transition-colors">
+            <span className="text-[#787774] dark:text-[#9B9A97] flex items-center gap-2">
+              <Mail className="w-3.5 h-3.5" />
+              <span>Email liên hệ</span>
+            </span>
+            <span className="text-[#37352F] dark:text-[#E6E6E5]">
+              {userFromLocalStorage.Email || 'Liên hệ quản trị viên'}
+            </span>
+          </div>
+
+          <div className="px-3.5 py-2.5 flex items-center justify-between text-xs hover:bg-[#F7F6F3] dark:hover:bg-[#202020] transition-colors">
+            <span className="text-[#787774] dark:text-[#9B9A97] flex items-center gap-2">
+              <Phone className="w-3.5 h-3.5" />
+              <span>Số điện thoại</span>
+            </span>
+            <span className="text-[#37352F] dark:text-[#E6E6E5]">
+              {userFromLocalStorage.Phone || userFromLocalStorage.Tel || 'Liên hệ quản trị viên'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. LỊCH SỬ TÀI KHOẢN ĐÃ DÙNG */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#787774] dark:text-[#9B9A97]">
+            Lịch sử tài khoản đã dùng trên máy
+          </h3>
+
+          {loggedUsers.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearAllLogs}
+              className="h-6 px-2 bg-white hover:bg-rose-50 text-rose-600 border border-rose-300 rounded text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>Xóa tất cả</span>
+            </button>
+          )}
         </div>
 
-        {/* Input nhập mật khẩu */}
-        <div className="space-y-4">
-          <Input.Password
-            prefix={<LockOutlined className="text-gray-400" />}
-            placeholder="Mật khẩu cũ"
-            value={oldPassword}
-            name="oldPassword"
-            autoComplete="current-password"
-            onChange={(e) => setOldPassword(e.target.value)}
-          />
-          <Input.Password
-            prefix={<LockOutlined className="text-gray-400" />}
-            placeholder="Mật khẩu mới"
-            value={newPassword}
-            name="newPassword"
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <Input.Password
-            prefix={<LockOutlined className="text-gray-400" />}
-            placeholder="Nhập lại mật khẩu"
-            value={confirmPassword}
-            name="confirmPassword"
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
+        <div className="border border-[#EDEDEB] dark:border-[#2F2F2F] rounded-md bg-white dark:bg-[#191919] divide-y divide-[#EDEDEB] dark:divide-[#2F2F2F]">
+          {loggedUsers.length > 0 ? (
+            loggedUsers.map((user, idx) => {
+              const initial = (
+                user.UserName?.charAt(0) ||
+                user.UserId?.charAt(0) ||
+                'U'
+              ).toUpperCase()
+              return (
+                <div
+                  key={user.UserSeq || user.UserId || idx}
+                  className="p-3 flex items-center justify-between gap-3 hover:bg-[#F7F6F3] dark:hover:bg-[#202020] transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="w-7 h-7 rounded bg-[#2B3A42] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                      {initial}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-[#37352F] dark:text-[#E6E6E5] truncate">
+                        {user.UserName ? `${user.UserName} (${user.UserId})` : user.UserId}
+                      </div>
+                      <div className="text-[10px] text-[#787774] dark:text-[#9B9A97] truncate">
+                        Đăng nhập:{' '}
+                        {user.LastLoginTime
+                          ? new Date(user.LastLoginTime).toLocaleString('vi-VN')
+                          : 'Gần đây'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteUserLog(user.UserSeq, user.UserId)}
+                    className="w-6 h-6 rounded bg-white hover:bg-rose-50 text-[#787774] hover:text-rose-600 border border-[#EDEDEB] transition-colors cursor-pointer shrink-0 flex items-center justify-center"
+                    title="Xóa tài khoản này"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              )
+            })
+          ) : (
+            <div className="p-4 text-center text-xs text-[#787774] dark:text-[#9B9A97]">
+              Chưa có lịch sử tài khoản nào được lưu trên máy tính này.
+            </div>
+          )}
         </div>
-        {errorPass && (
-          <div className="flex items-center justify-center mb-5 mt-5 gap-2 self-end rounded bg-red-100 p-1 text-red-600">
-            <span className="text-xs font-medium">{errorPass}</span>
-          </div>
-        )}
-      </Modal>
+      </div>
     </div>
   )
 }

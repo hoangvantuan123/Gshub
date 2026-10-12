@@ -3,6 +3,7 @@ import { buildActionRows } from '../utils/backendPermissions'
 import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { updateIndexNo } from '../../../../components/sheet/js/updateIndexNo'
+import { generateEmptyData } from '../../../../components/sheet/js/generateEmptyData'
 import { PostQRoleGroup, PostQPermResourceTree, PostQRole } from '../../../../../api/system'
 import { ActionQ } from '../../../../../api/system/action'
 import { buildComprehensiveMenuTree, flattenMenuTree, getAllGroupIds } from '../utils/menuTree'
@@ -37,6 +38,8 @@ export function useRoleManagementFetch({
   resetTableScope,
   resetTableUsers,
   canView = true,
+  canCreate = true,
+  defaultColsUsers = [],
   loadingBarRef,
   setStatusMessage
 }) {
@@ -213,6 +216,22 @@ export function useRoleManagementFetch({
         const grantedUsers = Array.isArray(roleDetails?.user) ? roleDetails.user : []
         const grantedActions = Array.isArray(roleDetails?.action) ? roleDetails.action : []
 
+        const registeredMenuIds = new Set(
+          systemMenuList.map((menu) => String(menu.MenuId ?? menu.Id))
+        )
+        const orphanedActions = grantedActions.filter(
+          (action) => !registeredMenuIds.has(String(action.MenuId))
+        )
+        if (orphanedActions.length) {
+          setStatusMessage?.({
+            type: 'warning',
+            text:
+              'Có ' +
+              orphanedActions.length +
+              ' quyền action đang trỏ tới menu không còn tồn tại. Hãy chọn đúng menu và gán lại các action cần dùng.'
+          })
+        }
+
         // Lưu toàn bộ danh sách action của nhóm vào in-memory store để các lần click menu không cần gọi lại API
         currentGroupIdRef.current = String(groupId)
         groupActionsStoreRef.current = grantedActions
@@ -349,7 +368,9 @@ export function useRoleManagementFetch({
             Status: ''
           }))
 
-          const cleanList = updateIndexNo(queriedUsers)
+          const emptyRows =
+            canCreate && defaultColsUsers?.length ? generateEmptyData(50, defaultColsUsers) : []
+          const cleanList = updateIndexNo([...queriedUsers, ...emptyRows])
           setGridDataUsers(cleanList)
           if (setNumRowsUsers) setNumRowsUsers(cleanList.length)
         }

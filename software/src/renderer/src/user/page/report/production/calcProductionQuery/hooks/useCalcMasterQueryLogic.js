@@ -67,6 +67,12 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
           console.warn('Lỗi lấy local master registrations:', e)
         }
 
+        const formatRegisteredAt = (val) => {
+          if (!val) return ''
+          const d = dayjs(val)
+          return d.isValid() ? d.format('YYYY-MM-DD HH:mm:ss') : String(val)
+        }
+
         // 2. Lấy trực tiếp từ Server DataHub DB qua gRPC Gateway
         let serverList = []
         try {
@@ -172,12 +178,6 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
 
         // 3. Hợp nhất danh sách (Server DB + Local DB)
         const mergedMap = new Map()
-
-        const formatRegisteredAt = (val) => {
-          if (!val) return ''
-          const d = dayjs(val)
-          return d.isValid() ? d.format('YYYY-MM-DD HH:mm:ss') : String(val)
-        }
 
         const isUuidStr = (str) =>
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(str || ''))
@@ -580,8 +580,7 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
     if (!selectedRegCode) return false
     const target = rawMasters.find(
       (m) =>
-        String(m.regCode || m.RegCode || '').toUpperCase() ===
-        String(selectedRegCode).toUpperCase()
+        String(m.regCode || m.RegCode || '').toUpperCase() === String(selectedRegCode).toUpperCase()
     )
     return target?.status === 'CANCELLED'
   }, [selectedRegCode, rawMasters])
@@ -654,10 +653,7 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
       if (isMyRecord && finalMode === 'server') {
         try {
           await deleteProductionBundleOnline(code)
-          notify(
-            'success',
-            `Đã xóa vĩnh viễn phiếu [${code}] trên máy chủ DataHub thành công.`
-          )
+          notify('success', `Đã xóa vĩnh viễn phiếu [${code}] trên máy chủ DataHub thành công.`)
         } catch (err) {
           console.error('Lỗi xóa trên server:', err)
           notify('error', `Lỗi xóa phiếu trên Server: ${err.message}`)

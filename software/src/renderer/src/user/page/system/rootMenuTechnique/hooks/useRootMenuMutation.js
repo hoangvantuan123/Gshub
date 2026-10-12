@@ -1,3 +1,4 @@
+import { toRootMenuOrder } from '../rootMenuOrder.js'
 /* eslint-disable react/prop-types, no-unused-vars, no-empty */
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -93,6 +94,16 @@ export function useRootMenuMutation({
       const status = row.WorkingTag || row.Status
       const rowIdx = row.IdxNo || i + 1
 
+      if (
+        (status === 'U' || (status === 'A' && (row.Key || row.Label))) &&
+        row.OrderSeq !== undefined &&
+        row.OrderSeq !== null &&
+        row.OrderSeq !== '' &&
+        (!Number.isSafeInteger(Number(row.OrderSeq)) || Number(row.OrderSeq) <= 0)
+      ) {
+        validationErrors.push(`Dòng ${rowIdx}: STT phải là số nguyên lớn hơn 0`)
+      }
+
       if (status === 'A') {
         if (row.Key || row.Label || row.Link || row.Icon) {
           if (!row.Key || !String(row.Key).trim()) {
@@ -135,10 +146,10 @@ export function useRootMenuMutation({
       setStatusMessage,
       loadingText: t('Đang lưu dữ liệu Root Menu...'),
       successText: t('Lưu danh sách Root Menu thành công!'),
-      matchKey: 'IdxNo',
+      matchKey: 'Key',
       prepareAddRows: (rows) =>
         rows.map((item) => ({
-          IdxNo: Number(item.IdxNo || 0),
+          IdxNo: toRootMenuOrder(item),
           Key: item.Key || '',
           Label: item.Label || '',
           Link: item.Link || '',
@@ -150,7 +161,7 @@ export function useRootMenuMutation({
       prepareUpdateRows: (rows) =>
         rows.map((item) => ({
           Id: Number(item.Id),
-          IdxNo: Number(item.IdxNo || 0),
+          IdxNo: toRootMenuOrder(item),
           Key: item.Key || '',
           Label: item.Label || '',
           Link: item.Link || '',
@@ -164,7 +175,7 @@ export function useRootMenuMutation({
       mapReturnedFields: (found) => ({
         WorkingTag: '',
         Status: '',
-        IdxNo: found.IdxNo,
+        OrderSeq: found.IdxNo,
         Id: found.Id,
         RowVersion:
           found.RowVersion !== undefined && found.RowVersion !== null

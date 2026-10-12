@@ -251,7 +251,9 @@ export function verifyAndMigrateDatabaseSchema(db) {
     try {
       const fileCols = db.prepare('PRAGMA table_info(calc_architecture_files)').all()
       if (!fileCols.some((c) => c.name === 'reg_code')) {
-        console.log('[SQLite Auto-Migrate] Nâng cấp cấu trúc bảng calc_architecture_files (thêm reg_code)...')
+        console.log(
+          '[SQLite Auto-Migrate] Nâng cấp cấu trúc bảng calc_architecture_files (thêm reg_code)...'
+        )
         db.exec(`
           CREATE TABLE IF NOT EXISTS calc_architecture_files_new (
             reg_code TEXT DEFAULT '',
@@ -290,7 +292,9 @@ export function verifyAndMigrateDatabaseSchema(db) {
     try {
       const chunkCols = db.prepare('PRAGMA table_info(calc_architecture_chunks)').all()
       if (!chunkCols.some((c) => c.name === 'reg_code')) {
-        console.log('[SQLite Auto-Migrate] Nâng cấp cấu trúc bảng calc_architecture_chunks (thêm reg_code)...')
+        console.log(
+          '[SQLite Auto-Migrate] Nâng cấp cấu trúc bảng calc_architecture_chunks (thêm reg_code)...'
+        )
         db.exec(`
           CREATE TABLE IF NOT EXISTS calc_architecture_chunks_new (
             reg_code TEXT DEFAULT '',
@@ -366,7 +370,9 @@ export function verifyAndMigrateDatabaseSchema(db) {
       if (!existingMasterColNames.has(col.name)) {
         try {
           db.exec(`ALTER TABLE calc_master_registrations ADD COLUMN ${col.name} ${col.def};`)
-          console.log(`✅ [SQLite Auto-Migrate] Bảng calc_master_registrations: Đã tự động bổ sung cột "${col.name}"`)
+          console.log(
+            `✅ [SQLite Auto-Migrate] Bảng calc_master_registrations: Đã tự động bổ sung cột "${col.name}"`
+          )
         } catch (colErr) {
           console.warn(`[SQLite Auto-Migrate] Không thể thêm cột ${col.name}:`, colErr?.message)
         }

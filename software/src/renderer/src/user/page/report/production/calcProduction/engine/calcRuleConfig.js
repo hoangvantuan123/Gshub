@@ -125,10 +125,11 @@ export function evaluateTimeStatus(
 
 /**
  * Đánh giá Trạng thái Capa động (CapaStatus)
+ * Áp dụng công thức Excel: =+IF(U4="Trượt KH","",IF(OR(T4="",Q4=""),"",IF(T4>S4,"Chậm hơn ĐM",IF(T4=S4,"Đúng ĐM","Nhanh hơn ĐM"))))
  * - Trả về rỗng ("") nếu Trạng thái ĐP-SX là 'Trượt KH' hoặc thiếu dữ liệu (actualCapa <= 0 || standardMin <= 0 || standardCapa <= 0)
- * - Trả về 'Nhanh hơn ĐM' nếu actualCapa > standardCapa (năng suất cao hơn định mức)
- * - Trả về 'Đúng ĐM' nếu actualCapa === standardCapa
- * - Trả về 'Chậm hơn ĐM' nếu actualCapa < standardCapa (năng suất thấp hơn định mức)
+ * - Trả về 'Chậm hơn ĐM' nếu actualCapa > standardCapa (T4 > S4)
+ * - Trả về 'Đúng ĐM' nếu actualCapa === standardCapa (T4 === S4)
+ * - Trả về 'Nhanh hơn ĐM' nếu actualCapa < standardCapa (T4 < S4)
  */
 export function evaluateCapaStatus(
   standardCapa,
@@ -152,9 +153,9 @@ export function evaluateCapaStatus(
     return ''
   }
 
-  if (aCapa > sCapa) return cfg.fastLabel
+  if (aCapa > sCapa) return cfg.slowLabel
   if (aCapa === sCapa) return cfg.exactLabel
-  return cfg.slowLabel
+  return cfg.fastLabel
 }
 
 /**

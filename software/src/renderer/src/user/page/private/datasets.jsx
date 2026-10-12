@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search,
@@ -8,14 +8,16 @@ import {
   Copy,
   Check,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
   AlertTriangle,
-  Layers
+  Layers,
+  Loader2
 } from 'lucide-react'
 import dayjs from 'dayjs'
 import { openChildWindow } from '@renderer/utils/openChildWindow'
 import { showToast } from './toast'
+
+const INITIAL_BATCH = 25
+const BATCH_SIZE = 20
 
 export default function DatasetsTab({ localMasters = [], onDeleteMaster, onRefresh }) {
   const navigate = useNavigate()
@@ -24,10 +26,12 @@ export default function DatasetsTab({ localMasters = [], onDeleteMaster, onRefre
   const [copiedCode, setCopiedCode] = useState(null)
   const [deleteTargetCode, setDeleteTargetCode] = useState(null)
 
-  // Pagination (OpenAI style)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  // Infinite Scroll Loading State
+  const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const tableContainerRef = useRef(null)
 
+  // Filtered dataset
   const filteredMasters = useMemo(() => {
     let result = localMasters
     if (statusFilter !== 'ALL') {
@@ -48,15 +52,40 @@ export default function DatasetsTab({ localMasters = [], onDeleteMaster, onRefre
     return result
   }, [localMasters, searchText, statusFilter])
 
-  useMemo(() => {
-    setCurrentPage(1)
+  // Reset scroll limit whenever filters change
+  useEffect(() => {
+    setVisibleCount(INITIAL_BATCH)
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollTop = 0
+    }
   }, [searchText, statusFilter])
 
-  const totalPages = Math.ceil(filteredMasters.length / pageSize) || 1
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return filteredMasters.slice(start, start + pageSize)
-  }, [filteredMasters, currentPage, pageSize])
+  const visibleData = useMemo(() => {
+    return filteredMasters.slice(0, visibleCount)
+  }, [filteredMasters, visibleCount])
+
+  const hasMore = visibleData.length < filteredMasters.length
+
+  // Infinite scroll trigger handler
+  const handleScroll = useCallback(
+    (e) => {
+      const { scrollTop, clientHeight, scrollHeight } = e.currentTarget
+      if (scrollHeight - scrollTop - clientHeight < 100 && hasMore && !isLoadingMore) {
+        setIsLoadingMore(true)
+        setTimeout(() => {
+          setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, filteredMasters.length))
+          setIsLoadingMore(false)
+        }, 150)
+      }
+    },
+    [hasMore, isLoadingMore, filteredMasters.length]
+  )
+
+  const publishedCount = useMemo(() => {
+    return localMasters.filter(
+      (m) => String(m.status || m.Status || '').toUpperCase() === 'PUBLISHED'
+    ).length
+  }, [localMasters])
 
   const handleOpenDetail = (regCode) => {
     if (!regCode) return
@@ -97,47 +126,53 @@ export default function DatasetsTab({ localMasters = [], onDeleteMaster, onRefre
   }
 
   return (
-    <div className="w-full space-y-5 font-sans pb-20 pt-1 text-slate-800 dark:text-zinc-100 select-none">
-      {/* 1. NOTION / OPENAI PAGE HEADER */}
+    <div className="w-full space-y-4 font-sans pb-10 pt-1 text-[#37352F] dark:text-[#E6E6E5] select-none">
+      {/* 1. HEADER CHUẨN PHẦN MỀM */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Báo cáo Lưu trữ trên máy
-          </h1>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#37352F] dark:text-[#E6E6E5]">
+              Báo cáo đã lưu trên máy
+            </h1>
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#EFEFED] dark:bg-[#2B2B2B] text-[#5A5955] dark:text-[#9B9A97] font-semibold">
+              {filteredMasters.length} báo cáo
+            </span>
+          </div>
+
           {onRefresh && (
             <button
               type="button"
               onClick={onRefresh}
-              className="h-7 px-2.5 rounded border border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 text-[11px] font-medium flex items-center gap-1.5 text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer"
+              className="h-7 px-2.5 rounded bg-white dark:bg-[#191919] border border-[#EDEDEB] dark:border-[#2F2F2F] hover:bg-[#F7F6F3] dark:hover:bg-[#202020] text-xs font-medium flex items-center gap-1.5 text-[#37352F] dark:text-[#E6E6E5] transition-colors cursor-pointer"
             >
-              <RefreshCw className="w-3 h-3 text-slate-500" />
-              <span>Tải lại</span>
+              <RefreshCw className="w-3 h-3 text-[#787774]" />
+              <span>Làm mới</span>
             </button>
           )}
         </div>
-        <p className="text-xs text-slate-500 dark:text-zinc-400">
-          Danh sách các báo cáo sản xuất được lưu cục bộ để tra cứu tức thì không cần tải lại mạng.
+        <p className="text-xs text-[#787774] dark:text-[#9B9A97]">
+          Danh sách dữ liệu báo cáo lưu cục bộ trên thiết bị, tự động nạp liên tục khi cuộn.
         </p>
       </div>
 
-      <hr className="border-t border-slate-200 dark:border-zinc-800" />
+      <hr className="border-t border-[#EDEDEB] dark:border-[#2F2F2F]" />
 
-      {/* 2. THANH CÔNG CỤ TỐI GIẢN VỪA TẦM MẮT */}
+      {/* 2. THANH CÔNG CỤ TÌM KIẾM & BỘ LỌC */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div className="flex items-center gap-1 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {[
             { id: 'ALL', label: `Tất cả (${localMasters.length})` },
-            { id: 'PUBLISHED', label: 'Đã công bố' },
-            { id: 'DRAFT', label: 'Bản nháp' }
+            { id: 'PUBLISHED', label: `Đã công bố (${publishedCount})` },
+            { id: 'DRAFT', label: `Bản nháp (${localMasters.length - publishedCount})` }
           ].map((pill) => (
             <button
               key={pill.id}
               type="button"
               onClick={() => setStatusFilter(pill.id)}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 statusFilter === pill.id
-                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs font-semibold'
-                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200/60'
+                  ? 'bg-[#37352F] text-white dark:bg-[#E6E6E5] dark:text-[#191919] font-medium'
+                  : 'bg-[#F7F6F3] dark:bg-[#202020] text-[#787774] dark:text-[#9B9A97] hover:bg-[#EFEFED] hover:text-[#37352F]'
               }`}
             >
               {pill.label}
@@ -145,250 +180,229 @@ export default function DatasetsTab({ localMasters = [], onDeleteMaster, onRefre
           ))}
         </div>
 
-        <div className="relative w-full sm:w-60">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+        <div className="relative w-full sm:w-64">
+          <Search className="w-3.5 h-3.5 text-[#787774] absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Tìm mã số, xưởng..."
+            placeholder="Tìm theo mã, xưởng, tổ..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            className="w-full h-7 pl-7 pr-2.5 text-xs rounded border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 transition-colors"
+            className="w-full h-7 pl-7 pr-7 text-xs rounded border border-[#EDEDEB] dark:border-[#2F2F2F] bg-white dark:bg-[#191919] text-[#37352F] dark:text-[#E6E6E5] placeholder:text-[#9B9A97] focus:outline-none focus:border-[#787774] transition-colors"
           />
+          {searchText && (
+            <button
+              type="button"
+              onClick={() => setSearchText('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[#787774] hover:text-[#37352F] text-xs"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 4. BẢNG OPENAI NHỎ GỌN VỪA TẦM MẮT (COMPACT TABLE) */}
-      <div className="border border-slate-200 dark:border-zinc-800 rounded-md overflow-hidden bg-white dark:bg-zinc-900 shadow-2xs">
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-850/60">
-                <th className="py-2 px-3 text-[10.5px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-                  Mã Báo Cáo
-                </th>
-                <th className="py-2 px-3 text-[10.5px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-                  Nhà Máy & Tổ
-                </th>
-                <th className="py-2 px-3 text-[10.5px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-                  Áp Dụng
-                </th>
-                <th className="py-2 px-3 text-[10.5px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider text-right">
-                  Dung Lượng
-                </th>
-                <th className="py-2 px-3 text-[10.5px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider text-center">
-                  Trạng Thái
-                </th>
-                <th className="py-2 px-3 text-[10.5px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider text-center">
-                  Lần Lưu
-                </th>
-                <th className="py-2 px-3 text-[10.5px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider text-right">
-                  Thao Tác
-                </th>
-              </tr>
-            </thead>
+      {/* 3. TABLE PHẦN MỀM THUẦN TÚY (KHÔNG ĐÓNG KHUNG BO GÓC, KHÔNG CÓ FOOTER THỪA) */}
+      <div
+        ref={tableContainerRef}
+        onScroll={handleScroll}
+        className="w-full overflow-x-auto overflow-y-auto max-h-[calc(100vh-270px)] min-h-[380px] custom-scrollbar border-t border-b border-[#EDEDEB] dark:border-[#2F2F2F]"
+      >
+        <table className="w-full text-left border-collapse">
+          <thead className="sticky top-0 z-10 bg-[#FAFAFA] dark:bg-[#1E1E1E] border-b border-[#EDEDEB] dark:border-[#2F2F2F]">
+            <tr>
+              <th className="py-2.5 px-3 text-[11px] font-semibold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider">
+                Mã Báo Cáo
+              </th>
+              <th className="py-2.5 px-3 text-[11px] font-semibold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider">
+                Nhà Máy & Tổ
+              </th>
+              <th className="py-2.5 px-3 text-[11px] font-semibold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider">
+                Ngày Áp Dụng
+              </th>
+              <th className="py-2.5 px-3 text-[11px] font-semibold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider text-right">
+                Dung Lượng
+              </th>
+              <th className="py-2.5 px-3 text-[11px] font-semibold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider text-center">
+                Trạng Thái
+              </th>
+              <th className="py-2.5 px-3 text-[11px] font-semibold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider text-center">
+                Lần Lưu
+              </th>
+              <th className="py-2.5 px-3 text-[11px] font-semibold text-[#787774] dark:text-[#9B9A97] uppercase tracking-wider text-right">
+                Thao Tác
+              </th>
+            </tr>
+          </thead>
 
-            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
-              {paginatedData.length > 0 ? (
-                paginatedData.map((r) => {
-                  const compressed = r.compressedSizeMB || 0
-                  const raw = r.rawSizeMB || 0
-                  const sizeVal = compressed > 0 ? compressed : raw
-                  const s = String(r.status || 'DRAFT').toUpperCase()
-                  const isCopied = copiedCode === r.regCode
+          <tbody className="divide-y divide-[#EDEDEB] dark:divide-[#2F2F2F]">
+            {visibleData.length > 0 ? (
+              visibleData.map((r) => {
+                const compressed = r.compressedSizeMB || 0
+                const raw = r.rawSizeMB || 0
+                const sizeVal = compressed > 0 ? compressed : raw
+                const s = String(r.status || 'DRAFT').toUpperCase()
+                const isCopied = copiedCode === r.regCode
 
-                  return (
-                    <tr
-                      key={r.regCode || r.RegCode || Math.random()}
-                      className="hover:bg-slate-50/70 dark:hover:bg-zinc-800/50 transition-colors"
-                    >
-                      {/* Mã Báo Cáo */}
-                      <td className="py-2 px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-xs font-semibold text-slate-900 dark:text-white select-all">
-                            {r.regCode}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => copyCode(r.regCode)}
-                            className="p-0.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                            title="Sao chép mã"
-                          >
-                            {isCopied ? (
-                              <Check className="w-3 h-3 text-emerald-600" />
-                            ) : (
-                              <Copy className="w-3 h-3" />
-                            )}
-                          </button>
-                          {r.version && (
-                            <span className="text-[9.5px] font-mono px-1 rounded bg-slate-100 text-slate-600">
-                              v{r.version}
-                            </span>
+                return (
+                  <tr
+                    key={r.regCode || r.RegCode || Math.random()}
+                    className="hover:bg-[#F7F6F3] dark:hover:bg-[#202020] transition-colors"
+                  >
+                    {/* Mã Báo Cáo */}
+                    <td className="py-2 px-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs font-semibold text-[#37352F] dark:text-[#E6E6E5] select-all">
+                          {r.regCode}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyCode(r.regCode)}
+                          className="p-1 rounded text-[#787774] hover:text-[#37352F] hover:bg-[#EFEFED] dark:hover:bg-[#2B2B2B] transition-colors"
+                          title="Sao chép mã"
+                        >
+                          {isCopied ? (
+                            <Check className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
                           )}
-                        </div>
-                      </td>
-
-                      {/* Nhà Máy & Tổ */}
-                      <td className="py-2 px-3">
-                        <div className="text-xs font-medium text-slate-800 dark:text-zinc-200 truncate">
-                          {r.factoryName || r.FactoryName || 'Chưa phân loại'}
-                        </div>
-                        <div className="text-[10.5px] text-slate-400 dark:text-zinc-500 truncate">
-                          {r.productionTeam || r.ProductionTeam || 'Toàn bộ xưởng'}
-                        </div>
-                      </td>
-
-                      {/* Ngày Áp Dụng */}
-                      <td className="py-2 px-3 font-mono text-[11px] text-slate-600 dark:text-zinc-400 whitespace-nowrap">
-                        {r.applyDate ? dayjs(r.applyDate).format('DD/MM/YYYY') : '---'}
-                      </td>
-
-                      {/* Dung Lượng */}
-                      <td className="py-2 px-3 text-right font-mono text-xs font-semibold text-slate-800 dark:text-zinc-200 whitespace-nowrap">
-                        {sizeVal > 0 ? `${sizeVal} MB` : 'Đã tối ưu'}
-                      </td>
-
-                      {/* Trạng Thái */}
-                      <td className="py-2 px-3 text-center whitespace-nowrap">
-                        {s === 'PUBLISHED' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span>ĐÃ CÔNG BỐ</span>
-                          </span>
-                        ) : s === 'CANCELLED' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                            <span>ĐÃ HỦY</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            <span>BẢN NHÁP</span>
+                        </button>
+                        {r.version && (
+                          <span className="text-[9.5px] font-mono px-1 py-0.2 rounded bg-[#EFEFED] dark:bg-[#2B2B2B] text-[#787774] dark:text-[#9B9A97]">
+                            v{r.version}
                           </span>
                         )}
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* Lần Lưu */}
-                      <td className="py-2 px-3 text-center font-mono text-[10.5px] text-slate-400 whitespace-nowrap">
-                        {r.registeredAt ? dayjs(r.registeredAt).format('DD/MM/YYYY HH:mm') : '---'}
-                      </td>
+                    {/* Nhà Máy & Tổ */}
+                    <td className="py-2 px-3">
+                      <div className="text-xs font-medium text-[#37352F] dark:text-[#E6E6E5] truncate">
+                        {r.factoryName || r.FactoryName || 'Chưa phân loại'}
+                      </div>
+                      <div className="text-[10.5px] text-[#787774] dark:text-[#9B9A97] truncate">
+                        {r.productionTeam || r.ProductionTeam || 'Toàn bộ xưởng'}
+                      </div>
+                    </td>
 
-                      {/* Thao Tác */}
-                      <td className="py-2 px-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDetail(r.regCode)}
-                            className="h-6 px-2 rounded border border-slate-200 hover:bg-slate-50 text-[11px] font-medium text-slate-700 flex items-center gap-1 transition-colors cursor-pointer"
-                          >
-                            <Eye className="w-3 h-3" />
-                            <span>Xem</span>
-                          </button>
+                    {/* Ngày Áp Dụng */}
+                    <td className="py-2 px-3 font-mono text-[11px] text-[#5A5955] dark:text-[#9B9A97] whitespace-nowrap">
+                      {r.applyDate ? dayjs(r.applyDate).format('DD/MM/YYYY') : '---'}
+                    </td>
 
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTargetCode(r.regCode)}
-                            className="h-6 w-6 rounded border border-transparent hover:border-rose-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors cursor-pointer"
-                            title="Xóa bản lưu này"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              ) : (
-                <tr>
-                  <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
-                    <Layers className="w-7 h-7 text-slate-300 mx-auto mb-1.5 opacity-50" />
-                    <p className="font-medium text-slate-600">Không tìm thấy báo cáo nào.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                    {/* Dung Lượng */}
+                    <td className="py-2 px-3 text-right font-mono text-xs font-semibold text-[#37352F] dark:text-[#E6E6E5] whitespace-nowrap">
+                      {sizeVal > 0 ? `${sizeVal} MB` : 'Đã tối ưu'}
+                    </td>
 
-        {/* 5. PHÂN TRANG NHỎ GỌN */}
-        <div className="flex items-center justify-between px-3 py-2 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/50 text-[11px] text-slate-500">
-          <div>
-            <span>
-              {filteredMasters.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
-              {Math.min(currentPage * pageSize, filteredMasters.length)}
-            </span>{' '}
-            / <span className="font-medium">{filteredMasters.length}</span> báo cáo
-          </div>
+                    {/* Trạng Thái */}
+                    <td className="py-2 px-3 text-center whitespace-nowrap">
+                      {s === 'PUBLISHED' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10.5px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span>ĐÃ CÔNG BỐ</span>
+                        </span>
+                      ) : s === 'CANCELLED' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10.5px] font-medium bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                          <span>ĐÃ HỦY</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10.5px] font-medium bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          <span>BẢN NHÁP</span>
+                        </span>
+                      )}
+                    </td>
 
-          <div className="flex items-center gap-2">
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value))
-                setCurrentPage(1)
-              }}
-              className="h-6 px-1.5 text-[11px] rounded border border-slate-200 bg-white text-slate-700 focus:outline-none"
-            >
-              <option value={10}>10 / trang</option>
-              <option value={20}>20 / trang</option>
-              <option value={50}>50 / trang</option>
-            </select>
+                    {/* Lần Lưu */}
+                    <td className="py-2 px-3 text-center font-mono text-[10.5px] text-[#787774] dark:text-[#9B9A97] whitespace-nowrap">
+                      {r.registeredAt ? dayjs(r.registeredAt).format('DD/MM/YYYY HH:mm') : '---'}
+                    </td>
 
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="h-6 px-2 rounded border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 flex items-center gap-0.5"
-              >
-                <ChevronLeft className="w-3 h-3" />
-                <span>Trước</span>
-              </button>
+                    {/* Thao Tác */}
+                    <td className="py-2 px-3 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDetail(r.regCode)}
+                          className="h-6 px-2.5 rounded bg-white dark:bg-[#191919] border border-[#EDEDEB] dark:border-[#2F2F2F] hover:bg-[#F7F6F3] dark:hover:bg-[#202020] text-[11px] font-medium text-[#37352F] dark:text-[#E6E6E5] flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-3 h-3 text-[#787774]" />
+                          <span>Xem</span>
+                        </button>
 
-              <span className="px-1.5 font-mono text-[10.5px]">
-                {currentPage}/{totalPages}
-              </span>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTargetCode(r.regCode)}
+                          className="h-6 w-6 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30 text-[#787774] hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
+                          title="Xóa bản lưu này"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
+            ) : (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="py-14 text-center text-xs text-[#787774] dark:text-[#9B9A97]"
+                >
+                  <Layers className="w-7 h-7 text-[#787774] mx-auto mb-2 opacity-40" />
+                  <p className="font-medium text-[#37352F] dark:text-[#E6E6E5]">
+                    Không tìm thấy báo cáo nào.
+                  </p>
+                </td>
+              </tr>
+            )}
 
-              <button
-                type="button"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="h-6 px-2 rounded border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 flex items-center gap-0.5"
-              >
-                <span>Sau</span>
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        </div>
+            {/* Hàng báo trạng thái đang cuộn tải thêm (chỉ hiển thị tạm thời khi đang scroll) */}
+            {isLoadingMore && (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="py-2.5 text-center text-xs text-[#787774] dark:text-[#9B9A97] bg-[#FAFAFA] dark:bg-[#1E1E1E]"
+                >
+                  <Loader2 className="w-3.5 h-3.5 animate-spin inline-block mr-1.5 text-[#2383E2]" />
+                  <span>Đang tải thêm dữ liệu...</span>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* 6. MODAL XÁC NHẬN XÓA NHỎ GỌN */}
+      {/* 4. MODAL XÁC NHẬN XÓA */}
       {deleteTargetCode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-sm rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 p-5 shadow-2xl space-y-3 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-sm rounded-lg bg-white dark:bg-[#191919] border border-[#EDEDEB] dark:border-[#2F2F2F] p-5 shadow-xl space-y-3 animate-in zoom-in-95 duration-150">
             <div className="flex items-center gap-2 text-rose-600">
               <AlertTriangle className="w-4 h-4" />
-              <h3 className="text-sm font-bold text-slate-900">Xác nhận xóa bản lưu?</h3>
+              <h3 className="text-sm font-bold text-[#37352F] dark:text-[#E6E6E5]">
+                Xác nhận xóa bản lưu?
+              </h3>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-[#787774] dark:text-[#9B9A97] leading-relaxed">
               Bản lưu ngoại tuyến của báo cáo{' '}
-              <b className="font-mono text-slate-900">{deleteTargetCode}</b> trên máy tính này sẽ bị
-              xóa. Dữ liệu trên hệ thống trung tâm luôn an toàn.
+              <b className="font-mono text-[#37352F] dark:text-[#E6E6E5]">{deleteTargetCode}</b>{' '}
+              trên máy tính này sẽ bị xóa. Dữ liệu trên hệ thống trung tâm luôn an toàn.
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setDeleteTargetCode(null)}
-                className="h-7 px-3 rounded border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-700"
+                className="h-7 px-3 rounded border border-[#EDEDEB] dark:border-[#2F2F2F] hover:bg-[#F7F6F3] dark:hover:bg-[#202020] text-xs font-medium text-[#37352F] dark:text-[#E6E6E5] cursor-pointer"
               >
                 Hủy bỏ
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="h-7 px-3 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold"
+                className="h-7 px-3 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer"
               >
                 Xóa bản lưu
               </button>

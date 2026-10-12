@@ -20,6 +20,30 @@ export default defineConfig({
   build: {
     outDir: '../../dist/renderer',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 4000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('antd') || id.includes('@ant-design') || id.includes('rc-')) {
+              return 'vendor-antd'
+            }
+            if (id.includes('@glideapps')) {
+              return 'vendor-glide'
+            }
+            if (id.includes('exceljs')) {
+              return 'vendor-excel'
+            }
+            if (id.includes('html2canvas')) {
+              return 'vendor-canvas'
+            }
+            if (id.includes('pako') || id.includes('crypto-js')) {
+              return 'vendor-crypto'
+            }
+          }
+        }
+      }
+    },
     commonjsOptions: {
       include: [/node_modules/]
     }

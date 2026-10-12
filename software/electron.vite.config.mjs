@@ -22,6 +22,32 @@ export default defineConfig({
       port: 5173,
       allowedHosts: true
     },
+    build: {
+      chunkSizeWarningLimit: 4000,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('antd') || id.includes('@ant-design') || id.includes('rc-')) {
+                return 'vendor-antd'
+              }
+              if (id.includes('@glideapps')) {
+                return 'vendor-glide'
+              }
+              if (id.includes('exceljs')) {
+                return 'vendor-excel'
+              }
+              if (id.includes('html2canvas')) {
+                return 'vendor-canvas'
+              }
+              if (id.includes('pako') || id.includes('crypto-js')) {
+                return 'vendor-crypto'
+              }
+            }
+          }
+        }
+      }
+    },
     esbuild: {
       jsxFactory: 'React.createElement',
       jsxInject: `import React from 'react'`

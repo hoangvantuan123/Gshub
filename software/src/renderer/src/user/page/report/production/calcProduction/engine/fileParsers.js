@@ -522,14 +522,39 @@ export function normalizeRowOperationalTimePair(rowObj) {
   return rowObj
 }
 
-export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
+/**
+ * Kiểm tra xem buffer tệp có phải là định dạng HTML/XML Spreadsheet (thường xuất từ hệ thống MES/ERP dưới tên đuôi .xls)
+ */
+export const isHtmlOrXmlSpreadsheet = (data) => {
+  if (!data || data.length === 0) return false
+  const maxBytes = Math.min(data.length, 1024)
+  let head = ''
+  for (let i = 0; i < maxBytes; i++) {
+    head += String.fromCharCode(data[i])
+  }
+  const lower = head.toLowerCase()
+  return (
+    lower.includes('<html') ||
+    lower.includes('<table') ||
+    lower.includes('xmlns:x') ||
+    lower.includes('xmlns:o')
+  )
+}
+
+export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = '') => {
   if (val === null || val === undefined || val === '') return ''
 
   const colStr = String(colNameOrKey || '').toLowerCase()
+  const isMesApproval =
+    fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ||
+    fileType === 'mes_approval' ||
+    colStr.includes('mes_approval')
+
   const pad = (n) => String(n).padStart(2, '0')
 
   // Phân loại kiểu cột
   const isDateTimeCol =
+    isMesApproval ||
     colStr.includes('plannedstarttime') ||
     colStr.includes('plannedendtime') ||
     colStr.includes('actualstarttime') ||
@@ -614,29 +639,29 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       const year = dateUtc.getUTCFullYear()
       const month = pad(dateUtc.getUTCMonth() + 1)
       const day = pad(dateUtc.getUTCDate())
-      const yearShort = String(year).slice(-2)
+      const yearStr = isMesApproval ? String(year) : String(year).slice(-2)
 
       const totalSecs = Math.round(frac * 86400)
       const hours = pad(Math.floor(totalSecs / 3600) % 24)
       const minutes = pad(Math.floor((totalSecs % 3600) / 60))
       const seconds = pad(totalSecs % 60)
-      const timeStr = seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}:00`
+      const timeStr = seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
 
       if (isDateTimeCol) {
-        return `${day}/${month}/${yearShort} ${timeStr}`
+        return `${day}/${month}/${yearStr} ${timeStr}`
       }
       if (isOnlyTimeCol) {
         return seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
       }
       if (isOnlyDateCol) {
-        return `${day}/${month}/${yearShort}`
+        return `${day}/${month}/${yearStr}`
       }
       const hasTime = frac > 0.00001
-      return hasTime ? `${day}/${month}/${yearShort} ${timeStr}` : `${day}/${month}/${yearShort}`
+      return hasTime ? `${day}/${month}/${yearStr} ${timeStr}` : `${day}/${month}/${yearStr}`
     }
   }
 
-  // 2. Xử lý Date Object (Dùng local getters để giữ đúng giờ người dùng nhập, triệt tiêu hoàn toàn lệch 7 tiếng múi giờ)
+  // 2. Xử lý Date Object (Dùng local getters để giữ đúng giờ người dùng nhập, triệt tiêu hoàn toàn lệch múi giờ)
   if (val instanceof Date) {
     if (isNaN(val.getTime())) return ''
     const year = val.getFullYear()
@@ -645,20 +670,20 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
     const hours = pad(val.getHours())
     const minutes = pad(val.getMinutes())
     const seconds = pad(val.getSeconds())
-    const yearShort = String(year).slice(-2)
-    const timeStr = seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}:00`
+    const yearStr = isMesApproval ? String(year) : String(year).slice(-2)
+    const timeStr = seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
 
     if (isDateTimeCol) {
-      return `${day}/${month}/${yearShort} ${timeStr}`
+      return `${day}/${month}/${yearStr} ${timeStr}`
     }
     if (year < 1910 || isOnlyTimeCol) {
       return seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
     }
     if (isOnlyDateCol) {
-      return `${day}/${month}/${yearShort}`
+      return `${day}/${month}/${yearStr}`
     }
     const hasTime = hours !== '00' || minutes !== '00' || seconds !== '00'
-    return hasTime ? `${day}/${month}/${yearShort} ${timeStr}` : `${day}/${month}/${yearShort}`
+    return hasTime ? `${day}/${month}/${yearStr} ${timeStr}` : `${day}/${month}/${yearStr}`
   }
 
   // 3. Xử lý chuỗi văn bản
@@ -684,37 +709,37 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?)?/i
     )
     if (isoMatch) {
-      const year = isoMatch[1]
+      const year = isMesApproval ? isoMatch[1] : String(isoMatch[1]).slice(-2)
       const month = pad(isoMatch[2])
       const day = pad(isoMatch[3])
-      const yearShort = String(year).slice(-2)
 
       let timeFormatted = ''
       if (isoMatch[4] !== undefined) {
         let h = parseInt(isoMatch[4], 10)
         const m = pad(isoMatch[5] || '00')
-        const s = pad(isoMatch[6] || '00')
+        const hasSeconds = isoMatch[6] !== undefined
+        const s = hasSeconds ? pad(isoMatch[6]) : ''
         const ampm = isoMatch[7] ? isoMatch[7].toUpperCase() : ''
         if ((ampm === 'PM' || ampm === 'CH') && h < 12) h += 12
         if ((ampm === 'AM' || ampm === 'SA') && h === 12) h = 0
-        timeFormatted = `${pad(h)}:${m}:${s}`
+        timeFormatted = hasSeconds ? `${pad(h)}:${m}:${s}` : `${pad(h)}:${m}`
       }
 
       if (isDateTimeCol) {
         return timeFormatted
-          ? `${day}/${month}/${yearShort} ${timeFormatted}`
-          : `${day}/${month}/${yearShort} 00:00:00`
+          ? `${day}/${month}/${year} ${timeFormatted}`
+          : `${day}/${month}/${year} 00:00:00`
       }
       if (isOnlyDateCol) {
-        return `${day}/${month}/${yearShort}`
+        return `${day}/${month}/${year}`
       }
       if (isOnlyTimeCol && timeFormatted) {
         return timeFormatted
       }
       if (timeFormatted) {
-        return `${day}/${month}/${yearShort} ${timeFormatted}`
+        return `${day}/${month}/${year} ${timeFormatted}`
       }
-      return `${day}/${month}/${yearShort}`
+      return `${day}/${month}/${year}`
     }
 
     // Nếu là chuỗi DD/MM/YYYY hoặc DD-MM-YYYY hoặc DD/MM/YY (kèm giờ phút giây và AM/PM/SA/CH)
@@ -725,7 +750,9 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       const day = pad(dmyMatch[1])
       const month = pad(dmyMatch[2])
       let year = dmyMatch[3]
-      if (year.length === 4) {
+      if (year.length === 2 && isMesApproval) {
+        year = `20${year}`
+      } else if (year.length === 4 && !isMesApproval && !colStr.includes('approved')) {
         year = year.slice(-2)
       } else {
         year = pad(year)
@@ -735,17 +762,18 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '') => {
       if (dmyMatch[4] !== undefined) {
         let h = parseInt(dmyMatch[4], 10)
         const m = pad(dmyMatch[5] || '00')
-        const s = pad(dmyMatch[6] || '00')
+        const hasSeconds = dmyMatch[6] !== undefined
+        const s = hasSeconds ? pad(dmyMatch[6]) : ''
         const ampm = dmyMatch[7] ? dmyMatch[7].toUpperCase() : ''
         if ((ampm === 'PM' || ampm === 'CH') && h < 12) h += 12
         if ((ampm === 'AM' || ampm === 'SA') && h === 12) h = 0
-        timeFormatted = `${pad(h)}:${m}:${s}`
+        timeFormatted = hasSeconds ? `${pad(h)}:${m}:${s}` : `${pad(h)}:${m}`
       }
 
       if (isDateTimeCol) {
         return timeFormatted
           ? `${day}/${month}/${year} ${timeFormatted}`
-          : `${day}/${month}/${year} 00:00:00`
+          : `${day}/${month}/${year}`
       }
       if (isOnlyTimeCol && timeFormatted) {
         return timeFormatted
@@ -781,8 +809,10 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
         })
 
         const data = new Uint8Array(e.target.result)
+        const isHtml = isHtmlOrXmlSpreadsheet(data)
         const workbook = XLSX.read(data, {
           type: 'array',
+          raw: isHtml ? true : false,
           cellNF: true,
           cellDates: false,
           cellText: true
@@ -1678,7 +1708,7 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
                 // Ưu tiên rawVal (cell.v) nếu là number hoặc Date để lấy đủ giờ:phút:giây
                 const valToFormat =
                   typeof rawVal === 'number' || rawVal instanceof Date ? rawVal : val
-                val = formatVietnamDateTimeValue(valToFormat, `${key}_${title}`)
+                val = formatVietnamDateTimeValue(valToFormat, `${key}_${title}`, fileType)
               }
             }
 
@@ -1699,7 +1729,9 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
           }
 
           if (hasRowData) {
-            normalizeRowOperationalTimePair(rowObj)
+            if (fileType !== 'mes_approval' && fileType !== ARCHITECTURE_FILE_TYPES.MES_APPROVAL) {
+              normalizeRowOperationalTimePair(rowObj)
+            }
 
             // Đồng bộ 2 chiều Key tiếng Anh <-> Tiêu đề tiếng Việt cho các cột Lệnh công đoạn & Lệnh thao tác
             if (rowObj.StageTargetQty !== undefined) {
@@ -1814,8 +1846,10 @@ export const inspectUploadedFile = async (file, fileType) => {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target.result)
+        const isHtml = isHtmlOrXmlSpreadsheet(data)
         const workbook = XLSX.read(data, {
           type: 'array',
+          raw: isHtml ? true : false,
           cellNF: true,
           cellDates: false,
           cellText: true

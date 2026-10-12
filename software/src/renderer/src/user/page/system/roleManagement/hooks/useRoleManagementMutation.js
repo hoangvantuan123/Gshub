@@ -3,7 +3,7 @@ import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { togglePageInteraction } from '../../../../../utils/togglePageInteraction'
 import { updateIndexNo } from '../../../../components/sheet/js/updateIndexNo'
-import { PostARole, PostURole, PostDRole, PostUActionRole } from '../../../../../api/system'
+import { PostSaveRolePermissions } from '../../../../../api/system'
 
 export function useRoleManagementMutation({
   gridDataA,
@@ -260,18 +260,11 @@ export function useRoleManagementMutation({
         })
       }
 
-      const savePromises = []
-      if (itemsToInsert.length > 0) {
-        savePromises.push(PostARole(itemsToInsert))
-      }
-      if (itemsToUpdate.length > 0) {
-        savePromises.push(PostURole(itemsToUpdate))
-      }
-      if (itemsToDelete.length > 0) {
-        savePromises.push(PostDRole(itemsToDelete))
-      }
-
-      if (savePromises.length === 0) {
+      if (
+        itemsToInsert.length === 0 &&
+        itemsToUpdate.length === 0 &&
+        itemsToDelete.length === 0
+      ) {
         if (setStatusMessage) {
           setStatusMessage({
             type: 'info',
@@ -281,7 +274,14 @@ export function useRoleManagementMutation({
         return
       }
 
-      await Promise.all(savePromises)
+      const saveResult = await PostSaveRolePermissions({
+        insert: itemsToInsert,
+        update: itemsToUpdate,
+        delete: itemsToDelete
+      })
+      if (saveResult?.success === false) {
+        throw new Error(saveResult?.message || 'Lỗi khi lưu phân quyền')
+      }
 
       // Cập nhật lại dữ liệu từ server
       if (fetchGroupRoles) {

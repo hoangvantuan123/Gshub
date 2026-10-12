@@ -85,6 +85,7 @@ func Register(v2 *gin.RouterGroup, pool *grpcclient.Pool) {
 		role.POST("/RoleU", auth_roles.RoleU(pool))
 		role.POST("/RoleD", auth_roles.RoleD(pool))
 		role.POST("/RoleQ", auth_roles.RoleQ(pool))
+		role.POST("/RoleSaveBatch", auth_roles.RoleSaveBatch(pool))
 
 		role.POST("/MenuRoleQ", auth_roles.MenuRoleQ(pool))
 		role.POST("/UserRoleQ", auth_roles.RoleUserQ(pool))

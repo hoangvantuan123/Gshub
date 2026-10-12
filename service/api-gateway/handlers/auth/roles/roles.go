@@ -2,10 +2,14 @@ package auth_roles
 
 import (
 	"api-gateway/config"
+	"api-gateway/internal/caller"
 	"api-gateway/internal/grpcclient"
 	"api-gateway/internal/h"
+	"api-gateway/internal/response"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // Menus - proto package: roles.menu, service: MenuService
@@ -34,6 +38,80 @@ func RoleD(pool *grpcclient.Pool) gin.HandlerFunc {
 }
 func RoleQ(pool *grpcclient.Pool) gin.HandlerFunc {
 	return h.Handle(pool, config.Cfg.HostGRPCUser, "/users.roles.role.RoleService/RoleQ")
+}
+func RoleSaveBatch(pool *grpcclient.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var body map[string]interface{}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(200, gin.H{"success": false, "message": "Payload lưu phân quyền không hợp lệ"})
+			return
+		}
+
+		auth := c.GetHeader("Authorization")
+		clientIP := c.ClientIP()
+		requestID := c.GetString("requestID")
+		timeoutSec := 0
+		if toHeader := c.GetHeader("X-Request-Timeout"); toHeader != "" {
+			if s, err := strconv.Atoi(toHeader); err == nil && s > 0 {
+				timeoutSec = s
+			}
+		}
+
+		conn, err := pool.Get(config.Cfg.HostGRPCUser)
+		if err != nil {
+			caller.Log.Error("gRPC connection pool get failed", zap.String("host", config.Cfg.HostGRPCUser), zap.Error(err))
+			response.Error(c, "5000")
+			return
+		}
+
+		steps := []struct {
+			key    string
+			method string
+		}{
+			{key: "delete", method: "/users.roles.role.RoleService/RoleD"},
+			{key: "insert", method: "/users.roles.role.RoleService/RoleA"},
+			{key: "update", method: "/users.roles.role.RoleService/RoleU"},
+		}
+
+		result := make(map[string]interface{})
+		total := 0
+		for _, step := range steps {
+			items, ok := body[step.key].([]interface{})
+			if !ok || len(items) == 0 {
+				result[step.key] = gin.H{"count": 0}
+				continue
+			}
+
+			callBody := map[string]interface{}{"result": items}
+			callResult := caller.Invoke(c.Request.Context(), conn, step.method, callBody, auth, clientIP, requestID, timeoutSec)
+			if !callResult.Success {
+				c.JSON(200, gin.H{
+					"success": false,
+					"message": callResult.Message,
+					"data": gin.H{
+						"failedStep": step.key,
+						"result":     result,
+					},
+				})
+				return
+			}
+
+			total += len(items)
+			result[step.key] = gin.H{
+				"count": len(items),
+				"data":  callResult.Data,
+			}
+		}
+
+		c.JSON(200, gin.H{
+			"success": true,
+			"message": "Lưu phân quyền thành công",
+			"data": gin.H{
+				"total":  total,
+				"result": result,
+			},
+		})
+	}
 }
 
 // RoleUser - proto package: users.roles.role, service: RoleService
@@ -167,5 +245,3 @@ func PermResourceScopesD(pool *grpcclient.Pool) gin.HandlerFunc {
 func PermResourceScopesQ(pool *grpcclient.Pool) gin.HandlerFunc {
 	return h.Handle(pool, config.Cfg.HostGRPCUser, "/users.roles.perm_resource_scopes.PermResourceScopesService/PermResourceScopesQ")
 }
-
-

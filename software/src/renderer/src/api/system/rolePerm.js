@@ -5,6 +5,8 @@ export const PostARole = (result, options = {}) => apiPost('/role/RoleA', { resu
 export const PostURole = (result, options = {}) => apiPost('/role/RoleU', { result }, options)
 export const PostDRole = (result, options = {}) => apiPost('/role/RoleD', { result }, options)
 export const PostQRole = (result, options = {}) => apiPost('/role/RoleQ', { result }, options)
+export const PostSaveRolePermissions = ({ insert = [], update = [], delete: remove = [] } = {}, options = {}) =>
+  apiPost('/role/RoleSaveBatch', { insert, update, delete: remove }, options)
 
 // Gán tài khoản vào nhóm quyền (User-Role Mapping)
 export const PostAUserRole = (result, options = {}) => {

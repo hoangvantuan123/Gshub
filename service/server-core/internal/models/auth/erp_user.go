@@ -18,6 +18,10 @@ type ERPUser struct {
 	UserType           *int       `db:"UserType" json:"UserType"`
 	UserName           *string    `db:"UserName" json:"UserName"`
 	EmpSeq             *int       `db:"EmpSeq" json:"EmpSeq"`
+	PartSeq            *int64     `db:"PartSeq" json:"PartSeq"`
+	ProdDepartSeq      *int64     `db:"ProdDepartSeq" json:"ProdDepartSeq"`
+	PositionSeq        *int64     `db:"PositionSeq" json:"PositionSeq"`
+	CanScanQR          *bool      `db:"CanScanQR" json:"CanScanQR"`
 	LoginPwd           *string    `db:"LoginPwd" json:"LoginPwd"`
 	Password1          *string    `db:"Password1" json:"Password1"`
 	Password2          *string    `db:"Password2" json:"Password2"`
@@ -52,10 +56,10 @@ type ERPUser struct {
 	RowVersion         int64      `db:"RowVersion" json:"RowVersion"`
 	CreatedBy          *string    `db:"CreatedBy" json:"CreatedBy"`
 	CreatedByName      *string    `db:"CreatedByName" json:"CreatedByName"`
-	CreatedAt          time.Time  `db:"CreatedAt" json:"CreatedAt"`
+	CreatedAt          *time.Time `db:"CreatedAt" json:"CreatedAt"`
 	UpdatedBy          *string    `db:"UpdatedBy" json:"UpdatedBy"`
 	UpdatedByName      *string    `db:"UpdatedByName" json:"UpdatedByName"`
-	UpdatedAt          time.Time  `db:"UpdatedAt" json:"UpdatedAt"`
+	UpdatedAt          *time.Time `db:"UpdatedAt" json:"UpdatedAt"`
 }
 
 type ERPUsers = ERPUser

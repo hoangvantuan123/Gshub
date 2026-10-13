@@ -1,6 +1,7 @@
 package database
 
 import (
+	_ "embed"
 	"fmt"
 	"server-core/internal/config"
 	"time"
@@ -116,10 +117,24 @@ func Connect(log *zap.Logger) error {
 
 	if SqlxDB != nil {
 		ensureERPTablesExist(SqlxDB, log)
+		if _, err := SqlxDB.Exec(permissionUserSeqMigrationSQL); err != nil {
+			return fmt.Errorf("verify permission UserSeq columns: %w", err)
+		}
+		log.Info("Verified permission UserSeq columns")
+		if _, err := SqlxDB.Exec(permissionExtensionsMigrationSQL); err != nil {
+			return fmt.Errorf("verify extended permission schema: %w", err)
+		}
+		log.Info("Verified extended permission schema")
 	}
 
 	return nil
 }
+
+//go:embed migration_permission_userseq.sql
+var permissionUserSeqMigrationSQL string
+
+//go:embed migration_permission_extensions.sql
+var permissionExtensionsMigrationSQL string
 
 const erpTablesSchemaSQL = `
 -- 1. BẢNG NGÔN NGỮ (_ERPLanguage)

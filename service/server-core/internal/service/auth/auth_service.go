@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -122,6 +123,9 @@ func (s *authService) LoginUserB(ctx context.Context, login, password string, de
 	if err != nil {
 		if s.log != nil {
 			s.log.Error("[LoginUserB] Query user failed", zap.Error(err), zap.String("login", login))
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("load login account: %w", err)
 		}
 		s.writeLog(ctx, login, "", "USER_NOT_FOUND", deviceInfo)
 		return nil, &domain.AuthError{Code: "USER_NOT_FOUND", Message: "Thông tin đăng nhập không hợp lệ"}

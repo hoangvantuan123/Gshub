@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"server-core/internal/middleware"
+	domain "server-core/internal/models/auth"
+	"strings"
 	"testing"
 	"time"
 )
@@ -49,10 +51,39 @@ func TestConfiguredPermissionSnapshot(t *testing.T) {
 	if _, err := db.ExecContext(ctx, "SET default_transaction_read_only = on"); err != nil {
 		t.Fatal(err)
 	}
-	var userSeq string
-	if err := db.GetContext(ctx, &userSeq, `SELECT "UserSeq" FROM "_ERPUsers" WHERE "UserId"=$1`, userID); err != nil {
+	t.Run("nullable audit timestamps", func(t *testing.T) {
+		var nullable domain.ERPUser
+		if err := db.GetContext(ctx, &nullable, `SELECT NULL::timestamptz AS "CreatedAt", NULL::timestamptz AS "UpdatedAt"`); err != nil {
+			t.Fatal(err)
+		}
+		if nullable.CreatedAt != nil || nullable.UpdatedAt != nil {
+			t.Fatal("NULL timestamps must remain absent")
+		}
+	})
+	for _, account := range strings.Split(os.Getenv("GSHUB_ACCOUNT_TEST_USERS"), ",") {
+		account = strings.TrimSpace(account)
+		if account == "" {
+			continue
+		}
+		t.Run("account scan/"+account, func(t *testing.T) {
+			var accountUser domain.ERPUser
+			if err := db.GetContext(ctx, &accountUser, `SELECT * FROM "_ERPUsers" WHERE LOWER("UserId")=LOWER($1)`, account); err != nil {
+				t.Fatal(err)
+			}
+			if accountUser.UserSeq == "" {
+				t.Fatal("missing account identity")
+			}
+			if _, _, err := (&authService{db: db}).getDataRolesUserRaw(ctx, account, accountUser.UserSeq); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	// Exercise the same strict struct scan as login, including added DB columns.
+	var user domain.ERPUser
+	if err := db.GetContext(ctx, &user, `SELECT * FROM "_ERPUsers" WHERE LOWER("UserId")=LOWER($1) OR "EmpID"=$1 OR "EmpCode"=$1`, userID); err != nil {
 		t.Fatal(err)
 	}
+	userSeq := user.UserSeq
 	s := &authService{db: db}
 	sections, _, err := s.getDataRolesUserRaw(ctx, userID, userSeq)
 	if err != nil {

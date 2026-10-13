@@ -30,9 +30,9 @@ func (s *SystemUsersService) SystemUsersQ(ctx context.Context, opts SystemUserQu
 
 	columns := `
 		u."UserSeq", u."UserId", u."UserName", u."Remark", u."IdxNo",
-		CASE WHEN u."Active" = 1 THEN true ELSE false END AS "Active",
-		CASE WHEN u."CheckPass1" = 1 THEN true ELSE false END AS "CheckPass1",
-		CASE WHEN u."StatusAcc" = 1 THEN true ELSE false END AS "StatusAcc",
+		COALESCE(u."Active", false) AS "Active",
+		COALESCE(u."CheckPass1", false) AS "CheckPass1",
+		COALESCE(u."StatusAcc", false) AS "StatusAcc",
 		u."PartSeq", u."ProdDepartSeq", u."PositionSeq", u."CanScanQR",
 		d."DepartmentName" AS "PartName",
 		f."ProdLocationName" AS "ProdDepartName",
@@ -49,7 +49,7 @@ func (s *SystemUsersService) SystemUsersQ(ctx context.Context, opts SystemUserQu
 		LEFT JOIN "_ERPDepartment" d ON u."PartSeq" = d."IdSeq"
 		LEFT JOIN "_ERPProdLocation" f ON u."ProdDepartSeq" = f."IdSeq"
 		LEFT JOIN "_ERPPosition" g ON u."PositionSeq" = g."IdSeq"
-		WHERE u."UserSeq" != 1
+		WHERE u."UserSeq" != '1'
 	`, columns)
 
 	args := map[string]interface{}{}
@@ -106,6 +106,9 @@ func (s *SystemUsersService) SystemUsersQ(ctx context.Context, opts SystemUserQu
 		result = append(result, row)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	cache.GetCache().Set(ctx, cacheKey, result, 30*time.Minute)
 
 	return result, nil

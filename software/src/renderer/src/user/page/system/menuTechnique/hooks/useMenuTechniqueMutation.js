@@ -16,6 +16,7 @@ export function useMenuTechniqueMutation({
   resetTable,
   canCreate,
   canEdit,
+  canSave,
   canView,
   canSearch,
   canDelete,
@@ -70,7 +71,7 @@ export function useMenuTechniqueMutation({
   }, [canView, canSearch, gridData, t, executeSearch, setStatusMessage])
 
   const handleSaveData = useCallback(async () => {
-    if (!canCreate && !canEdit) {
+    if (!canSave || (!canCreate && !canEdit)) {
       if (setStatusMessage) {
         setStatusMessage({
           type: 'warning',
@@ -199,6 +200,7 @@ export function useMenuTechniqueMutation({
   }, [
     canCreate,
     canEdit,
+    canSave,
     gridData,
     setGridData,
     userFrom,

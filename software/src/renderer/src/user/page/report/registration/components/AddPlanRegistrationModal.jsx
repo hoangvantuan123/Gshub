@@ -7,7 +7,7 @@ import PlanRegistrationFormCore from './PlanRegistrationFormCore'
  * AddPlanRegistrationModal - Modal Pop-up Đăng ký nạp báo cáo mở rộng toàn màn hình
  * Thiết kế vuông vức, không bo góc theo chuẩn giao diện ERP/Windows
  */
-export default function AddPlanRegistrationModal({ isOpen, onClose, onSaveSuccess }) {
+export default function AddPlanRegistrationModal({ isOpen, onClose, onSaveSuccess, permissions }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -112,7 +112,7 @@ export default function AddPlanRegistrationModal({ isOpen, onClose, onSaveSucces
 
         {/* Nội dung form */}
         <div style={{ flex: 1, width: '100%', minHeight: 0, overflow: 'hidden' }}>
-          <PlanRegistrationFormCore mode="modal" onClose={onClose} onSaveSuccess={onSaveSuccess} />
+          <PlanRegistrationFormCore mode="modal" onClose={onClose} onSaveSuccess={onSaveSuccess} permissions={permissions} />
         </div>
       </div>
     </div>

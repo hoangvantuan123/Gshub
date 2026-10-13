@@ -80,6 +80,7 @@ export default function RootMenuTechniquePage({
     defaultCols,
     canCreate: pagePerms.canCreate,
     canEdit: pagePerms.canEdit,
+    canSave: pagePerms.canSave,
     canView: pagePerms.canView,
     canSearch: pagePerms.canSearch,
     canDelete: pagePerms.canDelete,

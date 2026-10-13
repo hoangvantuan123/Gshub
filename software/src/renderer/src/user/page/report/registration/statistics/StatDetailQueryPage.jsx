@@ -183,6 +183,7 @@ export default function StatDetailQueryPage({
   // ── 1. Truy vấn dữ liệu Thống kê SX từ Backend API ──
   const fetchStatDetailData = useCallback(
     async (currentPage = 1, append = false, customFilters = null) => {
+      if (!pagePerms.canSearch) return []
       if (isLoadingRef.current) return
       isLoadingRef.current = true
       setIsLoadingMore(true)
@@ -272,7 +273,7 @@ export default function StatDetailQueryPage({
         loadingBarRef?.current?.complete?.()
       }
     },
-    [columns.length, pageSize, setPageData, setStatusMessage, t]
+    [pagePerms.canSearch, columns.length, pageSize, setPageData, setStatusMessage, t]
   )
 
   // Load initial page
@@ -492,6 +493,7 @@ export default function StatDetailQueryPage({
   const { formatDate } = useDateFormat()
 
   const handleOpenExportModal = useCallback(() => {
+    if (!pagePerms.canExport) return
     const totalCount = totalRows || filteredAndGroupedData.length
     if (totalCount === 0) {
       setStatusMessage?.({
@@ -501,7 +503,7 @@ export default function StatDetailQueryPage({
       return
     }
     setIsExportModalOpen(true)
-  }, [filteredAndGroupedData.length, setStatusMessage, t, totalRows])
+  }, [pagePerms.canExport, filteredAndGroupedData.length, setStatusMessage, t, totalRows])
 
   // ── 3. Thực hiện Xuất dữ liệu Excel chuẩn sau khi đã xác nhận thông tin ──
   const executeExportStatExcel = useCallback(
@@ -513,6 +515,7 @@ export default function StatDetailQueryPage({
       includeHeaders,
       exportableCols
     }) => {
+      if (!pagePerms.canExport) return
       loadingBarRef?.current?.continuousStart?.()
       try {
         let dataToExport = []
@@ -636,6 +639,7 @@ export default function StatDetailQueryPage({
       columns,
       filteredAndGroupedData,
       formatDate,
+      pagePerms.canExport,
       gridData.length,
       selection,
       setStatusMessage,
@@ -678,7 +682,7 @@ export default function StatDetailQueryPage({
             onAddQueryField={setDynamicQueryFields}
             onResetQuery={handleResetQuery}
             handleSearchData={handleSearch}
-            disabled={!pagePerms.canView}
+            disabled={!pagePerms.canSearch}
           />
         }
         table={

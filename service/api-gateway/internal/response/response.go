@@ -93,6 +93,8 @@ var codeToVietnameseMap = map[string]string{
 	// 5000 - 5999 System
 	"5000": "Lỗi xử lý hệ thống nội bộ",
 	"5001": "Lỗi thao tác cơ sở dữ liệu",
+	"5002": "Không thể kết nối dịch vụ xử lý báo cáo. Vui lòng thử lại sau.",
+	"5003": "Dịch vụ xử lý phản hồi quá thời gian chờ. Vui lòng kiểm tra kết quả trước khi thử lại.",
 }
 
 // NormalizeCode returns user-friendly Vietnamese messages instead of numeric error codes

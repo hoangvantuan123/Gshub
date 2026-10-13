@@ -35,6 +35,7 @@ import {
   queryProdStatsDetail
 } from '../services/planRegistrationService'
 import { usePageHotkeys } from '../../../../hooks/usePageHotkeys'
+import { usePagePermissions } from '../../../../hooks/usePagePermissions'
 import { usePageData } from '../../../../../context/PageDataContext'
 import DataPageContainer from '../../../../components/layout/DataPageContainer'
 import ExportExcelModal from '../../../../components/modal/ExportExcelModal'
@@ -62,7 +63,8 @@ const executiveGridTheme = {
   lineHeight: 1.2
 }
 
-export default function PlanRegistrationDetailView() {
+export default function PlanRegistrationDetailView(props) {
+  const pagePerms = usePagePermissions({ ...props, menuKey: 'report_registration' })
   const params = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -198,6 +200,7 @@ export default function PlanRegistrationDetailView() {
 
   // ── Tải dữ liệu Master & Chi tiết từ Database ──
   const fetchDetailData = useCallback(async () => {
+    if (!pagePerms.canSearch) return
     if (!regCode) return
     loadingBarRef.current?.continuousStart?.()
     try {
@@ -281,7 +284,7 @@ export default function PlanRegistrationDetailView() {
     } finally {
       loadingBarRef.current?.complete?.()
     }
-  }, [regCode, setPageData, setStatusMessage, currentColumns.length])
+  }, [pagePerms.canSearch, regCode, setPageData, setStatusMessage, currentColumns.length])
 
   const hasInitialFetchedRef = useRef(false)
   useEffect(() => {
@@ -447,12 +450,13 @@ export default function PlanRegistrationDetailView() {
 
   // ── Mở modal xuất Excel ──
   const handleOpenExportModal = useCallback(() => {
+    if (!pagePerms.canExport) return
     if (!displayList || displayList.length === 0) {
       setStatusMessage?.({ type: 'warning', text: 'Không có dữ liệu để xuất file Excel' })
       return
     }
     setIsExportModalOpen(true)
-  }, [displayList, setStatusMessage])
+  }, [pagePerms.canExport, displayList, setStatusMessage])
 
   // ── Thực hiện xuất file Excel chuẩn Quản Trị ERP ──
   const executeExportDetailExcel = useCallback(
@@ -464,6 +468,7 @@ export default function PlanRegistrationDetailView() {
       includeHeaders,
       exportableCols
     }) => {
+      if (!pagePerms.canExport) return
       try {
         let dataToExport = displayList
         if (scope === 'selected') {
@@ -530,6 +535,7 @@ export default function PlanRegistrationDetailView() {
       applyDate,
       formatDate,
       rawBaseCols,
+      pagePerms.canExport,
       setStatusMessage
     ]
   )
@@ -597,6 +603,7 @@ export default function PlanRegistrationDetailView() {
             <div className="flex items-center gap-1.5">
               <Button
                 key="Reload"
+                disabled={!pagePerms.canSearch}
                 size="sm"
                 variant="ghost"
                 onClick={fetchDetailData}
@@ -621,6 +628,7 @@ export default function PlanRegistrationDetailView() {
 
               <Button
                 key="ExportExcel"
+                disabled={!pagePerms.canExport}
                 size="sm"
                 variant="ghost"
                 onClick={handleOpenExportModal}

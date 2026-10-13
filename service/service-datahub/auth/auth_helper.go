@@ -91,6 +91,9 @@ func AuthenticateUser(ctx context.Context, db *gorm.DB) (*AuthenticatedUser, err
 // AuthenticateUserWithToken xác thực danh tính người dùng bằng chuỗi Token JWT
 func AuthenticateUserWithToken(ctx context.Context, db *gorm.DB, tokenStr string) (*AuthenticatedUser, error) {
 	token := CleanBearerToken(tokenStr)
+	if user := AuthenticatedUserFromContext(ctx); user != nil && user.RawToken == token {
+		return user, nil
+	}
 	if token == "" {
 		return nil, errors.New("Token rỗng")
 	}

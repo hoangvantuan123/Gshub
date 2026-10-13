@@ -203,12 +203,11 @@ export function formatFullDateTime(
  * Tính toán 3 cột điều kiện KHSX cho từng dòng của Tab 3 "Tổng hợp lệnh thao tác":
  * 1. Ngày KHSX thao tác (Date Part)
  * 2. Check KHSX theo Bắt đầu: [ApplyDate 07:00:00 -> ApplyDate+1 06:59:59]
- * 3. Check KHSX toàn diện: [StartTime trong 24h & EndTime trong 24h]
+ * 3. Check KHSX chỉ xét Bắt đầu; kết thúc trong file không quyết định ngày KHSX.
  */
-export function computeKhsxChecks(startTimeStr, endTimeStr, applyDateStr, customRules = null) {
+export function computeKhsxChecks(startTimeStr, _endTimeStr, applyDateStr, customRules = null) {
   const rules = getEffectiveCalcRules(customRules)
   const startDjs = parseDateTimeFlexible(startTimeStr)
-  const endDjs = parseDateTimeFlexible(endTimeStr)
   const applyDjs = parseDateTimeFlexible(applyDateStr)
 
   let opDateKhsx = ''
@@ -234,16 +233,6 @@ export function computeKhsxChecks(startTimeStr, endTimeStr, applyDateStr, custom
 
     if (isStartValid) {
       checkKhsxStart = rules.khsxStatus.validLabel
-    }
-
-    if (endDjs && endDjs.isValid()) {
-      const endMs = endDjs.valueOf()
-      const isEndValid = shiftEvaluator.isEndValid(startMs, endMs)
-
-      if (isStartValid && isEndValid) {
-        checkKhsxFull = rules.khsxStatus.validLabel
-      }
-    } else if (isStartValid) {
       checkKhsxFull = rules.khsxStatus.validLabel
     }
   }
@@ -730,7 +719,6 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         row['Số lượng thống kê đạt (12)'] ??
         row['Số lượng thống kê đạt'] ??
         row.ActualQualifiedQty ??
-        produced ??
         0
     )
 
@@ -835,25 +823,6 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     current.runTimeMin += runTimeMin
     current.ticketCount += 1
 
-    // Khóa rút gọn (loại bỏ phần trong ngoặc đơn nếu có: TT2608-2117(711) -> TT2608-2117)
-    const baseCode = code.replace(/\s*\(.*?\)/g, '').trim()
-    if (baseCode && baseCode !== code) {
-      if (!actualStatsMap.has(baseCode)) {
-        actualStatsMap.set(baseCode, {
-          produced: 0,
-          qualified: 0,
-          defect: 0,
-          runTimeMin: 0,
-          ticketCount: 0
-        })
-      }
-      const baseCur = actualStatsMap.get(baseCode)
-      baseCur.produced += produced
-      baseCur.qualified += qualified
-      baseCur.defect += defect
-      baseCur.runTimeMin += runTimeMin
-      baseCur.ticketCount += 1
-    }
   })
 
   // 2. LỌC DANH SÁCH THỎA MÃN KHSX THEO NGÀY BÁO CÁO VÀ LẤY DANH SÁCH DUY NHẤT THEO SỐ LỆNH THAO TÁC
@@ -991,7 +960,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
   const missingOpInfoList = []
 
   // 3. ĐỔ DỮ LIỆU ĐÚNG 24 CỘT CHUẨN MỰC
-  finalOrdersMap.forEach(({ row, startTime, endTime, checks }, code) => {
+  finalOrdersMap.forEach(({ row, startTime, checks }, code) => {
     const unfinRow = unfinishedMap.get(code) || {}
 
     // 1. PIC ĐP (Người phát hành lệnh thao tác từ Tab 3)
@@ -1141,33 +1110,25 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       ) || 0
 
     // 14. Số lượng đã thống kê đạt (Khớp thực tế từ Tab 1 Thống kê sản xuất)
-    const baseCode = code.replace(/\s*\(.*?\)/g, '').trim()
-    const actual = actualStatsMap.get(code) ||
-      actualStatsMap.get(baseCode) || {
+    const actual = actualStatsMap.get(code) || {
         produced: 0,
         qualified: 0,
         defect: 0,
         runTimeMin: 0
       }
 
-    let actualQualified = actual.qualified
-    if (
-      actualQualified === 0 &&
-      unfinRow.StatQty !== undefined &&
-      unfinRow.StatQty !== null &&
-      unfinRow.StatQty !== ''
-    ) {
-      actualQualified = parseNum(unfinRow.StatQty ?? unfinRow['Số lượng đã thống kê'] ?? 0)
-    }
+    const actualQualified = actual.qualified
 
     // 18. Thời gian sản xuất (phút): Tổng Thời gian chạy thực tế của thao tác đó từ Tab 1b (Thống kê sản xuất)
     // TUYỆT ĐỐI KHÔNG lấy từ Tab 2 (lệnh chưa hoàn thành unfinRow.ProductionDurationMinutes)
     const actualRunMin = actual.runTimeMin
 
     // 15. Thời gian bắt đầu: định dạng DD/MM/YYYY HH:mm:ss
-    // 16. Thời gian kết thúc: định dạng DD/MM/YYYY HH:mm:ss (tự động +1 ngày nếu ca đêm vắt qua ngày)
+    // 16. Ket thuc ke hoach duoc sinh tu moc cuoi ca master.
     const finalStartTime = formatFullDateTime(startTime, opDate || applyDate, false)
-    const finalEndTime = formatFullDateTime(endTime, opDate || applyDate, true, startTime)
+    const finalEndTime = shiftEvaluator
+      ? dayjs(shiftEvaluator.wEndMs).format('DD/MM/YYYY HH:mm:ss')
+      : ''
 
     // 17. Thời gian sản xuất theo ĐM (phút) = Khoảng thời gian từ Bắt đầu đến Kết thúc (tính bằng phút)
     let standardRunMin = 0
@@ -1175,23 +1136,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       const sDjs = parseDateTimeFlexible(finalStartTime)
       const eDjs = parseDateTimeFlexible(finalEndTime)
       if (sDjs && eDjs && sDjs.isValid() && eDjs.isValid()) {
-        let diffMs = eDjs.diff(sDjs)
-        if (diffMs < 0) {
-          diffMs += 24 * 3600 * 1000
-        }
-        if (diffMs > 0) {
-          standardRunMin = Math.round(diffMs / 60000)
-        }
-      }
-    }
-    if (standardRunMin === 0 && startTime && endTime) {
-      const sDjs = parseDateTimeFlexible(startTime)
-      const eDjs = parseDateTimeFlexible(endTime)
-      if (sDjs && eDjs && sDjs.isValid() && eDjs.isValid()) {
-        let diffMs = eDjs.diff(sDjs)
-        if (diffMs < 0) {
-          diffMs += 24 * 3600 * 1000
-        }
+        const diffMs = eDjs.diff(sDjs)
         if (diffMs > 0) {
           standardRunMin = Math.round(diffMs / 60000)
         }
@@ -1262,7 +1207,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     const khsxStatus = checks.checkKhsxFull || rules.khsxStatus.validLabel
 
     // 21. Trạng thái ĐP - SX
-    let isTimeInsideShift = true
+    let isTimeInsideShift = false
     if (startTime && shiftEvaluator) {
       const sDjs = parseDateTimeFlexible(startTime)
       if (sDjs && sDjs.isValid()) {
@@ -1275,7 +1220,6 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       targetQty,
       plannedQty,
       isTimeInsideShift,
-      khsxStatus,
       rules
     )
 
@@ -1418,13 +1362,12 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
   // 4. BỔ SUNG CÁC LỆNH THAO TÁC PHÁT SINH NGOÀI KHSX (Từ Tab 1 Thống kê sản xuất - Đánh dấu Khác KHSX)
   statReportOrdersMap.forEach((statRow, code) => {
     const baseCode = code.replace(/\s*\(.*?\)/g, '').trim()
-    if (finalOrdersMap.has(code) || (baseCode && finalOrdersMap.has(baseCode))) {
+    if (finalOrdersMap.has(code)) {
       return
     }
 
     const unfinRow = unfinishedMap.get(code) || unfinishedMap.get(baseCode) || {}
-    const actual = actualStatsMap.get(code) ||
-      actualStatsMap.get(baseCode) || {
+    const actual = actualStatsMap.get(code) || {
         produced: 0,
         qualified: 0,
         defect: 0,
@@ -1580,8 +1523,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
           0
       ) || 0
 
-    const actualQualified =
-      actual.qualified || parseNum(statRow.QualifiedQty ?? statRow['Số lượng đạt'] ?? 0)
+    const actualQualified = actual.qualified
 
     const startTime = String(
       sumRow.PlannedStartTime ??
@@ -1634,30 +1576,16 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     )
 
     const finalStartTime = formatFullDateTime(startTime, opDate || applyDate, false)
-    const finalEndTime = formatFullDateTime(endTime, opDate || applyDate, true, startTime)
+    const finalEndTime = shiftEvaluator
+      ? dayjs(shiftEvaluator.wEndMs).format('DD/MM/YYYY HH:mm:ss')
+      : ''
 
     let standardRunMin = 0
     if (finalStartTime && finalEndTime) {
       const sDjs = parseDateTimeFlexible(finalStartTime)
       const eDjs = parseDateTimeFlexible(finalEndTime)
       if (sDjs && eDjs && sDjs.isValid() && eDjs.isValid()) {
-        let diffMs = eDjs.diff(sDjs)
-        if (diffMs < 0) {
-          diffMs += 24 * 3600 * 1000
-        }
-        if (diffMs > 0) {
-          standardRunMin = Math.round(diffMs / 60000)
-        }
-      }
-    }
-    if (standardRunMin === 0 && startTime && endTime) {
-      const sDjs = parseDateTimeFlexible(startTime)
-      const eDjs = parseDateTimeFlexible(endTime)
-      if (sDjs && eDjs && sDjs.isValid() && eDjs.isValid()) {
-        let diffMs = eDjs.diff(sDjs)
-        if (diffMs < 0) {
-          diffMs += 24 * 3600 * 1000
-        }
+        const diffMs = eDjs.diff(sDjs)
         if (diffMs > 0) {
           standardRunMin = Math.round(diffMs / 60000)
         }
@@ -1733,7 +1661,17 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         : 0
 
     const khsxStatus = rules.coordinatorStatus.outsidePlan
-    const coordinatorStatus = rules.coordinatorStatus.outsidePlan
+    const startDjs = parseDateTimeFlexible(startTime)
+    const isTimeInsideShift = Boolean(
+      shiftEvaluator && startDjs?.isValid() && shiftEvaluator.isInsideShift(startDjs.valueOf())
+    )
+    const coordinatorStatus = evaluateCoordinatorStatus(
+      actualQualified,
+      targetQty,
+      plannedQty,
+      isTimeInsideShift,
+      rules
+    )
 
     // 22. Trạng thái thời gian
     const timeStatus = evaluateTimeStatus(standardRunMin, actualRunMin, coordinatorStatus, rules)

@@ -15,6 +15,7 @@ import (
 
 	"service-datahub/auth"
 	"service-datahub/handlers"
+	"service-datahub/middleware"
 	"service-datahub/models"
 	reportmodels "service-datahub/models/report"
 	pb "service-datahub/pb/datahub"
@@ -884,6 +885,12 @@ func (s *Server) QueryProdStatsDetail(ctx context.Context, req *pb.ProdStatsDeta
 // 17. SavePlanRegistration (Master + Detail Batch Registration)
 // =========================================================================
 func (s *Server) SavePlanRegistration(ctx context.Context, req *pb.PlanRegistrationSaveProtoRequest) (*pb.PlanRegistrationSaveProtoResponse, error) {
+	authUser, authErr := auth.AuthenticateUser(ctx, s.db)
+	if authErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "valid login required")
+	}
+	req.CreatedBy = authUser.UserId
+	req.CreatedByName = authUser.UserName
 	reportType := strings.ToLower(strings.TrimSpace(req.ReportType))
 	if reportType == "" {
 		reportType = "plan"
@@ -1107,11 +1114,6 @@ func (s *Server) DeletePlanMaster(ctx context.Context, req *pb.DeletePlanMasterP
 		}
 	}
 
-	userId := req.UserId
-	if userId == "" {
-		userId = "SystemAdmin"
-	}
-
 	if len(masterSeqs) == 0 {
 		return &pb.DeletePlanMasterProtoResponse{
 			Success:      false,
@@ -1121,7 +1123,11 @@ func (s *Server) DeletePlanMaster(ctx context.Context, req *pb.DeletePlanMasterP
 
 	// Xác thực danh tính từ Token và bảo vệ dữ liệu người khác
 	authUser, authErr := auth.AuthenticateUser(ctx, s.db)
-	if authErr == nil && authUser != nil {
+	if authErr != nil || authUser == nil {
+		return nil, status.Error(codes.Unauthenticated, "valid login required")
+	}
+	userId := authUser.UserId
+	if authUser != nil {
 		userId = authUser.UserId
 		if !authUser.IsAdmin {
 			var masters []reportmodels.ERPPlanMaster
@@ -1652,15 +1658,15 @@ func (s *Server) GetProductionStatisticsReport(ctx context.Context, req *pb.Prod
 
 	if rep != nil {
 		resp.Summary = &pb.ProdStatsReportSummaryProto{
-			TotalTickets:       int32(rep.Summary.TotalTickets),
-			TotalPlanQty:       rep.Summary.TotalPlanQty,
-			TotalActualQty:     rep.Summary.TotalActualQty,
-			TotalPassQty:       rep.Summary.TotalPassQty,
-			TotalDefectQty:     rep.Summary.TotalDefectQty,
-			AvgPassRate:        rep.Summary.AvgPassRate,
-			TotalRuntimeHours:  rep.Summary.TotalRuntimeHours,
-			CountCompleted:     int32(rep.Summary.CountCompleted),
-			CountRunning:       int32(rep.Summary.CountRunning),
+			TotalTickets:      int32(rep.Summary.TotalTickets),
+			TotalPlanQty:      rep.Summary.TotalPlanQty,
+			TotalActualQty:    rep.Summary.TotalActualQty,
+			TotalPassQty:      rep.Summary.TotalPassQty,
+			TotalDefectQty:    rep.Summary.TotalDefectQty,
+			AvgPassRate:       rep.Summary.AvgPassRate,
+			TotalRuntimeHours: rep.Summary.TotalRuntimeHours,
+			CountCompleted:    int32(rep.Summary.CountCompleted),
+			CountRunning:      int32(rep.Summary.CountRunning),
 		}
 
 		for _, item := range rep.ChartByTeam {
@@ -2773,6 +2779,7 @@ func RunGRPCServer(
 	}
 
 	opts := []grpc.ServerOption{
+		grpc.UnaryInterceptor(middleware.ReportPermissionInterceptor(db)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle:     15 * time.Minute,
 			MaxConnectionAge:      30 * time.Minute,

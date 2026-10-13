@@ -16,6 +16,7 @@ export function useRoleGroupMutation({
   resetTable,
   canCreate,
   canEdit,
+  canSave,
   canView,
   canSearch,
   canDelete,
@@ -70,7 +71,7 @@ export function useRoleGroupMutation({
   }, [canView, canSearch, gridData, t, executeSearch, setStatusMessage])
 
   const handleSaveData = useCallback(async () => {
-    if (!canCreate && !canEdit) {
+    if (!canSave || (!canCreate && !canEdit)) {
       if (setStatusMessage) {
         setStatusMessage({
           type: 'warning',
@@ -170,6 +171,7 @@ export function useRoleGroupMutation({
   }, [
     canCreate,
     canEdit,
+    canSave,
     gridData,
     setGridData,
     userFrom,

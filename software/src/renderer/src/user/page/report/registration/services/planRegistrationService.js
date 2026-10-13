@@ -1,5 +1,6 @@
 import { request } from '../../../../../services/apiClient'
 import { normalizeProdStatsDetailRows, normalizePlanDetailRows } from './reportColumnNormalizer'
+import { saveRegistrationBatches } from './registrationSaveWorkflow.js'
 
 /**
  * Service kết nối Backend API cho Module Đăng ký & Báo cáo Sản xuất (KHSX & TKSX)
@@ -90,15 +91,7 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
       data: rawData
     }
 
-    onProgress?.({ current: totalRows, total: totalRows, percent: 100 })
-
-    return request({
-      url: '/report/plan/PlanRegistrationA',
-      method: 'POST',
-      data: formattedPayload,
-      timeout: 180000,
-      signal
-    })
+    return saveRegistrationBatches({ request, payload: formattedPayload, rows: rawData, isStat, signal, onProgress })
   }
 
   // Với số lượng dòng lớn (> 1.000 dòng, ví dụ 5.000 - 50.000 dòng):
@@ -126,59 +119,7 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
     data: firstChunk
   }
 
-  onProgress?.({
-    current: firstChunk.length,
-    total: totalRows,
-    percent: Math.round((firstChunk.length / totalRows) * 100)
-  })
-
-  const masterRes = await request({
-    url: '/report/plan/PlanRegistrationA',
-    method: 'POST',
-    data: firstPayload,
-    timeout: 180000,
-    signal
-  })
-
-  const savedMaster = masterRes?.data || {}
-  const masterSeq = savedMaster?.IdSeq
-  const regCode = savedMaster?.RegCode || payload.regCode
-
-  // Bước 2: Lưu các Chunk tiếp theo tuần tự (kèm delay nhỏ 50ms giữa các chunk để giải phóng event loop)
-  const detailUrl = isStat ? '/report/plan/ProdStatsDetailA' : '/report/plan/PlanDetailA'
-
-  for (let start = CHUNK_SIZE; start < totalRows; start += CHUNK_SIZE) {
-    if (signal?.aborted) {
-      throw new Error('Thao tác lưu đã bị hủy bởi người dùng')
-    }
-
-    const chunk = rawData.slice(start, start + CHUNK_SIZE).map((item, idx) => ({
-      ...item,
-      MasterSeq: masterSeq,
-      RegCode: regCode,
-      RowSeq: start + idx + 1
-    }))
-
-    // Delay 50ms giữa các batch
-    await new Promise((resolve) => setTimeout(resolve, 50))
-
-    await request({
-      url: detailUrl,
-      method: 'POST',
-      data: chunk,
-      timeout: 180000,
-      signal
-    })
-
-    const currentCount = Math.min(start + CHUNK_SIZE, totalRows)
-    onProgress?.({
-      current: currentCount,
-      total: totalRows,
-      percent: Math.round((currentCount / totalRows) * 100)
-    })
-  }
-
-  return masterRes
+  return saveRegistrationBatches({ request, payload: firstPayload, rows: rawData, isStat, signal, onProgress })
 }
 
 // 2. Truy vấn danh sách Master đăng ký

@@ -181,6 +181,7 @@ export default function PlanDetailQueryPage({
   // ── 1. Truy vấn dữ liệu KHSX từ Backend API ──
   const fetchPlanDetailData = useCallback(
     async (currentPage = 1, append = false, customFilters = null) => {
+      if (!pagePerms.canSearch) return []
       if (isLoadingRef.current) return
       isLoadingRef.current = true
       setIsLoadingMore(true)
@@ -270,7 +271,7 @@ export default function PlanDetailQueryPage({
         loadingBarRef?.current?.complete?.()
       }
     },
-    [columns.length, pageSize, setPageData, setStatusMessage, t]
+    [pagePerms.canSearch, columns.length, pageSize, setPageData, setStatusMessage, t]
   )
 
   // Load initial page
@@ -487,6 +488,7 @@ export default function PlanDetailQueryPage({
   const { formatDate } = useDateFormat()
 
   const handleOpenExportModal = useCallback(() => {
+    if (!pagePerms.canExport) return
     const totalCount = totalRows || filteredAndGroupedData.length
     if (totalCount === 0) {
       setStatusMessage?.({
@@ -496,7 +498,7 @@ export default function PlanDetailQueryPage({
       return
     }
     setIsExportModalOpen(true)
-  }, [filteredAndGroupedData.length, setStatusMessage, t, totalRows])
+  }, [pagePerms.canExport, filteredAndGroupedData.length, setStatusMessage, t, totalRows])
 
   // ── 3. Thực hiện Xuất dữ liệu Excel chuẩn sau khi đã xác nhận thông tin ──
   const executeExportPlanExcel = useCallback(
@@ -508,6 +510,7 @@ export default function PlanDetailQueryPage({
       includeHeaders,
       exportableCols
     }) => {
+      if (!pagePerms.canExport) return
       loadingBarRef?.current?.continuousStart?.()
       try {
         let dataToExport = []
@@ -631,6 +634,7 @@ export default function PlanDetailQueryPage({
       columns,
       filteredAndGroupedData,
       formatDate,
+      pagePerms.canExport,
       gridData.length,
       selection,
       setStatusMessage,
@@ -673,7 +677,7 @@ export default function PlanDetailQueryPage({
             onAddQueryField={setDynamicQueryFields}
             onResetQuery={handleResetQuery}
             handleSearchData={handleSearch}
-            disabled={!pagePerms.canView}
+            disabled={!pagePerms.canSearch}
           />
         }
         table={

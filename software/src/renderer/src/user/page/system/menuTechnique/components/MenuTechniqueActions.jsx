@@ -13,7 +13,7 @@ export default function MenuTechniqueActions({
 
   // Kiểm tra quyền thao tác: mặc định cho phép trừ khi bị cấm rõ ràng
   const canSearch = permissions.canSearch !== undefined ? Boolean(permissions.canSearch) : true
-  const canSave = Boolean(permissions.canEdit || permissions.canCreate)
+  const canSave = Boolean(permissions.canSave)
   const canDelete = Boolean(permissions.canDelete)
 
   return (

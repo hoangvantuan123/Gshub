@@ -15,6 +15,7 @@ import { useRoleGroupUsersColumns } from '../columns/roleGroupUsersColumns'
 import { useRoleManagementFetch } from './useRoleManagementFetch'
 import { useRoleManagementMutation } from './useRoleManagementMutation'
 import { hasPendingChanges } from '../utils/permissionRows'
+import { createActionDraftStore } from '../utils/actionDrafts.js'
 
 export function useRoleManagement({
   activeSheet = 'menu',
@@ -162,13 +163,22 @@ export function useRoleManagement({
   const [gridDataScope, setGridDataScope] = useState([])
   const [gridDataUsers, setGridDataUsers] = useState([])
   const contextRef = useRef({})
+  const actionDraftsRef = useRef(null)
+  if (!actionDraftsRef.current) actionDraftsRef.current = createActionDraftStore()
+  const actionDrafts = actionDraftsRef.current
   contextRef.current = { groupId, gridDataB, gridDataAction, gridDataUsers }
+  const getCurrentActionRows = useCallback(() => contextRef.current.gridDataAction, [])
+  const getActionRowsForSave = useCallback(
+    () => actionDrafts.collect(contextRef.current.groupId, getCurrentActionRows()),
+    [actionDrafts, getCurrentActionRows]
+  )
   const setGroupId = useCallback(
     (nextId) => {
       const current = contextRef.current
       if (
         String(nextId) !== String(current.groupId) &&
-        [current.gridDataB, current.gridDataAction, current.gridDataUsers].some(hasPendingChanges)
+        ([current.gridDataB, current.gridDataUsers].some(hasPendingChanges) ||
+          actionDrafts.has(current.groupId, current.gridDataAction))
       ) {
         setStatusMessage?.({
           type: 'warning',
@@ -179,7 +189,7 @@ export function useRoleManagement({
       setGroupIdState(nextId)
       return true
     },
-    [setStatusMessage]
+    [actionDrafts, setStatusMessage]
   )
 
   const [numRowsA, setNumRowsA] = useState(0)
@@ -324,6 +334,8 @@ export function useRoleManagement({
   // 7. Fetch Hook
   const { fetchRoleGroups, fetchGroupRoles, fetchMenuViewDetails, updateSavedActions } =
     useRoleManagementFetch({
+      actionDrafts,
+      getCurrentActionRows,
       setGroupId,
       setGroupName,
       setComment,
@@ -356,6 +368,7 @@ export function useRoleManagement({
 
   // 9. Mutation Hook
   const { handleSave, handleDelete, limitModalProps } = useRoleManagementMutation({
+    getActionRowsForSave,
     activeSheet,
     gridDataA,
     setGridDataA,
@@ -389,7 +402,10 @@ export function useRoleManagement({
     selectedGroupId: groupId,
     selectedMenuInGrid,
     onSaved: (sheet, rows) => {
-      if (sheet === 'actions') updateSavedActions(rows)
+      if (sheet === 'actions') {
+        actionDrafts.stage(groupId, rows)
+        updateSavedActions(rows)
+      }
       if (sheet === 'menu')
         setGridDataA((roots) =>
           roots.map((root) => {
@@ -466,7 +482,10 @@ export function useRoleManagement({
         : activeSheet === 'actions'
           ? gridDataAction
           : gridDataB
-    if (hasPendingChanges(rows)) {
+    if (
+      hasPendingChanges(rows) ||
+      (activeSheet === 'actions' && actionDrafts.has(groupId, gridDataAction))
+    ) {
       setStatusMessage?.({
         type: 'warning',
         text: 'Vui lòng lưu thay đổi của bảng đang làm việc trước khi truy vấn lại.'
@@ -518,7 +537,8 @@ export function useRoleManagement({
     setGroupId,
     currentMenuId,
     fetchMenuViewDetails,
-    selectedMenuInGrid
+    selectedMenuInGrid,
+    actionDrafts
   ])
 
   return {

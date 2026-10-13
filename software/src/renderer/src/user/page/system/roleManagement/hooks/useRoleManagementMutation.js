@@ -22,6 +22,7 @@ export function useRoleManagementMutation({
   setStatusMessage,
   selectedGroupId,
   onSaved,
+  getActionRowsForSave,
   activeSheet = 'menu'
 }) {
   const rows =
@@ -45,7 +46,8 @@ export function useRoleManagementMutation({
       return
     }
     try {
-      const batch = buildPermissionBatch(rows || [], activeSheet, selectedGroupId)
+      const saveRows = activeSheet === 'actions' ? getActionRowsForSave() : rows
+      const batch = buildPermissionBatch(saveRows || [], activeSheet, selectedGroupId)
       if (!batch.insert.length && !batch.update.length && !batch.delete.length) {
         setStatusMessage?.({ type: 'info', text: 'Bảng đang làm việc không có thay đổi cần lưu.' })
         return
@@ -66,8 +68,12 @@ export function useRoleManagementMutation({
       loadingBarRef?.current?.continuousStart?.()
       const result = await PostSaveRolePermissions(batch)
       if (!result) throw new Error('BE không trả kết quả lưu phân quyền.')
-      const nextRows = reconcilePermissionRows(rows, activeSheet, batch, result)
-      setRows(nextRows)
+      const nextRows = reconcilePermissionRows(saveRows, activeSheet, batch, result)
+      setRows(
+        activeSheet === 'actions'
+          ? nextRows.filter((row) => String(row.MenuId) === String(gridDataAction[0]?.MenuId))
+          : nextRows
+      )
       onSaved?.(activeSheet, nextRows)
       if (result.success === false) throw new Error(result?.message || 'Lỗi lưu phân quyền')
       setStatusMessage?.({ type: 'success', text: 'Đã lưu bảng đang làm việc thành công.' })
@@ -79,6 +85,8 @@ export function useRoleManagementMutation({
     }
   }, [
     rows,
+    gridDataAction,
+    getActionRowsForSave,
     activeSheet,
     selectedGroupId,
     canCreate,

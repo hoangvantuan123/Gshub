@@ -50,7 +50,7 @@ export default function DailyPlanRegistrationPage({
 
   const pagePerms = usePagePermissions({
     permissions,
-    menuKey: 'report_data_import',
+    menuKey: 'report_registration',
     canCreate,
     canEdit,
     canDelete,
@@ -119,6 +119,7 @@ export default function DailyPlanRegistrationPage({
   // ── 1. Tải danh sách Master đăng ký báo cáo từ Database ──
   const fetchMasterData = useCallback(
     async (filters = {}) => {
+      if (!pagePerms.canSearch) return []
       loadingBarRef?.current?.continuousStart?.()
       try {
         const res = await queryPlanMaster(filters)
@@ -180,7 +181,7 @@ export default function DailyPlanRegistrationPage({
         loadingBarRef?.current?.complete?.()
       }
     },
-    [loadingBarRef, masterCols.length, setPageData, setStatusMessage, t]
+    [pagePerms.canSearch, loadingBarRef, masterCols.length, setPageData, setStatusMessage, t]
   )
 
   // Tự động tính toán chỉ số thống kê kiểu Excel khi bôi đen / chọn ô trên bảng Master
@@ -246,6 +247,7 @@ export default function DailyPlanRegistrationPage({
 
   // ── 2. Xử lý Tìm kiếm Master ──
   const handleSearchData = useCallback(async () => {
+    if (!pagePerms.canSearch) return
     const dataList = await fetchMasterData(searchValues)
     if (dataList.length > 0) {
       setStatusMessage?.({
@@ -258,7 +260,7 @@ export default function DailyPlanRegistrationPage({
         text: 'Không tìm thấy đợt đăng ký báo cáo phù hợp'
       })
     }
-  }, [fetchMasterData, searchValues, setStatusMessage])
+  }, [pagePerms.canSearch, fetchMasterData, searchValues, setStatusMessage])
 
   // ── 3. Reset điều kiện tìm kiếm ──
   const onResetQuery = useCallback(() => {
@@ -290,6 +292,7 @@ export default function DailyPlanRegistrationPage({
 
   // ── 4. Xử lý Lưu đăng ký mới từ Modal (Master + Chi tiết) ──
   const handleSaveRegistration = async (regData, onProgress = null) => {
+    if (!pagePerms.canCreate || !pagePerms.canSave) return
     try {
       loadingBarRef?.current?.continuousStart?.()
       const res = await savePlanRegistration(regData, null, onProgress)
@@ -391,6 +394,7 @@ export default function DailyPlanRegistrationPage({
 
   // ── 6. Mở Modal Xuất danh sách Master ra Excel ──
   const handleOpenExportModal = useCallback(() => {
+    if (!pagePerms.canExport) return
     if (!masterGridData || masterGridData.length === 0) {
       setStatusMessage?.({
         type: 'warning',
@@ -399,7 +403,7 @@ export default function DailyPlanRegistrationPage({
       return
     }
     setIsExportModalOpen(true)
-  }, [masterGridData, setStatusMessage])
+  }, [pagePerms.canExport, masterGridData, setStatusMessage])
 
   const executeExportMasterExcel = useCallback(
     async ({
@@ -410,6 +414,7 @@ export default function DailyPlanRegistrationPage({
       includeHeaders,
       exportableCols
     }) => {
+      if (!pagePerms.canExport) return
       try {
         let dataToExport = masterGridData
         if (scope === 'selected') {
@@ -461,11 +466,12 @@ export default function DailyPlanRegistrationPage({
         throw err
       }
     },
-    [masterGridData, masterSelection, searchValues, formatDate, masterCols, t, setStatusMessage]
+    [pagePerms.canExport, masterGridData, masterSelection, searchValues, formatDate, masterCols, t, setStatusMessage]
   )
 
   // ── Mở Form Đăng ký / Nạp mới: Electron -> Cửa sổ Windows con độc lập, Web -> Modal / Tab ──
   const handleOpenCreate = useCallback(() => {
+    if (!pagePerms.canCreate || !pagePerms.canSave) return
     if (window.electron?.openChildWindow || window.electron?.ipcRenderer) {
       openChildWindow({
         path: '/sub/report/registration/create',
@@ -478,7 +484,7 @@ export default function DailyPlanRegistrationPage({
       // Trên Web browser: mở modal nạp dữ liệu
       setIsAddModalOpen(true)
     }
-  }, [])
+  }, [pagePerms.canCreate, pagePerms.canSave])
 
   // ── Mở cửa sổ Windows mới xem dữ liệu chi tiết của đợt đăng ký đã chọn ──
   const handleOpenDetailWindow = useCallback(
@@ -557,7 +563,7 @@ export default function DailyPlanRegistrationPage({
             onRemoveQueryField={onRemoveQueryField}
             onResetQuery={onResetQuery}
             handleSearchData={handleSearchData}
-            disabled={!pagePerms.canView}
+            disabled={!pagePerms.canSearch}
           />
         }
         table={
@@ -584,6 +590,7 @@ export default function DailyPlanRegistrationPage({
 
       {/* Modal nạp file Excel & Đăng ký báo cáo (KHSX / TKSX) */}
       <AddPlanRegistrationModal
+        permissions={pagePerms}
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSaveSuccess={async () => {

@@ -351,7 +351,15 @@ func Invoke(
 	}
 	mdMD := metadata.Pairs(metaPairs...)
 	if proofMD, ok := metadata.FromOutgoingContext(ctx); ok {
-		for _, key := range []string{"dpop", "dpop-htm", "dpop-htu"} {
+		for _, key := range []string{
+			"dpop",
+			"dpop-htm",
+			"dpop-htu",
+			"x-gateway-session-jkt",
+			"x-gateway-session-token-hash",
+			"x-gateway-session-ts",
+			"x-gateway-session-signature",
+		} {
 			mdMD[key] = proofMD.Get(key)
 		}
 	}
@@ -396,10 +404,10 @@ func Invoke(
 				}
 			case codes.Unavailable:
 				Log.Error("gRPC backend service unavailable", zap.String("method", methodPath), zap.Error(err))
-				numCode = "5000" // Backend service không khả dụng / chưa khởi chạy
+				numCode = "5002"
 			case codes.DeadlineExceeded:
 				Log.Error("gRPC request timeout", zap.String("method", methodPath), zap.Error(err))
-				numCode = "5000" // Quá thời gian chờ xử lý
+				numCode = "5003"
 			case codes.Internal:
 				Log.Error("gRPC internal error", zap.String("method", methodPath), zap.Error(err))
 				numCode = "5000"

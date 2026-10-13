@@ -2,6 +2,7 @@ package routes
 
 import (
 	"service-datahub/config"
+	"service-datahub/database"
 	"service-datahub/handlers"
 	"service-datahub/middleware"
 
@@ -66,6 +67,7 @@ func SetupRouter(
 	v2 := r.Group("/api/v2")
 	v2.Use(middleware.AppSecurityMiddleware(logger))
 	v2.Use(middleware.OptionalJwtAuthMiddleware(cfg))
+	v2.Use(middleware.ReportPermissionMiddleware(database.DB))
 	{
 		// 1. CodeHelp & Common Help Engine (/api/v2/help)
 		regHelp(v2.Group("/help"))
@@ -146,6 +148,7 @@ func SetupRouter(
 	v1 := r.Group("/api/v1")
 	v1.Use(middleware.AppSecurityMiddleware(logger))
 	v1.Use(middleware.OptionalJwtAuthMiddleware(cfg))
+	v1.Use(middleware.ReportPermissionMiddleware(database.DB))
 	{
 		// 0. Production Bundles (Pure POST gRPC Bridge / REST compat)
 		bundleGroup := v1.Group("/production-calc/bundles")

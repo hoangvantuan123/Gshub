@@ -644,7 +644,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       notify(
         'success',
         hasCalc
-          ? `Đã lưu đăng ký báo cáo [Mã: ${masterInfo.regCode}] kèm bảng kết quả KHSX & TKSX thành công!`
+          ? `Đã lưu trên máy phiếu [${masterInfo.regCode}] và kết quả KHSX & TKSX. Chưa đồng bộ lên hệ thống.`
           : `Đã lưu đăng ký báo cáo nội bộ [Mã: ${masterInfo.regCode}]!`
       )
     } catch (err) {
@@ -1432,6 +1432,8 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         setPushRegistrationProgress((prev) => ({
           ...prev,
           isError: true,
+          isComplete: false,
+          step: 'ERROR',
           message: `Lỗi khi nạp báo cáo: ${err?.message || err}`,
           detail: 'Vui lòng kiểm tra kết nối mạng hoặc thử lại.',
           statusTag: 'Lỗi nạp dữ liệu'

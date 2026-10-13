@@ -17,6 +17,7 @@ export function useRootMenuMutation({
   resetTable,
   canCreate,
   canEdit,
+  canSave,
   canView,
   canSearch,
   canDelete,
@@ -71,7 +72,7 @@ export function useRootMenuMutation({
   }, [canView, canSearch, gridData, t, executeSearch, setStatusMessage])
 
   const handleSaveData = useCallback(async () => {
-    if (!canCreate && !canEdit) {
+    if (!canSave || (!canCreate && !canEdit)) {
       if (setStatusMessage) {
         setStatusMessage({
           type: 'warning',
@@ -192,6 +193,7 @@ export function useRootMenuMutation({
   }, [
     canCreate,
     canEdit,
+    canSave,
     gridData,
     setGridData,
     userFrom,

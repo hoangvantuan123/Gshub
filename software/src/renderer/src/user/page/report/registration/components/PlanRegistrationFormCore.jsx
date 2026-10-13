@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { Button } from '../../../../../components/ui/button'
 import {
@@ -115,10 +116,12 @@ function ErpSelect({ value, onChange, options = [], disabled = false, placeholde
 export default function PlanRegistrationFormCore({
   onClose,
   onSaveSuccess,
+  permissions = {},
   mode = 'full', // 'full' | 'modal'
   loadingBarRef = null,
   setStatusMessage = null
 }) {
+  const canRegister = Boolean(permissions.canCreate && permissions.canSave)
   // ── Form Header State ──
   const [regCode, setRegCode] = useState('')
   const [isSaved, setIsSaved] = useState(false)
@@ -219,6 +222,7 @@ export default function PlanRegistrationFormCore({
 
   // Nạp file Excel siêu tốc
   const handleUploadExcel = (file) => {
+    if (!canRegister) return
     loadingBarRef?.current?.continuousStart?.()
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -324,6 +328,7 @@ export default function PlanRegistrationFormCore({
 
   // Xác nhận lưu (kèm kiểm tra trùng lặp đợt đăng ký trong ngày của nhà máy)
   const handleConfirmSave = async () => {
+    if (!canRegister) return
     if (isSaved) {
       setStatusMessage?.({
         type: 'info',
@@ -395,6 +400,7 @@ export default function PlanRegistrationFormCore({
 
   // Thực thi lưu theo Batch & Khóa chuột
   const executeSave = async () => {
+    if (!canRegister) return
     if (isSaving) return
     setIsSaving(true)
     setSaveProgress({ current: 0, total: sheetData.length, percent: 0 })
@@ -472,7 +478,7 @@ export default function PlanRegistrationFormCore({
             variant="ghost"
             onClick={handleConfirmSave}
             className="uppercase text-[10px] whitespace-nowrap font-medium"
-            disabled={sheetData.length === 0 || isSaving || isSaved}
+            disabled={!canRegister || sheetData.length === 0 || isSaving || isSaved}
             title={
               isSaved
                 ? 'Đã lưu thành công và khóa dữ liệu'

@@ -29,6 +29,7 @@ export function useUserManagement({
   defaultCols,
   canCreate,
   canEdit,
+  canSave,
   canView,
   canSearch,
   loadingBarRef,
@@ -378,6 +379,7 @@ export function useUserManagement({
 
   // 2. Lưu dữ liệu thêm / sửa
   const handleSaveData = useCallback(async () => {
+    if (!canSave || (!canCreate && !canEdit)) return
     setStatusMessage &&
       setStatusMessage({ type: 'info', text: t('Đang lưu dữ liệu người dùng...') })
     const result = await handleSave({
@@ -403,7 +405,7 @@ export function useUserManagement({
           text: t('Lưu danh sách người dùng thành công!')
         })
     }
-  }, [canCreate, gridData, setGridData, userFrom, handleSave, setStatusMessage, t])
+  }, [canCreate, canEdit, canSave, gridData, setGridData, userFrom, handleSave, setStatusMessage, t])
 
   // 3. Cập nhật trạng thái tài khoản (Lưu trữ / Bỏ lưu trữ)
   const handleUpdateStatusAcc = useCallback(

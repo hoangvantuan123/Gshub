@@ -25,7 +25,7 @@ export default function UserActions({
 
   // Kiểm tra quyền thao tác: mặc định cho phép trừ khi bị cấm rõ ràng
   const canSearch = permissions.canSearch !== undefined ? Boolean(permissions.canSearch) : true
-  const canSave = Boolean(permissions.canEdit || permissions.canCreate)
+  const canSave = Boolean(permissions.canSave)
   const canDelete = Boolean(permissions.canDelete)
   const canViewDetail = permissions.canView !== undefined ? Boolean(permissions.canView) : true
   const canOperate = permissions.canView !== undefined ? Boolean(permissions.canView) : true

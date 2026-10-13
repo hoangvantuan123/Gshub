@@ -2237,7 +2237,7 @@ export default function CalcProductionDetailView() {
       setIsDirty(false)
       setStatusMessage?.({
         type: 'success',
-        text: `Đã lưu cập nhật thông tin phiếu đăng ký [${masterInfo.regCode}] và kết quả tính toán thành công!`
+        text: `Đã lưu trên máy phiếu [${masterInfo.regCode}] và kết quả tính toán. Chưa đồng bộ lên hệ thống.`
       })
     } catch (err) {
       console.error('Lỗi lưu đăng ký:', err)
@@ -3148,6 +3148,8 @@ export default function CalcProductionDetailView() {
         setPushRegistrationProgress((prev) => ({
           ...prev,
           isError: true,
+          isComplete: false,
+          step: 'ERROR',
           message: `Lỗi khi nạp báo cáo: ${err?.message || err}`,
           detail: 'Vui lòng kiểm tra kết nối mạng hoặc thử lại.',
           statusTag: 'Lỗi nạp dữ liệu'

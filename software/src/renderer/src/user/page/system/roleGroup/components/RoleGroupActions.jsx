@@ -12,7 +12,7 @@ export default function RoleGroupActions({
   const { t } = useTranslation()
 
   const canSearch = permissions.canSearch !== undefined ? Boolean(permissions.canSearch) : true
-  const canSave = Boolean(permissions.canEdit || permissions.canCreate)
+  const canSave = Boolean(permissions.canSave)
   const canDelete = Boolean(permissions.canDelete)
 
   return (

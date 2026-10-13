@@ -5,12 +5,36 @@ import (
 	"api-gateway/internal/caller"
 	"api-gateway/internal/grpcclient"
 	"api-gateway/internal/h"
+	"api-gateway/internal/proof"
 	"api-gateway/internal/response"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"net/http"
+	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/metadata"
 )
+
+const defaultGatewaySessionAssertionSecret = "ERP_ELECTRON_SECURE_KEY_2026_@ANTIGRAVITY#X"
+
+func gatewaySessionAssertionSecret() string {
+	if secret := os.Getenv("GATEWAY_SESSION_ASSERTION_SECRET"); secret != "" {
+		return secret
+	}
+	return defaultGatewaySessionAssertionSecret
+}
+
+func signGatewaySessionAssertion(jkt, tokenHash, ts string) string {
+	mac := hmac.New(sha256.New, []byte(gatewaySessionAssertionSecret()))
+	mac.Write([]byte(jkt + "|" + tokenHash + "|" + ts))
+	return hex.EncodeToString(mac.Sum(nil))
+}
 
 // Menus - proto package: roles.menu, service: MenuService
 func MenuA(pool *grpcclient.Pool) gin.HandlerFunc {
@@ -50,11 +74,34 @@ func RoleSaveBatch(pool *grpcclient.Pool) gin.HandlerFunc {
 		auth := c.GetHeader("Authorization")
 		clientIP := c.ClientIP()
 		requestID := c.GetString("requestID")
+		ctx := c.Request.Context()
 		timeoutSec := 0
 		if toHeader := c.GetHeader("X-Request-Timeout"); toHeader != "" {
 			if s, err := strconv.Atoi(toHeader); err == nil && s > 0 {
 				timeoutSec = s
 			}
+		}
+
+		if raw := c.GetHeader("DPoP"); raw != "" {
+			scheme := "http"
+			if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+				scheme = "https"
+			}
+			uri := scheme + "://" + c.Request.Host + c.Request.URL.EscapedPath()
+			token := strings.TrimPrefix(auth, "Bearer ")
+			jkt, err := proof.Verify(raw, c.Request.Method, uri, token, "")
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid session proof. Please log in again."})
+				return
+			}
+			tokenHash := proof.Hash(token)
+			ts := strconv.FormatInt(time.Now().Unix(), 10)
+			ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
+				"x-gateway-session-jkt", jkt,
+				"x-gateway-session-token-hash", tokenHash,
+				"x-gateway-session-ts", ts,
+				"x-gateway-session-signature", signGatewaySessionAssertion(jkt, tokenHash, ts),
+			))
 		}
 
 		conn, err := pool.Get(config.Cfg.HostGRPCUser)
@@ -83,7 +130,7 @@ func RoleSaveBatch(pool *grpcclient.Pool) gin.HandlerFunc {
 			}
 
 			callBody := map[string]interface{}{"result": items}
-			callResult := caller.Invoke(c.Request.Context(), conn, step.method, callBody, auth, clientIP, requestID, timeoutSec)
+			callResult := caller.Invoke(ctx, conn, step.method, callBody, auth, clientIP, requestID, timeoutSec)
 			if !callResult.Success {
 				c.JSON(200, gin.H{
 					"success": false,

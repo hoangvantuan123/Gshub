@@ -149,7 +149,7 @@ export default function RoleActionPermTable({
         const oldRow = next[row]
         const oldVal = oldRow[colId]
 
-        if (oldVal !== finalVal) {
+        if (asBoolean(oldVal) !== asBoolean(finalVal)) {
           next[row] = markEdited(
             oldRow,
             {
@@ -183,6 +183,8 @@ export default function RoleActionPermTable({
           columns={cols}
           rows={gridData.length}
           getCellContent={getCellContent}
+          getCellsForSelection={true}
+          fillHandle={canEdit || canCreate}
           onCellEdited={onCellEdited}
           onCellClicked={onCellClickedInternal}
           onCellActivated={onCellActivated}

@@ -75,6 +75,7 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
 
         // 2. Lấy trực tiếp từ Server DataHub DB qua gRPC Gateway
         let serverList = []
+        let serverError = null
         try {
           const serverRes = await queryProductionBundlesOnline({
             from_date: currentFilters.FromDate || currentFilters.fromDate || '',
@@ -173,6 +174,7 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
             })
           }
         } catch (serverErr) {
+          serverError = serverErr
           console.warn('Không thể kết nối Server DataHub:', serverErr.message)
         }
 
@@ -477,7 +479,11 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
         })
 
         setQueriedRows(filtered)
-        notify('success', `Đã nạp ${filtered.length.toLocaleString('vi-VN')} phiếu kế hoạch`)
+        if (serverError) {
+          notify('error', `Đồng bộ hệ thống thất bại: ${serverError.message}. Đang hiển thị ${filtered.length.toLocaleString('vi-VN')} phiếu từ bộ nhớ trên máy.`)
+        } else {
+          notify('success', `Đã nạp ${filtered.length.toLocaleString('vi-VN')} phiếu kế hoạch`)
+        }
       } catch (err) {
         console.error('Lỗi truy vấn master:', err)
         notify('error', `Lỗi truy vấn dữ liệu: ${err.message}`)

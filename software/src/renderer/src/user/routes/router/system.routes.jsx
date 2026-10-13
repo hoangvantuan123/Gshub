@@ -410,49 +410,49 @@ export const systemsRoutes = [
   {
     path: '/erp/u/report/plan-query',
     element: PlanDetailQueryPage,
-    permission: 'report_registration',
+    permission: 'report_plan_query',
     public: false
   },
   {
     path: '/erp/u/report/plan-query/*',
     element: PlanDetailQueryPage,
-    permission: 'report_registration',
+    permission: 'report_plan_query',
     public: false
   },
   {
     path: '/erp/u/report/registration/plan-query',
     element: PlanDetailQueryPage,
-    permission: 'report_registration',
+    permission: 'report_plan_query',
     public: false
   },
   {
     path: '/erp/u/report/registration/plan-query/*',
     element: PlanDetailQueryPage,
-    permission: 'report_registration',
+    permission: 'report_plan_query',
     public: false
   },
   {
     path: '/erp/u/report/stat-query',
     element: StatDetailQueryPage,
-    permission: 'report_registration',
+    permission: 'report_stat_query',
     public: false
   },
   {
     path: '/erp/u/report/stat-query/*',
     element: StatDetailQueryPage,
-    permission: 'report_registration',
+    permission: 'report_stat_query',
     public: false
   },
   {
     path: '/erp/u/report/registration/stat-query',
     element: StatDetailQueryPage,
-    permission: 'report_registration',
+    permission: 'report_stat_query',
     public: false
   },
   {
     path: '/erp/u/report/registration/stat-query/*',
     element: StatDetailQueryPage,
-    permission: 'report_registration',
+    permission: 'report_stat_query',
     public: false
   },
 
@@ -526,37 +526,37 @@ export const systemsRoutes = [
   {
     path: '/erp/u/report/data/register',
     element: RegistrationPage,
-    permission: 'report_data_import',
+    permission: 'report_registration',
     public: false
   },
   {
     path: '/erp/u/report/data/register/*',
     element: RegistrationPage,
-    permission: 'report_data_import',
+    permission: 'report_registration',
     public: false
   },
   {
     path: '/erp/u/report/data/import',
     element: RegistrationPage,
-    permission: 'report_data_import',
+    permission: 'report_registration',
     public: false
   },
   {
     path: '/erp/u/report/data/import/*',
     element: RegistrationPage,
-    permission: 'report_data_import',
+    permission: 'report_registration',
     public: false
   },
   {
     path: '/erp/u/report/data/create',
     element: PlanRegistrationCreateView,
-    permission: 'report_data_import',
+    permission: 'report_registration',
     public: false
   },
   {
     path: '/erp/u/report/data/detail/:regCode',
     element: PlanRegistrationDetailView,
-    permission: 'report_data_import',
+    permission: 'report_registration',
     public: false
   }
 ]

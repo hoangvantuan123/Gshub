@@ -85,6 +85,7 @@ export default function UserManagementPage({
     defaultCols,
     canCreate: pagePerms.canCreate,
     canEdit: pagePerms.canEdit,
+    canSave: pagePerms.canSave,
     canView: pagePerms.canView,
     canSearch: pagePerms.canSearch,
     loadingBarRef,

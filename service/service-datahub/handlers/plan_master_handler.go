@@ -100,27 +100,15 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 		userId = c.GetString("user_seq")
 	}
 	if userId == "" {
-		userId = req.CreatedBy
-	}
-	if userId == "" {
-		userId = req.UserSeq
-	}
-	if userId == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"success": false,
+			"success":    false,
 			"error_code": "UNAUTHORIZED",
-			"message": "Yêu cầu bị từ chối: Vui lòng đăng nhập tài khoản để thực hiện lưu đăng ký báo cáo.",
+			"message":    "Yêu cầu bị từ chối: Vui lòng đăng nhập tài khoản để thực hiện lưu đăng ký báo cáo.",
 		})
 		return
 	}
 
 	userName := c.GetString("login")
-	if userName == "" {
-		userName = req.CreatedByName
-	}
-	if userName == "" {
-		userName = req.UserName
-	}
 	if userName == "" {
 		userName = userId
 	}
@@ -390,10 +378,8 @@ func (h *PlanMasterHandler) PlanMasterD(c *gin.Context) {
 		userId = c.GetString("user_seq")
 	}
 	if userId == "" {
-		userId = c.GetHeader("X-User-Id")
-	}
-	if userId == "" {
-		userId = "SystemAdmin"
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "valid login required"})
+		return
 	}
 
 	if err := h.masterSvc.PlanMasterD(c.Request.Context(), seqs, userId); err != nil {
@@ -653,4 +639,3 @@ func fillPlanDetailFromRawMap(d *models.ERPPlanDetail, m map[string]interface{})
 	setIfEmpty(&d.CapaStatus, []string{"CapaStatus", "capaStatus", "Đánh giá capa", "Capa (Đạt/Không đạt)"})
 	setIfEmpty(&d.UserMemo, []string{"UserMemo", "userMemo", "Ghi chú"})
 }
-

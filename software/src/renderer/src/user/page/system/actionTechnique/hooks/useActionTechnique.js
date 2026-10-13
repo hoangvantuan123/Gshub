@@ -13,6 +13,7 @@ export function useActionTechnique({
   defaultCols,
   canCreate,
   canEdit,
+  canSave,
   canView,
   canSearch,
   canDelete,
@@ -208,7 +209,7 @@ export function useActionTechnique({
   }, [])
 
   const handleSaveData = useCallback(async () => {
-    if (!canCreate && !canEdit) {
+    if (!canSave || (!canCreate && !canEdit)) {
       if (setStatusMessage) {
         setStatusMessage({
           type: 'warning',
@@ -257,7 +258,7 @@ export function useActionTechnique({
     } finally {
       loadingBarRef?.current?.complete?.()
     }
-  }, [canCreate, canEdit, gridData, loadingBarRef, setStatusMessage, t, fetchActionData])
+  }, [canCreate, canEdit, canSave, gridData, loadingBarRef, setStatusMessage, t, fetchActionData])
 
   const handleDeleteDataSheet = useCallback(async () => {
     if (!canDelete) {

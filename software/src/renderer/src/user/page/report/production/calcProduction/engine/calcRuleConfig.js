@@ -166,14 +166,12 @@ export function evaluateCoordinatorStatus(
   targetQty,
   plannedQty,
   isTimeInsideShift,
-  khsxStatus,
   rules = DEFAULT_CALC_RULES
 ) {
   const coordCfg = rules.coordinatorStatus || DEFAULT_CALC_RULES.coordinatorStatus
   const qtyCfg = rules.quantity || DEFAULT_CALC_RULES.quantity
-  const khsxCfg = rules.khsxStatus || DEFAULT_CALC_RULES.khsxStatus
 
-  if (khsxStatus !== khsxCfg.validLabel || !isTimeInsideShift) {
+  if (!isTimeInsideShift) {
     return coordCfg.outsidePlan
   }
 

@@ -14,6 +14,8 @@ let cachedSystemMenuList = null
 let cachedSystemActionList = null
 
 export function useRoleManagementFetch({
+  actionDrafts,
+  getCurrentActionRows,
   setGroupId,
   setGroupName,
   setComment,
@@ -103,6 +105,7 @@ export function useRoleManagementFetch({
   // Selection is local: all grants and the action catalogue were loaded from BE.
   const fetchMenuViewDetails = useCallback(
     async (menuId, groupId, menuName = '') => {
+      actionDrafts.stage(currentGroupIdRef.current, getCurrentActionRows())
       const request = ++actionRequestRef.current
       const granted =
         currentGroupIdRef.current === String(groupId)
@@ -110,21 +113,29 @@ export function useRoleManagementFetch({
           : []
       const rows =
         menuId && canView !== false
-          ? buildActionRows(cachedSystemActionList || [], granted, menuId, groupId, menuName)
+          ? actionDrafts.get(groupId, menuId) ||
+            buildActionRows(cachedSystemActionList || [], granted, menuId, groupId, menuName)
           : []
       if (request !== actionRequestRef.current) return
       setGridDataAction(rows)
       setNumRowsAction(rows.length)
       resetTableAction?.()
     },
-    [canView, resetTableAction, setGridDataAction, setNumRowsAction]
+    [
+      actionDrafts,
+      getCurrentActionRows,
+      canView,
+      resetTableAction,
+      setGridDataAction,
+      setNumRowsAction
+    ]
   )
 
   const updateSavedActions = useCallback((rows) => {
-    const menuId = rows[0]?.MenuId
-    if (!menuId) return
+    const menuIds = new Set(rows.map((row) => String(row.MenuId)))
+    if (!menuIds.size) return
     groupActionsStoreRef.current = groupActionsStoreRef.current
-      .filter((row) => String(row.MenuId) !== String(menuId))
+      .filter((row) => !menuIds.has(String(row.MenuId)))
       .concat(
         rows
           .filter((row) => row.RoleRecordId)

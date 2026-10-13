@@ -193,20 +193,6 @@ export default function RoleManagementPage({
     return () => window.removeEventListener('keydown', openFilter, true)
   }, [activeSheet, setShowSearchUsers, setShowSearchAction, setShowSearchB])
 
-  const canSelectMenu = (row) => {
-    if (
-      String(row?.MenuId) !== String(selectedMenuInGrid?.MenuId) &&
-      hasPendingChanges(gridDataAction)
-    ) {
-      setStatusMessage?.({
-        type: 'warning',
-        text: 'Vui lòng lưu quyền thao tác trước khi chọn menu khác.'
-      })
-      return false
-    }
-    return true
-  }
-
   const cancelAllRequestsRef = useRef(cancelAllRequests)
   cancelAllRequestsRef.current = cancelAllRequests
 
@@ -328,7 +314,7 @@ export default function RoleManagementPage({
       })
       return
     }
-    setGroupId(String(g.Id || ''))
+    if (setGroupId(String(g.Id || '')) === false) return
     setGroupName(g.Name || '')
     setComment(g.Comment || '')
     setCreatedByName(g.CreatedByName || '')
@@ -450,7 +436,6 @@ export default function RoleManagementPage({
                   <RoleMenuColumnActionPanel
                     activeSheet={permissionSheet}
                     onActivateSheet={setPermissionSheet}
-                    canSelectMenu={canSelectMenu}
                     gridDataB={gridDataB}
                     setGridDataB={setGridDataB}
                     selectionB={selectionB}

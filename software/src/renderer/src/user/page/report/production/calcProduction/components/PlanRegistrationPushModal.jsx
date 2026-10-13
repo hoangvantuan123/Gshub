@@ -13,8 +13,8 @@ export default function PlanRegistrationPushModal({
   progressInfo = {},
   onClose = null
 }) {
-  const isCompleted = Boolean(progressInfo?.isComplete || progressInfo?.percent >= 100)
   const isError = Boolean(progressInfo?.isError)
+  const isCompleted = !isError && progressInfo?.isComplete === true
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   // Bộ đếm thời gian thực thi (giây)

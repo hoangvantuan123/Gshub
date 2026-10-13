@@ -14,8 +14,8 @@ export default function PlanRegistrationActions({
   const { t } = useTranslation()
 
   const canSearch = permissions.canSearch !== undefined ? Boolean(permissions.canSearch) : true
-  const canSave = Boolean(permissions.canEdit || permissions.canCreate)
-  const canCreate = Boolean(permissions.canCreate)
+  const canSave = Boolean(permissions.canSave)
+  const canCreate = Boolean(permissions.canCreate && permissions.canSave)
   const canDelete = Boolean(permissions.canDelete)
 
   return (
@@ -64,7 +64,7 @@ export default function PlanRegistrationActions({
           </Button>
         )}
 
-        {canSave && (
+        {canSave && handleSaveData && (
           <Button
             key="Save"
             variant="ghost"
@@ -92,7 +92,7 @@ export default function PlanRegistrationActions({
           </Button>
         )}
 
-        {handleExportExcel && (
+        {permissions.canExport && handleExportExcel && (
           <Button
             key="ExportExcel"
             variant="ghost"

@@ -15,7 +15,11 @@ import {
   getNextVersion
 } from '../constants/calcConstants'
 import { RESULT_CALC_COLUMNS_SCHEMA } from '../columns/calcGridColumns'
-import { parseUploadedFile, inspectUploadedFile } from '../engine/fileParsers'
+import {
+  parseUploadedFile,
+  inspectUploadedFile,
+  formatTemporalWarnings
+} from '../engine/fileParsers'
 import { runProductionCalculations } from '../engine'
 import storageAdapter from '../storage'
 import {
@@ -367,8 +371,10 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         setCalcResults(null)
         notify(
           'success',
-          `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng theo cấu hình tùy chỉnh cho ${tabTitle}. Vui lòng bấm [TÍNH KHSX & TKSX] lại.`
+          `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng theo cấu hình tùy chỉnh cho ${tabTitle}.${parsed.skippedColumns?.length ? ` Đã bỏ qua ${parsed.skippedColumns.length} cột ngoài danh mục đã đăng ký.` : ''} Vui lòng bấm [TÍNH KHSX & TKSX] lại.`
         )
+        const temporalWarningMessage = formatTemporalWarnings(parsed.temporalWarnings)
+        if (temporalWarningMessage) notify('warning', temporalWarningMessage)
       } catch (err) {
         notify('error', `Lỗi nạp file theo cấu hình: ${err.message}`)
       } finally {
@@ -428,8 +434,10 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         setCalcResults(null)
         notify(
           'success',
-          `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng cho ${tabTitle}. Vui lòng bấm [TÍNH KHSX & TKSX] lại.`
+          `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng cho ${tabTitle}.${parsed.skippedColumns?.length ? ` Đã bỏ qua ${parsed.skippedColumns.length} cột ngoài danh mục đã đăng ký.` : ''} Vui lòng bấm [TÍNH KHSX & TKSX] lại.`
         )
+        const temporalWarningMessage = formatTemporalWarnings(parsed.temporalWarnings)
+        if (temporalWarningMessage) notify('warning', temporalWarningMessage)
       } catch (err) {
         console.warn('Lỗi nạp tự động, tự động kích hoạt Modal ánh xạ cột:', err)
         try {

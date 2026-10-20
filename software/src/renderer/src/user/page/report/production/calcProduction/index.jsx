@@ -324,6 +324,14 @@ export default function CalcProductionPage({
     if (statusFilter && statusFilter !== 'ALL') {
       result = result.filter((row) => {
         if (!row) return false
+        if (
+          ['Thiếu họ tên LTT', 'Chưa có TT lệnh', 'Thiếu TT lệnh'].includes(statusFilter)
+        ) {
+          const lttStatus = String(
+            row.OpInfoStatus ?? row['Trạng thái LTT'] ?? row['Trạng thái thông tin lệnh'] ?? ''
+          )
+          return lttStatus === statusFilter || lttStatus.startsWith(`${statusFilter}:`)
+        }
         const st = String(
           row.StatusDpSx ??
             row.CoordinatorStatus ??

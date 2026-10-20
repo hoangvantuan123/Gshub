@@ -1,6 +1,6 @@
 {
   "name": "gshub",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "description": "GsHub ERP",
   "main": "./out/main/index.js",
   "author": "GsHub ERP",

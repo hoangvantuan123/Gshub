@@ -1,5 +1,5 @@
 import { app, ipcMain, BrowserWindow, shell } from 'electron'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 import https from 'https'
@@ -401,7 +401,8 @@ export async function initNativeAutoUpdater() {
         status: 'native-available',
         message: `Đã có bản cập nhật phần mềm mới v${info.version}!`,
         newNativeVersion: info.version,
-        releaseNotes: info.releaseNotes || 'Cập nhật hệ thống & tối ưu hiệu năng.'
+        releaseNotes: info.releaseNotes ||
+          'Nâng cấp phiên bản phần mềm với các cải tiến về độ ổn định, hiệu suất và trải nghiệm sử dụng.'
       })
     })
 
@@ -455,6 +456,36 @@ export async function initNativeAutoUpdater() {
   }
 }
 
+function findNativeInstallerAsset(assets, platform) {
+  const candidates = (assets || []).filter((asset) => {
+    const name = String(asset?.name || '').toLowerCase()
+    if (!asset?.browser_download_url || name.endsWith('.blockmap')) return false
+
+    if (platform === 'win32') return /-setup\.exe$/.test(name)
+    if (platform === 'darwin') return name.endsWith('.dmg')
+    if (platform === 'linux') return name.endsWith('.appimage')
+    return false
+  })
+  return candidates[0] || null
+}
+
+async function findReleaseInstallerForVersion(version) {
+  if (!version) return null
+  const releases = await fetchJson(GITHUB_CONFIG.releasesApiUrl)
+  const matchingRelease = Array.isArray(releases)
+    ? releases.find((release) => {
+        const releaseVersion = String(release.tag_name || '').replace(/^v/, '')
+        return releaseVersion === String(version).replace(/^v/, '') && !release.draft
+      })
+    : null
+
+  if (!matchingRelease) return null
+  return {
+    release: matchingRelease,
+    asset: findNativeInstallerAsset(matchingRelease.assets || [], process.platform)
+  }
+}
+
 export async function checkNativeUpdate() {
   const currentNative = app.getVersion()
   try {
@@ -471,20 +502,26 @@ export async function checkNativeUpdate() {
         const remoteVersion = latest.tag_name?.replace(/^v/, '')
 
         if (isNewerVersion(remoteVersion, currentNative)) {
-          const exeAsset = latest.assets?.find(
-            (a) =>
-              a.name.endsWith('.exe') || a.name.endsWith('.dmg') || a.name.endsWith('.AppImage')
-          )
-          const downloadUrl = exeAsset ? exeAsset.browser_download_url : latest.html_url
+          const nativeAsset = findNativeInstallerAsset(latest.assets || [], process.platform)
+          const downloadUrl = nativeAsset?.browser_download_url || ''
 
           broadcastStatus({
             status: 'native-available',
-            message: `Phát hiện bản phần mềm mới v${remoteVersion}!`,
+            message: nativeAsset
+              ? `Phát hiện bản phần mềm mới v${remoteVersion}!`
+              : `Có bản v${remoteVersion}, nhưng release chưa có bộ cài phù hợp cho hệ điều hành này.`,
             newNativeVersion: remoteVersion,
             releaseNotes: latest.body || 'Bản cập nhật phần mềm mới từ hệ thống.',
-            nativeDownloadUrl: downloadUrl
+            nativeDownloadUrl: downloadUrl,
+            releasePageUrl: latest.html_url || ''
           })
-          return { available: true, version: remoteVersion, downloadUrl, releaseNotes: latest.body }
+          return {
+            available: true,
+            version: remoteVersion,
+            downloadUrl,
+            releasePageUrl: latest.html_url || '',
+            releaseNotes: latest.body
+          }
         }
       }
     }
@@ -516,7 +553,36 @@ export async function checkNativeUpdate() {
 }
 
 export async function downloadNativeUpdate() {
-  const { nativeDownloadUrl, newNativeVersion } = updateState
+  const { newNativeVersion } = updateState
+  let nativeDownloadUrl = updateState.nativeDownloadUrl
+
+  // Sự kiện electron-updater có thể mở modal trước khi URL của bộ cài được gắn vào state.
+  // Tra lại đúng release theo version trước khi bắt đầu tải.
+  if (!nativeDownloadUrl && newNativeVersion) {
+    try {
+      const resolved = await findReleaseInstallerForVersion(newNativeVersion)
+      if (resolved?.asset) {
+        nativeDownloadUrl = resolved.asset.browser_download_url
+        broadcastStatus({
+          status: 'downloading',
+          progress: 0,
+          nativeDownloadUrl,
+          releasePageUrl: resolved.release.html_url || '',
+          releaseNotes: resolved.release.body || updateState.releaseNotes,
+          message: `Đã tìm thấy bộ cài v${newNativeVersion}. Đang bắt đầu tải...`
+        })
+      } else if (resolved?.release) {
+        broadcastStatus({
+          status: 'native-available',
+          nativeDownloadUrl: '',
+          releasePageUrl: resolved.release.html_url || '',
+          message: `Release v${newNativeVersion} chưa có bộ cài phù hợp với hệ điều hành này.`
+        })
+      }
+    } catch (error) {
+      console.warn('[Native installer lookup error]:', error.message)
+    }
+  }
 
   // Tải nền trực tiếp file installer trong app (Background In-App Download)
   if (nativeDownloadUrl) {
@@ -530,12 +596,16 @@ export async function downloadNativeUpdate() {
       const tempDir = join(USER_DATA_DIR, 'temp')
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true })
 
-      const ext = nativeDownloadUrl.endsWith('.dmg')
+      const ext = nativeDownloadUrl.toLowerCase().endsWith('.dmg')
         ? 'dmg'
-        : nativeDownloadUrl.endsWith('.AppImage')
+        : nativeDownloadUrl.toLowerCase().endsWith('.appimage')
           ? 'AppImage'
           : 'exe'
       const installerPath = join(tempDir, `gshub-update-${newNativeVersion || 'latest'}.${ext}`)
+
+      try {
+        if (fs.existsSync(installerPath)) fs.unlinkSync(installerPath)
+      } catch {}
 
       await downloadFile(nativeDownloadUrl, installerPath, (progress) => {
         broadcastStatus({
@@ -544,6 +614,20 @@ export async function downloadNativeUpdate() {
           message: `Đang tải bản cập nhật: ${progress}%`
         })
       })
+
+      const installerStat = fs.statSync(installerPath)
+      if (installerStat.size < 1024) {
+        throw new Error('File bộ cài tải về không hợp lệ hoặc quá nhỏ.')
+      }
+      if (process.platform === 'win32') {
+        const fileHandle = fs.openSync(installerPath, 'r')
+        const signature = Buffer.alloc(2)
+        fs.readSync(fileHandle, signature, 0, 2, 0)
+        fs.closeSync(fileHandle)
+        if (signature.toString('ascii') !== 'MZ') {
+          throw new Error('File tải về không phải bộ cài Windows (.exe).')
+        }
+      }
 
       updateState.downloadedInstallerPath = installerPath
 
@@ -574,9 +658,18 @@ export async function downloadNativeUpdate() {
       await autoUpdaterInstance.downloadUpdate()
       return true
     } catch (e) {
-      console.warn('[electron-updater download fallback]:', e.message)
+      console.error('[electron-updater download error]:', e.message)
+      broadcastStatus({
+        status: 'error',
+        message: `Lỗi tải bản cập nhật phần mềm: ${e.message}`
+      })
+      throw e
     }
   }
+
+  const error = new Error('Không tìm thấy file cài đặt hoặc bộ cập nhật chưa sẵn sàng.')
+  broadcastStatus({ status: 'error', message: error.message })
+  throw error
 }
 
 export function restartAndInstallNativeUpdate() {
@@ -589,15 +682,34 @@ export function restartAndInstallNativeUpdate() {
   if (updateState.downloadedInstallerPath && fs.existsSync(updateState.downloadedInstallerPath)) {
     try {
       if (process.platform === 'win32') {
-        // Chạy installer trên Windows ở chế độ Silent (/S) và thoát ứng dụng
-        const child = spawn(updateState.downloadedInstallerPath, ['/S', '--updated'], {
-          detached: true,
-          stdio: 'ignore'
+        // Chờ tiến trình app thoát hẳn rồi mới cài để NSIS không đụng file đang bị khóa.
+        // Chỉ định lại thư mục cài hiện tại để các bản cũ được nâng cấp tại đúng vị trí.
+        const psLiteral = (value) => `'${String(value).replace(/'/g, "''")}'`
+        const installer = psLiteral(updateState.downloadedInstallerPath)
+        const installDir = psLiteral(dirname(process.execPath))
+        const appExe = psLiteral(process.execPath)
+        const script = [
+          `$appPid = ${process.pid}`,
+          'try { Wait-Process -Id $appPid -ErrorAction SilentlyContinue } catch {}',
+          `$installer = ${installer}`,
+          `$installDir = ${installDir}`,
+          `$appExe = ${appExe}`,
+          "$arguments = '/S /D=' + $installDir",
+          '$setup = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru',
+          'if (($setup.ExitCode -eq 0 -or $setup.ExitCode -eq 3010) -and (Test-Path -LiteralPath $appExe)) { Start-Process -FilePath $appExe }'
+        ].join('\n')
+        const encodedScript = Buffer.from(script, 'utf16le').toString('base64')
+        const child = spawn(
+          'powershell.exe',
+          ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encodedScript],
+          { detached: true, stdio: 'ignore', windowsHide: true }
+        )
+        child.on('error', (err) => {
+          console.error('[Native Installer Helper Error]:', err)
+          broadcastStatus({ status: 'error', message: `Không thể khởi chạy bộ cài: ${err.message}` })
         })
         child.unref()
-        setTimeout(() => {
-          app.quit()
-        }, 500)
+        app.quit()
         return
       } else {
         // macOS / Linux

@@ -18,7 +18,9 @@ export default function SystemConfirmModal({
   extraActionText,
   type = 'warning',
   confirmVariant,
-  isMac
+  isMac,
+  confirmDisabled = false,
+  children
 }) {
   const { t } = useTranslation()
   const modalRef = useRef(null)
@@ -156,12 +158,13 @@ export default function SystemConfirmModal({
           <h3 className="text-[13.5px] font-semibold text-slate-900 dark:text-slate-50 leading-snug">
             {message || t('Dữ liệu trên bảng đã được chỉnh sửa nhưng chưa lưu!')}
           </h3>
-          <p className="text-[12px] text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-[12px] text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line">
             {subMessage ||
               t(
                 'Nếu bạn tiếp tục thao tác, các thay đổi chưa lưu trên bảng sẽ bị hủy bỏ. Bạn có muốn tiếp tục?'
               )}
           </p>
+          {children}
         </div>
 
         <div
@@ -203,7 +206,8 @@ export default function SystemConfirmModal({
             ref={modalRef}
             type="button"
             onClick={onConfirm}
-            className={`h-[28px] px-4 min-w-[88px] text-[12px] font-medium transition-all cursor-pointer outline-none whitespace-nowrap shrink-0 inline-flex items-center justify-center shadow-xs active:scale-[0.98] ${
+            disabled={confirmDisabled}
+            className={`h-[28px] px-4 min-w-[88px] text-[12px] font-medium transition-all cursor-pointer outline-none whitespace-nowrap shrink-0 inline-flex items-center justify-center shadow-xs active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
               isMacOS
                 ? `rounded-[6px] ${confirmBtnClass}`
                 : `rounded-[4px] border ${confirmBtnClass}`

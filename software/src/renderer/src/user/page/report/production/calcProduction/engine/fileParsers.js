@@ -517,6 +517,13 @@ export const isHtmlOrXmlSpreadsheet = (data) => {
   )
 }
 
+const parseZonedDateTime = (value) => {
+  const normalized = String(value)
+    .replace(' ', 'T')
+    .replace(/([+-]\d{2})(\d{2})$/, '$1:$2')
+  return new Date(normalized)
+}
+
 export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = '') => {
   if (val === null || val === undefined || val === '') return ''
 
@@ -526,38 +533,54 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = ''
     fileType === 'mes_approval' ||
     colStr.includes('mes_approval')
 
+  const isUnfinishedOrderCreatedDate =
+    fileType === 'unfinished_op' &&
+    (colStr.includes('ordercreateddate') || colStr.includes('ngày tạo lệnh'))
+  const isUnfinishedOrderExecutionDateTime =
+    fileType === 'unfinished_op' &&
+    (colStr.includes('starttime') ||
+      colStr.includes('endtime') ||
+      colStr.includes('thời gian bắt đầu') ||
+      colStr.includes('thời gian kết thúc'))
+  const useFourDigitYear =
+    isMesApproval || isUnfinishedOrderCreatedDate || isUnfinishedOrderExecutionDateTime
+
   const pad = (n) => String(n).padStart(2, '0')
 
   // Phân loại kiểu cột
   const isDateTimeCol =
-    isMesApproval ||
-    colStr.includes('plannedstarttime') ||
-    colStr.includes('plannedendtime') ||
-    colStr.includes('actualstarttime') ||
-    colStr.includes('actualendtime') ||
-    colStr.includes('approvedtime') ||
-    colStr.includes('mesapprovedtime') ||
-    colStr.includes('ticketcreateddate') ||
-    colStr.includes('slipcreateddate') ||
-    colStr.includes('createddate') ||
-    colStr.includes('docdate') ||
-    colStr.includes('tạo phiếu') ||
-    colStr.includes('ngày tạo') ||
-    colStr.includes('thời gian tạo') ||
-    colStr.includes('lập phiếu') ||
-    colStr.includes('ngày lập') ||
-    colStr.includes('thời gian lập') ||
-    colStr.includes('thời gian duyệt') ||
-    colStr.includes('(5)') ||
-    colStr.includes('(6)') ||
-    colStr.includes('(8)') ||
-    colStr.includes('(9)') ||
-    colStr.includes('(90)') ||
-    colStr.includes('(94)') ||
-    colStr.includes('(95)')
+    isUnfinishedOrderExecutionDateTime ||
+    (!isUnfinishedOrderCreatedDate &&
+      (isMesApproval ||
+        colStr.includes('plannedstarttime') ||
+        colStr.includes('plannedendtime') ||
+        colStr.includes('datetime') ||
+        colStr.includes('actualstarttime') ||
+        colStr.includes('actualendtime') ||
+        colStr.includes('approvedtime') ||
+        colStr.includes('mesapprovedtime') ||
+        colStr.includes('ticketcreateddate') ||
+        colStr.includes('slipcreateddate') ||
+        colStr.includes('createddate') ||
+        colStr.includes('docdate') ||
+        colStr.includes('tạo phiếu') ||
+        colStr.includes('ngày tạo') ||
+        colStr.includes('thời gian tạo') ||
+        colStr.includes('lập phiếu') ||
+        colStr.includes('ngày lập') ||
+        colStr.includes('thời gian lập') ||
+        colStr.includes('thời gian duyệt') ||
+        colStr.includes('(5)') ||
+        colStr.includes('(6)') ||
+        colStr.includes('(8)') ||
+        colStr.includes('(9)') ||
+        colStr.includes('(90)') ||
+        colStr.includes('(94)') ||
+        colStr.includes('(95)')))
 
   const isOnlyTimeCol =
     !isDateTimeCol &&
+    !isUnfinishedOrderExecutionDateTime &&
     (colStr.includes('start_time') ||
       colStr.includes('starttime') ||
       colStr.includes('end_time') ||
@@ -569,17 +592,18 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = ''
     !colStr.includes('date')
 
   const isOnlyDateCol =
-    !isDateTimeCol &&
-    (colStr.includes('ngày') ||
-      colStr.includes('date') ||
-      colStr.includes('statdate') ||
-      colStr.includes('startdate') ||
-      colStr.includes('enddate') ||
-      colStr.includes('applydate') ||
-      colStr.includes('ordercreateddate') ||
-      colStr.includes('executedate') ||
-      colStr.includes('requireddeliverydate') ||
-      colStr.includes('agreeddeliverydate'))
+    isUnfinishedOrderCreatedDate ||
+    (!isDateTimeCol &&
+      (colStr.includes('ngày') ||
+        colStr.includes('date') ||
+        colStr.includes('statdate') ||
+        colStr.includes('startdate') ||
+        colStr.includes('enddate') ||
+        colStr.includes('applydate') ||
+        colStr.includes('ordercreateddate') ||
+        colStr.includes('executedate') ||
+        colStr.includes('requireddeliverydate') ||
+        colStr.includes('agreeddeliverydate')))
 
   // Tự động nhận diện nếu dữ liệu là số thực hoặc chuỗi số Serial Excel (VD: "46278.70833" hoặc 46278.70833)
   let numVal = null
@@ -615,7 +639,7 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = ''
       const year = dateUtc.getUTCFullYear()
       const month = pad(dateUtc.getUTCMonth() + 1)
       const day = pad(dateUtc.getUTCDate())
-      const yearStr = isMesApproval ? String(year) : String(year).slice(-2)
+      const yearStr = useFourDigitYear ? String(year) : String(year).slice(-2)
 
       const totalSecs = Math.round(frac * 86400)
       const hours = pad(Math.floor(totalSecs / 3600) % 24)
@@ -640,13 +664,24 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = ''
   // 2. Xử lý Date Object (Dùng local getters để giữ đúng giờ người dùng nhập, triệt tiêu hoàn toàn lệch múi giờ)
   if (val instanceof Date) {
     if (isNaN(val.getTime())) return ''
-    const year = val.getFullYear()
-    const month = pad(val.getMonth() + 1)
-    const day = pad(val.getDate())
-    const hours = pad(val.getHours())
-    const minutes = pad(val.getMinutes())
-    const seconds = pad(val.getSeconds())
-    const yearStr = isMesApproval ? String(year) : String(year).slice(-2)
+    const vietnamParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23'
+    }).formatToParts(val)
+    const getPart = (type) => vietnamParts.find((part) => part.type === type)?.value || '00'
+    const year = Number(getPart('year'))
+    const month = getPart('month')
+    const day = getPart('day')
+    const hours = getPart('hour')
+    const minutes = getPart('minute')
+    const seconds = getPart('second')
+    const yearStr = useFourDigitYear ? String(year) : String(year).slice(-2)
     const timeStr = seconds !== '00' ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
 
     if (isDateTimeCol) {
@@ -667,6 +702,17 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = ''
     const str = val.trim()
     if (!str) return ''
 
+    // Chuỗi ISO có múi giờ là một thời điểm tuyệt đối; đổi sang giờ Việt Nam
+    // trước khi áp dụng định dạng riêng của cột.
+    const zonedIsoDateTime =
+      /^\d{4}-\d{1,2}-\d{1,2}[T\s]\d{1,2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})$/i
+    if (zonedIsoDateTime.test(str)) {
+      const instant = parseZonedDateTime(str)
+      if (!Number.isNaN(instant.getTime())) {
+        return formatVietnamDateTimeValue(instant, colNameOrKey, fileType)
+      }
+    }
+
     // Nếu chuỗi chỉ là giờ dạng HH:mm hoặc HH:mm:ss (kèm AM/PM/SA/CH)
     const pureTimeMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?$/i)
     if (pureTimeMatch) {
@@ -685,7 +731,7 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = ''
       /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?)?/i
     )
     if (isoMatch) {
-      const year = isMesApproval ? isoMatch[1] : String(isoMatch[1]).slice(-2)
+      const year = useFourDigitYear ? isoMatch[1] : String(isoMatch[1]).slice(-2)
       const month = pad(isoMatch[2])
       const day = pad(isoMatch[3])
 
@@ -726,9 +772,9 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = ''
       const day = pad(dmyMatch[1])
       const month = pad(dmyMatch[2])
       let year = dmyMatch[3]
-      if (year.length === 2 && isMesApproval) {
+      if (year.length === 2 && useFourDigitYear) {
         year = `20${year}`
-      } else if (year.length === 4 && !isMesApproval && !colStr.includes('approved')) {
+      } else if (year.length === 4 && !useFourDigitYear && !colStr.includes('approved')) {
         year = year.slice(-2)
       } else {
         year = pad(year)
@@ -764,6 +810,170 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = ''
   }
 
   return val
+}
+
+const getTemporalColumnKind = (key = '', title = '', fileType = '') => {
+  const normalizedKey = String(key).toLowerCase().replace(/[^a-z0-9]/g, '')
+  const normalizedTitle = String(title).toLowerCase()
+  if (fileType === 'unfinished_op') {
+    if (normalizedKey === 'ordercreateddate' || normalizedTitle.includes('ngày tạo lệnh')) {
+      return 'date'
+    }
+    if (
+      normalizedKey === 'starttime' ||
+      normalizedKey === 'endtime' ||
+      normalizedTitle.includes('thời gian bắt đầu') ||
+      normalizedTitle.includes('thời gian kết thúc')
+    ) {
+      return 'datetime'
+    }
+  }
+  const isDuration =
+    /(duration|minutes|hours|seconds|downtime|runtime|delay|elapsed)/.test(normalizedKey) ||
+    /(phút|hao phí|thời gian sản xuất|thời gian chạy|thời gian kế hoạch|độ trễ)/.test(
+      normalizedTitle
+    ) ||
+    /\((phút|giờ)\)/.test(normalizedTitle)
+
+  if (isDuration || normalizedKey.includes('status')) return null
+
+  if (
+    /(approvedtime|mesapprovedtime|createdtime|ticketcreateddate|slipcreateddate|createddate|docdate|datetime)$/.test(
+      normalizedKey
+    ) ||
+    /(thời gian duyệt|thời gian tạo|thời gian lập|ngày tạo phiếu|ngày lập phiếu)/.test(
+      normalizedTitle
+    )
+  ) {
+    return 'datetime'
+  }
+
+  if (normalizedKey.includes('date') || normalizedTitle.includes('ngày')) return 'date'
+
+  if (
+    /(starttime|endtime)$/.test(normalizedKey) ||
+    /^(bắt đầu|kết thúc|thời gian bắt đầu|thời gian kết thúc)$/.test(normalizedTitle.trim())
+  ) {
+    return 'time'
+  }
+
+  return null
+}
+
+const validateTemporalCell = (value, kind) => {
+  if (value === null || value === undefined || value === '') return null
+
+  const validateDate = (yearValue, monthValue, dayValue) => {
+    let year = Number(yearValue)
+    const month = Number(monthValue)
+    const day = Number(dayValue)
+    if (String(yearValue).length === 2) year += year >= 70 ? 1900 : 2000
+    const date = new Date(Date.UTC(year, month - 1, day))
+    return (
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day
+    )
+  }
+
+  const validateTime = (hourValue, minuteValue, secondValue) => {
+    const hour = Number(hourValue)
+    const minute = Number(minuteValue)
+    const second = secondValue === undefined ? 0 : Number(secondValue)
+    return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 && second >= 0 && second <= 59
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (kind === 'time') {
+      return value >= 0 && value < 1 ? null : 'cột chỉ giờ nhưng ô có cả ngày hoặc số ngoài khoảng giờ'
+    }
+    if (value >= 1 && value < 90000) {
+      if (kind === 'date' && value % 1 > 0.000001) return 'cột chỉ ngày nhưng ô có kèm giờ'
+      return null
+    }
+    return 'số serial Excel không nằm trong khoảng ngày hợp lệ'
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return 'giá trị ngày giờ không hợp lệ'
+    if (kind === 'time') return 'cột chỉ giờ nhưng ô chứa giá trị ngày'
+    return null
+  }
+
+  const textValue = String(value).trim()
+  if (!textValue) return null
+
+  const zonedIsoDateTime =
+    /^\d{4}-\d{1,2}-\d{1,2}[T\s]\d{1,2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})$/i
+  if (zonedIsoDateTime.test(textValue)) {
+    const instant = parseZonedDateTime(textValue)
+    if (Number.isNaN(instant.getTime())) return 'giá trị ngày giờ có múi giờ không hợp lệ'
+    if (kind === 'date') return 'cột chỉ ngày nhưng ô có kèm giờ'
+    if (kind === 'time') return 'cột chỉ giờ nhưng ô chứa cả ngày'
+    return null
+  }
+
+  const numericValue = /^\d+(?:\.\d+)?$/.test(textValue) ? Number(textValue) : null
+  if (numericValue !== null) return validateTemporalCell(numericValue, kind)
+
+  const timeMatch = textValue.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?$/i)
+  if (timeMatch) {
+    let hour = Number(timeMatch[1])
+    const marker = String(timeMatch[4] || '').toUpperCase()
+    if (marker && (hour < 1 || hour > 12)) return 'giờ AM/PM không hợp lệ'
+    if ((marker === 'PM' || marker === 'CH') && hour < 12) hour += 12
+    if ((marker === 'AM' || marker === 'SA') && hour === 12) hour = 0
+    if (!validateTime(hour, timeMatch[2], timeMatch[3])) return 'giờ, phút hoặc giây vượt giới hạn'
+    return kind === 'time' ? null : 'thiếu phần ngày trong cột ngày/giờ'
+  }
+
+  const isoMatch = textValue.match(
+    /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?)?$/i
+  )
+  const dmyMatch = textValue.match(
+    /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|SA|CH))?)?$/i
+  )
+
+  if (isoMatch || dmyMatch) {
+    const match = isoMatch || dmyMatch
+    const year = isoMatch ? match[1] : match[3]
+    const month = isoMatch ? match[2] : match[2]
+    const day = isoMatch ? match[3] : match[1]
+    if (!validateDate(year, month, day)) return 'ngày không tồn tại'
+
+    if (match[4] !== undefined) {
+      let hour = Number(match[4])
+      const marker = String(match[7] || '').toUpperCase()
+      if (marker && (hour < 1 || hour > 12)) return 'giờ AM/PM không hợp lệ'
+      if ((marker === 'PM' || marker === 'CH') && hour < 12) hour += 12
+      if ((marker === 'AM' || marker === 'SA') && hour === 12) hour = 0
+      if (!validateTime(hour, match[5], match[6])) return 'giờ, phút hoặc giây vượt giới hạn'
+      if (kind === 'time') return 'cột chỉ giờ nhưng ô chứa cả ngày'
+      if (kind === 'date') return 'cột chỉ ngày nhưng ô có kèm giờ'
+      return null
+    }
+
+    if (kind === 'time') return 'cột chỉ giờ nhưng ô chứa ngày'
+    return null
+  }
+
+  return 'không nhận diện được định dạng ngày/giờ'
+}
+
+export const formatTemporalWarnings = (warnings = []) => {
+  if (!warnings.length) return ''
+  const details = warnings.slice(0, 6).map((warning) => {
+    const samples = warning.samples.slice(0, 3)
+      .map((sample) => `dòng ${sample.row}: “${sample.value}” (${sample.reason})`)
+      .join(', ')
+    return `${warning.title}: ${warning.count} ô${samples ? ` (${samples})` : ''}`
+  })
+  const remaining =
+    warnings.length > details.length ? `; còn ${warnings.length - details.length} cột khác` : ''
+  return `Phát hiện định dạng ngày/giờ cần kiểm tra: ${details.join('; ')}${remaining}. Các ô lỗi được giữ nguyên để bạn xử lý.`
 }
 
 export const parseUploadedFile = async (file, fileType, customConfig = {}, onProgress = null) => {
@@ -950,13 +1160,18 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
         // ── 2. XÂY DỰNG HEADER DEFS ──
         const headerDefs = []
         const seenKeys = {}
+        const skippedColumns = []
         let technicianCounter = 0
 
         for (let c = 0; c < maxCols; c++) {
           const val0 = row0[c] || ''
           const val1 = isTwoTier ? row1[c] || '' : ''
 
-          if (customConfig.columnMappings && customConfig.columnMappings[c] === 'IGNORE_COL') {
+          if (
+            customConfig.columnMappings &&
+            ['IGNORE_COL', '__IGNORE__'].includes(customConfig.columnMappings[c])
+          ) {
+            skippedColumns.push(val0 || val1 || `Cột ${c + 1}`)
             continue
           }
 
@@ -1016,7 +1231,7 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
           if (
             customConfig.columnMappings &&
             customConfig.columnMappings[c] &&
-            customConfig.columnMappings[c] !== 'IGNORE_COL'
+            !['IGNORE_COL', '__IGNORE__'].includes(customConfig.columnMappings[c])
           ) {
             const customKey = customConfig.columnMappings[c]
             const matchedInSchema = schemaList.find((s) => s.key === customKey)
@@ -1024,8 +1239,6 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
               resolvedKey = matchedInSchema.key
               resolvedTitle = matchedInSchema.title
               colGroup = colGroup || matchedInSchema.group || ''
-            } else {
-              resolvedKey = colTitle.replace(/[\s/\\()+-]+/g, '_')
             }
           }
 
@@ -1571,10 +1784,20 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
             }
           }
 
-          if (seenKeys[resolvedKey]) {
-            resolvedKey = `${resolvedKey}_${c}`
+          // Giữ cấu trúc import đúng theo schema đã đăng ký của tab. Header lạ,
+          // mapping tự do hoặc key được nhận diện đặc biệt nhưng không có trong
+          // schema đều phải bị bỏ qua thay vì tạo thêm field động.
+          const registeredColumn = schemaList.find((column) => column.key === resolvedKey)
+          if (!registeredColumn || seenKeys[resolvedKey]) {
+            skippedColumns.push(colTitle || `Cột ${c + 1}`)
+            continue
           }
           seenKeys[resolvedKey] = true
+
+          // Dùng metadata chuẩn trong schema, không để tiêu đề file thay đổi
+          // tên cột hiển thị/lưu trữ.
+          resolvedTitle = registeredColumn.title || resolvedTitle
+          colGroup = registeredColumn.group || colGroup
 
           headerDefs.push({
             origIndex: c,
@@ -1601,11 +1824,13 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
 
         // ── 3. TRÍCH XUẤT STREAM DỮ LIỆU TỪNG DÒNG (TIẾT KIỆM BỘ NHỚ RAM 100%) ──
         const parsedRows = []
+        const temporalWarningsByKey = new Map()
         const totalRowsToScan = range.e.r - dataStartRow + 1
 
         for (let r = dataStartRow; r <= range.e.r; r++) {
           const rowObj = {}
           let hasRowData = false
+          let rowHasInvalidTemporalValue = false
 
           for (let i = 0; i < headerDefs.length; i++) {
             const { origIndex, key, title, group } = headerDefs[i]
@@ -1619,6 +1844,31 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
               val = cell.w !== undefined ? cell.w : cell.v
               if (typeof val === 'string') {
                 val = val.trim()
+              }
+
+              const temporalKind = getTemporalColumnKind(key, title, fileType)
+              let invalidTemporalReason = null
+              if (temporalKind) {
+                invalidTemporalReason = validateTemporalCell(rawVal, temporalKind)
+                if (invalidTemporalReason) {
+                  rowHasInvalidTemporalValue = true
+                  const warningKey = `${key}:${title}`
+                  const warning = temporalWarningsByKey.get(warningKey) || {
+                    key,
+                    title,
+                    count: 0,
+                    samples: []
+                  }
+                  warning.count++
+                  if (warning.samples.length < 5) {
+                    warning.samples.push({
+                      row: r + 1,
+                      value: String(cell.w ?? rawVal).slice(0, 60),
+                      reason: invalidTemporalReason
+                    })
+                  }
+                  temporalWarningsByKey.set(warningKey, warning)
+                }
               }
 
               const titleLower = title.toLowerCase()
@@ -1679,8 +1929,14 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
                   keyLower.includes('approval') ||
                   keyLower.includes('approved') ||
                   keyLower.includes('perform'))
+              const shouldFormatOrderCreatedDate =
+                fileType === 'unfinished_op' && key === 'OrderCreatedDate'
 
-              if (!isNumericOrQtyCol && (isDateOrTimeCol || cell.t === 'd')) {
+              if (
+                (!invalidTemporalReason || shouldFormatOrderCreatedDate) &&
+                !isNumericOrQtyCol &&
+                (isDateOrTimeCol || cell.t === 'd')
+              ) {
                 // Ưu tiên rawVal (cell.v) nếu là number hoặc Date để lấy đủ giờ:phút:giây
                 const valToFormat =
                   typeof rawVal === 'number' || rawVal instanceof Date ? rawVal : val
@@ -1705,7 +1961,11 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
           }
 
           if (hasRowData) {
-            if (fileType !== 'mes_approval' && fileType !== ARCHITECTURE_FILE_TYPES.MES_APPROVAL) {
+            if (
+              !rowHasInvalidTemporalValue &&
+              fileType !== 'mes_approval' &&
+              fileType !== ARCHITECTURE_FILE_TYPES.MES_APPROVAL
+            ) {
               normalizeRowOperationalTimePair(rowObj)
             }
 
@@ -1800,6 +2060,8 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
           rowCount: parsedRows.length,
           columns: finalColumns,
           data: parsedRows,
+          skippedColumns,
+          temporalWarnings: Array.from(temporalWarningsByKey.values()),
           uploadedAt: new Date().toISOString()
         })
       } catch (err) {

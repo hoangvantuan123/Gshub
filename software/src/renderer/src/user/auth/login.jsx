@@ -501,14 +501,6 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
               localStorage.setItem('save_users_log', JSON.stringify(list2))
             } catch {}
 
-            // Tự động kiểm tra bản cập nhật phần mềm (GitHub Releases) và giao diện mới nhất khi đăng nhập
-            if (window.electron?.updater?.checkAll) {
-              window.electron.updater.checkAll().catch(() => {})
-            } else if (window.electron?.updater?.checkNative) {
-              window.electron.updater.checkNative().catch(() => {})
-            } else if (window.electron?.updater?.checkUi) {
-              window.electron.updater.checkUi().catch(() => {})
-            }
           }, 0)
 
           // 3. Đóng màn hình settings nếu đang mở (cả Web & Electron)

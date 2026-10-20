@@ -31,7 +31,11 @@ import CalculationProgressOverlay from '../../calcProduction/components/Calculat
 import CalcRuleConfigModal from '../../calcProduction/components/CalcRuleConfigModal'
 import ImportLoadingOverlay from '../../calcProduction/components/ImportLoadingOverlay'
 import ExcelMappingModal from '../../calcProduction/components/ExcelMappingModal'
-import { parseUploadedFile, inspectUploadedFile } from '../../calcProduction/engine/fileParsers'
+import {
+  parseUploadedFile,
+  inspectUploadedFile,
+  formatTemporalWarnings
+} from '../../calcProduction/engine/fileParsers'
 import {
   unpackProductionBundle,
   packProductionBundle,
@@ -407,6 +411,14 @@ export default function CalcProductionDetailView() {
       const sf = String(statusFilter).toLowerCase()
       filtered = filtered.filter((row) => {
         if (!row) return false
+        if (
+          ['thiếu họ tên ltt', 'chưa có tt lệnh', 'thiếu tt lệnh'].includes(sf)
+        ) {
+          const lttStatus = String(
+            row.OpInfoStatus ?? row['Trạng thái LTT'] ?? row['Trạng thái thông tin lệnh'] ?? ''
+          ).toLowerCase()
+          return lttStatus === sf || lttStatus.startsWith(`${sf}:`)
+        }
         const tag = String(
           row.CoordinatorStatus ||
             row['Trạng thái ĐP - SX'] ||
@@ -2062,9 +2074,10 @@ export default function CalcProductionDetailView() {
         }
 
         setIsDirty(true)
+        const temporalWarningMessage = formatTemporalWarnings(parsed.temporalWarnings)
         setStatusMessage?.({
-          type: 'success',
-          text: `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng cho tab ${tabDef.title}.`
+          type: temporalWarningMessage ? 'warning' : 'success',
+          text: `Đã nạp thành công ${parsed.rowCount.toLocaleString('vi-VN')} dòng cho tab ${tabDef.title}.${temporalWarningMessage ? ` ${temporalWarningMessage}` : ''}`
         })
       } catch (err) {
         console.warn('Lỗi nạp tự động, mở modal ánh xạ cột:', err)
@@ -2159,9 +2172,10 @@ export default function CalcProductionDetailView() {
         }
 
         setIsDirty(true)
+        const temporalWarningMessage = formatTemporalWarnings(parsed.temporalWarnings)
         setStatusMessage?.({
-          type: 'success',
-          text: `Đã nạp ${parsed.rowCount.toLocaleString('vi-VN')} dòng theo ánh xạ tùy chỉnh cho tab ${tabDef.title}.`
+          type: temporalWarningMessage ? 'warning' : 'success',
+          text: `Đã nạp ${parsed.rowCount.toLocaleString('vi-VN')} dòng theo ánh xạ tùy chỉnh cho tab ${tabDef.title}.${temporalWarningMessage ? ` ${temporalWarningMessage}` : ''}`
         })
       } catch (err) {
         setStatusMessage?.({

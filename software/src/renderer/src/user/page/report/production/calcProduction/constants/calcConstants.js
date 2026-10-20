@@ -713,6 +713,13 @@ export const SUMMARY_OP_COLUMN_SCHEMA = [
   },
   {
     group: 'THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC',
+    title: 'Ngày phát hành lệnh thao tác',
+    key: 'OpOrderReleaseDate',
+    kind: 'Text',
+    width: 160
+  },
+  {
+    group: 'THÔNG TIN PHÁT HÀNH LỆNH THAO TÁC',
     title: 'Lệnh sản xuất mẫu',
     key: 'SampleProductionOrderNo',
     kind: 'Text',

@@ -102,7 +102,10 @@ export default function ExcelMappingModal({
       const headerTitle = String(rawHeaderRow[c] || '')
         .trim()
         .toLowerCase()
-      if (!headerTitle) continue
+      if (!headerTitle) {
+        newMappings[c] = '__IGNORE__'
+        continue
+      }
 
       const matched = availableSchema.find((s) => {
         const sLower = s.title.toLowerCase()
@@ -116,7 +119,7 @@ export default function ExcelMappingModal({
       if (matched) {
         newMappings[c] = matched.key
       } else {
-        newMappings[c] = `CUSTOM_${c}`
+        newMappings[c] = '__IGNORE__'
       }
     }
     setColumnMappings(newMappings)
@@ -299,7 +302,7 @@ export default function ExcelMappingModal({
             </span>
             <span>•</span>
             <span>
-              Cột tự do: <b className="text-slate-700 font-mono">{maxCols - mappedCount}</b>
+              Bỏ qua: <b className="text-slate-700 font-mono">{maxCols - mappedCount}</b>
             </span>
           </div>
         </div>
@@ -315,10 +318,9 @@ export default function ExcelMappingModal({
                 </th>
                 {Array.from({ length: maxCols }).map((_, c) => {
                   const colLetter = getColLetter(c)
-                  const currentMapped = columnMappings[c] || `CUSTOM_${c}`
+                  const currentMapped = columnMappings[c] || '__IGNORE__'
                   const isMatched =
                     currentMapped &&
-                    !currentMapped.startsWith('CUSTOM_') &&
                     currentMapped !== '__IGNORE__'
                   const isIgnored = currentMapped === '__IGNORE__'
 
@@ -351,7 +353,7 @@ export default function ExcelMappingModal({
                   Ánh xạ
                 </th>
                 {Array.from({ length: maxCols }).map((_, c) => {
-                  const currentMapped = columnMappings[c] || `CUSTOM_${c}`
+                  const currentMapped = columnMappings[c] || '__IGNORE__'
 
                   return (
                     <th
@@ -366,7 +368,6 @@ export default function ExcelMappingModal({
                         popupMatchSelectWidth={false}
                         options={[
                           { label: t('-- Bỏ qua cột này --'), value: '__IGNORE__' },
-                          { label: t('-- Cột mở rộng (Tự do) --'), value: `CUSTOM_${c}` },
                           ...availableSchema.map((s) => ({
                             label: `${s.title} (${s.key})`,
                             value: s.key

@@ -273,6 +273,27 @@ export default function CalcDataGridTable({
   )
 
   const effectiveRows = numRows !== undefined ? numRows : gridData?.length || 0
+  const getRowThemeOverride = useCallback(
+    (rowIndex) => {
+      if (!tableId.endsWith('_result_khsx')) return undefined
+      const row = gridData[rowIndex]
+      const lttStatus = String(
+        row?.OpInfoStatus ?? row?.['Trạng thái LTT'] ?? row?.['Trạng thái thông tin lệnh'] ?? ''
+      )
+      if (
+        !lttStatus.includes('Thời gian bắt đầu (Tab 3)') &&
+        !lttStatus.includes('Thời gian kết thúc (Tab 3)')
+      ) {
+        return undefined
+      }
+      return {
+        bgCell: '#fee2e2',
+        bgCellMedium: '#fecaca',
+        textDark: '#991b1b'
+      }
+    },
+    [gridData, tableId]
+  )
 
   return (
     <div className="w-full h-full flex items-center justify-center">
@@ -291,6 +312,7 @@ export default function CalcDataGridTable({
           showSearch={showSearch}
           onSearchClose={onSearchClose}
           rowMarkers="both"
+          getRowThemeOverride={getRowThemeOverride}
           width="100%"
           height="100%"
           rowSelect="multi"

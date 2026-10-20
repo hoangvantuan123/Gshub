@@ -15,6 +15,7 @@ import {
   ArrowRight,
   FileText
 } from 'lucide-react'
+import SystemConfirmModal from '../modal/SystemConfirmModal'
 
 const AppUpdateWidget = () => {
   const [versionInfo, setVersionInfo] = useState({
@@ -35,10 +36,12 @@ const AppUpdateWidget = () => {
 
   const [isOpenPopover, setIsOpenPopover] = useState(false)
   const [showCornerToast, setShowCornerToast] = useState(false)
-  const [dismissedVersion, setDismissedVersion] = useState(null)
+  const [showVersionModal, setShowVersionModal] = useState(false)
   const [isCheckingNative, setIsCheckingNative] = useState(false)
   const [copied, setCopied] = useState(false)
   const popoverRef = useRef(null)
+  const dismissedVersionRef = useRef(null)
+  const hasReceivedStatusRef = useRef(false)
 
   // Đóng popover khi click ra ngoài
   useEffect(() => {
@@ -65,29 +68,39 @@ const AppUpdateWidget = () => {
             uiVersion: info.uiVersion || '1.0.0',
             isCustomBundle: !!info.isCustomBundle
           })
-          if (info.currentState) {
+          if (info.currentState && !hasReceivedStatusRef.current) {
             setState(info.currentState)
             if (
-              info.currentState.status === 'native-available' ||
-              info.currentState.status === 'native-ready'
+              info.currentState.newNativeVersion &&
+              ['native-available', 'downloading', 'native-ready', 'installing'].includes(
+                info.currentState.status
+              ) &&
+              (info.currentState.status !== 'native-available' ||
+                info.currentState.newNativeVersion !== dismissedVersionRef.current)
             ) {
-              setShowCornerToast(true)
+              setShowVersionModal(true)
             }
           }
         }
       })
 
       const unsubscribe = window.electron.updater.onStatusChanged((newState) => {
+        hasReceivedStatusRef.current = true
         setState((prev) => ({ ...prev, ...newState }))
         if (newState.uiVersion) {
           setVersionInfo((prev) => ({ ...prev, uiVersion: newState.uiVersion }))
         }
-        if (newState.status === 'native-available' || newState.status === 'native-ready') {
-          setShowCornerToast(true)
+        if (
+          newState.newNativeVersion &&
+          ((newState.status === 'native-available' &&
+            newState.newNativeVersion !== dismissedVersionRef.current) ||
+            newState.status === 'native-ready')
+        ) {
+          setShowVersionModal(true)
         }
       })
 
-      // Tự động kiểm tra cập nhật giao diện và phần mềm ngầm khi mở ứng dụng / đăng nhập
+      // StatusBar chỉ được mount sau khi vào ứng dụng; kiểm tra tại đây để dùng một luồng duy nhất.
       const autoCheckTimer = setTimeout(() => {
         window.electron.updater.checkAll().catch(() => {})
       }, 1500)
@@ -141,15 +154,38 @@ const AppUpdateWidget = () => {
 
   // Tải bản Full Native Update
   const handleDownloadNative = async () => {
-    if (!window.electron) return
+    if (!window.electron?.updater?.downloadNative && !window.electron?.ipcRenderer) {
+      setState((prev) => ({
+        ...prev,
+        status: 'error',
+        message: 'Không thể kết nối tới bộ cập nhật của ứng dụng.'
+      }))
+      setShowVersionModal(true)
+      return
+    }
+    setShowVersionModal(true)
+    setState((prev) => ({
+      ...prev,
+      status: 'downloading',
+      progress: 0,
+      message: 'Đang bắt đầu tải bản cập nhật...'
+    }))
     try {
       if (typeof window.electron.updater?.downloadNative === 'function') {
         await window.electron.updater.downloadNative()
       } else if (window.electron.ipcRenderer) {
         await window.electron.ipcRenderer.invoke('updater:download-native')
+      } else {
+        throw new Error('Không tìm thấy chức năng tải bản cập nhật.')
       }
     } catch (e) {
       console.error('Download native update error:', e)
+      setState((prev) => ({
+        ...prev,
+        status: 'error',
+        message: `Lỗi tải bản cập nhật: ${e?.message || 'Không rõ nguyên nhân.'}`
+      }))
+      setShowVersionModal(true)
     }
   }
 
@@ -186,7 +222,10 @@ const AppUpdateWidget = () => {
   // Render icon & text trạng thái ở thanh Status Bar (Chỉ text phẳng, không giật layout khi % thay đổi)
   const renderStatusButton = () => {
     const isDownloading = state.status === 'downloading'
-    const isNativeAvailable = state.status === 'native-available'
+    const isNativeAvailable =
+      state.status === 'native-available' ||
+      (Boolean(state.newNativeVersion) &&
+        !['downloading', 'native-ready', 'installing', 'error'].includes(state.status))
     const isNativeReady = state.status === 'native-ready'
     const isUiReady = state.status === 'ui-ready'
 
@@ -256,6 +295,22 @@ const AppUpdateWidget = () => {
       )
     }
 
+    if (state.status === 'error') {
+      return (
+        <div
+          onClick={() => {
+            if (state.newNativeVersion) setShowVersionModal(true)
+            else setIsOpenPopover((prev) => !prev)
+          }}
+          className="flex items-center gap-1.5 px-2.5 h-full border-l border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer text-rose-700 select-none normal-case font-semibold"
+          title={state.message || 'Lỗi cập nhật phần mềm'}
+        >
+          <AlertCircle className="w-3 h-3 shrink-0" />
+          <span className="whitespace-nowrap">Lỗi cập nhật</span>
+        </div>
+      )
+    }
+
     // Trạng thái bình thường: Hiển thị phiên bản phần mềm
     return (
       <div
@@ -276,7 +331,7 @@ const AppUpdateWidget = () => {
     if (!notes || typeof notes !== 'string' || !notes.trim()) {
       return (
         <div className="text-slate-500 italic text-[11px]">
-          Bản cập nhật tối ưu hiệu năng và sửa các lỗi vận hành hệ thống.
+          Nâng cấp phiên bản phần mềm với các cải tiến về độ ổn định, hiệu suất và trải nghiệm sử dụng.
         </div>
       )
     }
@@ -320,6 +375,59 @@ const AppUpdateWidget = () => {
 
   const isChecking = isCheckingNative || state.status === 'checking'
   const isError = state.status === 'error'
+  const closeVersionModal = useCallback(() => {
+    setShowVersionModal(false)
+    if (state.status === 'native-available' && state.newNativeVersion) {
+      dismissedVersionRef.current = state.newNativeVersion
+    }
+  }, [state.newNativeVersion, state.status])
+
+  const handleVersionModalConfirm = async () => {
+    if (state.status === 'native-ready') {
+      handleInstallNative()
+      return
+    }
+    if (state.newNativeVersion) {
+      if (state.status === 'downloading' || state.status === 'installing') return
+      if (!state.nativeDownloadUrl && state.releasePageUrl && state.status === 'native-available') {
+        try {
+          if (window.electron?.updater?.openUrl) {
+            await window.electron.updater.openUrl(state.releasePageUrl)
+          } else {
+            throw new Error('Không thể mở trang phát hành từ ứng dụng.')
+          }
+          setState((prev) => ({
+            ...prev,
+            status: 'error',
+            message: 'Đã mở trang phát hành. Hãy tải bộ cài phù hợp tại đó.'
+          }))
+        } catch (error) {
+          setState((prev) => ({
+            ...prev,
+            status: 'error',
+            message: `Không mở được trang phát hành: ${error?.message || 'Lỗi không xác định.'}`
+          }))
+        }
+      } else {
+        dismissedVersionRef.current = null
+        handleDownloadNative()
+      }
+    }
+  }
+
+  const isDownloadingNative = state.status === 'downloading'
+  const modalConfirmText =
+    state.status === 'native-ready'
+      ? 'Khởi động lại để cập nhật'
+      : isDownloadingNative
+        ? 'Đang tải...'
+        : !state.nativeDownloadUrl &&
+            state.releasePageUrl &&
+            state.status === 'native-available'
+          ? 'Mở trang phát hành'
+          : isError
+            ? 'Thử tải lại'
+            : 'Tải bản cập nhật'
 
   return (
     <div className="relative h-full flex items-center normal-case" ref={popoverRef}>
@@ -482,7 +590,7 @@ const AppUpdateWidget = () => {
                 <button
                   onClick={() => {
                     setShowCornerToast(false)
-                    setDismissedVersion(state.newNativeVersion)
+                    dismissedVersionRef.current = state.newNativeVersion
                   }}
                   className="text-slate-400 hover:text-white p-0.5 transition-colors"
                   title="Đóng thông báo"
@@ -551,7 +659,7 @@ const AppUpdateWidget = () => {
               <button
                 onClick={() => {
                   setShowCornerToast(false)
-                  setDismissedVersion(state.newNativeVersion)
+                  dismissedVersionRef.current = state.newNativeVersion
                 }}
                 className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded font-medium transition-colors"
               >
@@ -591,6 +699,47 @@ const AppUpdateWidget = () => {
           </div>,
           document.body
         )}
+
+      <SystemConfirmModal
+        isOpen={showVersionModal && Boolean(state.newNativeVersion)}
+        type="info"
+        title="Thông báo phiên bản"
+        message={
+          state.status === 'native-ready'
+            ? `Bản cập nhật v${state.newNativeVersion} đã tải xong.`
+            : state.status === 'downloading'
+              ? `Đang tải bản cập nhật v${state.newNativeVersion}...`
+              : isError
+                ? state.message || `Không thể tải bản cập nhật v${state.newNativeVersion}.`
+                : `Phần mềm đã có phiên bản mới v${state.newNativeVersion || ''}.`
+        }
+        subMessage={`Phiên bản đang sử dụng: v${versionInfo.nativeVersion}.${state.status === 'native-available' && state.nativeDownloadUrl === '' ? '\n\nRelease chưa có file cài phù hợp. Có thể mở trang phát hành để tải thủ công.' : ''}`}
+        confirmText={modalConfirmText}
+        confirmDisabled={isDownloadingNative || state.status === 'installing'}
+        cancelText={state.status === 'installing' ? null : 'Để sau'}
+        onConfirm={handleVersionModalConfirm}
+        onClose={closeVersionModal}
+      >
+        {isDownloadingNative && (
+          <div className="pt-2 space-y-1.5">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                style={{ width: `${Math.max(0, Math.min(100, Number(state.progress) || 0))}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
+              <span>{state.message || 'Đang tải bộ cài...'}</span>
+              <span className="font-mono font-semibold">{state.progress || 0}%</span>
+            </div>
+          </div>
+        )}
+        {state.releaseNotes && !isDownloadingNative && (
+          <div className="mt-2 max-h-36 overflow-y-auto whitespace-pre-line rounded border border-slate-200 bg-slate-50 p-2 text-[11px] leading-relaxed text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            {state.releaseNotes}
+          </div>
+        )}
+      </SystemConfirmModal>
     </div>
   )
 }

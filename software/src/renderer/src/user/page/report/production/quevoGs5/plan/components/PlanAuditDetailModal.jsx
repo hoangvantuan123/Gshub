@@ -1151,50 +1151,27 @@ export const PlanAuditDetailModal = ({
     )
   }
 
-  // Copy toàn bộ bảng đang hiển thị ra Clipboard
-  const handleCopyTable = async () => {
+  // Copy toàn bộ bảng ra Clipboard
+  const handleCopyTable = () => {
     if (!filteredData.length) return
     try {
       const headers = columns.map((c) => c.title)
-      const rows = filteredData.map((_, idx) =>
-        columns.map((_, colIndex) => {
-          const cell = getCellContent([colIndex, idx])
-          return String(cell.displayData ?? cell.data ?? '').replace(/[\t\r\n]/g, ' ')
+      const rows = filteredData.map((item, idx) =>
+        columns.map((col) => {
+          if (col.id === 'stt') return idx + 1
+          if (col.id === 'completionRate') {
+            const p = Number(item.planQty ?? item.TargetProdQty ?? 0) || 0
+            const a = Number(item.actualQty ?? item.StatPassQty ?? 0) || 0
+            return p > 0 ? `${((a / p) * 100).toFixed(1)}%` : '100%'
+          }
+          return item[col.id] ?? ''
         })
       )
       const tsvContent = [headers.join('\t'), ...rows.map((r) => r.join('\t'))].join('\n')
-
-      let copied = false
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        try {
-          await navigator.clipboard.writeText(tsvContent)
-          copied = true
-        } catch (err) {
-          console.warn('Clipboard API không khả dụng, thử phương án dự phòng:', err)
-        }
-      }
-
-      if (!copied) {
-        const textArea = document.createElement('textarea')
-        textArea.value = tsvContent
-        textArea.setAttribute('readonly', '')
-        textArea.style.position = 'fixed'
-        textArea.style.opacity = '0'
-        document.body.appendChild(textArea)
-        let legacyCopySucceeded = false
-        try {
-          textArea.select()
-          legacyCopySucceeded = document.execCommand('copy')
-        } finally {
-          document.body.removeChild(textArea)
-        }
-        if (!legacyCopySucceeded) throw new Error('Trình duyệt không cho phép sao chép dữ liệu')
-      }
-
+      navigator.clipboard.writeText(tsvContent)
       message.success(`Đã sao chép ${filteredData.length} dòng vào clipboard`)
     } catch (err) {
       console.error('Copy TSV error:', err)
-      message.error('Không thể sao chép dữ liệu. Vui lòng thử lại.')
     }
   }
 
@@ -1443,28 +1420,6 @@ export const PlanAuditDetailModal = ({
               </div>
             </details>
 
-            <button
-              type="button"
-              onClick={handleCopyTable}
-              disabled={filteredData.length === 0}
-              title="Sao chép dữ liệu đang hiển thị theo bộ lọc và cột hiện tại"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '4px 10px',
-                border: '1px solid #cbd5e1',
-                borderRadius: 2,
-                background: filteredData.length ? '#ffffff' : '#f1f5f9',
-                color: filteredData.length ? '#334155' : '#94a3b8',
-                fontSize: 12,
-                cursor: filteredData.length ? 'pointer' : 'not-allowed'
-              }}
-            >
-              <Copy size={13} />
-              Sao chép
-            </button>
-
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <Search
                 size={14}
@@ -1499,6 +1454,7 @@ export const PlanAuditDetailModal = ({
               columns={columns}
               rows={filteredData.length}
               getCellContent={getCellContent}
+              getCellsForSelection={true}
               onCellEdited={onCellEdited}
               onCellClicked={onCellActivated}
               onCellActivated={onCellActivated}

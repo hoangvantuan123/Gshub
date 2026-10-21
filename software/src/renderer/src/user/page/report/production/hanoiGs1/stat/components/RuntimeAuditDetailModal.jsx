@@ -1,8 +1,29 @@
 /* eslint-disable react/prop-types */
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Download, Copy, Search, X } from 'lucide-react'
+import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid'
+import '@glideapps/glide-data-grid/dist/index.css'
 import * as XLSX from 'xlsx'
-import { PureButton, PureSelect } from './reportUIComponents'
+import { PureButton, PureSelect, executiveGridTheme } from './reportUIComponents'
+
+const AUDIT_COLUMNS = [
+  { id: 'stt', title: 'STT', width: 50 },
+  { id: 'ticketNo', title: 'Mã phiếu', width: 140 },
+  { id: 'orderNo', title: 'Lệnh SX', width: 130 },
+  { id: 'machineCode', title: 'Mã máy', width: 100 },
+  { id: 'machineName', title: 'Tên máy', width: 180 },
+  { id: 'teamName', title: 'Tổ SX', width: 120 },
+  { id: 'startDate', title: 'Ngày BĐ', width: 110 },
+  { id: 'startTime', title: 'Giờ BĐ', width: 100 },
+  { id: 'endDate', title: 'Ngày KT', width: 110 },
+  { id: 'endTime', title: 'Giờ KT', width: 100 },
+  { id: 'runtimeH', title: 'Giờ chạy', width: 100 },
+  { id: 'actual', title: 'SL SX', width: 110 },
+  { id: 'pass', title: 'SL Đạt', width: 110 },
+  { id: 'passRate', title: 'Tỷ lệ', width: 80 },
+  { id: 'auditText', title: 'Cảnh báo', width: 220 },
+  { id: 'operator', title: 'Người làm', width: 160 }
+]
 
 // Modal Đối Soát Thời Gian Chạy Máy (Layout màu trắng tối giản, tinh tế)
 export const RuntimeAuditDetailModal = ({
@@ -17,6 +38,49 @@ export const RuntimeAuditDetailModal = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTeam, setSelectedTeam] = useState('ALL')
   const [selectedMachine, setSelectedMachine] = useState('ALL')
+  const [columnWidths, setColumnWidths] = useState({})
+  const [columnOrder, setColumnOrder] = useState(() => AUDIT_COLUMNS.map((column) => column.id))
+  const [hiddenColumns, setHiddenColumns] = useState([])
+
+  const columns = useMemo(
+    () =>
+      columnOrder
+        .filter((id) => !hiddenColumns.includes(id))
+        .map((id) => {
+          const column = AUDIT_COLUMNS.find((item) => item.id === id)
+          return { ...column, width: columnWidths[id] ?? column.width }
+        }),
+    [columnOrder, hiddenColumns, columnWidths]
+  )
+
+  const onColumnResize = useCallback((column, width) => {
+    setColumnWidths((previous) => ({ ...previous, [column.id]: width }))
+  }, [])
+
+  const onColumnMoved = useCallback(
+    (startIndex, endIndex) => {
+      const sourceId = columns[startIndex]?.id
+      const targetId = columns[endIndex]?.id
+      if (!sourceId || !targetId || sourceId === targetId) return
+      setColumnOrder((previous) => {
+        const next = [...previous]
+        const sourceIndex = next.indexOf(sourceId)
+        const targetIndex = next.indexOf(targetId)
+        next.splice(sourceIndex, 1)
+        next.splice(targetIndex, 0, sourceId)
+        return next
+      })
+    },
+    [columns]
+  )
+
+  const toggleColumn = (id) => {
+    setHiddenColumns((previous) => {
+      if (previous.includes(id)) return previous.filter((columnId) => columnId !== id)
+      if (previous.length === AUDIT_COLUMNS.length - 1) return previous
+      return [...previous, id]
+    })
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -199,6 +263,54 @@ export const RuntimeAuditDetailModal = ({
     })
   }, [classifiedData, activeCategory, selectedTeam, selectedMachine, searchQuery])
 
+  const getCellContent = useCallback(
+    ([col, row]) => {
+      const item = filteredData[row]
+      const columnId = columns[col]?.id
+      if (!item || !columnId) return { kind: GridCellKind.Loading, allowOverlay: false }
+
+      const isTimeError =
+        item.isTimeReversed && ['startTime', 'endTime', 'runtimeH', 'auditText'].includes(columnId)
+      const themeOverride = { textDark: isTimeError ? '#dc2626' : '#334155' }
+      const numericValue = columnId === 'stt' ? row + 1 : item[columnId]
+
+      if (['stt', 'runtimeH', 'actual', 'pass', 'passRate'].includes(columnId)) {
+        let displayData = String(numericValue)
+        if (columnId === 'runtimeH') displayData = `${numericValue.toFixed(2)}h`
+        if (columnId === 'actual' || columnId === 'pass') {
+          displayData = numericValue.toLocaleString('vi-VN')
+        }
+        if (columnId === 'passRate') displayData = `${numericValue}%`
+        return {
+          kind: GridCellKind.Number,
+          data: numericValue,
+          displayData,
+          readonly: true,
+          allowOverlay: false,
+          contentAlign: columnId === 'stt' ? 'center' : 'right',
+          themeOverride
+        }
+      }
+
+      let value = item[columnId]
+      if (columnId === 'machineName') value = maskText(value, 5)
+      if (columnId === 'operator' && value) value = maskText(value, 3)
+      const text = String(value || '-')
+      return {
+        kind: GridCellKind.Text,
+        data: text,
+        displayData: text,
+        readonly: true,
+        allowOverlay: false,
+        contentAlign: ['startDate', 'startTime', 'endDate', 'endTime'].includes(columnId)
+          ? 'center'
+          : 'left',
+        themeOverride
+      }
+    },
+    [filteredData, columns, maskText]
+  )
+
   // Xuất Excel
   const handleExportExcel = () => {
     try {
@@ -301,10 +413,10 @@ export const RuntimeAuditDetailModal = ({
       <div
         style={{
           background: '#ffffff',
-          width: 'clamp(960px, 92vw, 1440px)',
-          height: 'clamp(580px, 88vh, 860px)',
-          maxHeight: '92vh',
-          maxWidth: '96vw',
+          width: 'calc(100vw - 32px)',
+          height: 'calc(100dvh - 32px)',
+          maxHeight: 'calc(100dvh - 32px)',
+          maxWidth: '100%',
           border: '1px solid #e2e8f0',
           boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
           display: 'flex',
@@ -451,6 +563,53 @@ export const RuntimeAuditDetailModal = ({
 
           {/* Lọc dropdown & Tìm kiếm */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <details style={{ position: 'relative', fontSize: 12, color: '#334155' }}>
+              <summary
+                style={{ cursor: 'pointer', padding: '4px 10px', border: '1px solid #e2e8f0' }}
+              >
+                Ẩn / hiện cột ({columns.length}/{AUDIT_COLUMNS.length})
+              </summary>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  zIndex: 20,
+                  width: 220,
+                  maxHeight: '45vh',
+                  overflowY: 'auto',
+                  padding: 10,
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)'
+                }}
+              >
+                {columnOrder.map((id) => {
+                  const column = AUDIT_COLUMNS.find((item) => item.id === id)
+                  const visible = !hiddenColumns.includes(id)
+                  return (
+                    <label key={id} style={{ display: 'flex', gap: 8, padding: '4px 0' }}>
+                      <input
+                        type="checkbox"
+                        checked={visible}
+                        disabled={visible && columns.length === 1}
+                        onChange={() => toggleColumn(id)}
+                      />
+                      {column.title}
+                    </label>
+                  )
+                })}
+                <PureButton
+                  onClick={() => {
+                    setHiddenColumns([])
+                    setColumnOrder(AUDIT_COLUMNS.map((column) => column.id))
+                    setColumnWidths({})
+                  }}
+                >
+                  Khôi phục cột mặc định
+                </PureButton>
+              </div>
+            </details>
             <div
               style={{
                 display: 'flex',
@@ -571,404 +730,43 @@ export const RuntimeAuditDetailModal = ({
           </div>
         </div>
 
-        {/* Bảng dữ liệu HTML thuần - Nền trắng sạch sẽ */}
-        <div
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            background: '#ffffff'
-          }}
-        >
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: 12,
-              textAlign: 'left'
-            }}
-          >
-            <thead
+        {/* Dùng cùng Data Grid với bảng chi tiết của báo cáo. */}
+        <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#ffffff' }}>
+          <DataEditor
+            columns={columns}
+            rows={filteredData.length}
+            getCellContent={getCellContent}
+            onColumnResize={onColumnResize}
+            onColumnMoved={onColumnMoved}
+            getCellsForSelection
+            rangeSelect="rect"
+            columnSelect="multi"
+            rowSelect="multi"
+            rowMarkers="both"
+            rowHeight={28}
+            headerHeight={32}
+            smoothScrollX
+            smoothScrollY
+            theme={executiveGridTheme}
+            width="100%"
+            height="100%"
+          />
+          {filteredData.length === 0 && (
+            <div
               style={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 10,
-                background: '#f8fafc',
-                color: '#334155',
-                borderBottom: '1px solid #cbd5e1'
+                position: 'absolute',
+                top: 64,
+                left: 0,
+                right: 0,
+                textAlign: 'center',
+                color: '#94a3b8',
+                pointerEvents: 'none'
               }}
             >
-              <tr>
-                <th
-                  style={{
-                    padding: '6px 6px',
-                    textAlign: 'center',
-                    width: 40,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  STT
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'left',
-                    minWidth: 120,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Mã phiếu
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'left',
-                    minWidth: 110,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Lệnh SX
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'left',
-                    minWidth: 80,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Mã máy
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'left',
-                    minWidth: 140,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Tên máy
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'left',
-                    minWidth: 90,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Tổ SX
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'center',
-                    minWidth: 90,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Ngày BĐ
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'center',
-                    minWidth: 80,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Giờ BĐ
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'center',
-                    minWidth: 90,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Ngày KT
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'center',
-                    minWidth: 80,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Giờ KT
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'right',
-                    minWidth: 80,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Giờ chạy
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'right',
-                    minWidth: 85,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  SL SX
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'right',
-                    minWidth: 85,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  SL Đạt
-                </th>
-                <th
-                  style={{
-                    padding: '6px 6px',
-                    textAlign: 'right',
-                    minWidth: 65,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Tỷ lệ
-                </th>
-                <th
-                  style={{
-                    padding: '6px 8px',
-                    textAlign: 'left',
-                    minWidth: 160,
-                    borderRight: '1px solid #e2e8f0',
-                    fontWeight: 600
-                  }}
-                >
-                  Cảnh báo
-                </th>
-                <th
-                  style={{ padding: '6px 8px', textAlign: 'left', minWidth: 110, fontWeight: 600 }}
-                >
-                  Người làm
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={16}
-                    style={{ textAlign: 'center', padding: '32px 16px', color: '#94a3b8' }}
-                  >
-                    Không có phiếu nào phù hợp.
-                  </td>
-                </tr>
-              ) : (
-                filteredData.map((item, idx) => {
-                  const isErr = item.isTimeReversed
-                  return (
-                    <tr
-                      key={item.ticketNo || idx}
-                      style={{
-                        background: '#ffffff',
-                        borderBottom: '1px solid #f1f5f9'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#f8fafc'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = '#ffffff'
-                      }}
-                    >
-                      <td
-                        style={{
-                          padding: '5px 6px',
-                          textAlign: 'center',
-                          color: '#94a3b8',
-                          borderRight: '1px solid #f1f5f9'
-                        }}
-                      >
-                        {idx + 1}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          fontWeight: 500,
-                          color: '#0f172a',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.ticketNo}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          color: '#475569',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.orderNo || '-'}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          color: '#0f172a',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.machineCode || '-'}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          color: '#334155',
-                          borderRight: '1px solid #f1f5f9'
-                        }}
-                      >
-                        {maskText(item.machineName, 5)}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          color: '#475569',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.teamName || '-'}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          textAlign: 'center',
-                          color: '#334155',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.startDate || '-'}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          textAlign: 'center',
-                          color: isErr ? '#dc2626' : '#0f172a',
-                          fontWeight: isErr ? 600 : 400,
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.startTime || '-'}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          textAlign: 'center',
-                          color: '#334155',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.endDate || '-'}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          textAlign: 'center',
-                          color: isErr ? '#dc2626' : '#0f172a',
-                          fontWeight: isErr ? 600 : 400,
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.endTime || '-'}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          textAlign: 'right',
-                          fontWeight: 500,
-                          color: isErr ? '#dc2626' : '#0f172a',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.runtimeH.toFixed(2)}h
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          textAlign: 'right',
-                          color: '#0f172a',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.actual.toLocaleString('vi-VN')}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          textAlign: 'right',
-                          color: '#0f172a',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.pass.toLocaleString('vi-VN')}
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 6px',
-                          textAlign: 'right',
-                          color: '#334155',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.passRate}%
-                      </td>
-                      <td
-                        style={{
-                          padding: '5px 8px',
-                          color: isErr ? '#dc2626' : '#64748b',
-                          borderRight: '1px solid #f1f5f9',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {item.auditText}
-                      </td>
-                      <td style={{ padding: '5px 8px', color: '#64748b', whiteSpace: 'nowrap' }}>
-                        {item.operator ? maskText(item.operator, 3) : '-'}
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+              Không có phiếu nào phù hợp.
+            </div>
+          )}
         </div>
-
         {/* Modal Footer - Trắng đơn giản */}
         <div
           style={{
@@ -977,10 +775,16 @@ export const RuntimeAuditDetailModal = ({
             borderTop: '1px solid #e2e8f0',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
             flexShrink: 0
           }}
         >
+          <span style={{ fontSize: 12, color: '#64748b' }}>
+            Kéo tiêu đề để đổi vị trí cột • Kéo mép để giãn cột • Ẩn / hiện cột trên thanh công cụ •
+            Ctrl+C sao chép vùng chọn
+          </span>
           <PureButton
             onClick={onClose}
             style={{

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import DynamicQueryBar from '@renderer/user/components/query/core/DynamicQueryBar'
 import { TAB_DEFINITIONS } from '../constants/calcConstants'
+import { MACHINE_COMPARISON_STATUSES, MES_MACHINE_STATUSES } from '../engine/machineComparison'
 
 export default function CalcProductionQuery({
   activeTab,
@@ -124,10 +125,13 @@ export default function CalcProductionQuery({
       },
       {
         key: 'StatusFilter',
-        label: t('Lọc trạng thái ĐP-SX'),
+        label: t(activeTab === 'machine_comparison' ? 'Đối chiếu máy' : 'Lọc trạng thái ĐP-SX'),
         type: 'select',
         options: [
           { value: 'ALL', label: t('Tất cả trạng thái') },
+          ...(activeTab === 'machine_comparison'
+            ? [...MACHINE_COMPARISON_STATUSES, ...MES_MACHINE_STATUSES].map((status) => ({ value: status, label: t(status) }))
+            : [
           { value: 'Khớp số lượng', label: t('Khớp số lượng (Đạt KH)') },
           { value: 'Khớp job', label: t('Khớp job (Đạt job)') },
           { value: 'Trượt KH', label: t('Trượt KH') },
@@ -137,11 +141,12 @@ export default function CalcProductionQuery({
           { value: 'Chưa có TT lệnh', label: t('⚠️ Chưa có TT lệnh thao tác') },
           { value: 'Thiếu TT lệnh', label: t('⚠️ Thiếu TT lệnh') },
           { value: 'Đã bổ sung', label: t('Đã bổ sung bằng tay') }
+            ])
         ],
         colSpan: 2
       }
     ],
-    [t]
+    [t, activeTab]
   )
 
   const filterFields = useMemo(() => {
@@ -445,6 +450,23 @@ export default function CalcProductionQuery({
           )}
         </div>
       </div>
+
+      {activeTab === 'machine_comparison' && (
+        <div className="px-3 py-2 text-[11px] text-slate-600 bg-emerald-50/50 border-t border-emerald-100">
+          {t('Tự động tính sau tab 5 và 6. Giữ từng dòng phiếu TK; nối KHSX theo đầy đủ số lệnh thao tác. Nối MES (tab 4) bằng Số phiếu thống kê → Mã TK (Mã lệnh thống kê Bravo), kiểm tra cùng lệnh thao tác. Máy TKSX, máy khai báo và máy MES được hiển thị riêng. MES được so theo mã máy nếu đủ mã, nếu không thì theo tên máy; cột tiêu chí ghi rõ cách so sánh. Không gộp các phiếu cùng lệnh.')}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {[...MACHINE_COMPARISON_STATUSES, ...MES_MACHINE_STATUSES].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter?.(statusFilter === status ? 'ALL' : status)}
+                className={`rounded border px-2 py-1 cursor-pointer ${statusFilter === status ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+              >
+                {t(status)}: {(fileStatusSummary.machine_comparison?.statusCounts?.[status] || 0).toLocaleString('vi-VN')}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

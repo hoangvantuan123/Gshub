@@ -1745,7 +1745,9 @@ export const parseUploadedFile = async (file, fileType, customConfig = {}, onPro
                 fileType === ARCHITECTURE_FILE_TYPES.MES_APPROVAL ? 'Mã phiếu' : 'Số phiếu thống kê'
             } else if (
               titleLower.includes('mã lệnh thống kê bravo') ||
-              titleLower.includes('thống kê bravo')
+              titleLower.includes('thống kê bravo') ||
+              titleLower === 'mã tk' ||
+              titleLower === 'mã tk bravo'
             ) {
               resolvedKey = 'BravoStatCode'
               resolvedTitle = 'Mã lệnh thống kê Bravo'

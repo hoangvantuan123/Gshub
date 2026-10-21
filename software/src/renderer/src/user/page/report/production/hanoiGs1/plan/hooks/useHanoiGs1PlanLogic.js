@@ -33,6 +33,16 @@ function getCleanDate(dateVal) {
   return s.slice(0, 10)
 }
 
+function getPlanStatus(item) {
+  const status = item.dpStatusCode || item.dpStatus
+  const text = String(item.dpStatusText || '')
+  if (status === 'SX_SAI_NGAY' || text.includes('sai ngày')) return 'SX_SAI_NGAY'
+  if (status === 'TRUOT_KH' || text.includes('Trượt')) return 'TRUOT_KH'
+  if (status === 'KHOP_SL' || text.includes('Khớp số lượng')) return 'KHOP_SL'
+  if (status === 'KHOP_JOB' || text.includes('Khớp job')) return 'KHOP_JOB'
+  return status
+}
+
 export function useHanoiGs1PlanLogic({
   dataset = [],
   plantKey = 'hanoi_gs1',
@@ -519,6 +529,9 @@ export function useHanoiGs1PlanLogic({
   // 10. DETAIL TABLE (CHI TIẾT LỆNH ĐIỀU PHỐI KHSX THEO TIÊU CHUẨN ĐĂNG KÝ BÁO CÁO)
   const rawPlanCols = usePlanImportColumns()
   const [detailColWidths, setDetailColWidths] = useState({})
+  const [detailStatus, setDetailStatus] = useState('ALL')
+  const [detailColumnOrder, setDetailColumnOrder] = useState([])
+  const [hiddenDetailColumns, setHiddenDetailColumns] = useState([])
   const [detailSortConfig, setDetailSortConfig] = useState({ key: 'OperationNo', direction: 'asc' })
   const [detailSearchText, setDetailSearchText] = useState('')
   const [showDetailSearch, setShowDetailSearch] = useState(false)
@@ -526,7 +539,9 @@ export function useHanoiGs1PlanLogic({
 
   // Filtered & Sorted Detail List for Detail Table
   const displayDetailList = useMemo(() => {
-    let list = [...filteredData]
+    let list = filteredData.filter(
+      (item) => detailStatus === 'ALL' || getPlanStatus(item) === detailStatus
+    )
     if (detailSearchText.trim()) {
       const q = detailSearchText.toLowerCase().trim()
       list = list.filter((item) => {
@@ -554,10 +569,10 @@ export function useHanoiGs1PlanLogic({
       })
     }
     return list
-  }, [filteredData, detailSearchText, detailSortConfig])
+  }, [filteredData, detailStatus, detailSearchText, detailSortConfig])
 
   // Columns for Glide Data Grid matching 100% Plan Import Registration schema
-  const detailGridCols = useMemo(() => {
+  const allDetailGridCols = useMemo(() => {
     return (rawPlanCols || [])
       .filter(
         (c) =>
@@ -578,6 +593,47 @@ export function useHanoiGs1PlanLogic({
         }
       })
   }, [rawPlanCols, detailColWidths, detailSortConfig])
+
+  const detailGridCols = useMemo(() => {
+    const orderedIds = [
+      ...detailColumnOrder,
+      ...allDetailGridCols
+        .map((column) => column.id)
+        .filter((id) => !detailColumnOrder.includes(id))
+    ]
+    return orderedIds
+      .filter((id) => !hiddenDetailColumns.includes(id))
+      .map((id) => allDetailGridCols.find((column) => column.id === id))
+      .filter(Boolean)
+  }, [allDetailGridCols, detailColumnOrder, hiddenDetailColumns])
+
+  const onDetailColumnMoved = useCallback(
+    (startIndex, endIndex) => {
+      const ids = detailGridCols.map((column) => column.id)
+      const [id] = ids.splice(startIndex, 1)
+      if (!id) return
+      ids.splice(endIndex, 0, id)
+      setDetailColumnOrder([...ids, ...hiddenDetailColumns])
+    },
+    [detailGridCols, hiddenDetailColumns]
+  )
+
+  const toggleDetailColumn = useCallback(
+    (id) => {
+      setHiddenDetailColumns((previous) => {
+        if (previous.includes(id)) return previous.filter((hiddenId) => hiddenId !== id)
+        if (detailGridCols.length <= 1) return previous
+        return [...previous, id]
+      })
+    },
+    [detailGridCols.length]
+  )
+
+  const resetDetailColumns = useCallback(() => {
+    setDetailColumnOrder([])
+    setHiddenDetailColumns([])
+    setDetailColWidths({})
+  }, [])
 
   const onDetailHeaderClicked = useCallback(
     (col) => {
@@ -792,6 +848,14 @@ export function useHanoiGs1PlanLogic({
     getDetailCellContent,
     onDetailHeaderClicked,
     onDetailColumnResize,
+    onDetailColumnMoved,
+    allDetailGridCols,
+    hiddenDetailColumns,
+    toggleDetailColumn,
+    resetDetailColumns,
+    detailStatus,
+    setDetailStatus,
+
     detailSortConfig,
     setDetailSortConfig,
     detailSearchText,

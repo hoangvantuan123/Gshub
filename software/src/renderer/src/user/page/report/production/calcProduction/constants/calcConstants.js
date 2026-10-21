@@ -18,7 +18,8 @@ export const ARCHITECTURE_FILE_TYPES = {
   SUMMARY_OP: 'summary_op', // 3. Báo cáo Tổng hợp lệnh thao tác
   MES_APPROVAL: 'mes_approval', // 4. Báo cáo Duyệt sản lượng ở MES
   RESULT_TKSX: 'result_tksx', // 5. Bảng Kết Quả Thống Kê Sản Xuất (98 cột)
-  RESULT_KHSX: 'result_khsx' // 6. Bảng Kết Quả Kế Hoạch Sản Xuất & Đối soát
+  RESULT_KHSX: 'result_khsx', // 6. Bảng Kết Quả Kế Hoạch Sản Xuất & Đối soát
+  MACHINE_COMPARISON: 'machine_comparison'
 }
 
 /**
@@ -1449,6 +1450,28 @@ export const RESULT_KHSX_COLUMN_SCHEMA = [
   { title: 'KHSX', key: 'KhsxStatus', kind: 'Text', width: 100 }
 ]
 
+export const MACHINE_COMPARISON_COLUMN_SCHEMA = [
+  { title: 'Dòng TK nguồn', key: 'SourceRow', kind: 'Number', width: 110 },
+  { title: 'Số phiếu thống kê', key: 'StatSlipNo', kind: 'Text', width: 160 },
+  { title: 'Ngày thống kê', key: 'StatDate', kind: 'Text', width: 120 },
+  { title: 'Số lệnh thao tác', key: 'OperationOrderNo', kind: 'Text', width: 180 },
+  { title: 'Số lệnh công đoạn', key: 'StageOrderNo', kind: 'Text', width: 160 },
+  { title: 'Thao tác', key: 'OperationName', kind: 'Text', width: 170 },
+  { title: 'Mã vật tư', key: 'MaterialCode', kind: 'Text', width: 140 },
+  { title: 'Tên vật tư', key: 'MaterialName', kind: 'Text', width: 220 },
+  { group: 'Máy thực tế (TKSX)', title: 'Mã máy thực tế', key: 'ActualMachineCode', kind: 'Text', width: 150 },
+  { group: 'Máy thực tế (TKSX)', title: 'Tên máy thực tế', key: 'ActualMachineName', kind: 'Text', width: 200 },
+  { group: 'Máy duyệt sản lượng MES (tab 4)', title: 'Mã phiếu MES', key: 'MesSlipNo', kind: 'Text', width: 160 },
+  { group: 'Máy duyệt sản lượng MES (tab 4)', title: 'Mã máy MES', key: 'MesMachineCode', kind: 'Text', width: 150 },
+  { group: 'Máy duyệt sản lượng MES (tab 4)', title: 'Tên máy MES', key: 'MesMachineName', kind: 'Text', width: 200 },
+  { group: 'Máy duyệt sản lượng MES (tab 4)', title: 'Đối chiếu TKSX - MES', key: 'MesComparisonStatus', kind: 'Text', width: 200 },
+  { group: 'Máy duyệt sản lượng MES (tab 4)', title: 'Tiêu chí so sánh MES', key: 'MesComparisonBasis', kind: 'Text', width: 170 },
+  { group: 'Máy khai báo (KHSX / LTT)', title: 'Mã máy khai báo', key: 'PlannedMachineCode', kind: 'Text', width: 170 },
+  { group: 'Máy khai báo (KHSX / LTT)', title: 'Tên máy khai báo', key: 'PlannedMachineName', kind: 'Text', width: 220 },
+  { title: 'Đối chiếu TKSX - KHSX', key: 'MachineComparisonStatus', kind: 'Text', width: 210 },
+  { title: 'Chi tiết chênh lệch máy', key: 'MachineDifference', kind: 'Text', width: 330 }
+]
+
 export const TAB_DEFINITIONS = [
   {
     id: ARCHITECTURE_FILE_TYPES.STAT_REPORT,
@@ -1500,6 +1523,15 @@ export const TAB_DEFINITIONS = [
     description:
       'Bảng tổng hợp đối soát Kế hoạch sản xuất và tiến độ thực tế theo từng lệnh thao tác',
     columnsSchema: RESULT_KHSX_COLUMN_SCHEMA,
+    isResultTab: true
+  },
+  {
+    id: ARCHITECTURE_FILE_TYPES.MACHINE_COMPARISON,
+    key: 'machine_comparison',
+    title: '7. Đối chiếu máy TK - KH',
+    shortTitle: 'Đối chiếu máy',
+    description: 'Đi từ từng dòng phiếu TK sang KHSX theo đúng số lệnh thao tác; so sánh mã máy thực tế với mã máy khai báo trên lệnh.',
+    columnsSchema: MACHINE_COMPARISON_COLUMN_SCHEMA,
     isResultTab: true
   }
 ]

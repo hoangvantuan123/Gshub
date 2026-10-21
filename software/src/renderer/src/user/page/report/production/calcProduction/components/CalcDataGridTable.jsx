@@ -275,6 +275,15 @@ export default function CalcDataGridTable({
   const effectiveRows = numRows !== undefined ? numRows : gridData?.length || 0
   const getRowThemeOverride = useCallback(
     (rowIndex) => {
+      if (tableId.endsWith('_machine_comparison')) {
+        const status = gridData[rowIndex]?.MachineComparisonStatus
+        if (!status) return undefined
+        const mesStatus = gridData[rowIndex]?.MesComparisonStatus
+        const bgCell = status === 'Khác máy' || mesStatus === 'Khác máy MES'
+          ? '#fff1f2'
+          : status === 'Khớp máy' && mesStatus === 'Khớp máy MES' ? '#f0fdf4' : '#fffbeb'
+        return { bgCell, bgCellMedium: bgCell }
+      }
       if (!tableId.endsWith('_result_khsx')) return undefined
       const row = gridData[rowIndex]
       const lttStatus = String(

@@ -11,6 +11,7 @@ import {
   STORAGE_KEYS,
   STAT_REPORT_COLUMN_SCHEMA,
   RESULT_KHSX_COLUMN_SCHEMA,
+  MACHINE_COMPARISON_COLUMN_SCHEMA,
   ARCHITECTURE_FILE_TYPES,
   getNextVersion
 } from '../constants/calcConstants'
@@ -21,6 +22,7 @@ import {
   formatTemporalWarnings
 } from '../engine/fileParsers'
 import { runProductionCalculations } from '../engine'
+import { attachDeclaredMachines, buildMachineComparison } from '../engine/machineComparison'
 import storageAdapter from '../storage'
 import {
   publishMasterRegistrationSQLite,
@@ -186,7 +188,48 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     notify('info', `Đã tạo mã đăng ký mới: ${newCode}`)
   }, [clearAllFiles, notify])
 
+  const machineComparisonRows = useMemo(() => {
+    const plans = calcResults?.plan?.calculatedRows || []
+    const summaryRows = filesDataMap.summary_op?.data
+    const comparisonPlans = summaryRows && plans.some((row) => !Array.isArray(row.DeclaredMachines))
+      ? attachDeclaredMachines(plans, summaryRows)
+      : plans
+    return buildMachineComparison(
+      calcResults?.stat?.calculatedRows || [],
+      comparisonPlans,
+      calcResults?.machineComparison?.mesMachines || filesDataMap.mes_approval?.data || []
+    )
+  }, [calcResults, filesDataMap.summary_op, filesDataMap.mes_approval])
+
+  // Older saved results have no declared machine codes; read their source LTT
+  // when opening tab 7 so these reports can also be compared without recalculation.
+  useEffect(() => {
+    if (activeTab === 'machine_comparison' &&
+      calcResults?.plan?.calculatedRows?.some((row) => !Array.isArray(row.DeclaredMachines)) &&
+      fileSummaries.summary_op?.rowCount > 0 && !filesDataMap.summary_op) {
+      loadTabDetail('summary_op')
+    }
+  }, [activeTab, calcResults, fileSummaries.summary_op, filesDataMap.summary_op, loadTabDetail])
+
+  useEffect(() => {
+    if (activeTab === 'machine_comparison' && calcResults &&
+      !calcResults.machineComparison?.mesMachines &&
+      fileSummaries.mes_approval?.rowCount > 0 && !filesDataMap.mes_approval) {
+      loadTabDetail('mes_approval')
+    }
+  }, [activeTab, calcResults, fileSummaries.mes_approval, filesDataMap.mes_approval, loadTabDetail])
+
   const activeTabFileData = useMemo(() => {
+    if (activeTab === 'machine_comparison') {
+      return machineComparisonRows.length ? {
+        columns: MACHINE_COMPARISON_COLUMN_SCHEMA,
+        data: machineComparisonRows,
+        rowCount: machineComparisonRows.length,
+        fileName: 'DoiChieuMay_TK_KH.xlsx',
+        uploadedAt: calcResults?.calculatedAt,
+        isResult: true
+      } : null
+    }
     if (activeTab === 'result_tksx') {
       const rows = calcResults?.stat?.calculatedRows || []
       if (!rows || rows.length === 0) return null
@@ -243,7 +286,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       return curFileData
     }
     return null
-  }, [filesDataMap, fileSummaries, activeTab, calcResults])
+  }, [filesDataMap, fileSummaries, activeTab, calcResults, machineComparisonRows])
 
   // Nạp chi tiết Tab khi người dùng chủ động chọn tab (nếu đã có tóm tắt file được nạp)
   useEffect(() => {
@@ -251,6 +294,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       activeTab &&
       activeTab !== 'result_tksx' &&
       activeTab !== 'result_khsx' &&
+      activeTab !== 'machine_comparison' &&
       fileSummaries[activeTab]?.rowCount > 0 &&
       (!fileSummaries[activeTab]?.regCode ||
         !masterInfo.regCode ||
@@ -389,7 +433,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     async (fileType, rawFile) => {
       if (!rawFile) return
 
-      if (fileType === 'result_tksx' || fileType === 'result_khsx') {
+      if (TAB_DEFINITIONS.find((tab) => tab.id === fileType)?.isResultTab) {
         notify(
           'warning',
           'Tab Kết quả TKSX và KHSX được sinh tự động sau khi tính toán. Vui lòng chuyển sang Tab 1-4 để nạp file Excel nguồn.'
@@ -1048,7 +1092,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
 
       // 3. Thực hiện tính toán TKSX & KHSX
       setCalculationProgress({
-        percent: 55,
+        percent: 45,
         step: 'CALC_TKSX',
         message: 'Đang tổng hợp và tính toán ma trận TKSX (98 chỉ tiêu)...',
         detail: 'Ghép Báo cáo thống kê, Dở dang, Tổng hợp và Phê duyệt MES',
@@ -1062,14 +1106,10 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         ...masterInfo,
         regCode: calcRegCode,
         version: nextVersion
-      })
-
-      setCalculationProgress({
-        percent: 85,
-        step: 'CALC_KHSX',
-        message: 'Đang đối soát và tính toán Kế hoạch KHSX (18 chỉ tiêu)...',
-        detail: 'Tính số lượng hoàn thành, tỷ lệ đạt và trạng thái điều phối',
-        statusTag: 'Đối soát KHSX'
+      }, null, async ({ activeTab: calculatingTab, ...progress }) => {
+        setCalculationProgress(progress)
+        setActiveTab(calculatingTab)
+        await new Promise((resolve) => setTimeout(resolve, 60))
       })
 
       // Nhường luồng cho UI
@@ -1096,15 +1136,23 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
 
       const resTksxRows = results?.stat?.calculatedRows?.length || 0
       const resKhsxRows = results?.plan?.calculatedRows?.length || 0
+      const resMachineRows = results?.machineComparison?.calculatedRows?.length || 0
 
       // Đồng bộ ngay master record với số dòng kết quả vừa tính xong
       const updatedMasterRecord = {
         ...masterRecord,
         resultTksxRows: resTksxRows,
         resultKhsxRows: resKhsxRows,
+        resultMachineRows: resMachineRows,
         hasCalcResults: true,
         fileSummaries: {
           ...(fileSummaries || {}),
+          machine_comparison: {
+            isUploaded: resMachineRows > 0,
+            rowCount: resMachineRows,
+            uploadedAt: results.calculatedAt,
+            isResult: true
+          },
           result_tksx: {
             isUploaded: true,
             rowCount: resTksxRows,
@@ -1141,19 +1189,19 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         percent: 100,
         step: 'COMPLETED',
         message: 'Đã hoàn tất tính toán thành công!',
-        detail: `Đã tính toán xong phiên bản [v${nextVersion}]: Xuất ${(results?.stat?.calculatedRows?.length || 0).toLocaleString('vi-VN')} dòng TKSX và ${(results?.plan?.calculatedRows?.length || 0).toLocaleString('vi-VN')} dòng KHSX.${missingNote}`,
+        detail: `Đã tính toán xong phiên bản [v${nextVersion}]: ${resTksxRows.toLocaleString('vi-VN')} dòng TKSX (tab 5), ${resKhsxRows.toLocaleString('vi-VN')} dòng KHSX (tab 6), ${resMachineRows.toLocaleString('vi-VN')} dòng đối chiếu máy với MES (tab 7).${missingNote}`,
         statusTag: missingCount > 0 ? 'Cần bổ sung TT' : 'Hoàn tất'
       })
 
-      // Tự động chuyển ngay sang Tab Kết Quả TKSX và tự động đóng modal
-      setActiveTab('result_tksx')
+      // Sau khi tính xong lần lượt tab 5, 6, 7, mở kết quả đối chiếu máy.
+      setActiveTab('machine_comparison')
       setIsDirty(true)
       setTimeout(() => {
         setIsCalculating(false)
       }, 400)
       notify(
         'success',
-        `Đã hoàn thành tính toán v${nextVersion}! Đã xuất ${(results?.stat?.calculatedRows?.length || 0).toLocaleString('vi-VN')} dòng kết quả TKSX [Mã: ${calcRegCode}].`
+        `Đã hoàn thành tính toán v${nextVersion}: tab 5 → tab 6 → tab 7 (${resMachineRows.toLocaleString('vi-VN')} dòng đối chiếu máy TKSX - KHSX - MES) [Mã: ${calcRegCode}].`
       )
 
       if (missingCount > 0) {
@@ -1188,7 +1236,21 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
   const fileStatusSummary = useMemo(() => {
     const summary = {}
     TAB_DEFINITIONS.forEach((tab) => {
-      if (tab.id === 'result_tksx') {
+      if (tab.id === 'machine_comparison') {
+        summary[tab.id] = {
+          isUploaded: machineComparisonRows.length > 0,
+          rowCount: machineComparisonRows.length,
+          statusCounts: machineComparisonRows.reduce((counts, row) => {
+            const status = row.MachineComparisonStatus
+            counts[status] = (counts[status] || 0) + 1
+            const mesStatus = row.MesComparisonStatus
+            if (mesStatus) counts[mesStatus] = (counts[mesStatus] || 0) + 1
+            return counts
+          }, {}),
+          uploadedAt: calcResults?.calculatedAt || null,
+          isResult: true
+        }
+      } else if (tab.id === 'result_tksx') {
         const rows = calcResults?.stat?.calculatedRows || []
         summary[tab.id] = {
           isUploaded: rows.length > 0,
@@ -1220,7 +1282,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       }
     })
     return summary
-  }, [fileSummaries, calcResults, masterInfo.regCode])
+  }, [fileSummaries, calcResults, masterInfo.regCode, machineComparisonRows])
 
   // BƯỚC 1: Khi bấm ĐĂNG KÝ BÁO CÁO -> Mở Modal tích chọn báo cáo (mặc định tích 2 báo cáo KHSX & TKSX nếu có dữ liệu)
   const handleRegisterReportsToSystem = useCallback(async () => {

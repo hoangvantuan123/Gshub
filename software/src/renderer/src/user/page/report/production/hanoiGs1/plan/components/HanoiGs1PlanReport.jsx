@@ -135,6 +135,13 @@ export default function HanoiGs1PlanReport(props) {
     getDetailCellContent,
     onDetailHeaderClicked,
     onDetailColumnResize,
+    onDetailColumnMoved,
+    allDetailGridCols,
+    hiddenDetailColumns,
+    toggleDetailColumn,
+    resetDetailColumns,
+    detailStatus,
+    setDetailStatus,
     showDetailSearch,
     setShowDetailSearch,
 
@@ -1406,6 +1413,38 @@ export default function HanoiGs1PlanReport(props) {
           </div>
         </div>
 
+        <div
+          className="screenshot-hide"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}
+        >
+          {[
+            ['ALL', 'Lệnh thao tác', kpiMetrics.totalOrders],
+            ['SX_SAI_NGAY', 'SX sai ngày KH', kpiMetrics.sxSaiNgayCount],
+            ['TRUOT_KH', 'Trượt KH', kpiMetrics.truotKhCount],
+            ['KHOP_SL', 'Khớp số lượng', kpiMetrics.khopSlCount],
+            ['KHOP_JOB', 'Khớp job', kpiMetrics.khopJobCount]
+          ].map(([value, label, count]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={detailStatus === value}
+              onClick={() => setDetailStatus(value)}
+              style={{
+                padding: '6px 12px',
+                fontSize: 12,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: detailStatus === value ? '#01411b' : '#cbd5e1',
+                background: detailStatus === value ? '#ecfdf5' : '#ffffff',
+                color: detailStatus === value ? '#01411b' : '#475569',
+                fontWeight: detailStatus === value ? 700 : 400
+              }}
+            >
+              {label} ({count.toLocaleString('vi-VN')})
+            </button>
+          ))}
+        </div>
+
         {/* Header toolbar & Tổng hợp số liệu chi tiết */}
         <div
           style={{
@@ -1505,6 +1544,42 @@ export default function HanoiGs1PlanReport(props) {
               <Search size={13} className="text-blue-500" />
               <span>TÌM KIẾM (CTRL+F)</span>
             </Button>
+            <details style={{ position: 'relative', fontSize: 12 }}>
+              <summary style={{ cursor: 'pointer', padding: '6px 10px', color: '#334155' }}>
+                Ẩn / hiện cột ({detailGridCols.length}/{allDetailGridCols.length})
+              </summary>
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  zIndex: 20,
+                  width: 260,
+                  maxHeight: 320,
+                  overflowY: 'auto',
+                  padding: 12,
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.12)'
+                }}
+              >
+                {allDetailGridCols.map((column) => {
+                  const visible = !hiddenDetailColumns.includes(column.id)
+                  return (
+                    <label key={column.id} style={{ display: 'flex', gap: 8, padding: '4px 0' }}>
+                      <input
+                        type="checkbox"
+                        checked={visible}
+                        disabled={visible && detailGridCols.length === 1}
+                        onChange={() => toggleDetailColumn(column.id)}
+                      />
+                      {column.title}
+                    </label>
+                  )
+                })}
+                <PureButton onClick={resetDetailColumns}>Khôi phục cột mặc định</PureButton>
+              </div>
+            </details>
             <Button
               variant="ghost"
               size="sm"
@@ -1553,6 +1628,7 @@ export default function HanoiGs1PlanReport(props) {
             getCellContent={getDetailCellContent || getCellContent}
             onHeaderClicked={onDetailHeaderClicked}
             onColumnResize={onDetailColumnResize || onColumnResize}
+            onColumnMoved={onDetailColumnMoved}
             getCellsForSelection={true}
             rangeSelect="rect"
             columnSelect="multi"

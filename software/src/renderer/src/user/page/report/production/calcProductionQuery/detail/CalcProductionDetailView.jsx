@@ -16,6 +16,7 @@ import {
   SUMMARY_OP_COLUMN_SCHEMA,
   MES_APPROVAL_COLUMN_SCHEMA,
   RESULT_KHSX_COLUMN_SCHEMA,
+  MACHINE_COMPARISON_COLUMN_SCHEMA,
   getNextVersion
 } from '../../calcProduction/constants/calcConstants'
 import {
@@ -23,6 +24,7 @@ import {
   RESULT_CALC_COLUMNS_SCHEMA
 } from '../../calcProduction/columns/calcGridColumns'
 import { runProductionCalculations } from '../../calcProduction/engine'
+import { getMachineComparisonRows, getMachineComparisonPage } from '../../calcProduction/engine/machineComparison'
 import { DEFAULT_CALC_RULES } from '../../calcProduction/engine/calcRuleConfig'
 import CalcDataGridTable from '../../calcProduction/components/CalcDataGridTable'
 import CalcProductionActions from '../../calcProduction/components/CalcProductionActions'
@@ -238,7 +240,8 @@ export default function CalcProductionDetailView() {
     summary_op: [],
     mes_approval: [],
     result_tksx: [],
-    result_khsx: []
+    result_khsx: [],
+    machine_comparison: []
   })
 
   const gridData = useMemo(() => {
@@ -330,6 +333,7 @@ export default function CalcProductionDetailView() {
 
   // Cột mặc định cho từng tab
   const defaultCols = useMemo(() => {
+    if (activeTab === 'machine_comparison') return getGridColumnsForTab(activeTab, MACHINE_COMPARISON_COLUMN_SCHEMA)
     if (activeTab === 'result_tksx') {
       const statCols = calcResults?.stat?.columns || fileSummaries['stat_report']?.columns || []
       let merged = []
@@ -363,7 +367,10 @@ export default function CalcProductionDetailView() {
 
   const [tabColsMap, setTabColsMap] = useState({})
   const cols = useMemo(() => {
-    return tabColsMap[activeTab] || defaultCols
+    const columns = tabColsMap[activeTab] || defaultCols
+    return activeTab === 'machine_comparison'
+      ? columns.filter((col) => !['KhsxStatus', 'ProducedQty', 'QualifiedQty'].includes(col.id || col.key))
+      : columns
   }, [tabColsMap, activeTab, defaultCols])
 
   const setCols = useCallback((updater) => {
@@ -411,6 +418,10 @@ export default function CalcProductionDetailView() {
       const sf = String(statusFilter).toLowerCase()
       filtered = filtered.filter((row) => {
         if (!row) return false
+        if (row.MachineComparisonStatus !== undefined) {
+          return String(row.MachineComparisonStatus).toLowerCase() === sf ||
+            String(row.MesComparisonStatus || '').toLowerCase() === sf
+        }
         if (
           ['thiếu họ tên ltt', 'chưa có tt lệnh', 'thiếu tt lệnh'].includes(sf)
         ) {
@@ -485,6 +496,27 @@ export default function CalcProductionDetailView() {
         currentSearchFilters !== null && currentSearchFilters !== undefined
           ? currentSearchFilters
           : activeSearchFiltersRef.current
+
+      if (tabId === 'machine_comparison') {
+        let summaryRows
+        let mesRows
+        // Legacy reports have no saved tab 7. Read source files, never a paged
+        // grid cache, so all TK slips participate in the comparison.
+        if (results?.machineComparison?.matchVersion !== 2 && results?.stat?.calculatedRows?.length) {
+          const [summaryFile, mesFile] = await Promise.all([
+            storageAdapter.getFile('summary_op', targetRegCode),
+            storageAdapter.getFile('mes_approval', targetRegCode)
+          ])
+          summaryRows = summaryFile?.data
+          mesRows = mesFile?.data
+        }
+        return getMachineComparisonPage(
+          getMachineComparisonRows(results, summaryRows, mesRows),
+          pageNumber,
+          PAGE_SIZE,
+          (rows) => applyRowSearchFilters(rows, searchFilters)
+        )
+      }
 
       if (tabId === 'result_tksx') {
         const rawRows = results?.stat?.calculatedRows || []
@@ -1203,7 +1235,22 @@ export default function CalcProductionDetailView() {
   const fileStatusSummary = useMemo(() => {
     const summary = {}
     TAB_DEFINITIONS.forEach((tab) => {
-      if (tab.id === 'result_tksx') {
+      if (tab.id === 'machine_comparison') {
+        const rows = getMachineComparisonRows(calcResults)
+        summary[tab.id] = {
+          isUploaded: rows.length > 0,
+          fileName: 'DoiChieuMay_TK_KH.xlsx',
+          rowCount: rows.length,
+          uploadedAt: calcResults?.calculatedAt || null,
+          isResult: true,
+          statusCounts: rows.reduce((counts, row) => {
+            for (const status of [row.MachineComparisonStatus, row.MesComparisonStatus]) {
+              if (status) counts[status] = (counts[status] || 0) + 1
+            }
+            return counts
+          }, {})
+        }
+      } else if (tab.id === 'result_tksx') {
         const rows = calcResults?.stat?.calculatedRows || []
         summary[tab.id] = {
           isUploaded: rows.length > 0,
@@ -1322,17 +1369,6 @@ export default function CalcProductionDetailView() {
       // Nhường luồng cho UI
       await new Promise((resolve) => setTimeout(resolve, 60))
 
-      setCalculationProgress({
-        percent: 80,
-        step: 'CALC_KHSX',
-        message: 'Đang đối soát và tính toán Kế hoạch sản xuất (KHSX)...',
-        detail: 'Tính toán định mức thời gian, Capa, trạng thái điều phối và phân loại kế hoạch',
-        statusTag: 'Đối soát KHSX'
-      })
-
-      // Nhường luồng cho UI trước khi chạy tính toán
-      await new Promise((resolve) => setTimeout(resolve, 60))
-
       // Nếu phiếu đã PUBLISHED trước đó, việc tính toán lại sẽ tạo ra một master version mới (ví dụ 1.0 -> 1.1)
       let nextVersion = masterRecord?.version || '1.0'
       if (masterRecord?.status === 'PUBLISHED') {
@@ -1353,14 +1389,20 @@ export default function CalcProductionDetailView() {
           regCode: targetRegCode,
           version: nextVersion
         },
-        calcRules
+        calcRules,
+        async ({ activeTab: calculatingTab, ...progress }) => {
+          setCalculationProgress(progress)
+          await new Promise((resolve) => setTimeout(resolve, 60))
+        }
       )
 
       setCalcResults(results)
 
-      // Cập nhật Cache kết quả tính toán cho cả 2 tab
+      // Cập nhật cả ba tab kết quả; thay cả cache tab 7 từng nạp rỗng.
       const tksxAllRows = results?.stat?.calculatedRows || []
       const khsxAllRows = results?.plan?.calculatedRows || []
+      const machineAllRows = getMachineComparisonRows(results)
+      tabsCacheRef.current.machine_comparison = getMachineComparisonPage(machineAllRows)
 
       tabsCacheRef.current['result_tksx'] = {
         rows: tksxAllRows.slice(0, PAGE_SIZE),
@@ -1381,6 +1423,13 @@ export default function CalcProductionDetailView() {
       // Cập nhật Summaries cho 2 Tab kết quả để hiện số dòng trên badge
       const updatedSummaries = {
         ...fileSummaries,
+        machine_comparison: {
+          isUploaded: machineAllRows.length > 0,
+          rowCount: machineAllRows.length,
+          fileName: 'Đối chiếu máy TK - KH - MES',
+          columns: MACHINE_COMPARISON_COLUMN_SCHEMA,
+          isResult: true
+        },
         result_tksx: {
           isUploaded: true,
           rowCount: tksxAllRows.length,
@@ -1418,37 +1467,42 @@ export default function CalcProductionDetailView() {
         percent: 100,
         step: 'COMPLETED',
         message: 'Đã hoàn tất tính toán thành công!',
-        detail: `Đã tính toán xong phiên bản [v${nextVersion}]: Xuất ${tksxAllRows.length.toLocaleString('vi-VN')} dòng TKSX và ${khsxAllRows.length.toLocaleString('vi-VN')} dòng KHSX.`,
+        detail: `Đã tính xong tab 5: ${tksxAllRows.length.toLocaleString('vi-VN')} dòng TKSX; tab 6: ${khsxAllRows.length.toLocaleString('vi-VN')} dòng KHSX; tab 7: ${machineAllRows.length.toLocaleString('vi-VN')} dòng đối chiếu máy TK - KH - MES.`,
         statusTag: 'Hoàn tất'
       })
 
-      // Chuyển sang Tab Kết Quả TKSX và nạp ngay lên DataGrid
-      const initialPageRows = tksxAllRows.slice(0, PAGE_SIZE)
+      // Mở tab 7 với trang đầu tiên ngay sau khi ba bảng đã được tính xong.
+      const initialPageRows = machineAllRows.slice(0, PAGE_SIZE)
       setTabDataMap((prev) => ({
         ...prev,
-        result_tksx: initialPageRows,
-        result_khsx: khsxAllRows.slice(0, PAGE_SIZE)
+        result_tksx: tksxAllRows.slice(0, PAGE_SIZE),
+        result_khsx: khsxAllRows.slice(0, PAGE_SIZE),
+        machine_comparison: initialPageRows
       }))
       gridDataRef.current = initialPageRows
       setIsDirty(true)
 
-      setActiveTab('result_tksx')
-      activeTabRef.current = 'result_tksx'
+      setSearchText('')
+      setStatusFilter('ALL')
+      setFilterValues({})
+      setDynamicFilterFields([])
+      setActiveTab('machine_comparison')
+      activeTabRef.current = 'machine_comparison'
 
       const info = {
-        total: tksxAllRows.length,
+        total: machineAllRows.length,
         loadedCount: initialPageRows.length,
         pageSize: PAGE_SIZE,
         page: 1,
-        totalPages: Math.max(1, Math.ceil(tksxAllRows.length / PAGE_SIZE)),
-        hasMore: tksxAllRows.length > PAGE_SIZE
+        totalPages: Math.max(1, Math.ceil(machineAllRows.length / PAGE_SIZE)),
+        hasMore: machineAllRows.length > PAGE_SIZE
       }
       pageInfoRef.current = info
 
       setPageData?.((prev) => ({
         ...prev,
-        total: tksxAllRows.length,
-        totalAll: tksxAllRows.length,
+        total: machineAllRows.length,
+        totalAll: machineAllRows.length,
         loadedCount: initialPageRows.length,
         page: 1,
         pageSize: PAGE_SIZE,
@@ -1469,7 +1523,7 @@ export default function CalcProductionDetailView() {
 
       setStatusMessage?.({
         type: 'success',
-        text: `Đã hoàn thành tính toán v${nextVersion}! Đã xuất ${tksxAllRows.length.toLocaleString('vi-VN')} dòng TKSX và ${khsxAllRows.length.toLocaleString('vi-VN')} dòng KHSX.`
+        text: `Đã hoàn thành tính toán v${nextVersion}: ${tksxAllRows.length.toLocaleString('vi-VN')} dòng TKSX, ${khsxAllRows.length.toLocaleString('vi-VN')} dòng KHSX, ${machineAllRows.length.toLocaleString('vi-VN')} dòng đối chiếu máy tab 7.`
       })
     } catch (err) {
       console.error('Lỗi tính toán:', err)
@@ -2719,8 +2773,9 @@ export default function CalcProductionDetailView() {
   )
 
   const handleDeleteRows = useCallback(() => {
+    if (activeTab === 'machine_comparison') return
     handleDeleteSelectedRows(selectedRowsIndices)
-  }, [handleDeleteSelectedRows, selectedRowsIndices])
+  }, [activeTab, handleDeleteSelectedRows, selectedRowsIndices])
 
   // ── Xuất gói .gsprod ──
   const handleExportBundle = useCallback(async () => {
@@ -3292,6 +3347,7 @@ export default function CalcProductionDetailView() {
             setShowSearch={setShowSearch}
             onVisibleRegionChanged={handleVisibleRegionChanged}
             onAddQueryField={handleAddQueryField}
+            canEdit={activeTab !== 'machine_comparison'}
           />
         }
       />
@@ -3312,7 +3368,7 @@ export default function CalcProductionDetailView() {
           t('1. Chuẩn bị dữ liệu'),
           t('2. Tổng hợp TKSX'),
           t('3. Đối soát KHSX'),
-          t('4. Hoàn tất báo cáo')
+          t('4. Đối chiếu máy MES (tab 7)')
         ]}
         subMessage={t(
           'Hệ thống đang truy vấn CSDL và tính toán đối soát dữ liệu. Vui lòng không đóng trang.'

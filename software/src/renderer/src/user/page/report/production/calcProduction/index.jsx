@@ -114,6 +114,7 @@ export default function CalcProductionPage({
 
   // Mảng dữ liệu nguồn độc lập của từng Tab (Tab nào có file thì lấy file đó, chưa có file thì dứt khoát là mảng rỗng [])
   const currentTabRows = useMemo(() => {
+    if (activeTab === 'machine_comparison') return activeTabFileData?.data || []
     if (activeTab === 'result_tksx') {
       return calcResults?.stat?.calculatedRows || []
     }
@@ -129,12 +130,23 @@ export default function CalcProductionPage({
       return curFileData.data
     }
     return []
-  }, [activeTab, calcResults, fileSummaries, filesDataMap])
+  }, [activeTab, calcResults, fileSummaries, filesDataMap, activeTabFileData])
 
   // Lưu trữ riêng biệt mảng dữ liệu của từng tab, triệt tiêu 100% việc dùng chung giữa các tab
   const [tabDataMap, setTabDataMap] = useState({})
 
+  useEffect(() => {
+    setTabDataMap((previous) => {
+      const next = { ...previous }
+      delete next.result_tksx
+      delete next.result_khsx
+      delete next.machine_comparison
+      return next
+    })
+  }, [calcResults?.calculatedAt])
+
   const gridData = useMemo(() => {
+    if (activeTab === 'machine_comparison') return currentTabRows
     if (tabDataMap[activeTab] !== undefined) {
       return tabDataMap[activeTab]
     }
@@ -199,6 +211,7 @@ export default function CalcProductionPage({
 
   // Cột động cho Grid theo từng Tab riêng biệt
   const defaultCols = useMemo(() => {
+    if (activeTab === 'machine_comparison') return getGridColumnsForTab(activeTab)
     if (activeTab === 'result_tksx') {
       const statCols = calcResults?.stat?.columns || fileSummaries['stat_report']?.columns || []
       let merged = []
@@ -261,7 +274,10 @@ export default function CalcProductionPage({
 
   const [tabColsMap, setTabColsMap] = useState({})
   const cols = useMemo(() => {
-    return tabColsMap[activeTab] || defaultCols
+    const columns = tabColsMap[activeTab] || defaultCols
+    return activeTab === 'machine_comparison'
+      ? columns.filter((col) => !['KhsxStatus', 'ProducedQty', 'QualifiedQty'].includes(col.id || col.key))
+      : columns
   }, [tabColsMap, activeTab, defaultCols])
 
   const setCols = useCallback((updater) => {
@@ -324,6 +340,9 @@ export default function CalcProductionPage({
     if (statusFilter && statusFilter !== 'ALL') {
       result = result.filter((row) => {
         if (!row) return false
+        if (activeTab === 'machine_comparison') {
+          return row.MachineComparisonStatus === statusFilter || row.MesComparisonStatus === statusFilter
+        }
         if (
           ['Thiếu họ tên LTT', 'Chưa có TT lệnh', 'Thiếu TT lệnh'].includes(statusFilter)
         ) {
@@ -333,7 +352,8 @@ export default function CalcProductionPage({
           return lttStatus === statusFilter || lttStatus.startsWith(`${statusFilter}:`)
         }
         const st = String(
-          row.StatusDpSx ??
+          row.MachineComparisonStatus ??
+            row.StatusDpSx ??
             row.CoordinatorStatus ??
             row['Trạng thái ĐP - SX'] ??
             row.CheckKhsx ??
@@ -397,7 +417,7 @@ export default function CalcProductionPage({
     }
 
     return result
-  }, [gridData, searchText, statusFilter, filterValues])
+  }, [gridData, searchText, statusFilter, filterValues, activeTab])
 
   // Xử lý chỉnh sửa trực tiếp ô trên bảng tính (hỗ trợ nhập tay PIC ĐP, họ tên, hoặc trạng thái)
   const handleCellEdited = useCallback(
@@ -613,8 +633,9 @@ export default function CalcProductionPage({
   }, [selection])
 
   const handleDeleteRows = useCallback(() => {
+    if (activeTab === 'machine_comparison') return
     handleDeleteSelectedRows(selectedRowsIndices)
-  }, [handleDeleteSelectedRows, selectedRowsIndices])
+  }, [activeTab, handleDeleteSelectedRows, selectedRowsIndices])
 
   usePageHotkeys({
     onDelete: handleDeleteRows,
@@ -640,7 +661,7 @@ export default function CalcProductionPage({
             masterInfo={masterInfo}
             storageMode={storageMode}
             fileStatusSummary={fileStatusSummary}
-            selectedRowsCount={selectedRowsIndices.length}
+            selectedRowsCount={activeTab === 'machine_comparison' ? 0 : selectedRowsIndices.length}
             onUploadFile={handleUploadFileForTab}
             onOpenCustomMapping={openMappingModalForCurrentTab}
             onDeleteSelectedRows={handleDeleteRows}
@@ -694,7 +715,7 @@ export default function CalcProductionPage({
             setShowSearch={setShowSearch}
             onAddQueryField={handleAddQueryField}
             onCellEdited={handleCellEdited}
-            canEdit={true}
+            canEdit={activeTab !== 'machine_comparison'}
           />
         }
       />
@@ -715,6 +736,12 @@ export default function CalcProductionPage({
         isCalculating={isCalculating}
         progressInfo={calculationProgress}
         title={t('TIẾN TRÌNH TÍNH TOÁN KHSX & TKSX')}
+        steps={[
+          t('1. Chuẩn bị dữ liệu'),
+          t('2. Tính TKSX (tab 5)'),
+          t('3. Tính KHSX (tab 6)'),
+          t('4. Đối chiếu máy MES (tab 7)')
+        ]}
         subMessage={t(
           'Thao tác chuột và bàn phím đang được tạm khóa để đảm bảo tính toán đồng bộ và toàn vẹn dữ liệu. Vui lòng không tắt trang.'
         )}

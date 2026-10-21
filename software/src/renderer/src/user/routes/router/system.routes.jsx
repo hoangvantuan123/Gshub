@@ -20,6 +20,7 @@ export const pageLoaders = {
   PlanDetailQueryPage: () => import('../../page/report/registration/plan/PlanDetailQueryPage'),
   StatDetailQueryPage: () =>
     import('../../page/report/registration/statistics/StatDetailQueryPage'),
+  ProdStatsRemarkTypePage: () => import('../../page/report/registration/remarkType'),
   PlanRegistrationDetailView: () =>
     import('../../page/report/registration/components/PlanRegistrationDetailView'),
   PlanRegistrationCreateView: () =>
@@ -49,6 +50,7 @@ const TimelineSummaryReportPage = lazy(pageLoaders.TimelineSummaryReportPage)
 const RegistrationPage = lazy(pageLoaders.RegistrationPage)
 const PlanDetailQueryPage = lazy(pageLoaders.PlanDetailQueryPage)
 const StatDetailQueryPage = lazy(pageLoaders.StatDetailQueryPage)
+const ProdStatsRemarkTypePage = lazy(pageLoaders.ProdStatsRemarkTypePage)
 const PlanRegistrationDetailView = lazy(pageLoaders.PlanRegistrationDetailView)
 const PlanRegistrationCreateView = lazy(pageLoaders.PlanRegistrationCreateView)
 const FormulaHandbookPage = lazy(pageLoaders.FormulaHandbookPage)
@@ -87,6 +89,7 @@ export const routeToLoaderMap = {
   '/erp/u/report/registration': pageLoaders.RegistrationPage,
   '/erp/u/report/plan-query': pageLoaders.PlanDetailQueryPage,
   '/erp/u/report/stat-query': pageLoaders.StatDetailQueryPage,
+  '/erp/u/report/prod-stats-remark-type': pageLoaders.ProdStatsRemarkTypePage,
   '/erp/u/report/registration/plan-query': pageLoaders.PlanDetailQueryPage,
   '/erp/u/report/registration/stat-query': pageLoaders.StatDetailQueryPage,
   '/erp/u/report/registration/create': pageLoaders.PlanRegistrationCreateView,
@@ -435,6 +438,12 @@ export const systemsRoutes = [
     path: '/erp/u/report/stat-query',
     element: StatDetailQueryPage,
     permission: 'report_stat_query',
+    public: false
+  },
+  {
+    path: '/erp/u/report/prod-stats-remark-type',
+    element: ProdStatsRemarkTypePage,
+    permission: 'report_prod_stats_remark_type',
     public: false
   },
   {

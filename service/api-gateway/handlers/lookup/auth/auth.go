@@ -15,22 +15,30 @@ func AuthLookQ(pool *grpcclient.Pool) gin.HandlerFunc {
 
 // MenuH (v6)
 func MenuH(pool *grpcclient.Pool) gin.HandlerFunc {
-	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryCodeHelp")
+	return h.HandleWithDefaults(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryCodeHelp", map[string]interface{}{
+		"CodeHelpName": "MENU",
+	})
 }
 
 // RootMenuH (v6)
 func RootMenuH(pool *grpcclient.Pool) gin.HandlerFunc {
-	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryCodeHelp")
+	return h.HandleWithDefaults(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryCodeHelp", map[string]interface{}{
+		"CodeHelpName": "ROOT_MENU",
+	})
 }
 
 // UsersH (v6)
 func UsersH(pool *grpcclient.Pool) gin.HandlerFunc {
-	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryCodeHelp")
+	return h.HandleWithDefaults(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryCodeHelp", map[string]interface{}{
+		"CodeHelpName": "USERS",
+	})
 }
 
 // SubMenuH (v6)
 func SubMenuH(pool *grpcclient.Pool) gin.HandlerFunc {
-	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryCodeHelp")
+	return h.HandleWithDefaults(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryCodeHelp", map[string]interface{}{
+		"CodeHelpName": "SUBMENU",
+	})
 }
 
 // LangDictH (v6)

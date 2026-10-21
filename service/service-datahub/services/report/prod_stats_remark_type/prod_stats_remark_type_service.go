@@ -49,6 +49,9 @@ func validateItems(items []models.ERPProdStatsRemarkType, update bool) error {
 		if (update || it.IdSeq != "") && !validID(it.IdSeq) {
 			return invalid(fmt.Sprintf("Dòng %d: IdSeq phải là UUIDv7 chuẩn", i+1))
 		}
+		if update && it.RowVersion < 1 {
+			return invalid(fmt.Sprintf("Dòng %d: RowVersion phải lớn hơn 0", i+1))
+		}
 		code := strings.ToLower(it.TypeCode)
 		if codes[code] || (it.IdSeq != "" && ids[it.IdSeq]) {
 			return invalid("Trùng TypeCode hoặc IdSeq trong danh sách")

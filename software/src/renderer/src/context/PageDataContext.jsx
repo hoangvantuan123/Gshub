@@ -129,9 +129,6 @@ export const PageDataProvider = ({ children }) => {
     (targetPath, options = {}) => {
       if (!targetPath) return
 
-      // Preload route component ngay lập tức
-      preloadRoute(targetPath)
-
       // 1. Chặn điều hướng khi trang đang tải dữ liệu API
       if (loadingInfo?.isLoading) {
         setStatusMessage?.({
@@ -169,6 +166,8 @@ export const PageDataProvider = ({ children }) => {
         return false
       }
 
+      // Only load the destination after navigation has passed all guards.
+      preloadRoute(targetPath)
       navigate(targetPath)
       return true
     },

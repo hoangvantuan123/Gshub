@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CompactSelection } from '@glideapps/glide-data-grid'
-import * as XLSX from 'xlsx'
 
 import { usePageHotkeys } from '../../../../hooks/usePageHotkeys'
 import { usePagePermissions } from '../../../../hooks/usePagePermissions'
@@ -13,11 +12,6 @@ import { calculateSelectionStats } from '../../../../hooks/useDataGridSheet'
 import { loadFromLocalStorageSheet } from '../../../../../localStorage/sheet/sheet'
 import { ensureStatusFirstColumn } from '../../../../../utils/systemColumns'
 import ExportExcelModal from '../../../../components/modal/ExportExcelModal'
-import {
-  generateExcelWorkbook,
-  saveWorkbookToFile,
-  formatFilterSummary
-} from '../../../../../utils/exportExcelUtils'
 import { useDateFormat } from '../../../../hooks/useDateFormat'
 
 import { useStatisticsImportColumns } from './columns/statisticsImportColumns'
@@ -69,7 +63,7 @@ export default function StatDetailQueryPage({
 
   // Pagination & Infinite Scroll State
   const [page, setPage] = useState(1)
-  const pageSize = 1000
+  const pageSize = 250
   const [totalRows, setTotalRows] = useState(0)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -373,11 +367,8 @@ export default function StatDetailQueryPage({
       if (!hasMoreRef.current || isLoadingRef.current) return
       const bottomRow = range.y + range.height
       const currentCount = gridDataRef.current.length
-      // Tự động tải tiếp trang khi cuộn đến dòng 500 hoặc cách đáy 500 dòng
-      if (
-        currentCount > 0 &&
-        (bottomRow >= currentCount - 500 || (currentCount === 1000 && bottomRow >= 500))
-      ) {
+      // Load the next smaller page only when the grid is close to the loaded edge.
+      if (currentCount > 0 && bottomRow >= currentCount - 50) {
         fetchStatDetailData(pageRef.current + 1, true)
       }
     },
@@ -518,6 +509,8 @@ export default function StatDetailQueryPage({
       if (!pagePerms.canExport) return
       loadingBarRef?.current?.continuousStart?.()
       try {
+        const { generateExcelWorkbook, saveWorkbookToFile, formatFilterSummary } =
+          await import('../../../../../utils/exportExcelUtils')
         let dataToExport = []
 
         if (scope === 'all' || !scope) {

@@ -124,10 +124,15 @@ test('canceled save does not issue requests or report completion', async () => {
 test('progress cannot round to 100 before the last batch is confirmed', async () => {
   const progress = []
   let calls = 0
-  await assert.rejects(saveRegistrationBatches({
-    request: async () => ++calls === 1 ? saved : { success: false, message: 'Batch cuối thất bại' },
-    payload: {}, rows: Array.from({ length: 1001 }, () => ({ ItemCode: 'ITEM' })),
-    onProgress: (p) => progress.push(p)
-  }), /Batch cuối thất bại/)
+  await assert.rejects(
+    saveRegistrationBatches({
+      request: async () =>
+        ++calls === 1 ? saved : { success: false, message: 'Batch cuối thất bại' },
+      payload: {},
+      rows: Array.from({ length: 1001 }, () => ({ ItemCode: 'ITEM' })),
+      onProgress: (p) => progress.push(p)
+    }),
+    /Batch cuối thất bại/
+  )
   assert.equal(progress.at(-1).percent, 99)
 })

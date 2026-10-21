@@ -158,4 +158,38 @@ button:active,
 .ant-btn:active,
 .p-button:active {
   transform: translateY(1px);
-}
+}
+
+/* Glide Data Grid Portal & Overlay Editor Styling */
+#portal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 999999 !important;
+  pointer-events: none;
+}
+
+#portal > * {
+  pointer-events: auto;
+}
+
+.gdg-style {
+  z-index: 999999 !important;
+  background-color: #ffffff !important;
+}
+
+textarea.gdg-input,
+input.gdg-input {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  background-color: transparent !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  padding: 2px 4px !important;
+  white-space: pre-wrap !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+

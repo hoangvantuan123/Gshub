@@ -7,7 +7,11 @@ import { calculateKHSX } from './planCalculator'
 import { calculateTKSX } from './statCalculator'
 import * as calcRules from './calcRuleConfig'
 import storageAdapter from '../storage'
-import { attachDeclaredMachines, buildMachineComparison, getMesMachineSources } from './machineComparison'
+import {
+  attachDeclaredMachines,
+  buildMachineComparison,
+  getMesMachineSources
+} from './machineComparison'
 
 export * from './calcRuleConfig'
 
@@ -58,12 +62,21 @@ export const runProductionCalculations = async (
 
   // Tab 7 is calculated only after both final result sets exist, and is saved
   // with the report instead of being produced only when the user opens the tab.
-  await reportProgress(90, 'CALC_MACHINES', 'Đang đối chiếu máy TKSX - KHSX - MES (tab 7)...', 'machine_comparison')
+  await reportProgress(
+    90,
+    'CALC_MACHINES',
+    'Đang đối chiếu máy TKSX - KHSX - MES (tab 7)...',
+    'machine_comparison'
+  )
   const mesMachines = getMesMachineSources(allFiles.mes_approval?.data || [])
   const machineComparison = {
     matchVersion: 2,
     mesMachines,
-    calculatedRows: buildMachineComparison(statResult.calculatedRows, planResult.calculatedRows, mesMachines)
+    calculatedRows: buildMachineComparison(
+      statResult.calculatedRows,
+      planResult.calculatedRows,
+      mesMachines
+    )
   }
 
   // Tính tỷ lệ hoàn thành kế hoạch (Thực tế / Kế hoạch)

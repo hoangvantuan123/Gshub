@@ -5,7 +5,11 @@
  */
 
 import Cookies from 'js-cookie'
-import { stripPermissionData, clearLegacyPermissionStorage } from '../utils/authStorage.js'
+import {
+  stripPermissionData,
+  stripAuthTokenData,
+  clearLegacyPermissionStorage
+} from '../utils/authStorage.js'
 import { getDefaultDataHubUrl } from '../config/serverConfig'
 
 const STORAGE_KEY_AUTH_SESSION = 'datahub_auth_session'
@@ -27,7 +31,9 @@ export const gshubAuthService = {
         localStorage.getItem(STORAGE_KEY_AUTH_SESSION) ||
         localStorage.getItem(STORAGE_KEY_GSHUB_AUTH_SESSION)
       if (!raw) return null
-      const parsed = stripPermissionData(JSON.parse(raw))
+      const parsed = stripAuthTokenData(stripPermissionData(JSON.parse(raw)))
+      localStorage.setItem(STORAGE_KEY_AUTH_SESSION, JSON.stringify(parsed))
+      localStorage.removeItem(STORAGE_KEY_GSHUB_AUTH_SESSION)
       return parsed
     } catch {
       return null
@@ -40,40 +46,37 @@ export const gshubAuthService = {
   saveSession(sessionData) {
     try {
       clearLegacyPermissionStorage()
-      const safeSessionData = stripPermissionData(sessionData)
+      const originalPayload = sessionData?.data || sessionData || {}
+      const accToken =
+        originalPayload?.access_token ||
+        originalPayload?.token ||
+        originalPayload?.session?.access_token ||
+        sessionData?.access_token ||
+        sessionData?.session?.access_token ||
+        null
+      const refToken =
+        originalPayload?.refresh_token ||
+        originalPayload?.refreshToken ||
+        originalPayload?.session?.refresh_token ||
+        sessionData?.refresh_token ||
+        sessionData?.session?.refresh_token ||
+        null
+      const safeSessionData = stripAuthTokenData(stripPermissionData(sessionData))
       if (!safeSessionData || typeof safeSessionData !== 'object') return
       const serialized = JSON.stringify(safeSessionData)
       localStorage.setItem(STORAGE_KEY_AUTH_SESSION, serialized)
-      localStorage.setItem(STORAGE_KEY_GSHUB_AUTH_SESSION, serialized)
+      localStorage.removeItem(STORAGE_KEY_GSHUB_AUTH_SESSION)
       if (safeSessionData?.config_key) {
         localStorage.setItem(STORAGE_KEY_LAST_CONFIG, sessionData.config_key)
         localStorage.setItem('gshub_last_config_key', sessionData.config_key)
       }
-      const payload = safeSessionData?.data || safeSessionData || {}
-      const accToken =
-        payload?.access_token ||
-        payload?.token ||
-        payload?.session?.access_token ||
-        safeSessionData?.access_token ||
-        safeSessionData?.session?.access_token ||
-        null
       if (accToken) {
         Cookies.set('a_a', accToken, { expires: 7, path: '/' })
         Cookies.remove('access_token', { path: '/' })
-        localStorage.setItem('access_token', accToken)
-        localStorage.setItem('token', accToken)
       }
-      const refToken =
-        payload?.refresh_token ||
-        payload?.refreshToken ||
-        payload?.session?.refresh_token ||
-        safeSessionData?.refresh_token ||
-        safeSessionData?.session?.refresh_token ||
-        null
       if (refToken) {
         Cookies.set('r_t', refToken, { expires: 30, path: '/' })
         Cookies.remove('refresh_token', { path: '/' })
-        localStorage.setItem('refresh_token', refToken)
       }
     } catch (e) {
       console.warn('Failed to save auth session to storage', e)
@@ -117,10 +120,16 @@ export const gshubAuthService = {
     try {
       Cookies.remove('a_a', { path: '/' })
       Cookies.remove('a_a')
+      Cookies.remove('token', { path: '/' })
+      Cookies.remove('token')
+      Cookies.remove('accessToken', { path: '/' })
+      Cookies.remove('accessToken')
       Cookies.remove('access_token', { path: '/' })
       Cookies.remove('access_token')
       Cookies.remove('r_t', { path: '/' })
       Cookies.remove('r_t')
+      Cookies.remove('refreshToken', { path: '/' })
+      Cookies.remove('refreshToken')
       Cookies.remove('refresh_token', { path: '/' })
       Cookies.remove('refresh_token')
       localStorage.removeItem(STORAGE_KEY_AUTH_SESSION)

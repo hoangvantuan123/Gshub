@@ -14,6 +14,7 @@ type ERPProdStatsRemarkType struct {
 	CreatedAt   *time.Time `gorm:"column:CreatedAt" json:"CreatedAt"`
 	UpdatedBy   *string    `gorm:"column:UpdatedBy;type:varchar(36)" json:"UpdatedBy"`
 	UpdatedAt   *time.Time `gorm:"column:UpdatedAt" json:"UpdatedAt"`
+	RowVersion  int64      `gorm:"column:RowVersion;not null;default:1" json:"RowVersion"`
 }
 
 func (ERPProdStatsRemarkType) TableName() string { return "_ERPProdStatsRemarkType" }

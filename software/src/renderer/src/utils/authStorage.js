@@ -1,3 +1,4 @@
+import Cookies from 'js-cookie'
 import decodeJWT from './decode-JWT.js'
 
 const permissionKeys = new Set([
@@ -22,6 +23,48 @@ const permissionKeys = new Set([
   'roles'
 ])
 const normalizedKey = (value) => value.toLowerCase().replace(/[_-]/g, '')
+const authTokenKeys = new Set(['token', 'accesstoken', 'refreshtoken', 'aa', 'rt'])
+
+// Tokens are held in the canonical auth cookies, never in local/session storage
+// or in duplicated serialized session snapshots.
+export function stripAuthTokenData(value) {
+  if (Array.isArray(value)) return value.map(stripAuthTokenData)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !authTokenKeys.has(normalizedKey(key)))
+      .map(([key, item]) => [key, stripAuthTokenData(item)])
+  )
+}
+
+export function clearLegacyAuthTokenStorage(storage = globalThis.localStorage) {
+  const tokenKeys = [
+    'access_token',
+    'accessToken',
+    '_token',
+    'token',
+    'a_a',
+    'refresh_token',
+    'refreshToken',
+    'r_t'
+  ]
+  const cleanStorage = (target) => {
+    if (!target) return
+    for (const key of tokenKeys) target.removeItem(key)
+    for (const key of ['datahub_auth_session', 'gshub_auth_session', 'userInfo']) {
+      const raw = target.getItem(key)
+      if (!raw) continue
+      try {
+        const metadata = stripAuthTokenData(JSON.parse(raw))
+        target.setItem(key, JSON.stringify(metadata))
+      } catch {
+        target.removeItem(key)
+      }
+    }
+  }
+  cleanStorage(storage)
+  if (!storage || storage === globalThis.localStorage) cleanStorage(globalThis.sessionStorage)
+}
 
 // Auth-session caches must not carry menu/action snapshots or permission JWTs.
 export function stripPermissionData(value) {
@@ -67,6 +110,17 @@ export function stripPermissionData(value) {
 
 export function clearLegacyPermissionStorage(storage = globalThis.localStorage) {
   if (!storage) return
+  clearLegacyAuthTokenStorage(storage)
+  for (const key of [
+    'access_token',
+    '_token',
+    'token',
+    'accessToken',
+    'refresh_token',
+    'refreshToken'
+  ]) {
+    Cookies.remove(key, { path: '/' })
+  }
   for (const key of [
     'roles_menu',
     'rolesMenu',
@@ -94,10 +148,6 @@ export function clearLegacyPermissionStorage(storage = globalThis.localStorage) 
     } catch {
       storage.removeItem(key)
     }
-  }
-  for (const key of ['access_token', 'token', 'a_a', 'refresh_token']) {
-    const value = storage.getItem(key)
-    if (value && stripPermissionData(value) === undefined) storage.removeItem(key)
   }
   // 'menu' normally stores only the open/closed UI state; discard old snapshots.
   const menu = storage.getItem('menu')

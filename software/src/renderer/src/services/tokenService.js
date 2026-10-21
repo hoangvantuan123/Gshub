@@ -1,61 +1,11 @@
 import Cookies from 'js-cookie'
 
 export const accessToken = () => {
-  const directToken =
-    Cookies.get('a_a') ||
-    Cookies.get('access_token') ||
-    localStorage.getItem('access_token') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('a_a') ||
-    null
-
-  if (directToken) return directToken
-
-  try {
-    const session = JSON.parse(
-      localStorage.getItem('datahub_auth_session') ||
-        localStorage.getItem('gshub_auth_session') ||
-        '{}'
-    )
-    return (
-      session.access_token ||
-      session.token ||
-      session.session?.access_token ||
-      session.data?.access_token ||
-      null
-    )
-  } catch {
-    return null
-  }
+  return Cookies.get('a_a') || null
 }
 
 export const refreshToken = () => {
-  const directRefresh =
-    Cookies.get('r_t') ||
-    Cookies.get('refresh_token') ||
-    localStorage.getItem('refresh_token') ||
-    localStorage.getItem('refreshToken') ||
-    localStorage.getItem('r_t') ||
-    null
-
-  if (directRefresh) return directRefresh
-
-  try {
-    const session = JSON.parse(
-      localStorage.getItem('datahub_auth_session') ||
-        localStorage.getItem('gshub_auth_session') ||
-        '{}'
-    )
-    return (
-      session.refresh_token ||
-      session.refreshToken ||
-      session.session?.refresh_token ||
-      session.data?.refresh_token ||
-      null
-    )
-  } catch {
-    return null
-  }
+  return Cookies.get('r_t') || null
 }
 
 export const getEmployeeCode = () => {

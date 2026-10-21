@@ -132,6 +132,18 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		return err
 	}
 
+	// Đảm bảo các cột phân loại & diễn giải luôn tồn tại trên bảng _ERPPlanDetail trong PostgreSQL
+	ensurePlanDetailColumnsSQL := `
+	DO $$
+	BEGIN
+	    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '_ERPPlanDetail') THEN
+	        ALTER TABLE "_ERPPlanDetail" ADD COLUMN IF NOT EXISTS "RemarkTypeSeq" VARCHAR(36);
+	        ALTER TABLE "_ERPPlanDetail" ADD COLUMN IF NOT EXISTS "RemarkContent" TEXT;
+	    END IF;
+	END $$;
+	`
+	_ = db.Exec(ensurePlanDetailColumnsSQL)
+
 	// 3. Dọn dẹp dữ liệu phân quyền rác / legacy và chuẩn hóa cấu trúc
 	cleanupLegacySQL := `
 	DO $$
@@ -294,6 +306,27 @@ func SeedDefaults(db *gorm.DB, cfg *config.Config, log *zap.Logger) error {
 				log.Warn("Failed to seed ERP endpoint", zap.String("key", ep.EndpointKey), zap.Error(err))
 			}
 		}
+	}
+
+	var remarkCount int64
+	if err := db.Model(&reportModels.ERPProdStatsRemarkType{}).Count(&remarkCount).Error; err == nil && remarkCount == 0 {
+		strPtr := func(s string) *string { return &s }
+		intPtr := func(i int) *int { return &i }
+		boolPtr := func(b bool) *bool { return &b }
+
+		defaultRemarkTypes := []reportModels.ERPProdStatsRemarkType{
+			{IdSeq: "00000000-0000-0000-0000-000000000001", TypeCode: "PL01", TypeName: "Chờ vật tư / nguyên liệu", Description: strPtr("Chờ NVL, giấy, mực, khuôn, màng"), IdxNo: intPtr(1), IsActive: boolPtr(true), RowVersion: 1},
+			{IdSeq: "00000000-0000-0000-0000-000000000002", TypeCode: "PL02", TypeName: "Lỗi kỹ thuật / Sự cố máy", Description: strPtr("Hỏng hóc máy móc thiết bị, căn chỉnh"), IdxNo: intPtr(2), IsActive: boolPtr(true), RowVersion: 1},
+			{IdSeq: "00000000-0000-0000-0000-000000000003", TypeCode: "PL03", TypeName: "Thay đổi kế hoạch điều phối", Description: strPtr("Ưu tiên đơn hàng gấp, đổi ca, dồn lệnh"), IdxNo: intPtr(3), IsActive: boolPtr(true), RowVersion: 1},
+			{IdSeq: "00000000-0000-0000-0000-000000000004", TypeCode: "PL04", TypeName: "Chờ duyệt mẫu / market", Description: strPtr("Chờ xác nhận từ QC / khách hàng"), IdxNo: intPtr(4), IsActive: boolPtr(true), RowVersion: 1},
+			{IdSeq: "00000000-0000-0000-0000-000000000005", TypeCode: "PL05", TypeName: "Thiếu nhân sự / Đổi ca", Description: strPtr("Thiếu công nhân vận hành, bàn giao ca"), IdxNo: intPtr(5), IsActive: boolPtr(true), RowVersion: 1},
+			{IdSeq: "00000000-0000-0000-0000-000000000006", TypeCode: "PL06", TypeName: "Lỗi chất lượng sản phẩm (NG)", Description: strPtr("Hàng lỗi công đoạn trước cần xử lý lại"), IdxNo: intPtr(6), IsActive: boolPtr(true), RowVersion: 1},
+			{IdSeq: "00000000-0000-0000-0000-000000000007", TypeCode: "PL07", TypeName: "Khác", Description: strPtr("Lý do bất khả kháng hoặc nguyên nhân khác"), IdxNo: intPtr(7), IsActive: boolPtr(true), RowVersion: 1},
+		}
+		for _, rt := range defaultRemarkTypes {
+			_ = db.Create(&rt).Error
+		}
+		log.Info("Default remark types seeded into _ERPProdStatsRemarkType")
 	}
 
 	return nil

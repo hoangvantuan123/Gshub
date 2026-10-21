@@ -345,7 +345,9 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     const str = String(value ?? '').trim()
     if (!str) return false
     return (
-      /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM|SA|CH))?$/i.test(str) ||
+      /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM|SA|CH))?$/i.test(
+        str
+      ) ||
       /^\d{4}[/-]\d{1,2}[/-]\d{1,2}[ T]\d{1,2}:\d{2}(?::\d{2})?$/i.test(str) ||
       /^\d{5}(?:\.\d+)?$/.test(str)
     )
@@ -650,10 +652,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
   // Hàm trích xuất chính xác PIC Điều Phối (CHỈ TÌM ĐÚNG CỘT "Người phát hành lệnh thao tác" TỪ TAB 3)
   const extractPicCoordinator = (code, localRow = {}, unfinRow = {}, statRow = {}) => {
     const stageNo =
-      localRow.StageOrderNo ||
-      unfinRow.StageOrderNo ||
-      localRow['Lệnh công đoạn'] ||
-      ''
+      localRow.StageOrderNo || unfinRow.StageOrderNo || localRow['Lệnh công đoạn'] || ''
     const sumRow = findSummaryOpRow(code, stageNo) || {}
 
     // 1. Ưu tiên số 1: Lấy đúng cột "Người phát hành lệnh thao tác" từ Tab 3
@@ -676,7 +675,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
   // Chỉ lấy ngày tạo lệnh từ các cột cùng ngữ nghĩa; không dùng ngày thống kê/phiếu.
   const extractStageOrderCreatedDate = (localRow = {}, unfinRow = {}) => {
     const raw = String(
-        localRow.StageOrderCreatedDate ??
+      localRow.StageOrderCreatedDate ??
         localRow.StageOrderDate ??
         localRow['Ngày tạo lệnh công đoạn'] ??
         localRow.OrderCreatedDate ??
@@ -867,7 +866,6 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     current.defect += defect
     current.runTimeMin += runTimeMin
     current.ticketCount += 1
-
   })
 
   // 2. LỌC DANH SÁCH THỎA MÃN KHSX THEO NGÀY BÁO CÁO VÀ LẤY DANH SÁCH DUY NHẤT THEO SỐ LỆNH THAO TÁC
@@ -1116,11 +1114,11 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
 
     // 14. Số lượng đã thống kê đạt (Khớp thực tế từ Tab 1 Thống kê sản xuất)
     const actual = actualStatsMap.get(code) || {
-        produced: 0,
-        qualified: 0,
-        defect: 0,
-        runTimeMin: 0
-      }
+      produced: 0,
+      qualified: 0,
+      defect: 0,
+      runTimeMin: 0
+    }
 
     const actualQualified = actual.qualified
 
@@ -1189,9 +1187,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     if (!hasSumRow || !unit) missingLttFields.push('Đvt')
     if (!hasSumRow || !hasTargetQty) {
       missingLttFields.push(
-        !hasSumRow || rawTargetQty === undefined
-          ? 'Thiếu số lượng cần đạt'
-          : 'Lỗi số lượng cần đạt'
+        !hasSumRow || rawTargetQty === undefined ? 'Thiếu số lượng cần đạt' : 'Lỗi số lượng cần đạt'
       )
     }
     if (!hasSumRow || !hasPlannedQty) {
@@ -1386,11 +1382,11 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
 
     const unfinRow = unfinishedMap.get(code) || unfinishedMap.get(baseCode) || {}
     const actual = actualStatsMap.get(code) || {
-        produced: 0,
-        qualified: 0,
-        defect: 0,
-        runTimeMin: 0
-      }
+      produced: 0,
+      qualified: 0,
+      defect: 0,
+      runTimeMin: 0
+    }
 
     const rawStageOrderNo = String(
       statRow.StageOrderNo ??
@@ -1540,8 +1536,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         exactSumRow.StandardRunMinutes !== null &&
         exactSumRow.StandardRunMinutes !== ''
       ) {
-        standardRunMin =
-          parseFloat(String(exactSumRow.StandardRunMinutes).replace(/,/g, '')) || 0
+        standardRunMin = parseFloat(String(exactSumRow.StandardRunMinutes).replace(/,/g, '')) || 0
       } else if (
         exactSumRow.PlannedTotalHours !== undefined &&
         exactSumRow.PlannedTotalHours !== null &&
@@ -1600,9 +1595,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     if (!hasSumRow || !unit) missingLttFields.push('Đvt')
     if (!hasSumRow || !hasTargetQty) {
       missingLttFields.push(
-        !hasSumRow || rawTargetQty === undefined
-          ? 'Thiếu số lượng cần đạt'
-          : 'Lỗi số lượng cần đạt'
+        !hasSumRow || rawTargetQty === undefined ? 'Thiếu số lượng cần đạt' : 'Lỗi số lượng cần đạt'
       )
     }
     if (!hasSumRow || !hasPlannedQty) {

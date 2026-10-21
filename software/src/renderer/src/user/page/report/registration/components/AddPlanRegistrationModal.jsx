@@ -112,7 +112,12 @@ export default function AddPlanRegistrationModal({ isOpen, onClose, onSaveSucces
 
         {/* Nội dung form */}
         <div style={{ flex: 1, width: '100%', minHeight: 0, overflow: 'hidden' }}>
-          <PlanRegistrationFormCore mode="modal" onClose={onClose} onSaveSuccess={onSaveSuccess} permissions={permissions} />
+          <PlanRegistrationFormCore
+            mode="modal"
+            onClose={onClose}
+            onSaveSuccess={onSaveSuccess}
+            permissions={permissions}
+          />
         </div>
       </div>
     </div>

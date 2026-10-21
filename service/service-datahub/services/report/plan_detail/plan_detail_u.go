@@ -52,6 +52,8 @@ func (s *PlanDetailService) PlanDetailU(
 				"TimeStatus":       item.TimeStatus,
 				"CapaStatus":       item.CapaStatus,
 				"UserMemo":         item.UserMemo,
+				"RemarkTypeSeq":    item.RemarkTypeSeq,
+				"RemarkContent":    item.RemarkContent,
 				"RowVersion":       gorm.Expr(`"RowVersion" + 1`),
 				"UpdatedBy":        userId,
 				"UpdatedAt":        time.Now(),

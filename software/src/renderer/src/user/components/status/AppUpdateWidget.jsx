@@ -331,7 +331,8 @@ const AppUpdateWidget = () => {
     if (!notes || typeof notes !== 'string' || !notes.trim()) {
       return (
         <div className="text-slate-500 italic text-[11px]">
-          Nâng cấp phiên bản phần mềm với các cải tiến về độ ổn định, hiệu suất và trải nghiệm sử dụng.
+          Nâng cấp phiên bản phần mềm với các cải tiến về độ ổn định, hiệu suất và trải nghiệm sử
+          dụng.
         </div>
       )
     }
@@ -421,9 +422,7 @@ const AppUpdateWidget = () => {
       ? 'Khởi động lại để cập nhật'
       : isDownloadingNative
         ? 'Đang tải...'
-        : !state.nativeDownloadUrl &&
-            state.releasePageUrl &&
-            state.status === 'native-available'
+        : !state.nativeDownloadUrl && state.releasePageUrl && state.status === 'native-available'
           ? 'Mở trang phát hành'
           : isError
             ? 'Thử tải lại'

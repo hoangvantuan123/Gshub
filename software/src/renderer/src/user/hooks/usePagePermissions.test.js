@@ -67,7 +67,15 @@ test('View deny or missing menu cannot gain search through route props', () => {
 })
 
 test('registration and detail query screens use independent menu grants', () => {
-  const rows = [{ MenuKey: 'report_registration', View: true, Create: true, actions: { BTN_SAVE: false, BTN_SEARCH: false }, Export: false }]
+  const rows = [
+    {
+      MenuKey: 'report_registration',
+      View: true,
+      Create: true,
+      actions: { BTN_SAVE: false, BTN_SEARCH: false },
+      Export: false
+    }
+  ]
   const rights = pageRights(rows, 'report_registration')
   assert.equal(rights.canCreate, true)
   assert.equal(rights.canSave, false)
@@ -75,5 +83,8 @@ test('registration and detail query screens use independent menu grants', () => 
   assert.equal(rights.canExport, false)
   assert.equal(pageRights(rows, 'report_plan_query').canView, false)
   assert.equal(pageRights(rows, 'report_stat_query').canView, false)
-  assert.equal(pageRights([{ MenuKey: 'report_plan_query', View: true }], 'report_plan_query').canSearch, true)
+  assert.equal(
+    pageRights([{ MenuKey: 'report_plan_query', View: true }], 'report_plan_query').canSearch,
+    true
+  )
 })

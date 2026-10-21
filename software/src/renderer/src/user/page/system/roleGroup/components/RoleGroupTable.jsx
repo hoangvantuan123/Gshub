@@ -35,6 +35,9 @@ export default function RoleGroupTable({
   canEdit,
   canCreate,
   defaultCols,
+  tableId = 'role_grp',
+  readOnlyBg,
+  gridTheme: customGridTheme,
   onVisibleRegionChanged,
   onAddQueryField
 }) {
@@ -46,7 +49,7 @@ export default function RoleGroupTable({
   const onFill = useOnFill(setGridData, cols)
   const onSearchClose = useCallback(() => setShowSearch(false), [setShowSearch])
 
-  const { freezeColumnsCount, handleFreezeColumn } = useTableConfig('role_grp')
+  const { freezeColumnsCount, handleFreezeColumn } = useTableConfig(tableId)
 
   const {
     showMenu,
@@ -75,7 +78,7 @@ export default function RoleGroupTable({
     onCellContextMenu,
     onHeaderContextMenu
   } = useTableManager({
-    tableId: 'role_grp',
+    tableId,
     defaultCols,
     cols,
     setCols,
@@ -84,6 +87,8 @@ export default function RoleGroupTable({
     selection,
     setSelection,
     canEdit,
+    readOnlyBg,
+    gridTheme: customGridTheme,
     setShowSearch,
     onAddQueryField
   })
@@ -96,6 +101,7 @@ export default function RoleGroupTable({
       const columnKey = column.id || ''
       const isStatus = columnKey === 'WorkingTag' || columnKey === 'Status'
       const isBoolean = column.kind === 'Boolean' || BOOLEAN_KEYS.has(columnKey)
+      const isNumber = column.kind === 'Number'
       const isDate =
         DATE_KEYS.has(columnKey) || columnKey.endsWith('Date') || columnKey.endsWith('At')
       const cellTheme = getCellTheme(columnKey, column)
@@ -114,13 +120,14 @@ export default function RoleGroupTable({
         columnKey,
         isStatus,
         isBoolean,
+        isNumber,
         isDate,
         cellTheme,
         isReadOnly,
         hasMenu: column.hasMenu || false
       }
     })
-  }, [cols, getCellTheme, isReadOnlyColumn])
+  }, [cols, canEdit, getCellTheme, isReadOnlyColumn])
 
   // ── 2. SIÊU TỐI ƯU HÓA HÀM TRUY XUẤT Ô (60 FPS VIRTUAL SCROLLING) ──
   const getData = useCallback(
@@ -138,6 +145,10 @@ export default function RoleGroupTable({
       }
 
       const value = item[meta.columnKey] ?? ''
+      const isReadOnly =
+        meta.isReadOnly ||
+        (canEdit === false &&
+          !(canCreate && (item.WorkingTag || item.Status) === 'A' && !item.IdSeq))
 
       if (meta.isStatus) {
         const strVal = String(value)
@@ -159,8 +170,21 @@ export default function RoleGroupTable({
         return {
           kind: GridCellKind.Boolean,
           data: booleanValue,
-          readonly: meta.isReadOnly,
-          allowOverlay: true,
+          readonly: isReadOnly,
+          allowOverlay: !isReadOnly,
+          hasMenu: meta.hasMenu,
+          themeOverride: meta.cellTheme
+        }
+      }
+
+      if (meta.isNumber) {
+        const numberValue = Number(value)
+        return {
+          kind: GridCellKind.Number,
+          data: Number.isFinite(numberValue) ? numberValue : 0,
+          displayData: value === '' ? '' : String(value),
+          readonly: isReadOnly,
+          allowOverlay: !isReadOnly,
           hasMenu: meta.hasMenu,
           themeOverride: meta.cellTheme
         }
@@ -173,13 +197,13 @@ export default function RoleGroupTable({
         kind: GridCellKind.Text,
         data: strValue,
         displayData: displayData,
-        readonly: meta.isReadOnly,
-        allowOverlay: !meta.isReadOnly,
+        readonly: isReadOnly,
+        allowOverlay: !isReadOnly,
         hasMenu: meta.hasMenu,
         themeOverride: meta.cellTheme
       }
     },
-    [gridData, colMetadata, formatDateTime]
+    [gridData, colMetadata, formatDateTime, canEdit, canCreate]
   )
 
   const onKeyUp = useCallback(() => {}, [])
@@ -195,13 +219,14 @@ export default function RoleGroupTable({
       ) {
         return
       }
-      if (canEdit === false) {
-        return
-      }
       const indexes = reorderColumns(cols)
       const [col, row] = cell
       const key = indexes[col]
       const column = cols[col]
+      const rowData = gridData[row]
+      const isNewRow =
+        canCreate && rowData && (rowData.WorkingTag || rowData.Status) === 'A' && !rowData.IdSeq
+      if (canEdit === false && !isNewRow) return
 
       if (
         isReadOnlyColumn(key, column) ||
@@ -232,17 +257,25 @@ export default function RoleGroupTable({
         return updatedData
       })
     },
-    [cols, canEdit, isReadOnlyColumn, setGridData]
+    [cols, canEdit, canCreate, gridData, isReadOnlyColumn, setGridData]
   )
 
   // ── 4. DÁN HÀNG LOẠT ──
   const onPaste = useCallback(
     (target, values) => {
-      if (!values || values.length === 0 || canEdit === false) {
+      if (!values || values.length === 0) {
         return false
       }
 
       const [startCol, startRow] = target
+      const pastedRows = Array.from(
+        { length: values.length },
+        (_, index) => gridData[startRow + index]
+      )
+      const canPasteToNewRows =
+        canCreate &&
+        pastedRows.every((row) => row && (row.WorkingTag || row.Status) === 'A' && !row.IdSeq)
+      if (canEdit === false && !canPasteToNewRows) return false
       const indexes = reorderColumns(cols)
       const numPastedRows = values.length
       const numPastedCols = values[0]?.length || 0
@@ -374,7 +407,17 @@ export default function RoleGroupTable({
 
       return false
     },
-    [cols, canEdit, isReadOnlyColumn, setGridData, setNumRows, setStatusMessage, t]
+    [
+      cols,
+      canEdit,
+      canCreate,
+      gridData,
+      isReadOnlyColumn,
+      setGridData,
+      setNumRows,
+      setStatusMessage,
+      t
+    ]
   )
 
   const effectiveRows = numRows ?? gridData?.length ?? 0
@@ -417,7 +460,7 @@ export default function RoleGroupTable({
           freezeTrailingRows={0}
           rowHeight={23}
           onPaste={onPaste}
-          fillHandle={true}
+          fillHandle={Boolean(canEdit)}
           keybindings={keybindings}
           isDraggable={false}
           onRowAppended={() => handleRowAppend(1)}

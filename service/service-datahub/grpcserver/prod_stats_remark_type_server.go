@@ -36,6 +36,7 @@ func (s *prodStatsRemarkTypeServer) execute(ctx context.Context, operation strin
 	if user := auth.AuthenticatedUserFromContext(ctx); user != nil {
 		userSeq = user.UserSeq
 	}
+	s.logger.Info("DEBUG execute", zap.String("op", operation), zap.String("filters_json", req.FiltersJson))
 	result, err := s.svc.Execute(ctx, operation, []byte(req.FiltersJson), userSeq)
 	if err != nil {
 		var apiErr *prod_stats_remark_type.APIError

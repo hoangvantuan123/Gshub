@@ -2,20 +2,33 @@ import Cookies from 'js-cookie'
 import { LogoutAuth } from '../api/auth/login'
 import { clearMenuData } from '../IndexedDB/loadMenuData'
 
-export const performLogout = async (navigate) => {
+export const performLogout = async (navigate, { skipServerCall = false } = {}) => {
   try {
     // 0. Xóa cache cấu trúc menu trong IndexedDB
     clearMenuData().catch((e) => console.warn('Lỗi xóa menu IndexedDB:', e))
 
     // 1. Gửi request thông báo huỷ/thu hồi Token lên Server (Backend Blacklist)
-    try {
-      await LogoutAuth()
-    } catch (apiErr) {
-      console.warn('Backend Logout call error (ignoring for local clean-up):', apiErr)
+    if (!skipServerCall) {
+      try {
+        await LogoutAuth()
+      } catch (apiErr) {
+        console.warn('Backend Logout call error (ignoring for local clean-up):', apiErr)
+      }
     }
 
     // 2. Xóa sạch toàn bộ Authentication Cookies
-    const cookieKeys = ['a_a', 'token', 'accessToken', 'device_token', 'device_id', 'refreshToken']
+    const cookieKeys = [
+      'a_a',
+      'access_token',
+      '_token',
+      'token',
+      'accessToken',
+      'r_t',
+      'refresh_token',
+      'refreshToken',
+      'device_token',
+      'device_id'
+    ]
     cookieKeys.forEach((key) => {
       Cookies.remove(key, { path: '/' })
       Cookies.remove(key)
@@ -44,9 +57,13 @@ export const performLogout = async (navigate) => {
     const authKeys = [
       'userInfo',
       'token',
+      '_token',
       'access_token',
       'accessToken',
       'a_a',
+      'r_t',
+      'refresh_token',
+      'refreshToken',
       'datahub_auth_session',
       'gshub_auth_session',
       'roles_menu',

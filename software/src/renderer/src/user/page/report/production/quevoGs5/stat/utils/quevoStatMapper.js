@@ -119,6 +119,7 @@ export function mapQuevoStatRow(item, idx, masterInfo) {
   return {
     ...item,
     id: item.IdSeq ? String(item.IdSeq) : item.StatTicketNo || String(idx + 1),
+    IdSeq: item.IdSeq || item.idSeq || item.Id || '',
     ticketNo: item.StatTicketNo || item.statTicketNo || item.ticketNo || item.RegCode || '',
     StatTicketNo: item.StatTicketNo || item.statTicketNo || item.ticketNo || item.RegCode || '',
     docNo: item.OperationNo || item.operationNo || item.RoutingDocNo || item.routingDocNo || '',
@@ -126,6 +127,26 @@ export function mapQuevoStatRow(item, idx, masterInfo) {
       item.OperationNo || item.operationNo || item.RoutingDocNo || item.routingDocNo || '',
     OrderNo: item.OrderNo || item.orderNo || '',
     orderNo: item.OrderNo || item.orderNo || '',
+    RemarkTypeSeq: item.RemarkTypeSeq || item.remarkTypeSeq || '',
+    remarkTypeSeq: item.RemarkTypeSeq || item.remarkTypeSeq || '',
+    RemarkTypeCode: item.RemarkTypeCode || item.remarkTypeCode || '',
+    remarkTypeCode: item.RemarkTypeCode || item.remarkTypeCode || '',
+    RemarkType:
+      item.RemarkTypeName || item.remarkTypeName || item.RemarkType || item.remarkType || '',
+    remarkType:
+      item.RemarkTypeName || item.remarkTypeName || item.RemarkType || item.remarkType || '',
+    RemarkContent:
+      item.RemarkContent ||
+      item.remarkContent ||
+      item.RemarkDescription ||
+      item.remarkDescription ||
+      '',
+    remarkDescription:
+      item.RemarkContent ||
+      item.remarkContent ||
+      item.RemarkDescription ||
+      item.remarkDescription ||
+      '',
     team,
     teamCode,
     TeamName: item.TeamName || item.teamName || team,

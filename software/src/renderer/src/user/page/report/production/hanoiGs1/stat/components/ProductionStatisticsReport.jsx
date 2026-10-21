@@ -64,6 +64,7 @@ export default function ProductionStatisticsReport(props) {
   const {
     plantKey = 'hanoi_gs1',
     plantName = 'Nhà máy GS Hà Nội',
+    permissions,
     dateRange: _propDateRange,
     onDateRangeChange: _propOnDateRangeChange,
     masterList = [],
@@ -78,6 +79,7 @@ export default function ProductionStatisticsReport(props) {
   const [showTeamSummaryTable, setShowTeamSummaryTable] = useState(true)
   const [showSyncTable, setShowSyncTable] = useState(true)
   const [showAutoExportTable, setShowAutoExportTable] = useState(true)
+  const [auditModalMode, setAuditModalMode] = useState('TIME')
   const [autoExportTab, setAutoExportTab] = useState('breakdown') // 'breakdown' | 'missing_list'
   const [missingAutoExportSearchText, setMissingAutoExportSearchText] = useState('')
   const [copiedMissingAutoExport, setCopiedMissingAutoExport] = useState(false)
@@ -382,6 +384,20 @@ export default function ProductionStatisticsReport(props) {
 
           {/* Nhóm nút tác vụ chuẩn ERP bên phải */}
           <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setAuditModalMode('DETAIL')
+                setAuditModalCategory('ALL')
+                setShowAuditModal(true)
+              }}
+              className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
+              title="Mở nhật trình toàn màn hình để đối soát và chỉnh sửa phiếu sản xuất"
+            >
+              <TableProperties size={13} className="text-indigo-600" />
+              <span>NHẬT TRÌNH ĐỐI SOÁT</span>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -2982,6 +2998,7 @@ export default function ProductionStatisticsReport(props) {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
+                  setAuditModalMode('TIME')
                   setAuditModalCategory('INVALID_TIME')
                   setShowAuditModal(true)
                 }}
@@ -3034,31 +3051,6 @@ export default function ProductionStatisticsReport(props) {
             className="screenshot-hide"
             style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
           >
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setAuditModalCategory(invalidTimeCount > 0 ? 'INVALID_TIME' : 'ALL')
-                setShowAuditModal(true)
-              }}
-              className={`uppercase text-[11px] font-semibold ${
-                invalidTimeCount > 0
-                  ? 'text-rose-700 hover:text-rose-800 bg-rose-50 border border-rose-200'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-              title="Mở bảng đối soát kỷ luật thời gian chạy máy & cảnh báo phiếu lỗi"
-            >
-              <Clock
-                size={13}
-                className={invalidTimeCount > 0 ? 'text-rose-600' : 'text-blue-500'}
-              />
-              <span>ĐỐI SOÁT THỜI GIAN</span>
-              {invalidTimeCount > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 text-[9.5px] font-mono font-bold bg-rose-600 text-white rounded-none leading-none shadow-xs">
-                  {invalidTimeCount}
-                </span>
-              )}
-            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -3165,7 +3157,12 @@ export default function ProductionStatisticsReport(props) {
         isOpen={showAuditModal}
         onClose={() => setShowAuditModal(false)}
         initialCategory={auditModalCategory}
+        viewMode={auditModalMode}
         data={rawData || filteredData}
+        plantKey={plantKey}
+        localOnly
+        canEdit
+        showWorkingTag
         plantName={
           plantName || (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội')
         }

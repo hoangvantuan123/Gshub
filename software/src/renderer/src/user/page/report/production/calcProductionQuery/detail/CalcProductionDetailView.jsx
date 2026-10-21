@@ -24,7 +24,10 @@ import {
   RESULT_CALC_COLUMNS_SCHEMA
 } from '../../calcProduction/columns/calcGridColumns'
 import { runProductionCalculations } from '../../calcProduction/engine'
-import { getMachineComparisonRows, getMachineComparisonPage } from '../../calcProduction/engine/machineComparison'
+import {
+  getMachineComparisonRows,
+  getMachineComparisonPage
+} from '../../calcProduction/engine/machineComparison'
 import { DEFAULT_CALC_RULES } from '../../calcProduction/engine/calcRuleConfig'
 import CalcDataGridTable from '../../calcProduction/components/CalcDataGridTable'
 import CalcProductionActions from '../../calcProduction/components/CalcProductionActions'
@@ -333,7 +336,8 @@ export default function CalcProductionDetailView() {
 
   // Cột mặc định cho từng tab
   const defaultCols = useMemo(() => {
-    if (activeTab === 'machine_comparison') return getGridColumnsForTab(activeTab, MACHINE_COMPARISON_COLUMN_SCHEMA)
+    if (activeTab === 'machine_comparison')
+      return getGridColumnsForTab(activeTab, MACHINE_COMPARISON_COLUMN_SCHEMA)
     if (activeTab === 'result_tksx') {
       const statCols = calcResults?.stat?.columns || fileSummaries['stat_report']?.columns || []
       let merged = []
@@ -369,7 +373,9 @@ export default function CalcProductionDetailView() {
   const cols = useMemo(() => {
     const columns = tabColsMap[activeTab] || defaultCols
     return activeTab === 'machine_comparison'
-      ? columns.filter((col) => !['KhsxStatus', 'ProducedQty', 'QualifiedQty'].includes(col.id || col.key))
+      ? columns.filter(
+          (col) => !['KhsxStatus', 'ProducedQty', 'QualifiedQty'].includes(col.id || col.key)
+        )
       : columns
   }, [tabColsMap, activeTab, defaultCols])
 
@@ -419,12 +425,12 @@ export default function CalcProductionDetailView() {
       filtered = filtered.filter((row) => {
         if (!row) return false
         if (row.MachineComparisonStatus !== undefined) {
-          return String(row.MachineComparisonStatus).toLowerCase() === sf ||
+          return (
+            String(row.MachineComparisonStatus).toLowerCase() === sf ||
             String(row.MesComparisonStatus || '').toLowerCase() === sf
+          )
         }
-        if (
-          ['thiếu họ tên ltt', 'chưa có tt lệnh', 'thiếu tt lệnh'].includes(sf)
-        ) {
+        if (['thiếu họ tên ltt', 'chưa có tt lệnh', 'thiếu tt lệnh'].includes(sf)) {
           const lttStatus = String(
             row.OpInfoStatus ?? row['Trạng thái LTT'] ?? row['Trạng thái thông tin lệnh'] ?? ''
           ).toLowerCase()
@@ -502,7 +508,10 @@ export default function CalcProductionDetailView() {
         let mesRows
         // Legacy reports have no saved tab 7. Read source files, never a paged
         // grid cache, so all TK slips participate in the comparison.
-        if (results?.machineComparison?.matchVersion !== 2 && results?.stat?.calculatedRows?.length) {
+        if (
+          results?.machineComparison?.matchVersion !== 2 &&
+          results?.stat?.calculatedRows?.length
+        ) {
           const [summaryFile, mesFile] = await Promise.all([
             storageAdapter.getFile('summary_op', targetRegCode),
             storageAdapter.getFile('mes_approval', targetRegCode)

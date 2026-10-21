@@ -813,7 +813,9 @@ export const formatVietnamDateTimeValue = (val, colNameOrKey = '', fileType = ''
 }
 
 const getTemporalColumnKind = (key = '', title = '', fileType = '') => {
-  const normalizedKey = String(key).toLowerCase().replace(/[^a-z0-9]/g, '')
+  const normalizedKey = String(key)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
   const normalizedTitle = String(title).toLowerCase()
   if (fileType === 'unfinished_op') {
     if (normalizedKey === 'ordercreateddate' || normalizedTitle.includes('ngày tạo lệnh')) {
@@ -888,7 +890,9 @@ const validateTemporalCell = (value, kind) => {
 
   if (typeof value === 'number' && Number.isFinite(value)) {
     if (kind === 'time') {
-      return value >= 0 && value < 1 ? null : 'cột chỉ giờ nhưng ô có cả ngày hoặc số ngoài khoảng giờ'
+      return value >= 0 && value < 1
+        ? null
+        : 'cột chỉ giờ nhưng ô có cả ngày hoặc số ngoài khoảng giờ'
     }
     if (value >= 1 && value < 90000) {
       if (kind === 'date' && value % 1 > 0.000001) return 'cột chỉ ngày nhưng ô có kèm giờ'
@@ -966,7 +970,8 @@ const validateTemporalCell = (value, kind) => {
 export const formatTemporalWarnings = (warnings = []) => {
   if (!warnings.length) return ''
   const details = warnings.slice(0, 6).map((warning) => {
-    const samples = warning.samples.slice(0, 3)
+    const samples = warning.samples
+      .slice(0, 3)
       .map((sample) => `dòng ${sample.row}: “${sample.value}” (${sample.reason})`)
       .join(', ')
     return `${warning.title}: ${warning.count} ô${samples ? ` (${samples})` : ''}`

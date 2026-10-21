@@ -405,7 +405,17 @@ export function useUserManagement({
           text: t('Lưu danh sách người dùng thành công!')
         })
     }
-  }, [canCreate, canEdit, canSave, gridData, setGridData, userFrom, handleSave, setStatusMessage, t])
+  }, [
+    canCreate,
+    canEdit,
+    canSave,
+    gridData,
+    setGridData,
+    userFrom,
+    handleSave,
+    setStatusMessage,
+    t
+  ])
 
   // 3. Cập nhật trạng thái tài khoản (Lưu trữ / Bỏ lưu trữ)
   const handleUpdateStatusAcc = useCallback(

@@ -191,9 +191,10 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
   const machineComparisonRows = useMemo(() => {
     const plans = calcResults?.plan?.calculatedRows || []
     const summaryRows = filesDataMap.summary_op?.data
-    const comparisonPlans = summaryRows && plans.some((row) => !Array.isArray(row.DeclaredMachines))
-      ? attachDeclaredMachines(plans, summaryRows)
-      : plans
+    const comparisonPlans =
+      summaryRows && plans.some((row) => !Array.isArray(row.DeclaredMachines))
+        ? attachDeclaredMachines(plans, summaryRows)
+        : plans
     return buildMachineComparison(
       calcResults?.stat?.calculatedRows || [],
       comparisonPlans,
@@ -204,31 +205,40 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
   // Older saved results have no declared machine codes; read their source LTT
   // when opening tab 7 so these reports can also be compared without recalculation.
   useEffect(() => {
-    if (activeTab === 'machine_comparison' &&
+    if (
+      activeTab === 'machine_comparison' &&
       calcResults?.plan?.calculatedRows?.some((row) => !Array.isArray(row.DeclaredMachines)) &&
-      fileSummaries.summary_op?.rowCount > 0 && !filesDataMap.summary_op) {
+      fileSummaries.summary_op?.rowCount > 0 &&
+      !filesDataMap.summary_op
+    ) {
       loadTabDetail('summary_op')
     }
   }, [activeTab, calcResults, fileSummaries.summary_op, filesDataMap.summary_op, loadTabDetail])
 
   useEffect(() => {
-    if (activeTab === 'machine_comparison' && calcResults &&
+    if (
+      activeTab === 'machine_comparison' &&
+      calcResults &&
       !calcResults.machineComparison?.mesMachines &&
-      fileSummaries.mes_approval?.rowCount > 0 && !filesDataMap.mes_approval) {
+      fileSummaries.mes_approval?.rowCount > 0 &&
+      !filesDataMap.mes_approval
+    ) {
       loadTabDetail('mes_approval')
     }
   }, [activeTab, calcResults, fileSummaries.mes_approval, filesDataMap.mes_approval, loadTabDetail])
 
   const activeTabFileData = useMemo(() => {
     if (activeTab === 'machine_comparison') {
-      return machineComparisonRows.length ? {
-        columns: MACHINE_COMPARISON_COLUMN_SCHEMA,
-        data: machineComparisonRows,
-        rowCount: machineComparisonRows.length,
-        fileName: 'DoiChieuMay_TK_KH.xlsx',
-        uploadedAt: calcResults?.calculatedAt,
-        isResult: true
-      } : null
+      return machineComparisonRows.length
+        ? {
+            columns: MACHINE_COMPARISON_COLUMN_SCHEMA,
+            data: machineComparisonRows,
+            rowCount: machineComparisonRows.length,
+            fileName: 'DoiChieuMay_TK_KH.xlsx',
+            uploadedAt: calcResults?.calculatedAt,
+            isResult: true
+          }
+        : null
     }
     if (activeTab === 'result_tksx') {
       const rows = calcResults?.stat?.calculatedRows || []
@@ -1102,15 +1112,20 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       // Nhường luồng cho UI
       await new Promise((resolve) => setTimeout(resolve, 60))
 
-      const results = await runProductionCalculations(allFiles, {
-        ...masterInfo,
-        regCode: calcRegCode,
-        version: nextVersion
-      }, null, async ({ activeTab: calculatingTab, ...progress }) => {
-        setCalculationProgress(progress)
-        setActiveTab(calculatingTab)
-        await new Promise((resolve) => setTimeout(resolve, 60))
-      })
+      const results = await runProductionCalculations(
+        allFiles,
+        {
+          ...masterInfo,
+          regCode: calcRegCode,
+          version: nextVersion
+        },
+        null,
+        async ({ activeTab: calculatingTab, ...progress }) => {
+          setCalculationProgress(progress)
+          setActiveTab(calculatingTab)
+          await new Promise((resolve) => setTimeout(resolve, 60))
+        }
+      )
 
       // Nhường luồng cho UI
       await new Promise((resolve) => setTimeout(resolve, 60))

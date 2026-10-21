@@ -22,12 +22,15 @@ func (s *ProdStatsRemarkTypeService) ProdStatsRemarkTypeU(ctx context.Context, i
 			if it.IsActive != nil {
 				values["IsActive"] = *it.IsActive
 			}
-			res := tx.Model(&models.ERPProdStatsRemarkType{}).Where(`"IdSeq" = ?`, it.IdSeq).Updates(values)
+			values["RowVersion"] = gorm.Expr(`"RowVersion" + 1`)
+			res := tx.Model(&models.ERPProdStatsRemarkType{}).
+				Where(`"IdSeq" = ? AND "RowVersion" = ?`, it.IdSeq, it.RowVersion).
+				Updates(values)
 			if res.Error != nil {
 				return res.Error
 			}
 			if res.RowsAffected == 0 {
-				return &APIError{404, "Không tìm thấy phân loại: " + it.IdSeq}
+				return conflict("Dữ liệu đã được người khác cập nhật. Hãy truy vấn lại trước khi lưu: " + it.TypeCode)
 			}
 			if res.RowsAffected != 1 {
 				return conflict("IdSeq bị trùng trong DB; cần xử lý dữ liệu trước khi cập nhật")

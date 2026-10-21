@@ -196,6 +196,32 @@ export function useDataGridSheet({
   const [editedRows, setEditedRows] = useState([])
   const [numRows, setNumRows] = useState(0)
 
+  // Layout preferences may have been saved while the user had read-only access.
+  // Keep the saved order/width, but always take editability and other schema
+  // properties from the current permission-aware column definitions.
+  const hydrateColumns = useCallback(
+    (savedCols) => {
+      const defaultsById = new Map((defaultCols || []).map((column) => [column.id, column]))
+      const visibleDefaults = new Set(
+        (defaultCols || []).filter((column) => column.visible !== false).map((column) => column.id)
+      )
+      const normalized = (Array.isArray(savedCols) ? savedCols : [])
+        .filter((column) => column?.id === 'WorkingTag' || visibleDefaults.has(column?.id))
+        .map((column) => {
+          const definition = defaultsById.get(column.id)
+          if (!definition) return column
+          return {
+            ...column,
+            ...definition,
+            // Width and ordering are user layout preferences; readOnly is not.
+            width: column.width ?? definition.width
+          }
+        })
+      return ensureStatusFirstColumn(normalized, defaultCols)
+    },
+    [defaultCols]
+  )
+
   // Khởi tạo cột từ LocalStorage hoặc cấu hình default
   const [cols, setCols] = useState(() => {
     const rawCols = storageKey
@@ -204,7 +230,7 @@ export function useDataGridSheet({
           defaultCols.filter((col) => col.visible)
         )
       : defaultCols.filter((col) => col.visible)
-    return ensureStatusFirstColumn(rawCols, defaultCols)
+    return hydrateColumns(rawCols)
   })
 
   const prevColsSignatureRef = useRef('')
@@ -227,9 +253,9 @@ export function useDataGridSheet({
         storageKey,
         defaultCols.filter((col) => col.visible)
       )
-      setCols(ensureStatusFirstColumn(rawCols, defaultCols))
+      setCols(hydrateColumns(rawCols))
     }
-  }, [storageKey, defaultCols])
+  }, [storageKey, defaultCols, hydrateColumns])
 
   // Cập nhật tổng số cột vào PageDataContext khi số lượng cột thay đổi thực sự
   useEffect(() => {

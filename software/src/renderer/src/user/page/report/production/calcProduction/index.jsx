@@ -276,7 +276,9 @@ export default function CalcProductionPage({
   const cols = useMemo(() => {
     const columns = tabColsMap[activeTab] || defaultCols
     return activeTab === 'machine_comparison'
-      ? columns.filter((col) => !['KhsxStatus', 'ProducedQty', 'QualifiedQty'].includes(col.id || col.key))
+      ? columns.filter(
+          (col) => !['KhsxStatus', 'ProducedQty', 'QualifiedQty'].includes(col.id || col.key)
+        )
       : columns
   }, [tabColsMap, activeTab, defaultCols])
 
@@ -341,11 +343,11 @@ export default function CalcProductionPage({
       result = result.filter((row) => {
         if (!row) return false
         if (activeTab === 'machine_comparison') {
-          return row.MachineComparisonStatus === statusFilter || row.MesComparisonStatus === statusFilter
+          return (
+            row.MachineComparisonStatus === statusFilter || row.MesComparisonStatus === statusFilter
+          )
         }
-        if (
-          ['Thiếu họ tên LTT', 'Chưa có TT lệnh', 'Thiếu TT lệnh'].includes(statusFilter)
-        ) {
+        if (['Thiếu họ tên LTT', 'Chưa có TT lệnh', 'Thiếu TT lệnh'].includes(statusFilter)) {
           const lttStatus = String(
             row.OpInfoStatus ?? row['Trạng thái LTT'] ?? row['Trạng thái thông tin lệnh'] ?? ''
           )

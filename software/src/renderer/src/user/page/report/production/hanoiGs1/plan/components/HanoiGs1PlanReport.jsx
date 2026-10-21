@@ -44,6 +44,7 @@ import {
 } from './reportUIComponents'
 import QuerySelectInput from '@renderer/user/components/query/core/fields/QuerySelectInput'
 import { FormulaHandbookModal } from '../../../handbook/FormulaHandbookModal'
+import { PlanAuditDetailModal } from './PlanAuditDetailModal'
 import { useHanoiGs1PlanLogic } from '../hooks/useHanoiGs1PlanLogic'
 import { PlanPicAnalysisSection } from '../../../summary/plan/components/PlanPicAnalysisSection'
 
@@ -58,6 +59,7 @@ export default function HanoiGs1PlanReport(props) {
     selectedMasterKey,
     onSelectMaster,
     onRefreshMaster,
+    permissions = {},
     loadingMaster = false,
     dataset = []
   } = props
@@ -102,6 +104,10 @@ export default function HanoiGs1PlanReport(props) {
     // Modal State
     showFormulaModal,
     setShowFormulaModal,
+    showAuditModal,
+    setShowAuditModal,
+    auditModalCategory,
+    setAuditModalCategory,
 
     // Chart Modes & View Controls
     picChartMode,
@@ -276,6 +282,19 @@ export default function HanoiGs1PlanReport(props) {
 
           {/* Nhóm nút tác vụ chuẩn ERP bên phải */}
           <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setAuditModalCategory('ALL')
+                setShowAuditModal(true)
+              }}
+              className="uppercase text-[11px] font-semibold text-indigo-700 hover:text-indigo-800"
+              title="Mở nhật trình để xem và đối soát danh sách lệnh kế hoạch sản xuất"
+            >
+              <TableProperties size={13} className="text-indigo-600" />
+              <span>NHẬT TRÌNH ĐỐI SOÁT</span>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -1647,6 +1666,20 @@ export default function HanoiGs1PlanReport(props) {
           />
         </div>
       </div>
+
+      {/* PLAN AUDIT DETAIL MODAL */}
+      <PlanAuditDetailModal
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+        initialCategory={auditModalCategory}
+        data={sortedData || []}
+        plantKey={plantKey}
+        plantName={plantName}
+        canEdit={permissions.canEdit}
+        localOnly={true}
+        showWorkingTag={true}
+        onSaved={onRefreshMaster}
+      />
 
       {/* PLAN FORMULA HANDBOOK MODAL */}
       <FormulaHandbookModal

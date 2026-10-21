@@ -360,7 +360,6 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
         path !== '#' &&
         path !== '[object Window]'
       ) {
-        preloadRoute(path)
         if (itemKey) {
           sessionStorage.setItem('current_action', itemKey)
           setCurrentAction(itemKey)
@@ -368,6 +367,7 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
         if (safeNavigate) {
           safeNavigate(path)
         } else {
+          preloadRoute(path)
           navigate(path)
         }
       }
@@ -507,7 +507,6 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                     <Tooltip title={t('Trang chủ')} className="w-full">
                       <button
                         type="button"
-                        onMouseEnter={() => preloadRoute('/erp/u/home')}
                         onClick={(e) => handleSafeClick(e, '/erp/u/home', 'home')}
                         className={`w-full h-10 flex items-center justify-center border-b border-slate-200 transition-colors cursor-pointer ${
                           isHomeActive
@@ -607,7 +606,6 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
 
                     <button
                       type="button"
-                      onMouseEnter={() => preloadRoute('/erp/u/setting')}
                       onClick={handleClickSetting}
                       className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs text-slate-700 rounded-[3px] hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer text-left font-medium"
                     >
@@ -831,9 +829,6 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                                                       <a
                                                         key={mItem.MenuKey || mItem.Id}
                                                         href={mItem.MenuLink || '#'}
-                                                        onMouseEnter={() =>
-                                                          preloadRoute(mItem.MenuLink)
-                                                        }
                                                         onClick={(e) => {
                                                           handleSafeClick(
                                                             e,
@@ -868,7 +863,6 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                                         <a
                                           key={subItem.MenuKey || subItem.Id}
                                           href={subItem.MenuLink || '#'}
-                                          onMouseEnter={() => preloadRoute(subItem.MenuLink)}
                                           onClick={(e) => {
                                             handleSafeClick(
                                               e,
@@ -904,7 +898,6 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
                             <a
                               key={item.Id}
                               href={item.MenuLink || '#'}
-                              onMouseEnter={() => preloadRoute(item.MenuLink)}
                               onClick={(e) => {
                                 handleSafeClick(e, item.MenuLink, item.Id)
                               }}

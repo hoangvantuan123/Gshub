@@ -46,6 +46,25 @@ func nukeSignal(data interface{}) {
 	}
 }
 
+// QueryCodeHelp's HTTP helpers wrap lookup arguments in `result`, while its
+// protobuf request exposes those lookup fields directly. Flatten that envelope
+// before mapping the request so CodeHelpName/KeyValue are not silently dropped.
+func flattenCodeHelpResult(methodPath string, body map[string]interface{}) {
+	if !strings.HasSuffix(methodPath, "/QueryCodeHelp") {
+		return
+	}
+	result, ok := body["result"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	for key, value := range result {
+		if _, exists := body[key]; !exists {
+			body[key] = value
+		}
+	}
+	delete(body, "result")
+}
+
 // convertScalar ép kiểu dữ liệu từ JSON float64/int/string về đúng kiểu proto descriptor
 func convertScalar(val interface{}, fd *desc.FieldDescriptor) interface{} {
 	if val == nil || fd == nil {
@@ -287,6 +306,7 @@ func Invoke(
 
 	// ── 1. Chuẩn bị dữ liệu ─────────────────────────────────────────────
 	nukeSignal(body)
+	flattenCodeHelpResult(methodPath, body)
 
 	if body["result"] == nil {
 		var resultField *desc.FieldDescriptor

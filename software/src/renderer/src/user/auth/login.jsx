@@ -28,7 +28,11 @@ import { LoginAuth } from '../../api/auth/login'
 import { ChangePassword } from '../../api/auth/changePassword'
 import decodeJWT from '../../utils/decode-JWT'
 import { parseRolesMenu } from '../../utils/parseRolesMenu'
-import { stripPermissionData, clearLegacyPermissionStorage } from '../../utils/authStorage.js'
+import {
+  stripPermissionData,
+  stripAuthTokenData,
+  clearLegacyPermissionStorage
+} from '../../utils/authStorage.js'
 import { HandleSuccess } from '../page/default/handleSuccess'
 
 // --- Storage & Config ---
@@ -412,7 +416,10 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
           clearLegacyPermissionStorage()
 
           if (userObj) {
-            localStorage.setItem('userInfo', JSON.stringify(stripPermissionData(userObj)))
+            localStorage.setItem(
+              'userInfo',
+              JSON.stringify(stripAuthTokenData(stripPermissionData(userObj)))
+            )
           }
           localStorage.setItem('last_login_username', loginVal)
           localStorage.setItem('datahub_remember_username', loginVal)
@@ -433,20 +440,17 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
           }
 
           const finalToken = tokenVal || ''
-          const finalRefreshToken = refreshTokenVal || tokenVal || ''
+          const finalRefreshToken = refreshTokenVal || ''
 
+          Cookies.remove('a_a', { path: '/' })
+          Cookies.remove('access_token', { path: '/' })
+          Cookies.remove('r_t', { path: '/' })
+          Cookies.remove('refresh_token', { path: '/' })
           if (finalToken) {
             Cookies.set('a_a', finalToken, { expires: 7, path: '/' })
-            Cookies.set('access_token', finalToken, { expires: 7, path: '/' })
-            localStorage.setItem('access_token', finalToken)
-            localStorage.setItem('token', finalToken)
-            localStorage.setItem('a_a', finalToken)
           }
           if (finalRefreshToken) {
             Cookies.set('r_t', finalRefreshToken, { expires: 30, path: '/' })
-            Cookies.set('refresh_token', finalRefreshToken, { expires: 30, path: '/' })
-            localStorage.setItem('refresh_token', finalRefreshToken)
-            localStorage.setItem('r_t', finalRefreshToken)
           }
 
           // Xóa sạch trạng thái rác của menu cũ để không bao giờ bị đè layout
@@ -500,7 +504,6 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
               }
               localStorage.setItem('save_users_log', JSON.stringify(list2))
             } catch {}
-
           }, 0)
 
           // 3. Đóng màn hình settings nếu đang mở (cả Web & Electron)
@@ -627,8 +630,11 @@ export default function Login({ processRolesMenu, setKeyLanguage }) {
     const decoded = decodeJWT(token)
     if (token && decoded) {
       if (stripPermissionData(token) === undefined) return
-      localStorage.setItem('token', token)
-      localStorage.setItem('userInfo', JSON.stringify(stripPermissionData(decoded)))
+      Cookies.set('a_a', token, { expires: 7, path: '/' })
+      localStorage.setItem(
+        'userInfo',
+        JSON.stringify(stripAuthTokenData(stripPermissionData(decoded)))
+      )
       localStorage.setItem('COLLAPSED_STATE', JSON.stringify(true))
       window.location.href = '/erp/u/home'
     }

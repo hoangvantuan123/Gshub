@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import dayjs from 'dayjs'
-import * as XLSX from 'xlsx'
 import { openChildWindow } from '@renderer/utils/openChildWindow'
 import storageAdapter from '../storageAdapterProxy'
 import {
@@ -480,7 +479,10 @@ export function useCalcMasterQueryLogic({ setStatusMessage } = {}) {
 
         setQueriedRows(filtered)
         if (serverError) {
-          notify('error', `Đồng bộ hệ thống thất bại: ${serverError.message}. Đang hiển thị ${filtered.length.toLocaleString('vi-VN')} phiếu từ bộ nhớ trên máy.`)
+          notify(
+            'error',
+            `Đồng bộ hệ thống thất bại: ${serverError.message}. Đang hiển thị ${filtered.length.toLocaleString('vi-VN')} phiếu từ bộ nhớ trên máy.`
+          )
         } else {
           notify('success', `Đã nạp ${filtered.length.toLocaleString('vi-VN')} phiếu kế hoạch`)
         }

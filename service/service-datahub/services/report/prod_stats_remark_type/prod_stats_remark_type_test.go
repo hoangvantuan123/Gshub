@@ -96,7 +96,7 @@ func TestPostgresCatalogLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := created[0].IdSeq
-	if !validID(id) || *created[0].IsActive || *created[0].CreatedBy != actor {
+	if !validID(id) || *created[0].IsActive || *created[0].CreatedBy != actor || created[0].RowVersion != 1 {
 		t.Fatalf("incorrect UUID/default/audit: %+v", created[0])
 	}
 	_, err = s.ProdStatsRemarkTypeA(ctx, []models.ERPProdStatsRemarkType{{TypeCode: "note", TypeName: "Trùng"}}, actor)
@@ -118,12 +118,16 @@ func TestPostgresCatalogLifecycle(t *testing.T) {
 	if err != nil || len(rows) != 0 {
 		t.Fatal("failed batch leaked changes")
 	}
-	updated, err := s.ProdStatsRemarkTypeU(ctx, []models.ERPProdStatsRemarkType{{IdSeq: id, TypeCode: "NOTE", TypeName: "Đã sửa"}}, actor)
-	if err != nil || *updated[0].IsActive || !updated[0].CreatedAt.Equal(*persistedCreatedAt) || *updated[0].CreatedBy != actor {
+	updated, err := s.ProdStatsRemarkTypeU(ctx, []models.ERPProdStatsRemarkType{{IdSeq: id, RowVersion: created[0].RowVersion, TypeCode: "NOTE", TypeName: "Đã sửa"}}, actor)
+	if err != nil || updated[0].RowVersion != 2 || *updated[0].IsActive || !updated[0].CreatedAt.Equal(*persistedCreatedAt) || *updated[0].CreatedBy != actor {
 		t.Fatalf("update lost state/audit: %v", err)
 	}
+	_, err = s.ProdStatsRemarkTypeU(ctx, []models.ERPProdStatsRemarkType{{IdSeq: id, RowVersion: created[0].RowVersion, TypeCode: "NOTE", TypeName: "Bản cũ"}}, actor)
+	if !errors.As(err, &apiErr) || apiErr.Status != 409 {
+		t.Fatalf("expected stale update conflict, got %v", err)
+	}
 	// An update followed by a missing row must be fully rolled back.
-	_, err = s.ProdStatsRemarkTypeU(ctx, []models.ERPProdStatsRemarkType{{IdSeq: id, TypeCode: "NOTE", TypeName: "Không lưu"}, {IdSeq: uuid.Must(uuid.NewV7()).String(), TypeCode: "MISSING", TypeName: "Thiếu"}}, actor)
+	_, err = s.ProdStatsRemarkTypeU(ctx, []models.ERPProdStatsRemarkType{{IdSeq: id, RowVersion: updated[0].RowVersion, TypeCode: "NOTE", TypeName: "Không lưu"}, {IdSeq: uuid.Must(uuid.NewV7()).String(), RowVersion: 1, TypeCode: "MISSING", TypeName: "Thiếu"}}, actor)
 	if err == nil {
 		t.Fatal("missing update should fail")
 	}
@@ -140,7 +144,10 @@ func TestPostgresCatalogLifecycle(t *testing.T) {
 	if err := db.Exec(`DELETE FROM "_ERPProdStatsDetail"`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if n, err := s.ProdStatsRemarkTypeD(ctx, []string{id}); err != nil || n != 1 {
+	if n, err := s.ProdStatsRemarkTypeDVersioned(ctx, []VersionedDelete{{IdSeq: id, RowVersion: created[0].RowVersion}}); err == nil || n != 0 {
+		t.Fatal("stale delete should return a conflict")
+	}
+	if n, err := s.ProdStatsRemarkTypeDVersioned(ctx, []VersionedDelete{{IdSeq: id, RowVersion: updated[0].RowVersion}}); err != nil || n != 1 {
 		t.Fatalf("delete failed: %d %v", n, err)
 	}
 	// Concurrent duplicate requests must result in exactly one committed row.

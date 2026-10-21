@@ -401,7 +401,8 @@ export async function initNativeAutoUpdater() {
         status: 'native-available',
         message: `Đã có bản cập nhật phần mềm mới v${info.version}!`,
         newNativeVersion: info.version,
-        releaseNotes: info.releaseNotes ||
+        releaseNotes:
+          info.releaseNotes ||
           'Nâng cấp phiên bản phần mềm với các cải tiến về độ ổn định, hiệu suất và trải nghiệm sử dụng.'
       })
     })
@@ -701,12 +702,22 @@ export function restartAndInstallNativeUpdate() {
         const encodedScript = Buffer.from(script, 'utf16le').toString('base64')
         const child = spawn(
           'powershell.exe',
-          ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encodedScript],
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-EncodedCommand',
+            encodedScript
+          ],
           { detached: true, stdio: 'ignore', windowsHide: true }
         )
         child.on('error', (err) => {
           console.error('[Native Installer Helper Error]:', err)
-          broadcastStatus({ status: 'error', message: `Không thể khởi chạy bộ cài: ${err.message}` })
+          broadcastStatus({
+            status: 'error',
+            message: `Không thể khởi chạy bộ cài: ${err.message}`
+          })
         })
         child.unref()
         app.quit()

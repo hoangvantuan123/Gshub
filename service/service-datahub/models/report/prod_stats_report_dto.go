@@ -181,8 +181,14 @@ type ProdStatsDetailReportItem struct {
 	StartTimeVal    *string  `json:"startTime,omitempty"`
 	EndTimeVal      *string  `json:"endTime,omitempty"`
 	CreatedSource   *string  `json:"createdSource,omitempty"`
-	Supervisor      *string  `json:"supervisor,omitempty"`
-	StatusVal       *string  `json:"status,omitempty"`
+	Supervisor           *string  `json:"supervisor,omitempty"`
+	StatusVal            *string  `json:"status,omitempty"`
+	RemarkTypeSeqVal     *string  `json:"remarkTypeSeq,omitempty"`
+	RemarkTypeCodeVal    *string  `json:"remarkTypeCode,omitempty"`
+	RemarkTypeNameVal    *string  `json:"remarkTypeName,omitempty"`
+	RemarkTypeVal        *string  `json:"remarkType,omitempty"`
+	RemarkContentVal     *string  `json:"remarkContent,omitempty"`
+	RemarkDescriptionVal *string  `json:"remarkDescription,omitempty"`
 }
 
 // MachineTimelineBreakdownDTO: Cấu trúc phân tích diễn biến thời gian chạy máy & số phiếu theo ngày/tháng/quý của từng cụm máy

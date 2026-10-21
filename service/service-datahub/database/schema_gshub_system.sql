@@ -222,6 +222,7 @@ VALUES
     (402, 'report_plan_query', 1, 400, 'Truy vấn chi tiết KHSX', '/erp/u/report/plan-query', 'menu', 'Calendar', 2, true, true, true, true, true, true, 1),
     (403, 'report_stat_query', 1, 400, 'Truy vấn chi tiết Thống kê SX', '/erp/u/report/stat-query', 'menu', 'BarChart3', 3, true, true, true, true, true, true, 1),
     (404, 'report_calc_production_query', 1, 400, 'Tính KHSX & TKSX', '/erp/u/report/calc-production-query', 'menu', 'Calculator', 4, true, true, true, true, true, true, 1),
+    (405, 'report_prod_stats_remark_type', 1, 400, 'Đăng ký phân loại diễn giải TKSX', '/erp/u/report/prod-stats-remark-type', 'menu', 'Tags', 5, true, true, true, true, false, false, 1),
 
     -- Nhóm 5: Cẩm nang & Tra cứu
     (600, 'report_handbook_group', 1, NULL, 'Cẩm nang & Tra cứu', '', 'submenu', 'BookOpen', 5, true, true, true, true, true, true, 1),

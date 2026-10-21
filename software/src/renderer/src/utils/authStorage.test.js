@@ -43,9 +43,7 @@ test('legacy localStorage permissions are removed without deleting UI state or i
   assert.equal(values.has('permissions'), false)
   assert.equal(values.has('token'), false)
   assert.deepEqual(JSON.parse(values.get('userInfo')), { UserId: 'admin' })
-  assert.deepEqual(JSON.parse(values.get('datahub_auth_session')), {
-    data: { token: 'access-token' }
-  })
+  assert.deepEqual(JSON.parse(values.get('datahub_auth_session')), { data: {} })
   assert.equal(values.get('menu'), 'true')
   assert.equal(values.get('erp_role_group_col_width'), '140')
 })

@@ -140,11 +140,34 @@ func (h *ProdStatsDetailHandler) ProdStatsDetailA(c *gin.Context) {
 
 // ProdStatsDetailU - Cập nhật các dòng chi tiết TKSX
 func (h *ProdStatsDetailHandler) ProdStatsDetailU(c *gin.Context) {
-	var items []models.ERPProdStatsDetail
-	if err := c.ShouldBindJSON(&items); err != nil {
+	bodyBytes, err := io.ReadAll(c.Request.Body)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"message": "Dữ liệu dòng chi tiết TKSX không hợp lệ: " + err.Error(),
+			"message": "Không thể đọc dữ liệu: " + err.Error(),
+		})
+		return
+	}
+
+	var items []models.ERPProdStatsDetail
+	if errDirect := json.Unmarshal(bodyBytes, &items); errDirect != nil || len(items) == 0 {
+		var wrapper struct {
+			Items []models.ERPProdStatsDetail `json:"items"`
+			Data  []models.ERPProdStatsDetail `json:"data"`
+		}
+		if errWrap := json.Unmarshal(bodyBytes, &wrapper); errWrap == nil {
+			if len(wrapper.Items) > 0 {
+				items = wrapper.Items
+			} else {
+				items = wrapper.Data
+			}
+		}
+	}
+
+	if len(items) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Dữ liệu dòng chi tiết TKSX rỗng hoặc không hợp lệ",
 		})
 		return
 	}

@@ -36,6 +36,8 @@ type ERPPlanDetail struct {
 	TimeStatus       *string    `gorm:"column:TimeStatus;type:text" db:"TimeStatus" json:"TimeStatus"`
 	CapaStatus       *string    `gorm:"column:CapaStatus;type:text" db:"CapaStatus" json:"CapaStatus"`
 	UserMemo         *string    `gorm:"column:UserMemo;type:text" db:"UserMemo" json:"UserMemo"`
+	RemarkTypeSeq    *string    `gorm:"column:RemarkTypeSeq;type:varchar(36)" db:"RemarkTypeSeq" json:"RemarkTypeSeq"`
+	RemarkContent    *string    `gorm:"column:RemarkContent;type:text" db:"RemarkContent" json:"RemarkContent"`
 	RowVersion       int64      `gorm:"column:RowVersion;default:1" db:"RowVersion" json:"RowVersion"`
 	IsActive         bool       `gorm:"column:IsActive;default:true" db:"IsActive" json:"IsActive"`
 	CreatedBy        *string    `gorm:"column:CreatedBy;type:text" db:"CreatedBy" json:"CreatedBy"`

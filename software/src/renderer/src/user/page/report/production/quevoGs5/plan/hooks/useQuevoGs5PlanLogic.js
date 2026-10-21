@@ -528,7 +528,7 @@ export function useQuevoGs5PlanLogic({
     return [
       { id: 'stt', title: 'STT', width: colWidths['stt'] || 45 },
       { id: 'docNo', title: 'Số LSX', width: colWidths['docNo'] || 140 },
-      { id: 'orderNo', title: 'Đơn hàng (SO)', width: colWidths['orderNo'] || 135 },
+      { id: 'orderNo', title: 'Lệnh công đoạn', width: colWidths['orderNo'] || 135 },
       { id: 'dpStatus', title: 'Trạng thái ĐP-SX', width: colWidths['dpStatus'] || 155 },
       { id: 'timeStatus', title: 'Trạng thái Thời gian', width: colWidths['timeStatus'] || 145 },
       { id: 'capaStatus', title: 'Trạng thái Capa', width: colWidths['capaStatus'] || 135 },

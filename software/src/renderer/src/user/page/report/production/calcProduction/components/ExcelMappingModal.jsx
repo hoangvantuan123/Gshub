@@ -319,9 +319,7 @@ export default function ExcelMappingModal({
                 {Array.from({ length: maxCols }).map((_, c) => {
                   const colLetter = getColLetter(c)
                   const currentMapped = columnMappings[c] || '__IGNORE__'
-                  const isMatched =
-                    currentMapped &&
-                    currentMapped !== '__IGNORE__'
+                  const isMatched = currentMapped && currentMapped !== '__IGNORE__'
                   const isIgnored = currentMapped === '__IGNORE__'
 
                   return (

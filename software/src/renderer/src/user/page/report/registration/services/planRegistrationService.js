@@ -15,7 +15,9 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
     if (rawUser) {
       currentUser = JSON.parse(rawUser)
     }
-  } catch {}
+  } catch {
+    // Ignore JSON parse error
+  }
 
   const createdBy =
     payload.createdBy ||
@@ -91,7 +93,14 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
       data: rawData
     }
 
-    return saveRegistrationBatches({ request, payload: formattedPayload, rows: rawData, isStat, signal, onProgress })
+    return saveRegistrationBatches({
+      request,
+      payload: formattedPayload,
+      rows: rawData,
+      isStat,
+      signal,
+      onProgress
+    })
   }
 
   // Với số lượng dòng lớn (> 1.000 dòng, ví dụ 5.000 - 50.000 dòng):
@@ -119,7 +128,14 @@ export const savePlanRegistration = async (payload, signal = null, onProgress = 
     data: firstChunk
   }
 
-  return saveRegistrationBatches({ request, payload: firstPayload, rows: rawData, isStat, signal, onProgress })
+  return saveRegistrationBatches({
+    request,
+    payload: firstPayload,
+    rows: rawData,
+    isStat,
+    signal,
+    onProgress
+  })
 }
 
 // 2. Truy vấn danh sách Master đăng ký
@@ -142,12 +158,32 @@ export const queryPlanDetail = async (filters = {}, signal = null) => {
   })
 }
 
+// Cập nhật chi tiết KHSX (_ERPPlanDetail), dùng cho chỉnh sửa nhật trình đối soát.
+export const updatePlanDetail = async (items = [], signal = null) => {
+  return request({
+    url: '/report/plan/PlanDetailU',
+    method: 'POST',
+    data: items,
+    signal
+  })
+}
+
 // 4. Truy vấn chi tiết Thống kê sản xuất (_ERPProdStatsDetail)
 export const queryProdStatsDetail = async (filters = {}, signal = null) => {
   return request({
     url: '/report/plan/ProdStatsDetailQ',
     method: 'POST',
     data: filters,
+    signal
+  })
+}
+
+// 4.1. Cập nhật chi tiết Thống kê sản xuất (_ERPProdStatsDetail - bao gồm RemarkTypeSeq, RemarkContent)
+export const updateProdStatsDetail = async (items = [], signal = null) => {
+  return request({
+    url: '/report/plan/ProdStatsDetailU',
+    method: 'POST',
+    data: items,
     signal
   })
 }
@@ -245,7 +281,9 @@ export default {
   savePlanRegistration,
   queryPlanMaster,
   queryPlanDetail,
+  updatePlanDetail,
   queryProdStatsDetail,
+  updateProdStatsDetail,
   queryHanoiGs1PlanReport,
   queryHanoiGs1StatReport,
   queryQuevoGs5PlanReport,

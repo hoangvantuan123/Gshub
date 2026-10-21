@@ -3,6 +3,7 @@ package help
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -48,6 +49,9 @@ func (s *CodeHelpService) QueryCodeHelp(ctx context.Context, p CodeHelpParams) (
 	}
 	if searchKeyword == "" {
 		searchKeyword = strings.TrimSpace(p.KeyItem1)
+	}
+	if searchKeyword == "" {
+		searchKeyword = strings.TrimSpace(p.KeyItem2)
 	}
 
 	var results []map[string]interface{}
@@ -179,12 +183,22 @@ func (s *CodeHelpService) QueryCodeHelp(ctx context.Context, p CodeHelpParams) (
 
 		if strings.Contains(name, "SUBMENU") {
 			query = query.Where(`LOWER("Type") = 'submenu'`)
+			if rootID := strings.TrimSpace(p.KeyItem3); rootID != "" {
+				query = query.Where(`"MenuRootId"::text = ?`, rootID)
+			}
 		}
 		if searchKeyword != "" {
 			kw := "%" + strings.ToLower(searchKeyword) + "%"
 			query = query.Where(`LOWER("Key") LIKE ? OR LOWER("Label") LIKE ?`, kw, kw)
 		}
-		rows, err := query.Order(`"OrderSeq" ASC, "Id" ASC`).Limit(100).Rows()
+		page, limit := 1, 100
+		if parsed, err := strconv.Atoi(strings.TrimSpace(p.Page)); err == nil && parsed > 0 {
+			page = parsed
+		}
+		if parsed, err := strconv.Atoi(strings.TrimSpace(p.Limit)); err == nil && parsed > 0 {
+			limit = min(parsed, 1000)
+		}
+		rows, err := query.Order(`"OrderSeq" ASC, "Id" ASC`).Offset((page - 1) * limit).Limit(limit).Rows()
 		if err != nil {
 			return nil, err
 		}

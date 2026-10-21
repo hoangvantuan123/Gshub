@@ -70,6 +70,7 @@ export default function GenericCodeHelpModal({
   onClose,
   title = 'Tra cứu danh mục',
   helpData = [],
+  data = [],
   fetchHelpData = null,
   columns = [],
   onSelect,
@@ -79,6 +80,13 @@ export default function GenericCodeHelpModal({
   storageKey = ''
 }) {
   const { t } = useTranslation()
+
+  // Cho phép truyền data hoặc helpData
+  const effectiveHelpData = useMemo(() => {
+    if (Array.isArray(helpData) && helpData.length > 0) return helpData
+    if (Array.isArray(data) && data.length > 0) return data
+    return []
+  }, [helpData, data])
 
   // Tạo Storage Key đặc thù cho từng bảng CodeHelp để ghi nhớ cache độ rộng cột
   const effectiveStorageKey = useMemo(() => {
@@ -358,7 +366,7 @@ export default function GenericCodeHelpModal({
       if (fetchHelpDataRef.current) {
         loadFirstPage(initText, 'ALL')
       } else {
-        setServerList(Array.isArray(helpDataRef.current) ? helpDataRef.current : [])
+        setServerList(effectiveHelpData)
       }
     } else {
       // Giải phóng bộ nhớ RAM ngay khi đóng modal
@@ -366,6 +374,13 @@ export default function GenericCodeHelpModal({
       setSelectedRowIndices(new Set())
     }
   }, [isOpen])
+
+  // Cập nhật serverList tức thời nếu dữ liệu static nạp sau khi modal đã mở
+  useEffect(() => {
+    if (isOpen && !fetchHelpData) {
+      setServerList(effectiveHelpData)
+    }
+  }, [isOpen, fetchHelpData, effectiveHelpData])
 
   // Phím tắt Escape toàn cục để đóng Modal
   useEffect(() => {
@@ -422,7 +437,7 @@ export default function GenericCodeHelpModal({
 
   // Dữ liệu hiển thị (kết hợp Client Filter nếu dùng static data, hoặc Server Data)
   const filteredData = useMemo(() => {
-    const rawList = fetchHelpData ? serverList : Array.isArray(helpData) ? helpData : []
+    const rawList = fetchHelpData ? serverList : effectiveHelpData
     const keyword = String(appliedKeyword || '')
       .trim()
       .toLowerCase()

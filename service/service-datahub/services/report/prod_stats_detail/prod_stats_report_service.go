@@ -611,6 +611,16 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		}
 	}
 
+	// 4.3. Nạp danh mục Phân loại diễn giải TKSX để ánh xạ sang tên và mã hiển thị
+	var remarkTypeList []models.ERPProdStatsRemarkType
+	_ = s.db.WithContext(ctx).Model(&models.ERPProdStatsRemarkType{}).Find(&remarkTypeList).Error
+	remarkTypeMap := make(map[string]models.ERPProdStatsRemarkType, len(remarkTypeList))
+	for _, rt := range remarkTypeList {
+		if rt.IdSeq != "" {
+			remarkTypeMap[rt.IdSeq] = rt
+		}
+	}
+
 	// 5. Khởi tạo mảng kết quả
 	items := make([]models.ProdStatsDetailReportItem, 0)
 	chartByTeam := make([]models.TeamStatAggregate, 0)
@@ -815,33 +825,52 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			eTimeVal = strings.TrimSpace(*row.EndTime)
 		}
 
+		var remarkTypeCodeVal, remarkTypeNameVal, remarkTypeVal, remarkContentVal, remarkDescriptionVal string
+		if row.RemarkTypeSeq != nil && *row.RemarkTypeSeq != "" {
+			if rt, ok := remarkTypeMap[*row.RemarkTypeSeq]; ok {
+				remarkTypeCodeVal = rt.TypeCode
+				remarkTypeNameVal = rt.TypeName
+				remarkTypeVal = rt.TypeName
+			}
+		}
+		if row.RemarkContent != nil && *row.RemarkContent != "" {
+			remarkContentVal = *row.RemarkContent
+			remarkDescriptionVal = *row.RemarkContent
+		}
+
 		itemReport := models.ProdStatsDetailReportItem{
-			ERPProdStatsDetail: row,
-			Id:                 &row.IdSeq,
-			TicketNo:           &ticketNo,
-			DocNo:              &docNo,
-			OrderNoVal:         &orderNoVal,
-			Team:               &team,
-			TeamNameVal:        &team,
-			MachineNameVal:     &machineNameVal,
-			MachineCodeVal:     &machineCodeVal,
-			PlanQtyVal:         &planQty,
-			ActualQtyVal:       &actualQty,
-			PassQtyVal:         &passQty,
-			DefectQtyVal:       &defectQty,
-			DurationMinutes:    &durMin,
-			DurationMinVal:     &durMin,
-			RuntimeHours:       &rtHours,
-			RuntimeHoursVal:    &rtHours,
-			AuditCategory:      &auditCat,
-			PassRate:           &passRate,
-			PassRateVal:        &passRate,
-			ProdDateVal:        &prodDate,
-			StartTimeVal:       &sTimeVal,
-			EndTimeVal:         &eTimeVal,
-			CreatedSource:      &origin,
-			Supervisor:         &supervisorVal,
-			StatusVal:          &status,
+			ERPProdStatsDetail:   row,
+			Id:                   &row.IdSeq,
+			TicketNo:             &ticketNo,
+			DocNo:                &docNo,
+			OrderNoVal:           &orderNoVal,
+			Team:                 &team,
+			TeamNameVal:          &team,
+			MachineNameVal:       &machineNameVal,
+			MachineCodeVal:       &machineCodeVal,
+			PlanQtyVal:           &planQty,
+			ActualQtyVal:         &actualQty,
+			PassQtyVal:           &passQty,
+			DefectQtyVal:         &defectQty,
+			DurationMinutes:      &durMin,
+			DurationMinVal:       &durMin,
+			RuntimeHours:         &rtHours,
+			RuntimeHoursVal:      &rtHours,
+			AuditCategory:        &auditCat,
+			PassRate:             &passRate,
+			PassRateVal:          &passRate,
+			ProdDateVal:          &prodDate,
+			StartTimeVal:         &sTimeVal,
+			EndTimeVal:           &eTimeVal,
+			CreatedSource:        &origin,
+			Supervisor:           &supervisorVal,
+			StatusVal:            &status,
+			RemarkTypeSeqVal:     row.RemarkTypeSeq,
+			RemarkTypeCodeVal:    &remarkTypeCodeVal,
+			RemarkTypeNameVal:    &remarkTypeNameVal,
+			RemarkTypeVal:        &remarkTypeVal,
+			RemarkContentVal:     &remarkContentVal,
+			RemarkDescriptionVal: &remarkDescriptionVal,
 		}
 		items = append(items, itemReport)
 

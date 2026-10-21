@@ -14,6 +14,7 @@ func (s *ProdStatsRemarkTypeService) ProdStatsRemarkTypeA(ctx context.Context, i
 	}
 	now := time.Now()
 	for i := range items {
+		items[i].RowVersion = 1
 		if items[i].IdSeq == "" {
 			id, err := uuid.NewV7()
 			if err != nil {

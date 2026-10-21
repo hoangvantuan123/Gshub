@@ -11,8 +11,12 @@ CREATE TABLE IF NOT EXISTS public."_ERPProdStatsRemarkType" (
     "CreatedBy" VARCHAR(36),
     "CreatedAt" TIMESTAMPTZ DEFAULT NOW(),
     "UpdatedBy" VARCHAR(36),
-    "UpdatedAt" TIMESTAMPTZ DEFAULT NOW()
+    "UpdatedAt"   TIMESTAMPTZ DEFAULT NOW(),
+    "RowVersion"  BIGINT NOT NULL DEFAULT 1
 );
+
+ALTER TABLE public."_ERPProdStatsRemarkType"
+    ADD COLUMN IF NOT EXISTS "RowVersion" BIGINT NOT NULL DEFAULT 1;
 
 ALTER TABLE public."_ERPProdStatsDetail"
     ADD COLUMN IF NOT EXISTS "RemarkTypeSeq" VARCHAR(36),

@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CompactSelection } from '@glideapps/glide-data-grid'
-import * as XLSX from 'xlsx'
 
 import DataPageContainer from '@renderer/user/components/layout/DataPageContainer'
 import { usePageData } from '@renderer/context/PageDataContext'
@@ -154,7 +153,7 @@ export default function CalcProductionQueryPage({
   }, [selection, gridData, cols, setSelectionStats])
 
   // Xuất file Excel danh sách Master
-  const handleExportExcel = useCallback(() => {
+  const handleExportExcel = useCallback(async () => {
     if (gridData.length === 0) {
       if (typeof setStatusMessage === 'function') {
         setStatusMessage({ type: 'warning', text: t('Không có dữ liệu để xuất Excel') })
@@ -184,6 +183,7 @@ export default function CalcProductionQueryPage({
         'Ghi chú': r.remark
       }))
 
+      const XLSX = await import('xlsx')
       const ws = XLSX.utils.json_to_sheet(exportData)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'DanhSachMaster')

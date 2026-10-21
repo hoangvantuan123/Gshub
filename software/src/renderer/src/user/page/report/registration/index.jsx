@@ -466,7 +466,16 @@ export default function DailyPlanRegistrationPage({
         throw err
       }
     },
-    [pagePerms.canExport, masterGridData, masterSelection, searchValues, formatDate, masterCols, t, setStatusMessage]
+    [
+      pagePerms.canExport,
+      masterGridData,
+      masterSelection,
+      searchValues,
+      formatDate,
+      masterCols,
+      t,
+      setStatusMessage
+    ]
   )
 
   // ── Mở Form Đăng ký / Nạp mới: Electron -> Cửa sổ Windows con độc lập, Web -> Modal / Tab ──

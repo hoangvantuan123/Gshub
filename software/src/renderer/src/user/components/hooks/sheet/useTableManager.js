@@ -138,6 +138,18 @@ export default function useTableManager(arg1, arg2, arg3, arg4, arg5, arg6) {
 
       const { columnKey, rowIndex, onSelect } = codeHelpModal
 
+      // Some grids derive their rows from another state source (for example,
+      // annotations) and intentionally do not pass setGridData. Let their
+      // CodeHelp callback persist the selected value instead of calling an
+      // undefined setter before the callback can run.
+      if (typeof setGridData !== 'function') {
+        if (typeof onSelect === 'function') {
+          onSelect(selectedItem, rowIndex, gridData)
+        }
+        closeCodeHelpModal()
+        return
+      }
+
       setGridData((prevData) => {
         const updated = [...prevData]
         if (!updated[rowIndex]) updated[rowIndex] = {}
@@ -170,7 +182,7 @@ export default function useTableManager(arg1, arg2, arg3, arg4, arg5, arg6) {
 
       closeCodeHelpModal()
     },
-    [codeHelpModal, setGridData, closeCodeHelpModal]
+    [codeHelpModal, setGridData, gridData, closeCodeHelpModal]
   )
 
   const lastClickRef = useRef({ time: 0, cell: null })
@@ -217,8 +229,15 @@ export default function useTableManager(arg1, arg2, arg3, arg4, arg5, arg6) {
       const isCtrlOrMeta = event.ctrlKey || event.metaKey
       const key = event.key ? event.key.toLowerCase() : ''
 
-      // 1. Enter / F2: Mở Code Help Modal
-      if (event.key === 'Enter' || event.key === 'F2') {
+      // 1. Enter / F2 hoặc gõ ký tự chữ/số: Mở Code Help Modal
+      const isAlphanumeric =
+        !isCtrlOrMeta &&
+        !event.altKey &&
+        event.key &&
+        event.key.length === 1 &&
+        !event.isComposing &&
+        event.key !== ' '
+      if (event.key === 'Enter' || event.key === 'F2' || isAlphanumeric) {
         const currentCell = selection?.current?.cell
         if (currentCell) {
           const [col, row] = currentCell
@@ -228,12 +247,15 @@ export default function useTableManager(arg1, arg2, arg3, arg4, arg5, arg6) {
             if (isCodeHelpColumn(columnKey) && canEdit !== false) {
               event.preventDefault()
               event.stopPropagation()
-              const currentValue = gridData?.[row]?.[columnKey] || ''
-              openCodeHelpModal(columnKey, row, String(currentValue))
+              const initialSearch = isAlphanumeric
+                ? event.key
+                : String(gridData?.[row]?.[columnKey] || '')
+              openCodeHelpModal(columnKey, row, initialSearch)
+              return
             }
           }
         }
-        return
+        if (!isAlphanumeric) return
       }
 
       // 2. Ctrl + A: Chỉ chọn vùng có dữ liệu thực tế (bỏ qua 50 dòng mẫu trống)

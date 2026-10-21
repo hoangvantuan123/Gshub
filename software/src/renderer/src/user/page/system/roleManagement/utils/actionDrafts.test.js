@@ -58,7 +58,9 @@ test('confirmed save clears pending edits while failed save retains them', () =>
     success: true,
     data: {
       result: {
-        insert: { data: batch.insert.map((row, index) => ({ ...row, Id: 100 + index, RowVersion: 1 })) }
+        insert: {
+          data: batch.insert.map((row, index) => ({ ...row, Id: 100 + index, RowVersion: 1 }))
+        }
       }
     }
   }

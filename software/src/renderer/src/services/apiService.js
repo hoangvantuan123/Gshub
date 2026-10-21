@@ -95,6 +95,14 @@ apiService.interceptors.response.use(
         (typeof data.data === 'string' ? data.data : null) ||
         'Thao tác nghiệp vụ không thành công'
 
+      if (
+        isSessionExpiredError(data?.code, response.status) ||
+        isSessionExpiredError(data?.error_code, response.status) ||
+        isSessionExpiredError(beMessage, response.status)
+      ) {
+        triggerSessionExpired(beMessage)
+      }
+
       saveApiLog({
         url: config.url || '',
         method: config.method || 'GET',

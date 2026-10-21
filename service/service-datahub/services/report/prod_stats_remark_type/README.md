@@ -23,7 +23,7 @@ DataHub tự sinh UUIDv7 khi thêm mới nếu không truyền `IdSeq`.
 
 DataHub AutoMigrate cũng nhận model mới, nhưng không tự thực thi migration menu.
 Link menu đăng ký: `/erp/u/report/prod-stats-remark-type`.
-Thay đổi này cung cấp backend và metadata menu; chưa có trang frontend tại link đó.
+Frontend cung cấp trang danh sách, tìm kiếm, thêm, sửa và xóa tại link này.
 
 ## API
 
@@ -79,7 +79,7 @@ có thể ngừng sử dụng bằng U với `IsActive=false`. Batch thiếu m�
 Hỗ trợ `IdSeq` (khớp chính xác), `TypeCode`, `TypeName`, `Keyword` (tìm cả mô tả), `IsActive`,
 `page` và `pageSize`. Mặc định page=1, pageSize=100, tối đa 1000 dòng/trang.
 GET nhận các tham số trên qua query string; POST nhận qua JSON body.
-Phản hồi gồm `success`, `data` và thông tin phân trang (REST DataHub: `pageInfo`, Gateway: `page`).
+Phản hồi gồm `success`, `data` và thông tin phân trang (REST DataHub: `pageInfo`, Gateway: `page`). Mỗi dòng có `RowVersion`; thao tác cập nhật và xóa phải gửi phiên bản đã truy vấn. Phiên bản được tăng sau mỗi lần cập nhật, còn dữ liệu cũ hơn sẽ nhận lỗi xung đột để người dùng truy vấn lại.
 
 Do không có UNIQUE constraint, API tuần tự hóa các thao tác ghi danh mục bằng transaction và table lock
 để kiểm tra trùng `IdSeq`/`TypeCode` (mã không phân biệt hoa thường). Các thao tác ghi SQL trực tiếp

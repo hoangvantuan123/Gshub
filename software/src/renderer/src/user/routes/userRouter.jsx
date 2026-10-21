@@ -28,7 +28,6 @@ if (!i18n.isInitialized) {
 import { Layout, message, notification } from 'antd'
 import Sidebar from '../components/sildebar/sidebar'
 import Cookies from 'js-cookie'
-import { CheckUser } from '../../api/auth/checkUser'
 import { checkActionPermission } from '../../permissions'
 import { PageDataProvider } from '../../context/PageDataContext'
 import StatusBar from '../components/status/StatusBar'
@@ -54,7 +53,6 @@ import { openDB } from 'idb'
 import { RealtimeProvider } from '../../api/realtime/context/RealtimeContext'
 import TitleBar from '../components/header/titleBar'
 import GlobalSearchModal from '../components/globalSearch/GlobalSearchModal'
-import ModalLogout from '../components/modal/logout/modalLogout'
 import { performLogout } from '../../utils/logout'
 import { useTranslation } from 'react-i18next'
 
@@ -146,23 +144,18 @@ const LanguageProvider = ({ children, keyLanguage }) => {
 }
 
 const getAuthToken = () => {
-  return (
-    Cookies.get('a_a') ||
-    Cookies.get('access_token') ||
-    localStorage.getItem('access_token') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('a_a')
-  )
+  return Cookies.get('a_a') || null
 }
 
-const getRefreshToken = () => {
-  return (
-    Cookies.get('r_t') ||
-    Cookies.get('refresh_token') ||
-    localStorage.getItem('refresh_token') ||
-    localStorage.getItem('r_t') ||
-    getAuthToken()
-  )
+const isAuthTokenExpired = (token) => {
+  if (!token) return false
+  try {
+    const exp = Number(decodeJWT(token)?.exp)
+    return Number.isFinite(exp) && exp > 0 && exp * 1000 <= Date.now()
+  } catch {
+    // Opaque/legacy tokens are validated by the backend on the next API request.
+    return false
+  }
 }
 
 const getInitialRolesMenu = () => {
@@ -286,11 +279,34 @@ const UserRouter = () => {
   const [userPermissions, setUserPermissions] = useState(() => initialMenuData.settingItems)
   const [isPermissionsLoaded, setIsPermissionsLoaded] = useState(false)
   const { t } = useTranslation()
-  const [sessionExpiredModalOpen, setSessionExpiredModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [keyLanguage, setKeyLanguage] = useState(null)
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false)
   const lastProcessedRolesMenuRef = useRef(null)
+  const expiredLogoutStartedRef = useRef(false)
+
+  const expireSessionIfNeeded = useCallback(() => {
+    const token = getAuthToken()
+    if (!isAuthTokenExpired(token) || expiredLogoutStartedRef.current) return
+    expiredLogoutStartedRef.current = true
+    void performLogout(navigate, { skipServerCall: true })
+  }, [navigate])
+
+  // Check expiry on startup, when returning to the app, and periodically while it stays open.
+  useEffect(() => {
+    const checkVisibleSession = () => {
+      if (document.visibilityState === 'visible') expireSessionIfNeeded()
+    }
+    expireSessionIfNeeded()
+    window.addEventListener('focus', checkVisibleSession)
+    document.addEventListener('visibilitychange', checkVisibleSession)
+    const intervalId = window.setInterval(expireSessionIfNeeded, 60_000)
+    return () => {
+      window.removeEventListener('focus', checkVisibleSession)
+      document.removeEventListener('visibilitychange', checkVisibleSession)
+      window.clearInterval(intervalId)
+    }
+  }, [expireSessionIfNeeded])
 
   // Nạp trực tiếp cấu trúc Menu & Phân quyền từ IndexedDB ngay khi khởi động
   useEffect(() => {
@@ -305,10 +321,7 @@ const UserRouter = () => {
             record.rootMenuItems || [],
             record.menuItemList || []
           )
-          const allPermissions = [
-            ...(merged.settingItems || []),
-            ...(merged.menuItemList || [])
-          ]
+          const allPermissions = [...(merged.settingItems || []), ...(merged.menuItemList || [])]
           if (allPermissions.length > 0) {
             setUserPermissions(allPermissions)
           }
@@ -418,9 +431,6 @@ const UserRouter = () => {
     const userInfo = localStorage.getItem('userInfo')
     if (token && userInfo) {
       setIsLoggedIn(true)
-      if (!Cookies.get('r_t') && !Cookies.get('refresh_token')) {
-        Cookies.set('r_t', token, { expires: 30, path: '/' })
-      }
       processRolesMenu()
     } else {
       setIsLoggedIn(false)
@@ -433,10 +443,16 @@ const UserRouter = () => {
       Cookies.remove('r_t')
       Cookies.remove('refresh_token', { path: '/' })
       Cookies.remove('refresh_token')
+      Cookies.remove('token', { path: '/' })
+      Cookies.remove('token')
+      Cookies.remove('refreshToken', { path: '/' })
+      Cookies.remove('refreshToken')
       localStorage.removeItem('token')
       localStorage.removeItem('access_token')
+      localStorage.removeItem('accessToken')
       localStorage.removeItem('a_a')
       localStorage.removeItem('refresh_token')
+      localStorage.removeItem('refreshToken')
       localStorage.removeItem('r_t')
       localStorage.removeItem('userInfo')
       localStorage.removeItem('roles_menu')
@@ -501,6 +517,7 @@ const UserRouter = () => {
       const token = getAuthToken()
       const userInfo = localStorage.getItem('userInfo')
       if (token && userInfo) {
+        expiredLogoutStartedRef.current = false
         setIsLoggedIn(true)
         lastProcessedRolesMenuRef.current = null
         processRolesMenu(true)
@@ -519,7 +536,8 @@ const UserRouter = () => {
     }
 
     const handleSessionExpired = () => {
-      setSessionExpiredModalOpen(true)
+      expiredLogoutStartedRef.current = true
+      void performLogout(navigate, { skipServerCall: true })
     }
 
     window.addEventListener('auth-state-changed', handleAuthChange)
@@ -541,7 +559,7 @@ const UserRouter = () => {
         window.electron.ipcRenderer.removeListener('auth:logout-event', handleLogoutEvent)
       }
     }
-  }, [processRolesMenu, checkLoginStatus])
+  }, [processRolesMenu, checkLoginStatus, navigate])
 
   if (errorMenu) return <ErrorPage />
 
@@ -574,9 +592,9 @@ const UserRouter = () => {
   }, [])
 
   const hasAuthTokens = () => {
-    let token = getAuthToken()
-    let userInfo = localStorage.getItem('userInfo')
-    return !!(token && userInfo)
+    const token = getAuthToken()
+    const userInfo = localStorage.getItem('userInfo')
+    return !!(token && userInfo) && !isAuthTokenExpired(token)
   }
 
   const activeRouteConfig = useMemo(() => {
@@ -769,16 +787,6 @@ const UserRouter = () => {
         permissions={userPermissions}
         rootMenu={rootMenuItems}
         menuTransForm={menuTransForm}
-      />
-
-      {/* Modal đăng xuất có sẵn của hệ thống */}
-      <ModalLogout
-        modalOpen={sessionExpiredModalOpen}
-        setModalOpen={setSessionExpiredModalOpen}
-        confirmLogout={async () => {
-          setSessionExpiredModalOpen(false)
-          await performLogout(navigate)
-        }}
       />
     </>
   )

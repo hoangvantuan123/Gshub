@@ -48,6 +48,9 @@ func remarkTypePolicy(method string) (reportPolicy, bool) {
 		"ProdStatsRemarkTypeD": "Delete", "ProdStatsRemarkTypeQ": "Search",
 	}
 	op, ok := operations[method]
+	if op == "Search" {
+		return reportPolicy{keys: []string{}, operation: op}, ok
+	}
 	return reportPolicy{keys: []string{"report_prod_stats_remark_type"}, operation: op}, ok
 }
 
@@ -79,6 +82,9 @@ func authorizeReport(ctx context.Context, db *gorm.DB, token string, policy repo
 	user, err := auth.AuthenticateUserWithToken(ctx, db, token)
 	if err != nil || user == nil || user.UserSeq == "" {
 		return ctx, nil, status.Error(codes.Unauthenticated, "valid login required")
+	}
+	if policy.operation == "Search" && len(policy.keys) == 0 {
+		return auth.WithAuthenticatedUser(ctx, user), user, nil
 	}
 	allowed, err := auth.CheckMenuPermission(ctx, db, user, policy.keys, policy.operation)
 	if err != nil {

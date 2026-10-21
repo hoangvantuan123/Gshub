@@ -1,61 +1,242 @@
 /* eslint-disable react/prop-types */
-import { useState, useMemo, useEffect, useCallback } from 'react'
-import { Download, Copy, Search, X } from 'lucide-react'
-import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid'
-import '@glideapps/glide-data-grid/dist/index.css'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { Download, Copy, Search, Check, Save, X, ArrowLeft } from 'lucide-react'
+import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid'
 import * as XLSX from 'xlsx'
-import { PureButton, PureSelect, executiveGridTheme } from './reportUIComponents'
+import { Button } from '@renderer/components/ui/button'
+import { PureButton, PureSelect } from './reportUIComponents'
+import { DEFAULT_GRID_THEME } from '@renderer/user/components/hooks/sheet/useTableCellTheme'
+import { queryProdStatsRemarkTypes } from '@renderer/user/page/report/registration/remarkType/remarkTypeService'
+import { updateProdStatsDetail } from '@renderer/user/page/report/registration/services/planRegistrationService'
+import useTableManager from '@renderer/user/components/hooks/sheet/useTableManager'
+import LayoutMenuSheet from '@renderer/user/components/sheet/jsx/layoutMenu'
+import LayoutStatusMenuSheet from '@renderer/user/components/sheet/jsx/layoutStatusMenu'
+import LayoutContextMenuSheet from '@renderer/user/components/sheet/jsx/layoutContextMenu'
+import { Drawer, Checkbox, message } from 'antd'
+import SystemConfirmModal from '@renderer/user/components/modal/SystemConfirmModal'
+import GenericCodeHelpModal from '@renderer/user/components/query/core/GenericCodeHelpModal'
+import { reorderColumns } from '@renderer/user/components/sheet/js/reorderColumns'
+import ProductionAuditModalHeader from '../../../components/ProductionAuditModalHeader'
 
 const AUDIT_COLUMNS = [
-  { id: 'stt', title: 'STT', width: 50 },
-  { id: 'ticketNo', title: 'Mã phiếu', width: 140 },
-  { id: 'orderNo', title: 'Lệnh SX', width: 130 },
-  { id: 'machineCode', title: 'Mã máy', width: 100 },
-  { id: 'machineName', title: 'Tên máy', width: 180 },
-  { id: 'teamName', title: 'Tổ SX', width: 120 },
-  { id: 'startDate', title: 'Ngày BĐ', width: 110 },
-  { id: 'startTime', title: 'Giờ BĐ', width: 100 },
-  { id: 'endDate', title: 'Ngày KT', width: 110 },
-  { id: 'endTime', title: 'Giờ KT', width: 100 },
-  { id: 'runtimeH', title: 'Giờ chạy', width: 100 },
-  { id: 'actual', title: 'SL SX', width: 110 },
-  { id: 'pass', title: 'SL Đạt', width: 110 },
-  { id: 'passRate', title: 'Tỷ lệ', width: 80 },
-  { id: 'auditText', title: 'Cảnh báo', width: 220 },
-  { id: 'operator', title: 'Người làm', width: 160 }
+  { id: 'remarkType', title: 'Phân loại', width: 160, hasMenu: true },
+  { id: 'remarkDescription', title: 'Diễn giải', width: 240, hasMenu: true },
+  { id: 'ticketNo', title: 'Mã phiếu', width: 140, hasMenu: true },
+  { id: 'orderNo', title: 'Lệnh SX', width: 130, hasMenu: true },
+  { id: 'machineCode', title: 'Mã máy', width: 100, hasMenu: true },
+  { id: 'machineName', title: 'Tên máy', width: 180, hasMenu: true },
+  { id: 'teamName', title: 'Tổ SX', width: 120, hasMenu: true },
+  { id: 'startDate', title: 'Ngày BĐ', width: 110, hasMenu: true },
+  { id: 'startTime', title: 'Giờ BĐ', width: 100, hasMenu: true },
+  { id: 'endDate', title: 'Ngày KT', width: 110, hasMenu: true },
+  { id: 'endTime', title: 'Giờ KT', width: 100, hasMenu: true },
+  { id: 'runtimeH', title: 'Giờ chạy', width: 100, hasMenu: true },
+  { id: 'actual', title: 'SL SX', width: 110, hasMenu: true },
+  { id: 'pass', title: 'SL Đạt', width: 110, hasMenu: true },
+  { id: 'passRate', title: 'Tỷ lệ', width: 80, hasMenu: true },
+  { id: 'auditText', title: 'Cảnh báo', width: 220, hasMenu: true },
+  { id: 'operator', title: 'Người làm', width: 160, hasMenu: true }
+]
+const WORKING_TAG_COLUMN = {
+  id: 'WorkingTag',
+  title: '',
+  width: 50,
+  hasMenu: true,
+  readonly: true,
+  themeOverride: { textDark: '#225588', baseFontStyle: '600 13px' }
+}
+
+// Cache danh mục phân loại trong bộ nhớ RAM để đảm bảo CodeHelp mở tức thì 0ms, không lag
+let cachedRemarkTypes = null
+let remarkTypesPromise = null
+
+const fetchRemarkTypesCached = async () => {
+  if (cachedRemarkTypes && cachedRemarkTypes.length > 0) return cachedRemarkTypes
+  if (remarkTypesPromise) return remarkTypesPromise
+
+  remarkTypesPromise = queryProdStatsRemarkTypes({
+    page: 1,
+    pageSize: 200,
+    IsActive: true
+  })
+    .then((result) => {
+      const records = Array.isArray(result?.data)
+        ? result.data
+        : Array.isArray(result?.data?.items)
+          ? result.data.items
+          : []
+      cachedRemarkTypes = records
+        .filter((item) => item.IsActive !== false && item.IsActive !== 0 && item.IsActive !== '0')
+        .map((item) => ({
+          IdSeq: item.IdSeq || item.Id || item.idSeq || '',
+          TypeCode: String(item.TypeCode || ''),
+          TypeName: String(item.TypeName || ''),
+          Description: String(item.Description || '')
+        }))
+      return cachedRemarkTypes
+    })
+    .catch((err) => {
+      console.error('Không thể tải danh mục phân loại:', err)
+      return []
+    })
+    .finally(() => {
+      remarkTypesPromise = null
+    })
+
+  return remarkTypesPromise
+}
+
+const REMARK_TYPE_CODEHELP_COLUMNS = [
+  { id: 'TypeCode', title: 'Mã phân loại', width: 130 },
+  { id: 'TypeName', title: 'Tên phân loại', width: 220 },
+  { id: 'Description', title: 'Diễn giải / Ghi chú', width: 340 }
 ]
 
-// Modal Đối Soát Thời Gian Chạy Máy (Layout màu trắng tối giản, tinh tế)
+const getMinutesOfDay = (value) => {
+  const match = String(value || '')
+    .trim()
+    .match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i)
+  if (!match) return null
+
+  let hour = Number(match[1])
+  const minute = Number(match[2])
+  const meridiem = match[4]?.toUpperCase()
+  if (hour > 23 || minute > 59) return null
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null
+    hour = (hour % 12) + (meridiem === 'PM' ? 12 : 0)
+  }
+  return hour * 60 + minute + (Number(match[3]) || 0) / 60
+}
+
+// Modal đối soát thời gian và nhật trình chi tiết phiếu sản xuất.
 export const RuntimeAuditDetailModal = ({
   isOpen,
   onClose,
   initialCategory = 'ALL',
   data = [],
   plantName = '',
+  plantKey = 'production',
+  canEdit = true,
+  localOnly = true,
+  showWorkingTag = true,
   maskText = (t) => t
 }) => {
   const [activeCategory, setActiveCategory] = useState(initialCategory)
+  const [draftCategory, setDraftCategory] = useState(initialCategory)
   const [searchQuery, setSearchQuery] = useState('')
+  const [draftSearchQuery, setDraftSearchQuery] = useState('')
   const [selectedTeam, setSelectedTeam] = useState('ALL')
+  const [draftTeam, setDraftTeam] = useState('ALL')
   const [selectedMachine, setSelectedMachine] = useState('ALL')
+  const [draftMachine, setDraftMachine] = useState('ALL')
   const [columnWidths, setColumnWidths] = useState({})
-  const [columnOrder, setColumnOrder] = useState(() => AUDIT_COLUMNS.map((column) => column.id))
+  const [columnOrder, setColumnOrder] = useState(() => [
+    ...(showWorkingTag ? [WORKING_TAG_COLUMN.id] : []),
+    ...AUDIT_COLUMNS.map((column) => column.id)
+  ])
   const [hiddenColumns, setHiddenColumns] = useState([])
+  const [annotations, setAnnotations] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`prod-ticket-audit:${plantKey}`) || '{}')
+    } catch {
+      return {}
+    }
+  })
+  const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false)
+  const [dirtyAnnotations, setDirtyAnnotations] = useState({})
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+  const [errorModalConfig, setErrorModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'danger'
+  })
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('')
+  const [remarkTypesList, setRemarkTypesList] = useState(() => cachedRemarkTypes || [])
+  const gridRef = useRef(null)
+  const [keybindings] = useState({ downFill: true, rightFill: true, selectColumn: true })
+  const [gridSelection, setGridSelection] = useState({
+    columns: CompactSelection.empty(),
+    rows: CompactSelection.empty()
+  })
+  const [showSearch, setShowSearch] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    try {
+      setAnnotations(JSON.parse(localStorage.getItem(`prod-ticket-audit:${plantKey}`) || '{}'))
+    } catch {
+      setAnnotations({})
+    }
+    setHasUnsavedEdits(false)
+    setDirtyAnnotations({})
+    setSaveStatus('')
+
+    // Nạp sẵn danh mục phân loại vào RAM để CodeHelp mở tức thì
+    if (cachedRemarkTypes && cachedRemarkTypes.length > 0) {
+      setRemarkTypesList(cachedRemarkTypes)
+    } else {
+      fetchRemarkTypesCached().then((records) => setRemarkTypesList(records))
+    }
+  }, [isOpen, plantKey])
+
+  const remarkTypesForModal = useMemo(() => {
+    return [
+      {
+        IdSeq: '',
+        TypeCode: '(Trống)',
+        TypeName: '-- Hủy gán phân loại --',
+        Description: 'Xóa phân loại cho phiếu này'
+      },
+      ...remarkTypesList
+    ]
+  }, [remarkTypesList])
+
+  const isAnnotationTab = activeCategory === 'OVER_12H' || activeCategory === 'UNDER_5MIN'
+
+  const availableAuditColumns = useMemo(() => {
+    const baseColumns = showWorkingTag ? [WORKING_TAG_COLUMN, ...AUDIT_COLUMNS] : AUDIT_COLUMNS
+    const mapped = baseColumns.map((col) => {
+      if (canEdit && (col.id === 'remarkType' || col.id === 'remarkDescription')) {
+        return {
+          ...col,
+          title: col.id === 'remarkType' ? 'Phân loại *' : 'Diễn giải *',
+          themeOverride: { textHeader: '#DD1144', bgIconHeader: '#DD1144' }
+        }
+      }
+      return col
+    })
+    if (isAnnotationTab) return mapped
+    return mapped.filter((col) => col.id !== 'remarkType' && col.id !== 'remarkDescription')
+  }, [isAnnotationTab, showWorkingTag, canEdit])
 
   const columns = useMemo(
     () =>
       columnOrder
-        .filter((id) => !hiddenColumns.includes(id))
+        .filter((id) => {
+          if (!isAnnotationTab && (id === 'remarkType' || id === 'remarkDescription')) {
+            return false
+          }
+          return !hiddenColumns.includes(id)
+        })
         .map((id) => {
-          const column = AUDIT_COLUMNS.find((item) => item.id === id)
-          return { ...column, width: columnWidths[id] ?? column.width }
-        }),
-    [columnOrder, hiddenColumns, columnWidths]
+          const column = availableAuditColumns.find((item) => item.id === id)
+          return column ? { ...column, width: columnWidths[id] ?? column.width } : null
+        })
+        .filter(Boolean),
+    [columnOrder, hiddenColumns, columnWidths, isAnnotationTab, availableAuditColumns]
   )
 
-  const onColumnResize = useCallback((column, width) => {
-    setColumnWidths((previous) => ({ ...previous, [column.id]: width }))
-  }, [])
+  const onColumnResize = useCallback(
+    (column, width, colIndex) => {
+      const colId = column?.id || columns[colIndex]?.id
+      if (!colId) return
+      setColumnWidths((previous) => ({ ...previous, [colId]: width }))
+    },
+    [columns]
+  )
 
   const onColumnMoved = useCallback(
     (startIndex, endIndex) => {
@@ -77,7 +258,7 @@ export const RuntimeAuditDetailModal = ({
   const toggleColumn = (id) => {
     setHiddenColumns((previous) => {
       if (previous.includes(id)) return previous.filter((columnId) => columnId !== id)
-      if (previous.length === AUDIT_COLUMNS.length - 1) return previous
+      if (previous.length === availableAuditColumns.length - 1) return previous
       return [...previous, id]
     })
   }
@@ -85,11 +266,27 @@ export const RuntimeAuditDetailModal = ({
   useEffect(() => {
     if (isOpen) {
       setActiveCategory(initialCategory || 'ALL')
+      setDraftCategory(initialCategory || 'ALL')
       setSearchQuery('')
+      setDraftSearchQuery('')
       setSelectedTeam('ALL')
+      setDraftTeam('ALL')
       setSelectedMachine('ALL')
+      setDraftMachine('ALL')
     }
   }, [isOpen, initialCategory])
+
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const handleEscape = (event) => {
+      if (event.key !== 'Escape' || showCloseConfirm) return
+      event.preventDefault()
+      event.stopPropagation()
+      handleCloseRequest()
+    }
+    window.addEventListener('keydown', handleEscape, true)
+    return () => window.removeEventListener('keydown', handleEscape, true)
+  }, [isOpen, showCloseConfirm, hasUnsavedEdits, onClose])
 
   // Lấy danh sách tổ & máy duy nhất
   const teamOptions = useMemo(() => {
@@ -179,9 +376,9 @@ export const RuntimeAuditDetailModal = ({
         (startDate &&
           endDate &&
           String(startDate).slice(0, 10) === String(endDate).slice(0, 10) &&
-          startTime &&
-          endTime &&
-          String(endTime) < String(startTime))
+          getMinutesOfDay(startTime) !== null &&
+          getMinutesOfDay(endTime) !== null &&
+          getMinutesOfDay(endTime) < getMinutesOfDay(startTime))
       )
 
       let category = 'NORMAL'
@@ -198,8 +395,31 @@ export const RuntimeAuditDetailModal = ({
         auditText = '> 12 giờ'
       }
 
+      const annotation = annotations[String(ticketNo)] || {}
+      const workingKey = String(ticketNo)
+      const workingTag = dirtyAnnotations[workingKey] ? 'U' : ''
+
+      const remarkType =
+        annotation.remarkType !== undefined
+          ? annotation.remarkType
+          : (item.remarkType ?? item.RemarkTypeName ?? item.RemarkType ?? '')
+      const remarkTypeCode =
+        annotation.remarkTypeCode !== undefined
+          ? annotation.remarkTypeCode
+          : (item.remarkTypeCode ?? item.RemarkTypeCode ?? '')
+      const remarkTypeSeq =
+        annotation.remarkTypeSeq !== undefined
+          ? annotation.remarkTypeSeq
+          : (item.remarkTypeSeq ?? item.RemarkTypeSeq ?? '')
+      const remarkDescription =
+        annotation.remarkDescription !== undefined
+          ? annotation.remarkDescription
+          : (item.remarkDescription ?? item.RemarkContent ?? item.RemarkDescription ?? '')
+
       return {
         ...item,
+        idSeq: item.IdSeq || item.idSeq || item.Id || item.id || '',
+        WorkingTag: workingTag,
         ticketNo,
         orderNo,
         machineCode,
@@ -215,12 +435,16 @@ export const RuntimeAuditDetailModal = ({
         pass,
         passRate,
         operator,
+        remarkType,
+        remarkTypeCode,
+        remarkTypeSeq,
+        remarkDescription,
         isTimeReversed: isReversed,
         auditCategory: category,
         auditText
       }
     })
-  }, [data])
+  }, [data, annotations, dirtyAnnotations])
 
   // Đếm số lượng từng loại
   const categoryCounts = useMemo(() => {
@@ -255,7 +479,13 @@ export const RuntimeAuditDetailModal = ({
           item.machineCode.toLowerCase().includes(q) ||
           item.machineName.toLowerCase().includes(q) ||
           item.teamName.toLowerCase().includes(q) ||
-          item.operator.toLowerCase().includes(q)
+          item.operator.toLowerCase().includes(q) ||
+          String(item.remarkType || '')
+            .toLowerCase()
+            .includes(q) ||
+          String(item.remarkDescription || '')
+            .toLowerCase()
+            .includes(q)
         if (!match) return false
       }
 
@@ -263,17 +493,125 @@ export const RuntimeAuditDetailModal = ({
     })
   }, [classifiedData, activeCategory, selectedTeam, selectedMachine, searchQuery])
 
+  // Danh sách các cột bị khóa hoàn toàn (chỉ cho phép sửa 2 cột: remarkType và remarkDescription)
+  const readOnlyColumns = useMemo(
+    () =>
+      columns
+        .map((col) => col.id)
+        .filter((id) => (canEdit ? id !== 'remarkDescription' && id !== 'remarkType' : true)),
+    [columns, canEdit]
+  )
+
+  // Cấu hình CodeHelp chuẩn ERP đồng bộ với useTableManager & GenericCodeHelpModal
+  const codeHelpConfig = useMemo(() => {
+    return {
+      remarkType: {
+        title: 'Tra cứu danh mục phân loại',
+        columns: REMARK_TYPE_CODEHELP_COLUMNS,
+        helpData: remarkTypesForModal,
+        onSelect: (selected, rowIndex) => {
+          const item = filteredData[rowIndex]
+          if (!item) return {}
+          const isClear = !selected || selected.TypeCode === '(Trống)' || !selected.IdSeq
+          const ticketKey = String(item.ticketNo)
+          const updatedType = isClear ? '' : selected?.TypeName || ''
+          const updatedCode = isClear ? '' : selected?.TypeCode || ''
+          const updatedSeq = isClear ? '' : selected?.IdSeq || ''
+
+          setAnnotations((prev) => ({
+            ...prev,
+            [ticketKey]: {
+              ...(prev[ticketKey] || {}),
+              idSeq: item.IdSeq || item.idSeq || item.id || '',
+              ticketNo: item.ticketNo,
+              remarkType: updatedType,
+              remarkTypeCode: updatedCode,
+              remarkTypeSeq: updatedSeq
+            }
+          }))
+          setDirtyAnnotations((prev) => ({
+            ...prev,
+            [ticketKey]: { ...(prev[ticketKey] || {}), remarkTypeSeq: true }
+          }))
+          setHasUnsavedEdits(true)
+
+          return {
+            remarkType: updatedType,
+            remarkTypeCode: updatedCode,
+            remarkTypeSeq: updatedSeq
+          }
+        }
+      }
+    }
+  }, [remarkTypesForModal, filteredData])
+
+  // Dùng cùng bộ quản lý bảng chuẩn ERP (bàn phím, CodeHelp, theme màu và context menu)
+  const tableManager = useTableManager({
+    tableId: 'production_statistics_audit_detail',
+    defaultCols: availableAuditColumns,
+    cols: columns,
+    gridData: filteredData,
+    selection: gridSelection,
+    setSelection: setGridSelection,
+    canEdit,
+    setShowSearch,
+    codeHelpColumns: ['remarkType'],
+    readOnlyColumns,
+    codeHelpConfig
+  })
+
+  // Cung cấp nội dung ô: Khóa cứng toàn bộ các cột ngoại trừ ô Diễn giải & Phân loại
   const getCellContent = useCallback(
     ([col, row]) => {
       const item = filteredData[row]
       const columnId = columns[col]?.id
       if (!item || !columnId) return { kind: GridCellKind.Loading, allowOverlay: false }
 
-      const isTimeError =
-        item.isTimeReversed && ['startTime', 'endTime', 'runtimeH', 'auditText'].includes(columnId)
-      const themeOverride = { textDark: isTimeError ? '#dc2626' : '#334155' }
       const numericValue = columnId === 'stt' ? row + 1 : item[columnId]
 
+      if (columnId === 'WorkingTag') {
+        const status = String(item.WorkingTag || '')
+        return {
+          kind: GridCellKind.Text,
+          data: status,
+          displayData: status,
+          readonly: true,
+          allowOverlay: false,
+          hasMenu: columns[col]?.hasMenu || false,
+          contentAlign: 'center',
+          themeOverride: tableManager.getCellTheme(columnId)
+        }
+      }
+
+      // 1. Cột Phân loại: CodeHelp cell (Nền xanh nhạt, khóa gõ tay, mở tra cứu bằng Double click/Enter/F2)
+      if (columnId === 'remarkType') {
+        const text = String(item.remarkType || '')
+        return {
+          kind: GridCellKind.Text,
+          data: text,
+          displayData: text || (canEdit ? '' : ''),
+          readonly: true,
+          allowOverlay: false,
+          contentAlign: 'left',
+          themeOverride: tableManager.getCellTheme('remarkType')
+        }
+      }
+
+      // 2. Cột Diễn giải: CỘT DUY NHẤT cho phép chỉnh sửa văn bản trực tiếp
+      if (columnId === 'remarkDescription') {
+        const text = String(item.remarkDescription || '')
+        return {
+          kind: GridCellKind.Text,
+          data: text,
+          displayData: text,
+          readonly: !canEdit,
+          allowOverlay: canEdit,
+          contentAlign: 'left',
+          themeOverride: tableManager.getCellTheme('remarkDescription')
+        }
+      }
+
+      // 3. Toàn bộ các cột dữ liệu còn lại: KHÓA HOÀN TOÀN (Read-only 100%, áp nền xám chuẩn ERP)
       if (['stt', 'runtimeH', 'actual', 'pass', 'passRate'].includes(columnId)) {
         let displayData = String(numericValue)
         if (columnId === 'runtimeH') displayData = `${numericValue.toFixed(2)}h`
@@ -288,7 +626,7 @@ export const RuntimeAuditDetailModal = ({
           readonly: true,
           allowOverlay: false,
           contentAlign: columnId === 'stt' ? 'center' : 'right',
-          themeOverride
+          themeOverride: tableManager.getCellTheme(columnId)
         }
       }
 
@@ -305,11 +643,294 @@ export const RuntimeAuditDetailModal = ({
         contentAlign: ['startDate', 'startTime', 'endDate', 'endTime'].includes(columnId)
           ? 'center'
           : 'left',
-        themeOverride
+        themeOverride: tableManager.getCellTheme(columnId)
       }
     },
-    [filteredData, columns, maskText]
+    [filteredData, columns, maskText, canEdit, tableManager]
   )
+
+  // Chỉ cho phép chỉnh sửa ô trực tiếp ở cột Diễn giải (remarkDescription)
+  const onCellEdited = useCallback(
+    async (cell, newValue) => {
+      if (
+        !canEdit ||
+        (newValue.kind !== GridCellKind.Text &&
+          newValue.kind !== GridCellKind.Custom &&
+          newValue.kind !== GridCellKind.Boolean &&
+          newValue.kind !== GridCellKind.Number)
+      ) {
+        return
+      }
+      const indexes = reorderColumns(columns)
+      const [col, row] = cell
+      const key = indexes[col]
+
+      // Khóa tất cả các cột khác, chỉ duy nhất remarkDescription được edit
+      if (key !== 'remarkDescription') {
+        return
+      }
+
+      const item = filteredData[row]
+      if (!item) return
+
+      const valToSet =
+        newValue.kind === GridCellKind.Number
+          ? String(newValue.data)
+          : typeof newValue.data === 'string'
+            ? newValue.data
+            : String(newValue.data ?? '')
+
+      const ticketKey = String(item.ticketNo)
+
+      setAnnotations((prev) => ({
+        ...prev,
+        [ticketKey]: {
+          ...(prev[ticketKey] || {}),
+          idSeq: item.IdSeq || item.idSeq || item.id || '',
+          ticketNo: item.ticketNo,
+          remarkDescription: valToSet
+        }
+      }))
+      setDirtyAnnotations((prev) => ({
+        ...prev,
+        [ticketKey]: { ...(prev[ticketKey] || {}), remarkDescription: true }
+      }))
+      setHasUnsavedEdits(true)
+    },
+    [columns, filteredData, canEdit]
+  )
+
+  // Hỗ trợ copy dán nhiều dòng từ Excel:
+  // - Cột Diễn giải: ghi nhận văn bản
+  // - Cột Phân loại: TỰ ĐỘNG TÌM KIẾM ĐỐI SOÁT (Batch Resolve) theo Mã hoặc Tên phân loại
+  const onPaste = useCallback(
+    async (target, values) => {
+      if (!values || values.length === 0 || !canEdit) return false
+      const [startCol, startRow] = target
+      const indexes = reorderColumns(columns)
+      const numPastedRows = values.length
+      const numPastedCols = values[0]?.length || 0
+
+      // Chuẩn bị từ điển tra cứu cho danh mục Phân loại
+      const lookupMap = new Map()
+      remarkTypesList.forEach((item) => {
+        if (item.TypeCode) lookupMap.set(String(item.TypeCode).trim().toLowerCase(), item)
+        if (item.TypeName) lookupMap.set(String(item.TypeName).trim().toLowerCase(), item)
+      })
+
+      for (let r = 0; r < numPastedRows; r++) {
+        const targetRow = startRow + r
+        if (targetRow >= filteredData.length) break
+        const item = filteredData[targetRow]
+        if (!item) continue
+        const rowValues = values[r] || []
+        const ticketKey = String(item.ticketNo)
+
+        for (let c = 0; c < numPastedCols; c++) {
+          const targetCol = startCol + c
+          if (targetCol >= columns.length) break
+          const columnKey = indexes[targetCol]
+
+          if (columnKey === 'remarkDescription') {
+            const cellVal = String(rowValues[c] ?? '')
+            setAnnotations((prev) => ({
+              ...prev,
+              [ticketKey]: {
+                ...(prev[ticketKey] || {}),
+                idSeq: item.IdSeq || item.idSeq || item.id || '',
+                ticketNo: item.ticketNo,
+                remarkDescription: cellVal
+              }
+            }))
+            setDirtyAnnotations((prev) => ({
+              ...prev,
+              [ticketKey]: { ...(prev[ticketKey] || {}), remarkDescription: true }
+            }))
+            setHasUnsavedEdits(true)
+          } else if (columnKey === 'remarkType') {
+            const cellVal = String(rowValues[c] ?? '').trim()
+            const resolved = lookupMap.get(cellVal.toLowerCase())
+            const updatedType = resolved ? resolved.TypeName : cellVal
+            const updatedCode = resolved ? resolved.TypeCode : ''
+            const updatedSeq = resolved ? resolved.IdSeq : ''
+
+            setAnnotations((prev) => ({
+              ...prev,
+              [ticketKey]: {
+                ...(prev[ticketKey] || {}),
+                idSeq: item.IdSeq || item.idSeq || item.id || '',
+                ticketNo: item.ticketNo,
+                remarkType: updatedType,
+                remarkTypeCode: updatedCode,
+                remarkTypeSeq: updatedSeq
+              }
+            }))
+            setDirtyAnnotations((prev) => ({
+              ...prev,
+              [ticketKey]: { ...(prev[ticketKey] || {}), remarkTypeSeq: true }
+            }))
+            setHasUnsavedEdits(true)
+          }
+        }
+      }
+      return false
+    },
+    [columns, filteredData, canEdit, remarkTypesList]
+  )
+
+  const handleQuery = () => {
+    setActiveCategory(draftCategory)
+    setSearchQuery(draftSearchQuery)
+    setSelectedTeam(draftTeam)
+    setSelectedMachine(draftMachine)
+  }
+
+  // Lưu chỉnh sửa nhật trình trên máy người dùng hoặc đồng bộ lên CSDL theo cấu hình.
+  const handleSave = async () => {
+    if (!hasUnsavedEdits) return
+    setIsSaving(true)
+    setSaveStatus('')
+    try {
+      // Mọi dòng đang sửa bắt buộc có Phân loại hợp lệ và Diễn giải trước khi lưu.
+      const editedTicketKeys = Object.keys(dirtyAnnotations)
+      const payload = []
+      const incompleteTickets = []
+
+      for (const ticketKey of editedTicketKeys) {
+        const anno = annotations[ticketKey]
+        if (!anno) {
+          incompleteTickets.push(ticketKey)
+          continue
+        }
+        const matchedRow = classifiedData.find(
+          (d) => String(d.ticketNo) === String(ticketKey) || String(d.idSeq) === String(anno.idSeq)
+        )
+        const idSeq = anno.idSeq || matchedRow?.idSeq || matchedRow?.IdSeq || ''
+        const statTicketNo = matchedRow?.ticketNo || ticketKey
+        const remarkType =
+          anno.remarkType !== undefined ? anno.remarkType : (matchedRow?.remarkType ?? '')
+
+        const remarkTypeSeq =
+          anno.remarkTypeSeq !== undefined
+            ? anno.remarkTypeSeq
+            : (matchedRow?.remarkTypeSeq ?? matchedRow?.RemarkTypeSeq ?? '')
+        const remarkDescription =
+          anno.remarkDescription !== undefined
+            ? anno.remarkDescription
+            : (matchedRow?.remarkDescription ??
+              matchedRow?.RemarkContent ??
+              matchedRow?.RemarkDescription ??
+              '')
+
+        if (
+          !String(remarkType ?? '').trim() ||
+          !String(remarkTypeSeq ?? '').trim() ||
+          !String(remarkDescription ?? '').trim()
+        ) {
+          incompleteTickets.push(statTicketNo)
+          continue
+        }
+
+        payload.push({
+          IdSeq: idSeq,
+          StatTicketNo: statTicketNo,
+          RemarkTypeSeq: String(remarkTypeSeq),
+          RemarkContent: String(remarkDescription)
+        })
+      }
+
+      if (incompleteTickets.length > 0) {
+        const ticketList = incompleteTickets.slice(0, 10).join(', ')
+        const remainder =
+          incompleteTickets.length > 10 ? ` và ${incompleteTickets.length - 10} phiếu khác` : ''
+        const msg = `Mỗi dòng cần có Phân loại hợp lệ và Diễn giải trước khi lưu. Vui lòng kiểm tra: ${ticketList}${remainder}.`
+        setSaveStatus(msg)
+        setErrorModalConfig({
+          isOpen: true,
+          title: 'Thiếu thông tin bắt buộc',
+          message: msg,
+          type: 'warning'
+        })
+        return
+      }
+
+      if (!localOnly && payload.length > 0) {
+        const res = await updateProdStatsDetail(payload)
+        if (res && res.success === false) {
+          throw new Error(res.message || 'Lưu vào cơ sở dữ liệu thất bại')
+        }
+      }
+
+      try {
+        localStorage.setItem(`prod-ticket-audit:${plantKey}`, JSON.stringify(annotations))
+      } catch (e) {
+        console.warn('Lỗi lưu cache localStorage:', e)
+      }
+
+      // Cập nhật dữ liệu báo cáo cha để đồng bộ giao diện
+      for (const p of payload) {
+        const row = data.find(
+          (d) =>
+            String(d.StatTicketNo || d.ticketNo || d.statTicketNo || d.RegCode) ===
+              String(p.StatTicketNo) ||
+            String(d.IdSeq || d.idSeq || d.Id || d.id) === String(p.IdSeq)
+        )
+        if (row) {
+          const anno = annotations[p.StatTicketNo] || {}
+          if (p.RemarkTypeSeq !== undefined) {
+            row.RemarkTypeSeq = p.RemarkTypeSeq
+            row.remarkTypeSeq = p.RemarkTypeSeq
+          }
+          if (p.RemarkContent !== undefined) {
+            row.RemarkContent = p.RemarkContent
+            row.remarkDescription = p.RemarkContent
+          }
+          if (anno.remarkType !== undefined) {
+            row.RemarkType = anno.remarkType
+            row.remarkType = anno.remarkType
+            row.RemarkTypeName = anno.remarkType
+          }
+          if (anno.remarkTypeCode !== undefined) {
+            row.RemarkTypeCode = anno.remarkTypeCode
+            row.remarkTypeCode = anno.remarkTypeCode
+          }
+        }
+      }
+
+      setHasUnsavedEdits(false)
+      setDirtyAnnotations({})
+      setShowCloseConfirm(false)
+      setSaveStatus(
+        localOnly ? 'Đã lưu trên thiết bị này.' : 'Đã lưu thành công vào cơ sở dữ liệu!'
+      )
+      setTimeout(() => setSaveStatus(''), 4000)
+    } catch (error) {
+      console.error('Không thể lưu phân loại và diễn giải nhật trình:', error)
+      setErrorModalConfig({
+        isOpen: true,
+        title: 'Không thể lưu thay đổi',
+        message: String(error?.message || error),
+        type: 'danger'
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCloseRequest = () => {
+    if (hasUnsavedEdits) {
+      setShowCloseConfirm(true)
+      return
+    }
+    onClose()
+  }
+
+  const handleDiscardAndClose = () => {
+    setShowCloseConfirm(false)
+    setHasUnsavedEdits(false)
+    setDirtyAnnotations({})
+    onClose()
+  }
 
   // Xuất Excel
   const handleExportExcel = () => {
@@ -330,6 +951,8 @@ export const RuntimeAuditDetailModal = ({
         'SL Đạt': item.pass,
         'Tỷ lệ đạt (%)': `${item.passRate}%`,
         'Cảnh báo / Đối soát': item.auditText,
+        'Type phân loại': item.remarkType,
+        'Diễn giải': item.remarkDescription,
         'Người thực hiện': item.operator
       }))
       const ws = XLSX.utils.json_to_sheet(wsData)
@@ -361,6 +984,8 @@ export const RuntimeAuditDetailModal = ({
         'SL Đạt',
         'Tỷ lệ (%)',
         'Cảnh báo',
+        'Type phân loại',
+        'Diễn giải',
         'Người làm'
       ]
       const rows = filteredData.map((item, idx) => [
@@ -379,11 +1004,13 @@ export const RuntimeAuditDetailModal = ({
         item.pass,
         `${item.passRate}%`,
         item.auditText,
+        item.remarkType,
+        item.remarkDescription,
         item.operator
       ])
       const tsvContent = [headers.join('\t'), ...rows.map((r) => r.join('\t'))].join('\n')
       navigator.clipboard.writeText(tsvContent)
-      alert(`Đã sao chép ${filteredData.length} dòng vào clipboard`)
+      message.success(`Đã sao chép ${filteredData.length} dòng vào clipboard`)
     } catch (err) {
       console.error('Copy TSV error:', err)
     }
@@ -391,413 +1018,679 @@ export const RuntimeAuditDetailModal = ({
 
   if (!isOpen) return null
 
-  // Tổng hợp số liệu đang lọc
-  const totalActual = filteredData.reduce((acc, d) => acc + d.actual, 0)
-  const totalPass = filteredData.reduce((acc, d) => acc + d.pass, 0)
-  const totalRuntime = filteredData.reduce((acc, d) => acc + d.runtimeH, 0)
-
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 99999,
-        background: 'rgba(0, 0, 0, 0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16
-      }}
-      onClick={onClose}
-    >
+    <>
       <div
         style={{
-          background: '#ffffff',
-          width: 'calc(100vw - 32px)',
-          height: 'calc(100dvh - 32px)',
-          maxHeight: 'calc(100dvh - 32px)',
-          maxWidth: '100%',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+          position: 'fixed',
+          inset: 0,
+          zIndex: 99990,
+          background: 'rgba(0, 0, 0, 0.45)',
           display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 0
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={handleCloseRequest}
       >
-        {/* Modal Header - Trắng toàn bộ */}
         <div
           style={{
             background: '#ffffff',
-            color: '#0f172a',
-            padding: '12px 18px',
+            width: '100vw',
+            height: '100dvh',
+            maxHeight: '100dvh',
+            maxWidth: '100%',
+            border: 'none',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #e2e8f0',
-            flexShrink: 0
+            flexDirection: 'column',
+            overflow: 'hidden'
           }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
-              Đối soát thời gian bắt đầu & kết thúc phiếu sản xuất
+          {localOnly ? (
+            <div
+              role="toolbar"
+              aria-label="Thao tác nhật trình đối soát"
+              className="flex items-center justify-between bg-white px-2 py-0.5 border-b border-slate-200 shrink-0"
+            >
+              <div className="flex items-center gap-1.5 py-0.5 select-none flex-wrap">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCloseRequest}
+                  disabled={isSaving}
+                  className="uppercase text-[11px] font-bold text-slate-700 hover:text-slate-900 h-7 px-2 shrink-0"
+                  title="Quay lại / Đóng nhật trình"
+                >
+                  <ArrowLeft size={13} />
+                  <span>Quay lại</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={!hasUnsavedEdits || isSaving}
+                  className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0"
+                >
+                  <Save size={13} />
+                  <span>{isSaving ? 'Đang lưu...' : 'Lưu'}</span>
+                </Button>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCloseRequest}
+                aria-label="Đóng nhật trình đối soát"
+                title="Đóng nhật trình"
+                className="h-7 px-2 shrink-0 text-slate-500"
+              >
+                <X size={16} />
+              </Button>
             </div>
-            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-              Cơ sở: {plantName || 'Nhà máy'} • Hiển thị chi tiết ngày, giờ của từng phiếu
-            </div>
-          </div>
-          <button
-            onClick={onClose}
+          ) : (
+            <ProductionAuditModalHeader
+              plantName={plantName}
+              subtitle={
+                isAnnotationTab
+                  ? 'Thống kê sản xuất • Chỉnh sửa phân loại / diễn giải rồi lưu thay đổi.'
+                  : 'Thống kê sản xuất • Đối soát mốc thời gian các phiếu.'
+              }
+              onClose={handleCloseRequest}
+            />
+          )}
+
+          {/* Tabs phân loại và bộ lọc nhật trình */}
+          <div
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#64748b',
-              cursor: 'pointer',
-              padding: 4,
+              background: '#ffffff',
+              borderBottom: '1px solid #e2e8f0',
+              padding: localOnly ? '4px 8px 0' : '8px 18px',
               display: 'flex',
-              alignItems: 'center'
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              justifyContent: 'flex-start',
+              gap: 8,
+              flexShrink: 0
             }}
           >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Toolbar lọc đơn giản - Nền trắng */}
-        <div
-          style={{
-            background: '#ffffff',
-            borderBottom: '1px solid #e2e8f0',
-            padding: '8px 18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 8,
-            flexShrink: 0
-          }}
-        >
-          {/* Nhóm tab lọc nhanh */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setActiveCategory('ALL')}
+            {/* Các trạng thái được trình bày như tab điều hướng */}
+            <div
+              role="tablist"
+              aria-label="Lọc nhật trình theo trạng thái đối soát"
               style={{
-                padding: '4px 10px',
-                fontSize: 12,
-                fontWeight: activeCategory === 'ALL' ? 600 : 400,
-                cursor: 'pointer',
-                border: '1px solid',
-                borderColor: activeCategory === 'ALL' ? '#0f172a' : '#e2e8f0',
-                background: activeCategory === 'ALL' ? '#f8fafc' : '#ffffff',
-                color: activeCategory === 'ALL' ? '#0f172a' : '#64748b'
+                display: 'flex',
+                alignItems: 'center',
+                gap: localOnly ? 12 : 6,
+                flexWrap: 'wrap',
+                minHeight: localOnly ? 32 : undefined,
+                padding: localOnly ? '0 8px' : undefined,
+                background: localOnly ? '#ffffff' : undefined,
+                borderBottom: localOnly ? '1px solid #e2e8f0' : undefined
               }}
             >
-              Tất cả ({categoryCounts.all})
-            </button>
+              {[
+                { id: 'ALL', label: 'Tất cả', count: categoryCounts.all },
+                ...(categoryCounts.invalidTime > 0
+                  ? [
+                      {
+                        id: 'INVALID_TIME',
+                        label: 'Sai mốc giờ',
+                        count: categoryCounts.invalidTime
+                      }
+                    ]
+                  : []),
+                { id: 'NORMAL', label: 'Chuẩn (5p–12h)', count: categoryCounts.normal },
+                { id: 'OVER_12H', label: '> 12 giờ', count: categoryCounts.over12 },
+                { id: 'UNDER_5MIN', label: '< 5 phút', count: categoryCounts.under5 }
+              ].map((tab) => {
+                const isActive = activeCategory === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => {
+                      setDraftCategory(tab.id)
+                      setActiveCategory(tab.id)
+                    }}
+                    style={{
+                      position: localOnly ? 'relative' : undefined,
+                      alignSelf: localOnly ? 'stretch' : undefined,
+                      padding: localOnly ? '0 6px' : '4px 10px',
+                      fontSize: localOnly ? 11 : 12,
+                      fontWeight: localOnly ? (isActive ? 700 : 500) : isActive ? 600 : 400,
+                      cursor: 'pointer',
+                      border: localOnly ? 'none' : '1px solid',
+                      borderColor: localOnly ? undefined : isActive ? '#0f172a' : '#e2e8f0',
+                      borderBottom: localOnly
+                        ? isActive
+                          ? '2px solid #4f46e5'
+                          : '2px solid transparent'
+                        : undefined,
+                      background: localOnly ? 'transparent' : isActive ? '#f8fafc' : '#ffffff',
+                      color: localOnly
+                        ? isActive
+                          ? '#4338ca'
+                          : '#64748b'
+                        : isActive
+                          ? '#0f172a'
+                          : '#64748b',
+                      marginBottom: localOnly ? -1 : undefined
+                    }}
+                  >
+                    {tab.label}{' '}
+                    <span
+                      style={{
+                        color: localOnly ? (isActive ? '#4338ca' : '#94a3b8') : undefined
+                      }}
+                    >
+                      {localOnly ? (
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            marginLeft: 3,
+                            padding: '1px 5px',
+                            borderRadius: 999,
+                            background: isActive ? '#e0e7ff' : '#f1f5f9',
+                            color: isActive ? '#4338ca' : '#64748b',
+                            fontSize: 9,
+                            lineHeight: 1.3,
+                            fontWeight: 700
+                          }}
+                        >
+                          {tab.count.toLocaleString('vi-VN')}
+                        </span>
+                      ) : (
+                        `(${tab.count})`
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
 
-            {categoryCounts.invalidTime > 0 && (
-              <button
-                onClick={() => setActiveCategory('INVALID_TIME')}
+            {/* Lọc dropdown & Tìm kiếm */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                flexWrap: 'wrap'
+              }}
+            >
+              <details style={{ position: 'relative', fontSize: 12, color: '#334155' }}>
+                <summary
+                  style={{ cursor: 'pointer', padding: '4px 10px', border: '1px solid #e2e8f0' }}
+                >
+                  Ẩn / hiện cột ({columns.length}/{availableAuditColumns.length})
+                </summary>
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    zIndex: 20,
+                    width: 220,
+                    maxHeight: '45vh',
+                    overflowY: 'auto',
+                    padding: 10,
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)'
+                  }}
+                >
+                  {columnOrder
+                    .filter((id) => availableAuditColumns.some((col) => col.id === id))
+                    .map((id) => {
+                      const column = availableAuditColumns.find((item) => item.id === id)
+                      if (!column) return null
+                      const visible = !hiddenColumns.includes(id)
+                      return (
+                        <label key={id} style={{ display: 'flex', gap: 8, padding: '4px 0' }}>
+                          <input
+                            type="checkbox"
+                            checked={visible}
+                            disabled={visible && columns.length === 1}
+                            onChange={() => toggleColumn(id)}
+                          />
+                          {column.title}
+                        </label>
+                      )
+                    })}
+                  <PureButton
+                    onClick={() => {
+                      setHiddenColumns([])
+                      setColumnOrder(availableAuditColumns.map((column) => column.id))
+                      setColumnWidths({})
+                    }}
+                  >
+                    Khôi phục cột mặc định
+                  </PureButton>
+                </div>
+              </details>
+              <div
                 style={{
-                  padding: '4px 10px',
-                  fontSize: 12,
-                  fontWeight: activeCategory === 'INVALID_TIME' ? 600 : 400,
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: activeCategory === 'INVALID_TIME' ? '#dc2626' : '#fca5a5',
-                  background: activeCategory === 'INVALID_TIME' ? '#fef2f2' : '#ffffff',
-                  color: '#dc2626'
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  padding: '3px 8px',
+                  width: 180
                 }}
               >
-                Sai mốc giờ ({categoryCounts.invalidTime})
-              </button>
-            )}
+                <Search size={13} color="#94a3b8" style={{ marginRight: 6 }} />
+                <input
+                  type="text"
+                  placeholder="Tìm phiếu, máy, tổ..."
+                  value={draftSearchQuery}
+                  onChange={(e) => {
+                    setDraftSearchQuery(e.target.value)
+                    setSearchQuery(e.target.value)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleQuery()
+                  }}
+                  style={{
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: 12,
+                    width: '100%',
+                    color: '#0f172a'
+                  }}
+                />
+              </div>
 
-            <button
-              onClick={() => setActiveCategory('NORMAL')}
-              style={{
-                padding: '4px 10px',
-                fontSize: 12,
-                fontWeight: activeCategory === 'NORMAL' ? 600 : 400,
-                cursor: 'pointer',
-                border: '1px solid',
-                borderColor: activeCategory === 'NORMAL' ? '#0f172a' : '#e2e8f0',
-                background: activeCategory === 'NORMAL' ? '#f8fafc' : '#ffffff',
-                color: activeCategory === 'NORMAL' ? '#0f172a' : '#64748b'
-              }}
-            >
-              Chuẩn (5p - 12h) ({categoryCounts.normal})
-            </button>
+              <PureSelect
+                value={draftTeam}
+                onChange={(val) => {
+                  setDraftTeam(val)
+                  setSelectedTeam(val)
+                }}
+                options={[
+                  { value: 'ALL', label: 'Tất cả tổ' },
+                  ...teamOptions.map((t) => ({ value: t, label: t }))
+                ]}
+                style={{ width: 140 }}
+              />
 
-            <button
-              onClick={() => setActiveCategory('OVER_12H')}
-              style={{
-                padding: '4px 10px',
-                fontSize: 12,
-                fontWeight: activeCategory === 'OVER_12H' ? 600 : 400,
-                cursor: 'pointer',
-                border: '1px solid',
-                borderColor: activeCategory === 'OVER_12H' ? '#0f172a' : '#e2e8f0',
-                background: activeCategory === 'OVER_12H' ? '#f8fafc' : '#ffffff',
-                color: activeCategory === 'OVER_12H' ? '#0f172a' : '#64748b'
-              }}
-            >
-              &gt; 12 giờ ({categoryCounts.over12})
-            </button>
+              <PureSelect
+                value={draftMachine}
+                onChange={(val) => {
+                  setDraftMachine(val)
+                  setSelectedMachine(val)
+                }}
+                options={[
+                  { value: 'ALL', label: 'Tất cả máy' },
+                  ...machineOptions.map((m) => ({ value: m, label: m }))
+                ]}
+                style={{ width: 140 }}
+              />
 
-            <button
-              onClick={() => setActiveCategory('UNDER_5MIN')}
-              style={{
-                padding: '4px 10px',
-                fontSize: 12,
-                fontWeight: activeCategory === 'UNDER_5MIN' ? 600 : 400,
-                cursor: 'pointer',
-                border: '1px solid',
-                borderColor: activeCategory === 'UNDER_5MIN' ? '#0f172a' : '#e2e8f0',
-                background: activeCategory === 'UNDER_5MIN' ? '#f8fafc' : '#ffffff',
-                color: activeCategory === 'UNDER_5MIN' ? '#0f172a' : '#64748b'
-              }}
-            >
-              &lt; 5 phút ({categoryCounts.under5})
-            </button>
+              {!localOnly && (
+                <>
+                  <button
+                    onClick={handleCopyTSV}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 10px',
+                      fontSize: 12,
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      cursor: 'pointer',
+                      color: '#334155'
+                    }}
+                  >
+                    <Copy size={13} />
+                    <span>Sao chép</span>
+                  </button>
+
+                  <button
+                    onClick={handleExportExcel}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 10px',
+                      fontSize: 12,
+                      fontWeight: 500,
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      cursor: 'pointer',
+                      color: '#0f172a'
+                    }}
+                  >
+                    <Download size={13} />
+                    <span>Xuất Excel</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
-          {/* Lọc dropdown & Tìm kiếm */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <details style={{ position: 'relative', fontSize: 12, color: '#334155' }}>
-              <summary
-                style={{ cursor: 'pointer', padding: '4px 10px', border: '1px solid #e2e8f0' }}
-              >
-                Ẩn / hiện cột ({columns.length}/{AUDIT_COLUMNS.length})
-              </summary>
+          {!localOnly && (
+            <div
+              style={{
+                background: '#f8fafc',
+                borderBottom: '1px solid #e2e8f0',
+                padding: '6px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                flexShrink: 0,
+                order: 2
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={handleQuery}
+                  style={{
+                    padding: '5px 14px',
+                    border: '1px solid #0f172a',
+                    background: '#0f172a',
+                    color: '#ffffff',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Truy vấn
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={!hasUnsavedEdits || isSaving}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 14px',
+                    border: '1px solid #047857',
+                    background: hasUnsavedEdits ? '#047857' : '#f1f5f9',
+                    color: hasUnsavedEdits ? '#ffffff' : '#94a3b8',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: hasUnsavedEdits && !isSaving ? 'pointer' : 'default',
+                    borderRadius: 3
+                  }}
+                >
+                  <span>{isSaving ? 'Đang lưu...' : localOnly ? 'Lưu' : 'Lưu vào DB'}</span>
+                </button>
+                {saveStatus && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: '#047857',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}
+                  >
+                    <Check size={13} /> {saveStatus}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Dùng cùng Data Grid với bảng chi tiết của báo cáo. */}
+          {/* Dùng cùng Data Grid với bảng chi tiết của báo cáo theo chuẩn ERP MenuTechnique */}
+          <div
+            className="runtime-audit-modal-grid w-full h-full flex flex-col bg-white overflow-hidden"
+            style={{
+              flex: 1,
+              minHeight: 0,
+              position: 'relative',
+              background: '#ffffff',
+              order: 4
+            }}
+          >
+            <style>{`
+              #portal {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 0 !important;
+                height: 0 !important;
+                z-index: 999999 !important;
+                pointer-events: none !important;
+              }
+              #portal > * {
+                pointer-events: auto !important;
+              }
+              .gdg-style {
+                box-shadow: 0 0 0 2px #1677ff, 0px 6px 18px rgba(0, 0, 0, 0.18) !important;
+                border-radius: 3px !important;
+                background-color: #ffffff !important;
+                z-index: 999999 !important;
+              }
+              textarea.gdg-input,
+              input.gdg-input {
+                color: #0f172a !important;
+                -webkit-text-fill-color: #0f172a !important;
+                background-color: transparent !important;
+                font-size: 13px !important;
+                line-height: 18px !important;
+                padding: 2px 4px !important;
+                white-space: pre-wrap !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+              }
+            `}</style>
+            <h2 className="text-[10px] italic text-indigo-600 border-b border-slate-200 font-bold flex items-center gap-1.5 px-3 py-1 uppercase bg-white flex-shrink-0">
+              <span className="w-1 h-3 bg-indigo-600 rounded-full inline-block shrink-0" />
+              <span>Danh sách phiếu đối soát nhật trình ({filteredData.length} phiếu)</span>
+            </h2>
+            <DataEditor
+              ref={gridRef}
+              columns={columns}
+              rows={filteredData.length}
+              getCellContent={getCellContent}
+              rowMarkers="both"
+              rowSelect="multi"
+              columnSelect="single"
+              freezeColumns={2}
+              gridSelection={gridSelection}
+              onGridSelectionChange={setGridSelection}
+              getCellsForSelection={true}
+              showSearch={showSearch}
+              onSearchClose={() => setShowSearch(false)}
+              headerHeight={28}
+              rowHeight={28}
+              getRowThemeOverride={(rowIndex) => {
+                if (rowIndex === tableManager.hoverRow) {
+                  return {
+                    bgCell: '#f7f7f7',
+                    bgCellMedium: '#f0f0f0'
+                  }
+                }
+                return undefined
+              }}
+              onItemHovered={tableManager.onItemHovered}
+              overscrollY={20}
+              overscrollX={50}
+              smoothScrollY={true}
+              smoothScrollX={true}
+              trailingRowOptions={{
+                hint: ' ',
+                sticky: true,
+                tint: true
+              }}
+              freezeTrailingRows={0}
+              fillHandle={true}
+              isDraggable={false}
+              keybindings={tableManager.keybindings || keybindings}
+              onPaste={onPaste}
+              onCellEdited={onCellEdited}
+              onCellClicked={tableManager.onCellClicked}
+              onCellActivated={tableManager.onCellActivated}
+              onKeyDown={tableManager.onKeyDown}
+              onHeaderMenuClick={tableManager.onHeaderMenuClick}
+              onCellContextMenu={tableManager.onCellContextMenu}
+              onColumnResize={onColumnResize}
+              onColumnMoved={onColumnMoved}
+              theme={tableManager.gridTheme || DEFAULT_GRID_THEME}
+              width="100%"
+              height="100%"
+            />
+            {tableManager.showMenu !== null &&
+              tableManager.renderLayer(
+                <div
+                  {...tableManager.layerProps}
+                  className="border w-72 rounded-lg bg-white shadow-lg cursor-pointer z-[9999]"
+                >
+                  {tableManager.showMenu.menuType === 'statusMenu' ? (
+                    <LayoutStatusMenuSheet
+                      showMenu={tableManager.showMenu}
+                      handleSort={tableManager.handleSort}
+                      cols={columns}
+                      renderLayer={tableManager.renderLayer}
+                      setShowSearch={setShowSearch}
+                      setShowMenu={tableManager.setShowMenu}
+                      layerProps={tableManager.layerProps}
+                      handleReset={tableManager.handleReset}
+                      showDrawer={tableManager.showDrawer}
+                      data={filteredData}
+                    />
+                  ) : tableManager.showMenu.menuType === 'contextMenu' ? (
+                    <LayoutContextMenuSheet
+                      showMenu={tableManager.showMenu}
+                      cols={columns}
+                      setShowSearch={setShowSearch}
+                      setShowMenu={tableManager.setShowMenu}
+                      data={filteredData}
+                      selection={gridSelection}
+                      canCreate={false}
+                    />
+                  ) : (
+                    <LayoutMenuSheet
+                      showMenu={tableManager.showMenu}
+                      handleSort={tableManager.handleSort}
+                      handleHideColumn={tableManager.handleHideColumn}
+                      cols={columns}
+                      renderLayer={tableManager.renderLayer}
+                      setShowSearch={setShowSearch}
+                      setShowMenu={tableManager.setShowMenu}
+                      layerProps={tableManager.layerProps}
+                      handleFreezeColumn={tableManager.handleFreezeColumn}
+                    />
+                  )}
+                </div>
+              )}
+            <Drawer
+              title={
+                <span className="text-xs flex items-center justify-end font-bold">
+                  CÀI ĐẶT SHEET
+                </span>
+              }
+              styles={{ body: { padding: 15 } }}
+              onClose={() => tableManager.setOpenDrawer(false)}
+              open={tableManager.openDrawer}
+            >
+              {(tableManager.configurableCols || []).map((col) => (
+                <div key={col.id} style={{ marginBottom: '10px' }}>
+                  <Checkbox
+                    checked={!tableManager.hiddenColumns?.includes(col.id)}
+                    onChange={(e) => tableManager.handleCheckboxChange(col.id, e.target.checked)}
+                  >
+                    {col.title || col.id}
+                  </Checkbox>
+                </div>
+              ))}
+            </Drawer>
+            {tableManager.codeHelpModal?.isOpen && (
+              <GenericCodeHelpModal
+                isOpen={tableManager.codeHelpModal.isOpen}
+                onClose={tableManager.closeCodeHelpModal}
+                title={tableManager.codeHelpModal.title}
+                helpData={tableManager.codeHelpModal.helpData}
+                fetchHelpData={tableManager.codeHelpModal.fetchHelpData}
+                columns={tableManager.codeHelpModal.columns}
+                initialSearchText={tableManager.codeHelpModal.initialSearchText}
+                storageKey="prod_stats_remark_type_codehelp"
+                onSelect={tableManager.handleSelectCodeHelp}
+              />
+            )}
+            {filteredData.length === 0 && (
               <div
                 style={{
                   position: 'absolute',
-                  top: '100%',
+                  top: 64,
                   left: 0,
-                  zIndex: 20,
-                  width: 220,
-                  maxHeight: '45vh',
-                  overflowY: 'auto',
-                  padding: 10,
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)'
+                  right: 0,
+                  textAlign: 'center',
+                  color: '#94a3b8',
+                  pointerEvents: 'none'
                 }}
               >
-                {columnOrder.map((id) => {
-                  const column = AUDIT_COLUMNS.find((item) => item.id === id)
-                  const visible = !hiddenColumns.includes(id)
-                  return (
-                    <label key={id} style={{ display: 'flex', gap: 8, padding: '4px 0' }}>
-                      <input
-                        type="checkbox"
-                        checked={visible}
-                        disabled={visible && columns.length === 1}
-                        onChange={() => toggleColumn(id)}
-                      />
-                      {column.title}
-                    </label>
-                  )
-                })}
-                <PureButton
-                  onClick={() => {
-                    setHiddenColumns([])
-                    setColumnOrder(AUDIT_COLUMNS.map((column) => column.id))
-                    setColumnWidths({})
-                  }}
-                >
-                  Khôi phục cột mặc định
-                </PureButton>
+                Không có phiếu nào phù hợp.
               </div>
-            </details>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                padding: '3px 8px',
-                width: 180
-              }}
-            >
-              <Search size={13} color="#94a3b8" style={{ marginRight: 6 }} />
-              <input
-                type="text"
-                placeholder="Tìm phiếu, máy, tổ..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  border: 'none',
-                  outline: 'none',
-                  fontSize: 12,
-                  width: '100%',
-                  color: '#0f172a'
-                }}
-              />
-            </div>
-
-            <PureSelect
-              value={selectedTeam}
-              onChange={setSelectedTeam}
-              options={[
-                { value: 'ALL', label: 'Tất cả tổ' },
-                ...teamOptions.map((t) => ({ value: t, label: t }))
-              ]}
-              style={{ width: 140 }}
-            />
-
-            <PureSelect
-              value={selectedMachine}
-              onChange={setSelectedMachine}
-              options={[
-                { value: 'ALL', label: 'Tất cả máy' },
-                ...machineOptions.map((m) => ({ value: m, label: m }))
-              ]}
-              style={{ width: 140 }}
-            />
-
-            <button
-              onClick={handleCopyTSV}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '4px 10px',
-                fontSize: 12,
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                cursor: 'pointer',
-                color: '#334155'
-              }}
-            >
-              <Copy size={13} />
-              <span>Sao chép</span>
-            </button>
-
-            <button
-              onClick={handleExportExcel}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '4px 10px',
-                fontSize: 12,
-                fontWeight: 500,
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
-                cursor: 'pointer',
-                color: '#0f172a'
-              }}
-            >
-              <Download size={13} />
-              <span>Xuất Excel</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Thanh tóm tắt số liệu */}
-        <div
-          style={{
-            background: '#ffffff',
-            borderBottom: '1px solid #e2e8f0',
-            padding: '6px 18px',
-            fontSize: 12,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            color: '#475569',
-            flexShrink: 0
-          }}
-        >
-          <div>
-            Hiển thị: <b style={{ color: '#0f172a' }}>{filteredData.length}</b> phiếu
-            {categoryCounts.invalidTime > 0 && (
-              <span style={{ marginLeft: 8, color: '#dc2626' }}>
-                ({categoryCounts.invalidTime} phiếu sai mốc giờ)
-              </span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 16 }}>
-            <span>
-              Tổng SL SX: <b style={{ color: '#0f172a' }}>{totalActual.toLocaleString('vi-VN')}</b>
-            </span>
-            <span>
-              Tổng SL Đạt: <b style={{ color: '#0f172a' }}>{totalPass.toLocaleString('vi-VN')}</b>
-            </span>
-            <span>
-              Tổng giờ: <b style={{ color: '#0f172a' }}>{totalRuntime.toFixed(1)}h</b>
-            </span>
-          </div>
-        </div>
-
-        {/* Dùng cùng Data Grid với bảng chi tiết của báo cáo. */}
-        <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#ffffff' }}>
-          <DataEditor
-            columns={columns}
-            rows={filteredData.length}
-            getCellContent={getCellContent}
-            onColumnResize={onColumnResize}
-            onColumnMoved={onColumnMoved}
-            getCellsForSelection
-            rangeSelect="rect"
-            columnSelect="multi"
-            rowSelect="multi"
-            rowMarkers="both"
-            rowHeight={28}
-            headerHeight={32}
-            smoothScrollX
-            smoothScrollY
-            theme={executiveGridTheme}
-            width="100%"
-            height="100%"
-          />
-          {filteredData.length === 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 64,
-                left: 0,
-                right: 0,
-                textAlign: 'center',
-                color: '#94a3b8',
-                pointerEvents: 'none'
-              }}
-            >
-              Không có phiếu nào phù hợp.
-            </div>
-          )}
-        </div>
-        {/* Modal Footer - Trắng đơn giản */}
-        <div
-          style={{
-            padding: '8px 18px',
-            background: '#ffffff',
-            borderTop: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            flexWrap: 'wrap',
-            flexShrink: 0
-          }}
-        >
-          <span style={{ fontSize: 12, color: '#64748b' }}>
-            Kéo tiêu đề để đổi vị trí cột • Kéo mép để giãn cột • Ẩn / hiện cột trên thanh công cụ •
-            Ctrl+C sao chép vùng chọn
-          </span>
-          <PureButton
-            onClick={onClose}
+          <div
+            role="status"
             style={{
-              padding: '4px 16px',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              color: '#334155'
+              order: 5,
+              flexShrink: 0,
+              minHeight: 25,
+              padding: '4px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              background: '#f8fafc',
+              borderTop: '1px solid #cbd5e1',
+              color: hasUnsavedEdits ? '#9a6700' : '#64748b',
+              fontSize: 11
             }}
           >
-            Đóng
-          </PureButton>
+            <span>
+              {isSaving
+                ? localOnly
+                  ? 'Đang lưu phân loại và diễn giải trên thiết bị này...'
+                  : 'Đang lưu phân loại & diễn giải vào cơ sở dữ liệu...'
+                : saveStatus
+                  ? `✓ ${saveStatus}`
+                  : hasUnsavedEdits
+                    ? localOnly
+                      ? 'Có thay đổi chưa lưu. Bấm “Lưu” để lưu trên thiết bị này.'
+                      : 'Có thay đổi chưa lưu. Hãy bấm “Lưu vào DB” để lưu vào cơ sở dữ liệu.'
+                    : 'Sẵn sàng'}
+            </span>
+            <span>{filteredData.length} phiếu</span>
+          </div>
         </div>
       </div>
-    </div>
+      <SystemConfirmModal
+        isOpen={showCloseConfirm}
+        type="unsaved"
+        title="Xác nhận dữ liệu chưa lưu"
+        message="Bạn đang có thay đổi chưa được lưu."
+        subMessage="Lưu thay đổi trước khi đóng nhật trình, hoặc thoát mà không lưu."
+        confirmText="Thoát không lưu"
+        cancelText="Quay lại"
+        extraActionText="Lưu thay đổi"
+        onExtraAction={handleSave}
+        onConfirm={handleDiscardAndClose}
+        onCancel={() => setShowCloseConfirm(false)}
+      />
+      <SystemConfirmModal
+        isOpen={errorModalConfig.isOpen}
+        type={errorModalConfig.type || 'danger'}
+        title={errorModalConfig.title || 'Thông báo lỗi'}
+        message={errorModalConfig.message}
+        confirmText="Đã hiểu"
+        onConfirm={() =>
+          setErrorModalConfig({ isOpen: false, title: '', message: '', type: 'danger' })
+        }
+        onClose={() =>
+          setErrorModalConfig({ isOpen: false, title: '', message: '', type: 'danger' })
+        }
+      />
+    </>
   )
 }

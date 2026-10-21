@@ -1,0 +1,17 @@
+syntax = "proto3";
+package datahub;
+option go_package = "service-datahub/pb/datahub";
+
+// filters_json carries the original JSON body, including items/data/idSeqs.
+message ProdStatsRemarkTypeRequest { string filters_json = 1; }
+message ProdStatsRemarkTypeResponse {
+  bool success = 1;
+  string data_json = 2;
+  string page = 3;
+}
+service ProdStatsRemarkTypeService {
+  rpc ProdStatsRemarkTypeA(ProdStatsRemarkTypeRequest) returns (ProdStatsRemarkTypeResponse);
+  rpc ProdStatsRemarkTypeU(ProdStatsRemarkTypeRequest) returns (ProdStatsRemarkTypeResponse);
+  rpc ProdStatsRemarkTypeD(ProdStatsRemarkTypeRequest) returns (ProdStatsRemarkTypeResponse);
+  rpc ProdStatsRemarkTypeQ(ProdStatsRemarkTypeRequest) returns (ProdStatsRemarkTypeResponse);
+}

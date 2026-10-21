@@ -108,6 +108,8 @@ type ERPProdStatsDetail struct {
 	TicketCreationLocation *string    `gorm:"column:TicketCreationLocation;type:text" db:"TicketCreationLocation" json:"TicketCreationLocation"`
 	AutoIoStatus           *string    `gorm:"column:AutoIoStatus;type:text" db:"AutoIoStatus" json:"AutoIoStatus"`
 	UserMemo               *string    `gorm:"column:UserMemo;type:text" db:"UserMemo" json:"UserMemo"`
+	RemarkTypeSeq          *string    `gorm:"column:RemarkTypeSeq;type:varchar(36)" db:"RemarkTypeSeq" json:"RemarkTypeSeq"`
+	RemarkContent          *string    `gorm:"column:RemarkContent;type:text" db:"RemarkContent" json:"RemarkContent"`
 	RowVersion             int64      `gorm:"column:RowVersion;default:1" db:"RowVersion" json:"RowVersion"`
 	IsActive               bool       `gorm:"column:IsActive;default:true" db:"IsActive" json:"IsActive"`
 	CreatedBy              *string    `gorm:"column:CreatedBy;type:text" db:"CreatedBy" json:"CreatedBy"`
@@ -118,12 +120,12 @@ type ERPProdStatsDetail struct {
 	UpdatedAt              *time.Time `gorm:"column:UpdatedAt;autoUpdateTime" db:"UpdatedAt" json:"UpdatedAt"`
 
 	// Joined Master fields from _ERPPlanMaster
-	FactoryCode            *string    `gorm:"->;column:FactoryCode" json:"FactoryCode,omitempty"`
-	FactoryName            *string    `gorm:"->;column:FactoryName" json:"FactoryName,omitempty"`
-	ApplyDate              *string    `gorm:"->;column:ApplyDate" json:"ApplyDate,omitempty"`
-	MasterStatus           *string    `gorm:"->;column:MasterStatus" json:"MasterStatus,omitempty"`
-	MasterRemark           *string    `gorm:"->;column:MasterRemark" json:"MasterRemark,omitempty"`
-	ReportType             *string    `gorm:"->;column:ReportType" json:"ReportType,omitempty"`
+	FactoryCode  *string `gorm:"->;column:FactoryCode" json:"FactoryCode,omitempty"`
+	FactoryName  *string `gorm:"->;column:FactoryName" json:"FactoryName,omitempty"`
+	ApplyDate    *string `gorm:"->;column:ApplyDate" json:"ApplyDate,omitempty"`
+	MasterStatus *string `gorm:"->;column:MasterStatus" json:"MasterStatus,omitempty"`
+	MasterRemark *string `gorm:"->;column:MasterRemark" json:"MasterRemark,omitempty"`
+	ReportType   *string `gorm:"->;column:ReportType" json:"ReportType,omitempty"`
 }
 
 func (ERPProdStatsDetail) TableName() string {

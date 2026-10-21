@@ -125,6 +125,7 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		&reportModels.ERPPlanMaster{},
 		&reportModels.ERPPlanDetail{},
 		&reportModels.ERPProdStatsDetail{},
+		&reportModels.ERPProdStatsRemarkType{},
 		&reportModels.CalcProductionBundle{},
 	)
 	if err != nil {

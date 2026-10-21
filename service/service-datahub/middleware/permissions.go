@@ -36,10 +36,26 @@ func registrationPolicy(method string) (reportPolicy, bool) {
 		"DeleteProdStatsDetail": {registration, "Delete"},
 	}
 	policy, ok := policies[method]
+	if !ok {
+		policy, ok = remarkTypePolicy(method)
+	}
 	return policy, ok
 }
 
+func remarkTypePolicy(method string) (reportPolicy, bool) {
+	operations := map[string]string{
+		"ProdStatsRemarkTypeA": "Create", "ProdStatsRemarkTypeU": "Edit",
+		"ProdStatsRemarkTypeD": "Delete", "ProdStatsRemarkTypeQ": "Search",
+	}
+	op, ok := operations[method]
+	return reportPolicy{keys: []string{"report_prod_stats_remark_type"}, operation: op}, ok
+}
+
 func httpRegistrationPolicy(path string) (reportPolicy, bool) {
+	if strings.HasPrefix(path, "/api/v2/report/prod-stats-remark-type/") {
+		parts := strings.Split(path, "/")
+		return remarkTypePolicy(parts[len(parts)-1])
+	}
 	aliases := map[string]string{
 		"PlanMasterQ": "QueryPlanMaster", "query-master": "QueryPlanMaster",
 		"PlanMasterD": "DeletePlanMaster", "delete-master": "DeletePlanMaster", ":reg_code": "DeletePlanMaster",
@@ -104,10 +120,12 @@ func ReportPermissionMiddleware(db *gorm.DB) gin.HandlerFunc {
 func ReportPermissionInterceptor(db *gorm.DB) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		const prefix = "/datahub.DataHubService/"
-		if !strings.HasPrefix(info.FullMethod, prefix) {
+		const remarkPrefix = "/datahub.ProdStatsRemarkTypeService/"
+		if !strings.HasPrefix(info.FullMethod, prefix) && !strings.HasPrefix(info.FullMethod, remarkPrefix) {
 			return handler(ctx, req)
 		}
-		policy, protected := registrationPolicy(strings.TrimPrefix(info.FullMethod, prefix))
+		method := strings.TrimPrefix(strings.TrimPrefix(info.FullMethod, prefix), remarkPrefix)
+		policy, protected := registrationPolicy(method)
 		if !protected {
 			return handler(ctx, req)
 		}

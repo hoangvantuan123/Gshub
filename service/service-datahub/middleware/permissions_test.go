@@ -62,3 +62,40 @@ func TestDetailPermissionPoliciesDoNotCrossReportTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestRemarkTypeRequiresOwnMenuAndLogin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for operation, permission := range map[string]string{"A": "Create", "U": "Edit", "D": "Delete", "Q": "Search"} {
+		name := "ProdStatsRemarkType" + operation
+		path := "/api/v2/report/prod-stats-remark-type/" + name
+		policy, ok := httpRegistrationPolicy(path)
+		if !ok || policy.operation != permission || len(policy.keys) != 1 || policy.keys[0] != "report_prod_stats_remark_type" {
+			t.Fatalf("incorrect permission policy for %s: %+v", name, policy)
+		}
+		methods := []string{http.MethodPost}
+		if operation == "Q" {
+			methods = append(methods, http.MethodGet)
+		}
+		for _, method := range methods {
+			r := gin.New()
+			r.Use(ReportPermissionMiddleware(nil))
+			r.Handle(method, path, func(c *gin.Context) { t.Fatal("unauthorized handler executed") })
+			for _, token := range []string{"", "Bearer invalid"} {
+				req := httptest.NewRequest(method, path, nil)
+				req.Header.Set("Authorization", token)
+				rec := httptest.NewRecorder()
+				r.ServeHTTP(rec, req)
+				if rec.Code != 401 {
+					t.Fatalf("expected 401, got %d", rec.Code)
+				}
+			}
+		}
+		_, err := ReportPermissionInterceptor(nil)(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/datahub.ProdStatsRemarkTypeService/" + name}, func(context.Context, interface{}) (interface{}, error) {
+			t.Fatal("unauthorized RPC executed")
+			return nil, nil
+		})
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("expected unauthenticated, got %v", err)
+		}
+	}
+}

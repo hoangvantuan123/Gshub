@@ -25,6 +25,7 @@ import (
 	"service-datahub/services/report/plan_master"
 	"service-datahub/services/report/plan_report"
 	"service-datahub/services/report/prod_stats_detail"
+	"service-datahub/services/report/prod_stats_remark_type"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -2810,6 +2811,9 @@ func RunGRPCServer(
 		logger,
 	)
 	pb.RegisterDataHubServiceServer(grpcServer, datahubServer)
+	pb.RegisterProdStatsRemarkTypeServiceServer(grpcServer, &prodStatsRemarkTypeServer{
+		svc: prod_stats_remark_type.NewProdStatsRemarkTypeService(db), logger: logger,
+	})
 
 	return grpcServer, lis, nil
 }

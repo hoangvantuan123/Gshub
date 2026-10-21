@@ -20,6 +20,7 @@ func SetupRouter(
 	planMasterHandler *handlers.PlanMasterHandler,
 	planDetailHandler *handlers.PlanDetailHandler,
 	prodStatsDetailHandler *handlers.ProdStatsDetailHandler,
+	prodStatsRemarkTypeHandler *handlers.ProdStatsRemarkTypeHandler,
 	planReportHandler *handlers.PlanReportHandler,
 	summaryPlanReportHandler *handlers.SummaryPlanReportHandler,
 	summaryStatReportHandler *handlers.SummaryStatReportHandler,
@@ -72,6 +73,14 @@ func SetupRouter(
 		// 1. CodeHelp & Common Help Engine (/api/v2/help)
 		regHelp(v2.Group("/help"))
 		regHelp(v2.Group("/mssql/help-query"))
+		remarkTypes := v2.Group("/report/prod-stats-remark-type")
+		{
+			remarkTypes.POST("/ProdStatsRemarkTypeA", prodStatsRemarkTypeHandler.ProdStatsRemarkTypeA)
+			remarkTypes.POST("/ProdStatsRemarkTypeU", prodStatsRemarkTypeHandler.ProdStatsRemarkTypeU)
+			remarkTypes.POST("/ProdStatsRemarkTypeD", prodStatsRemarkTypeHandler.ProdStatsRemarkTypeD)
+			remarkTypes.POST("/ProdStatsRemarkTypeQ", prodStatsRemarkTypeHandler.ProdStatsRemarkTypeQ)
+			remarkTypes.GET("/ProdStatsRemarkTypeQ", prodStatsRemarkTypeHandler.ProdStatsRemarkTypeQ)
+		}
 
 		// 2. Report Registration & Queries (Master, KHSX Detail, TKSX Detail)
 		planV2 := v2.Group("/report/plan")

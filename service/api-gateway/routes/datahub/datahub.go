@@ -13,6 +13,11 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 	// ====================================================================
 	v2 := r.Group("/api/v2")
 	{
+		remarkTypes := v2.Group("/report/prod-stats-remark-type")
+		for _, operation := range []string{"A", "U", "D", "Q"} {
+			remarkTypes.POST("/ProdStatsRemarkType"+operation, datahub.ProdStatsRemarkType(pool, operation))
+		}
+		remarkTypes.GET("/ProdStatsRemarkTypeQ", datahub.ProdStatsRemarkType(pool, "Q"))
 		// 1. Report Plan
 		planV2 := v2.Group("/report/plan")
 		{

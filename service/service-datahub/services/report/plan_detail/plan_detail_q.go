@@ -28,10 +28,11 @@ func normalizeDateString(val string) string {
 	return val
 }
 
-// PlanDetailQ - Truy vấn 24 cột dữ liệu KHSX của Điều Phối kèm LEFT JOIN Master Kế hoạch
+// PlanDetailQ - Truy vấn 24 cột dữ liệu KHSX của Điều Phối kèm LEFT JOIN Master Kế hoạch và RemarkType
 func (s *PlanDetailService) PlanDetailQ(ctx context.Context, filters map[string]string) ([]models.ERPPlanDetail, *models.PlanPageInfo, error) {
 	query := s.db.WithContext(ctx).Table(`"_ERPPlanDetail" AS d`).
-		Joins(`LEFT JOIN "_ERPPlanMaster" AS m ON d."MasterSeq" = m."IdSeq" OR d."RegCode" = m."RegCode"`)
+		Joins(`LEFT JOIN "_ERPPlanMaster" AS m ON d."MasterSeq" = m."IdSeq" OR d."RegCode" = m."RegCode"`).
+		Joins(`LEFT JOIN "_ERPProdStatsRemarkType" AS rt ON d."RemarkTypeSeq" = rt."IdSeq"`)
 
 	// 1. Lọc theo MasterSeq hoặc RegCode
 	if val, ok := filters["MasterSeq"]; ok && val != "" {
@@ -211,7 +212,7 @@ func (s *PlanDetailService) PlanDetailQ(ctx context.Context, filters map[string]
 
 	var details []models.ERPPlanDetail
 	err := query.
-		Select(`d.*, m."FactoryCode", m."FactoryName", m."ApplyDate", m."Status" AS "MasterStatus", m."Remark" AS "MasterRemark", m."ReportType"`).
+		Select(`d.*, m."FactoryCode", m."FactoryName", m."ApplyDate", m."Status" AS "MasterStatus", m."Remark" AS "MasterRemark", m."ReportType", rt."TypeName" AS "RemarkTypeName", rt."TypeCode" AS "RemarkTypeCode"`).
 		Order(sortField + " " + sortOrder + `, d."IdSeq" ASC`).
 		Offset(offset).
 		Limit(pageSize).

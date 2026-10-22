@@ -28,10 +28,11 @@ func normalizeDateString(val string) string {
 	return val
 }
 
-// ProdStatsDetailQ - Truy vấn dữ liệu chi tiết Thống Kê Sản Xuất kèm LEFT JOIN Master
+// ProdStatsDetailQ - Truy vấn dữ liệu chi tiết Thống Kê Sản Xuất kèm LEFT JOIN Master và RemarkType
 func (s *ProdStatsDetailService) ProdStatsDetailQ(ctx context.Context, filters map[string]string) ([]models.ERPProdStatsDetail, *models.PlanPageInfo, error) {
 	query := s.db.WithContext(ctx).Table(`"_ERPProdStatsDetail" AS d`).
-		Joins(`LEFT JOIN "_ERPPlanMaster" AS m ON d."MasterSeq" = m."IdSeq" OR d."RegCode" = m."RegCode"`)
+		Joins(`LEFT JOIN "_ERPPlanMaster" AS m ON d."MasterSeq" = m."IdSeq" OR d."RegCode" = m."RegCode"`).
+		Joins(`LEFT JOIN "_ERPProdStatsRemarkType" AS rt ON d."RemarkTypeSeq" = rt."IdSeq"`)
 
 	// 1. Lọc theo MasterSeq hoặc RegCode
 	if val, ok := filters["MasterSeq"]; ok && val != "" {
@@ -240,7 +241,7 @@ func (s *ProdStatsDetailService) ProdStatsDetailQ(ctx context.Context, filters m
 
 	var details []models.ERPProdStatsDetail
 	err := query.
-		Select(`d.*, m."FactoryCode", m."FactoryName", m."ApplyDate", m."Status" AS "MasterStatus", m."Remark" AS "MasterRemark", m."ReportType"`).
+		Select(`d.*, m."FactoryCode", m."FactoryName", m."ApplyDate", m."Status" AS "MasterStatus", m."Remark" AS "MasterRemark", m."ReportType", rt."TypeName" AS "RemarkTypeName", rt."TypeCode" AS "RemarkTypeCode"`).
 		Order(sortField + " " + sortOrder + `, d."IdSeq" ASC`).
 		Offset(offset).
 		Limit(pageSize).

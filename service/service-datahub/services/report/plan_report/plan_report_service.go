@@ -186,6 +186,19 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		}
 	}
 
+	// Tải danh mục phân loại RemarkType để ánh xạ RemarkTypeName, RemarkTypeCode
+	var remarkTypeList []models.ERPProdStatsRemarkType
+	_ = s.db.WithContext(ctx).Model(&models.ERPProdStatsRemarkType{}).Find(&remarkTypeList).Error
+	remarkTypeMap := make(map[string]models.ERPProdStatsRemarkType)
+	for _, rt := range remarkTypeList {
+		if rt.IdSeq != "" {
+			remarkTypeMap[rt.IdSeq] = rt
+		}
+		if rt.TypeCode != "" {
+			remarkTypeMap[strings.ToLower(strings.TrimSpace(rt.TypeCode))] = rt
+		}
+	}
+
 	// Khởi tạo accumulator tổng hợp
 	accumulator := newAggregateAccumulator()
 	items := make([]models.PlanDetailReportItem, 0, len(rawList))
@@ -295,28 +308,52 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 			orderNo = *row.RoutingDocNo
 		}
 
+		var remarkTypeCodeVal, remarkTypeNameVal, remarkTypeVal, remarkContentVal, remarkDescriptionVal string
+		if row.RemarkTypeSeq != nil && *row.RemarkTypeSeq != "" {
+			if rt, ok := remarkTypeMap[*row.RemarkTypeSeq]; ok {
+				remarkTypeCodeVal = rt.TypeCode
+				remarkTypeNameVal = rt.TypeName
+				remarkTypeVal = rt.TypeName
+			}
+		}
+		if row.RemarkContent != nil && *row.RemarkContent != "" {
+			remarkContentVal = *row.RemarkContent
+			remarkDescriptionVal = *row.RemarkContent
+		}
+
+		if remarkTypeNameVal != "" {
+			row.RemarkTypeName = &remarkTypeNameVal
+			row.RemarkTypeCode = &remarkTypeCodeVal
+		}
+
 		item := models.PlanDetailReportItem{
-			ERPPlanDetail:  row,
-			Id:             &idStr,
-			DocNo:          &docNo,
-			OrderNoVal:     &orderNo,
-			PlanNoVal:      &docNo,
-			PicVal:         &picVal,
-			MachineCodeVal: &machineVal,
-			MachineNameVal: &machineVal,
-			TeamNameVal:    &teamVal,
-			TeamVal:        &teamVal,
-			PlanQtyVal:     &planQty,
-			ActualQtyVal:   &actualQty,
-			PassQtyVal:     &passQty,
-			DefectQtyVal:   &defectQty,
-			PassRateVal:    &passRate,
-			PlanDateVal:    &planDate,
-			ActualDateVal:  &actualDate,
-			DpStatusCode:   &dpCode,
-			DpStatusText:   &dpText,
-			TimeStatusText: &timeStat,
-			CapaStatusText: &capaStat,
+			ERPPlanDetail:        row,
+			Id:                   &idStr,
+			DocNo:                &docNo,
+			OrderNoVal:           &orderNo,
+			PlanNoVal:            &docNo,
+			PicVal:               &picVal,
+			MachineCodeVal:       &machineVal,
+			MachineNameVal:       &machineVal,
+			TeamNameVal:          &teamVal,
+			TeamVal:              &teamVal,
+			PlanQtyVal:           &planQty,
+			ActualQtyVal:         &actualQty,
+			PassQtyVal:           &passQty,
+			DefectQtyVal:         &defectQty,
+			PassRateVal:          &passRate,
+			PlanDateVal:          &planDate,
+			ActualDateVal:        &actualDate,
+			DpStatusCode:         &dpCode,
+			DpStatusText:         &dpText,
+			TimeStatusText:       &timeStat,
+			CapaStatusText:       &capaStat,
+			RemarkTypeSeqVal:     row.RemarkTypeSeq,
+			RemarkTypeCodeVal:    &remarkTypeCodeVal,
+			RemarkTypeNameVal:    &remarkTypeNameVal,
+			RemarkTypeVal:        &remarkTypeVal,
+			RemarkContentVal:     &remarkContentVal,
+			RemarkDescriptionVal: &remarkDescriptionVal,
 		}
 		items = append(items, item)
 	}

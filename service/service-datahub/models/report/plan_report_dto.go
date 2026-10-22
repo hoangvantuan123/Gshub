@@ -136,10 +136,16 @@ type PlanDetailReportItem struct {
 	PassRateVal    *float64 `json:"passRate,omitempty"`
 	PlanDateVal    *string  `json:"planDate,omitempty"`
 	ActualDateVal  *string  `json:"actualDate,omitempty"`
-	DpStatusCode   *string  `json:"dpStatusCode,omitempty"`
-	DpStatusText   *string  `json:"dpStatusText,omitempty"`
-	TimeStatusText *string  `json:"timeStatusText,omitempty"`
-	CapaStatusText *string  `json:"capaStatusText,omitempty"`
+	DpStatusCode         *string  `json:"dpStatusCode,omitempty"`
+	DpStatusText         *string  `json:"dpStatusText,omitempty"`
+	TimeStatusText       *string  `json:"timeStatusText,omitempty"`
+	CapaStatusText       *string  `json:"capaStatusText,omitempty"`
+	RemarkTypeSeqVal     *string  `json:"remarkTypeSeq,omitempty"`
+	RemarkTypeCodeVal    *string  `json:"remarkTypeCode,omitempty"`
+	RemarkTypeNameVal    *string  `json:"remarkTypeName,omitempty"`
+	RemarkTypeVal        *string  `json:"remarkType,omitempty"`
+	RemarkContentVal     *string  `json:"remarkContent,omitempty"`
+	RemarkDescriptionVal *string  `json:"remarkDescription,omitempty"`
 }
 
 // PicTimelineBreakdownDTO: Cấu trúc phân tích chi tiết tiến độ theo ngày/tháng/quý của từng PIC

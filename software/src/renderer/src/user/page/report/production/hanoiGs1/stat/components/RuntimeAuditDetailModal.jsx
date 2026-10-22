@@ -136,13 +136,7 @@ export const RuntimeAuditDetailModal = ({
     ...AUDIT_COLUMNS.map((column) => column.id)
   ])
   const [hiddenColumns, setHiddenColumns] = useState([])
-  const [annotations, setAnnotations] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(`prod-ticket-audit:${plantKey}`) || '{}')
-    } catch {
-      return {}
-    }
-  })
+  const [annotations, setAnnotations] = useState({})
   const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false)
   const [dirtyAnnotations, setDirtyAnnotations] = useState({})
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
@@ -166,10 +160,9 @@ export const RuntimeAuditDetailModal = ({
   useEffect(() => {
     if (!isOpen) return
     try {
-      setAnnotations(JSON.parse(localStorage.getItem(`prod-ticket-audit:${plantKey}`) || '{}'))
-    } catch {
-      setAnnotations({})
-    }
+      localStorage.removeItem(`prod-ticket-audit:${plantKey}`)
+    } catch {}
+    setAnnotations({})
     setHasUnsavedEdits(false)
     setDirtyAnnotations({})
     setSaveStatus('')
@@ -413,26 +406,54 @@ export const RuntimeAuditDetailModal = ({
         auditText = '> 12 giờ'
       }
 
-      const annotation = annotations[String(ticketNo)] || {}
       const workingKey = String(ticketNo)
-      const workingTag = dirtyAnnotations[workingKey] ? 'U' : ''
+      const isDirty = Boolean(dirtyAnnotations[workingKey])
+      const workingTag = isDirty ? 'U' : ''
+      const annotation = isDirty ? (annotations[workingKey] || {}) : {}
 
-      const remarkType =
-        annotation.remarkType !== undefined
+      let remarkType =
+        isDirty && annotation.remarkType !== undefined
           ? annotation.remarkType
-          : (item.remarkType ?? item.RemarkTypeName ?? item.RemarkType ?? '')
-      const remarkTypeCode =
-        annotation.remarkTypeCode !== undefined
+          : (item.remarkType || item.RemarkTypeName || item.RemarkType || '')
+      let remarkTypeCode =
+        isDirty && annotation.remarkTypeCode !== undefined
           ? annotation.remarkTypeCode
-          : (item.remarkTypeCode ?? item.RemarkTypeCode ?? '')
-      const remarkTypeSeq =
-        annotation.remarkTypeSeq !== undefined
+          : (item.remarkTypeCode || item.RemarkTypeCode || '')
+      let remarkTypeSeq =
+        isDirty && annotation.remarkTypeSeq !== undefined
           ? annotation.remarkTypeSeq
-          : (item.remarkTypeSeq ?? item.RemarkTypeSeq ?? '')
+          : (item.remarkTypeSeq || item.RemarkTypeSeq || '')
+
+      // Đồng bộ hai chiều giữa remarkType (TypeName) và remarkTypeSeq (UUIDv7)
+      if (remarkTypeSeq && (!remarkType || remarkType === remarkTypeSeq)) {
+        const found = remarkTypesList.find(
+          (t) => String(t.IdSeq).trim().toLowerCase() === String(remarkTypeSeq).trim().toLowerCase()
+        )
+        if (found) {
+          remarkType = found.TypeName || ''
+          remarkTypeCode = found.TypeCode || ''
+        }
+      } else if (remarkType && !remarkTypeSeq) {
+        const norm = String(remarkType).trim().toLowerCase()
+        const found = remarkTypesList.find(
+          (t) =>
+            String(t.TypeName || '').trim().toLowerCase() === norm ||
+            String(t.TypeCode || '').trim().toLowerCase() === norm
+        )
+        if (found) {
+          remarkTypeSeq = found.IdSeq || ''
+          remarkTypeCode = found.TypeCode || ''
+        }
+      }
+
       const remarkDescription =
-        annotation.remarkDescription !== undefined
+        isDirty && annotation.remarkDescription !== undefined
           ? annotation.remarkDescription
-          : (item.remarkDescription ?? item.RemarkContent ?? item.RemarkDescription ?? '')
+          : (item.remarkDescription ||
+            item.RemarkContent ||
+            item.RemarkDescription ||
+            item.note ||
+            '')
 
       return {
         ...item,
@@ -463,7 +484,7 @@ export const RuntimeAuditDetailModal = ({
         auditText
       }
     })
-  }, [data, annotations, dirtyAnnotations])
+  }, [data, annotations, dirtyAnnotations, remarkTypesList])
 
   // Đếm số lượng từng loại
   const categoryCounts = useMemo(() => {
@@ -750,6 +771,7 @@ export const RuntimeAuditDetailModal = ({
       remarkTypesList.forEach((item) => {
         if (item.TypeCode) lookupMap.set(String(item.TypeCode).trim().toLowerCase(), item)
         if (item.TypeName) lookupMap.set(String(item.TypeName).trim().toLowerCase(), item)
+        if (item.IdSeq) lookupMap.set(String(item.IdSeq).trim().toLowerCase(), item)
       })
 
       for (let r = 0; r < numPastedRows; r++) {
@@ -784,9 +806,9 @@ export const RuntimeAuditDetailModal = ({
           } else if (columnKey === 'remarkType') {
             const cellVal = String(rowValues[c] ?? '').trim()
             const resolved = lookupMap.get(cellVal.toLowerCase())
-            const updatedType = resolved ? resolved.TypeName : ''
+            const updatedType = resolved ? resolved.TypeName : cellVal
             const updatedCode = resolved ? resolved.TypeCode : ''
-            const updatedSeq = resolved ? resolved.IdSeq : ''
+            const updatedSeq = resolved ? resolved.IdSeq : (cellVal.includes('-') && cellVal.length === 36 ? cellVal : '')
 
             if (
               String(item.remarkType ?? '') === updatedType &&
@@ -833,6 +855,7 @@ export const RuntimeAuditDetailModal = ({
       remarkTypesList.forEach((type) => {
         if (type.TypeCode) remarkTypeLookup.set(normalize(type.TypeCode), type)
         if (type.TypeName) remarkTypeLookup.set(normalize(type.TypeName), type)
+        if (type.IdSeq) remarkTypeLookup.set(normalize(type.IdSeq), type)
       })
 
       const annotationUpdates = new Map()
@@ -871,12 +894,13 @@ export const RuntimeAuditDetailModal = ({
 
           if (targetColumnId === 'remarkType') {
             const sourceType = sourceItem
-              ? remarkTypeLookup.get(normalize(sourceItem.remarkTypeCode)) ||
+              ? remarkTypeLookup.get(normalize(sourceItem.remarkTypeSeq)) ||
+                remarkTypeLookup.get(normalize(sourceItem.remarkTypeCode)) ||
                 remarkTypeLookup.get(normalize(sourceItem.remarkType))
               : null
-            const typeName = sourceType?.TypeName || ''
-            const typeCode = sourceType?.TypeCode || ''
-            const typeSeq = sourceType?.IdSeq || ''
+            const typeName = sourceType?.TypeName || sourceItem?.remarkType || ''
+            const typeCode = sourceType?.TypeCode || sourceItem?.remarkTypeCode || ''
+            const typeSeq = sourceType?.IdSeq || sourceItem?.remarkTypeSeq || ''
 
             if (
               String(targetItem.remarkType ?? '') === typeName &&
@@ -957,10 +981,23 @@ export const RuntimeAuditDetailModal = ({
         const remarkType =
           anno.remarkType !== undefined ? anno.remarkType : (matchedRow?.remarkType ?? '')
 
-        const remarkTypeSeq =
+        let finalSeq = String(
           anno.remarkTypeSeq !== undefined
             ? anno.remarkTypeSeq
             : (matchedRow?.remarkTypeSeq ?? matchedRow?.RemarkTypeSeq ?? '')
+        ).trim()
+
+        if (!finalSeq && remarkType) {
+          const norm = String(remarkType).trim().toLowerCase()
+          const matched = remarkTypesList.find(
+            (t) =>
+              String(t.TypeName || '').trim().toLowerCase() === norm ||
+              String(t.TypeCode || '').trim().toLowerCase() === norm ||
+              String(t.IdSeq || '').trim().toLowerCase() === norm
+          )
+          if (matched?.IdSeq) finalSeq = String(matched.IdSeq).trim()
+        }
+
         const remarkDescription =
           anno.remarkDescription !== undefined
             ? anno.remarkDescription
@@ -971,7 +1008,7 @@ export const RuntimeAuditDetailModal = ({
 
         if (
           !String(remarkType ?? '').trim() ||
-          !String(remarkTypeSeq ?? '').trim() ||
+          !finalSeq ||
           !String(remarkDescription ?? '').trim()
         ) {
           incompleteTickets.push(statTicketNo)
@@ -980,7 +1017,7 @@ export const RuntimeAuditDetailModal = ({
 
         payload.push({
           IdSeq: idSeq,
-          RemarkTypeSeq: String(remarkTypeSeq),
+          RemarkTypeSeq: finalSeq,
           RemarkContent: String(remarkDescription),
           RowVersion: Number(matchedRow?.RowVersion || matchedRow?.rowVersion || 1)
         })
@@ -1019,9 +1056,9 @@ export const RuntimeAuditDetailModal = ({
       }
 
       try {
-        localStorage.setItem(`prod-ticket-audit:${plantKey}`, JSON.stringify(annotations))
+        localStorage.removeItem(`prod-ticket-audit:${plantKey}`)
       } catch (e) {
-        console.warn('Lỗi lưu cache localStorage:', e)
+        // ignore
       }
 
       // Cập nhật dữ liệu báo cáo cha để đồng bộ giao diện
@@ -1056,6 +1093,7 @@ export const RuntimeAuditDetailModal = ({
 
       setHasUnsavedEdits(false)
       setDirtyAnnotations({})
+      setAnnotations({})
       setShowCloseConfirm(false)
       setSaveStatus('Đã lưu thành công vào cơ sở dữ liệu!')
       setTimeout(() => setSaveStatus(''), 4000)

@@ -52,6 +52,30 @@ export const useStatisticsImportColumns = ({ isFieldVisible, isFieldReadOnly } =
         visible: true
       },
 
+      // ── Đối soát & Phân loại giải trình
+      {
+        title: t('report.remarkTypeName', 'Phân loại'),
+        id: 'RemarkTypeName',
+        group: 'Đối soát & Giải trình',
+        kind: 'Text',
+        readonly: true,
+        width: 160,
+        hasMenu: true,
+        visible: true,
+        themeOverride: { textHeader: '#DD1144', bgIconHeader: '#DD1144' }
+      },
+      {
+        title: t('report.remarkContent', 'Diễn giải'),
+        id: 'RemarkContent',
+        group: 'Đối soát & Giải trình',
+        kind: 'Text',
+        readonly: true,
+        width: 220,
+        hasMenu: true,
+        visible: true,
+        themeOverride: { textHeader: '#DD1144', bgIconHeader: '#DD1144' }
+      },
+
       // ── 1. THÔNG TIN VẬT TƯ & LỆNH THAO TÁC
       {
         title: t('report.itemCode', 'Mã vật tư'),

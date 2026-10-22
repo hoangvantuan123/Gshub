@@ -449,11 +449,7 @@ export const RuntimeAuditDetailModal = ({
       const remarkDescription =
         isDirty && annotation.remarkDescription !== undefined
           ? annotation.remarkDescription
-          : (item.remarkDescription ||
-            item.RemarkContent ||
-            item.RemarkDescription ||
-            item.note ||
-            '')
+          : (item.RemarkContent || item.remarkContent || '')
 
       return {
         ...item,
@@ -1001,9 +997,8 @@ export const RuntimeAuditDetailModal = ({
         const remarkDescription =
           anno.remarkDescription !== undefined
             ? anno.remarkDescription
-            : (matchedRow?.remarkDescription ??
-              matchedRow?.RemarkContent ??
-              matchedRow?.RemarkDescription ??
+            : (matchedRow?.RemarkContent ??
+              matchedRow?.remarkContent ??
               '')
 
         if (

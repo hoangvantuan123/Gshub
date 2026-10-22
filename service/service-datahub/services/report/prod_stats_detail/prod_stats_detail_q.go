@@ -80,6 +80,9 @@ func (s *ProdStatsDetailService) ProdStatsDetailQ(ctx context.Context, filters m
 		"AutoIoStatus":           `d."AutoIoStatus"`,
 		"UserMemo":               `d."UserMemo"`,
 		"CreatedByName":          `d."CreatedByName"`,
+		"RemarkTypeName":         `rt."TypeName"`,
+		"RemarkTypeCode":         `rt."TypeCode"`,
+		"RemarkContent":          `d."RemarkContent"`,
 	}
 
 	for filterKey, colName := range likeFields {

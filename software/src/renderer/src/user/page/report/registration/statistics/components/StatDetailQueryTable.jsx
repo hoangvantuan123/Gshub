@@ -205,6 +205,32 @@ export default function StatDetailQueryTable({
         }
       }
 
+      // Cột phân loại đối soát
+      if (meta.columnKey === 'RemarkTypeName' || meta.columnKey === 'RemarkType') {
+        const strVal = String(rowItem.RemarkTypeName || rowItem.RemarkType || rowItem.remarkTypeName || '')
+        return {
+          kind: GridCellKind.Text,
+          data: strVal,
+          displayData: strVal,
+          readonly: true,
+          allowOverlay: false,
+          themeOverride: { textDark: '#1e293b', baseFontStyle: '600 12px' }
+        }
+      }
+
+      // Cột diễn giải đối soát
+      if (meta.columnKey === 'RemarkContent') {
+        const strVal = String(rowItem.RemarkContent || rowItem.remarkContent || '')
+        return {
+          kind: GridCellKind.Text,
+          data: strVal,
+          displayData: strVal,
+          readonly: true,
+          allowOverlay: false,
+          themeOverride: meta.cellTheme
+        }
+      }
+
       // Cột ngày tháng
       if (meta.isDate && val) {
         const dateStr = formatDate(val)

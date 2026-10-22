@@ -54,7 +54,6 @@ func (s *PlanDetailService) PlanDetailU(
 			}
 			if item.RemarkContent != nil {
 				updates["RemarkContent"] = *item.RemarkContent
-				updates["UserMemo"] = *item.RemarkContent
 			}
 
 			q := tx.Model(&models.ERPPlanDetail{}).Where(`"IdSeq" = ?`, item.IdSeq)

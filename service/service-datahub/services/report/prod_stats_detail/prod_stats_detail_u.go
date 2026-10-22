@@ -54,7 +54,6 @@ func (s *ProdStatsDetailService) ProdStatsDetailU(
 			}
 			if item.RemarkContent != nil {
 				updates["RemarkContent"] = *item.RemarkContent
-				updates["UserMemo"] = *item.RemarkContent
 			}
 
 			q := tx.Model(&models.ERPProdStatsDetail{})

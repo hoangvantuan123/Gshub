@@ -360,12 +360,7 @@ export const PlanAuditDetailModal = ({
       const remarkDescription =
         isDirty && annotation.remarkDescription !== undefined
           ? annotation.remarkDescription
-          : (item.remarkDescription ||
-            item.RemarkContent ||
-            item.UserMemo ||
-            item.note ||
-            item.remark ||
-            '')
+          : (item.RemarkContent || item.remarkContent || '')
 
       return {
         ...item,
@@ -374,9 +369,7 @@ export const PlanAuditDetailModal = ({
         remarkType,
         remarkTypeCode,
         remarkTypeSeq,
-        remarkDescription,
-        note: remarkDescription,
-        UserMemo: remarkDescription
+        remarkDescription
       }
     })
   }, [data, annotations, dirtyAnnotations, getRowKey, remarkTypesList])
@@ -608,8 +601,8 @@ export const PlanAuditDetailModal = ({
         }
       }
 
-      if (colId === 'remarkDescription' || colId === 'note') {
-        const descText = String(item.remarkDescription || item.note || '')
+      if (colId === 'remarkDescription') {
+        const descText = String(item.remarkDescription || '')
         const isEditable = isAnnotationTab
         return {
           kind: GridCellKind.Text,
@@ -620,6 +613,19 @@ export const PlanAuditDetailModal = ({
           contentAlign: 'left',
           activationBehaviorOverride: isEditable ? 'single-click' : 'second-click',
           themeOverride: isEditable ? EDITABLE_CELL_THEME : READ_ONLY_CELL_THEME
+        }
+      }
+
+      if (colId === 'note') {
+        const txt = String(item.note || item.UserMemo || '')
+        return {
+          kind: GridCellKind.Text,
+          data: txt,
+          displayData: txt,
+          readonly: true,
+          allowOverlay: false,
+          contentAlign: 'left',
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -871,7 +877,7 @@ export const PlanAuditDetailModal = ({
       const [col, row] = cell
       const key = indexes[col]
 
-      if (key !== 'remarkDescription' && key !== 'note') {
+      if (key !== 'remarkDescription') {
         return
       }
 
@@ -893,8 +899,7 @@ export const PlanAuditDetailModal = ({
           ...(prev[rowKey] || {}),
           idSeq: item.IdSeq || item.idSeq || item.id || '',
           rowKey,
-          remarkDescription: valToSet,
-          note: valToSet
+          remarkDescription: valToSet
         }
       }))
       setDirtyAnnotations((prev) => ({
@@ -935,7 +940,7 @@ export const PlanAuditDetailModal = ({
           if (targetCol >= columns.length) break
           const columnKey = indexes[targetCol]
 
-          if (columnKey === 'remarkDescription' || columnKey === 'note') {
+          if (columnKey === 'remarkDescription') {
             const cellVal = String(rowValues[c] ?? '')
             setAnnotations((prev) => ({
               ...prev,
@@ -943,8 +948,7 @@ export const PlanAuditDetailModal = ({
                 ...(prev[rowKey] || {}),
                 idSeq: item.IdSeq || item.idSeq || item.id || '',
                 rowKey,
-                remarkDescription: cellVal,
-                note: cellVal
+                remarkDescription: cellVal
               }
             }))
             setDirtyAnnotations((prev) => ({
@@ -1152,7 +1156,7 @@ export const PlanAuditDetailModal = ({
         const remarkDescription =
           anno.remarkDescription !== undefined
             ? anno.remarkDescription
-            : (matchedRow?.remarkDescription ?? matchedRow?.note ?? '')
+            : (matchedRow?.RemarkContent ?? matchedRow?.remarkContent ?? '')
 
         if (
           !String(remarkType ?? '').trim() ||
@@ -1227,8 +1231,6 @@ export const PlanAuditDetailModal = ({
           if (p.RemarkContent !== undefined) {
             row.RemarkContent = p.RemarkContent
             row.remarkDescription = p.RemarkContent
-            row.UserMemo = p.RemarkContent
-            row.note = p.RemarkContent
           }
           if (anno.remarkType !== undefined) {
             row.RemarkType = anno.remarkType

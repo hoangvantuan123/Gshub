@@ -155,18 +155,8 @@ export function mapHanoiStatRow(item, idx, masterInfo) {
       item.RemarkTypeName || item.remarkTypeName || item.RemarkType || item.remarkType || '',
     remarkType:
       item.RemarkTypeName || item.remarkTypeName || item.RemarkType || item.remarkType || '',
-    RemarkContent:
-      item.RemarkContent ||
-      item.remarkContent ||
-      item.RemarkDescription ||
-      item.remarkDescription ||
-      '',
-    remarkDescription:
-      item.RemarkContent ||
-      item.remarkContent ||
-      item.RemarkDescription ||
-      item.remarkDescription ||
-      '',
+    RemarkContent: item.RemarkContent || item.remarkContent || '',
+    remarkDescription: item.RemarkContent || item.remarkContent || '',
     team,
     teamCode,
     TeamName: item.TeamName || item.teamName || team,
@@ -277,7 +267,7 @@ export function mapHanoiStatRow(item, idx, masterInfo) {
     remarkType: item.RemarkTypeName || item.remarkTypeName || item.RemarkType || item.remarkType || '',
     RemarkTypeCode: item.RemarkTypeCode || item.remarkTypeCode || '',
     remarkTypeCode: item.RemarkTypeCode || item.remarkTypeCode || '',
-    RemarkContent: item.RemarkContent || item.remarkContent || item.UserMemo || item.note || item.RemarkDescription || item.remarkDescription || '',
-    remarkDescription: item.RemarkContent || item.remarkContent || item.UserMemo || item.note || item.RemarkDescription || item.remarkDescription || ''
+    RemarkContent: item.RemarkContent || item.remarkContent || '',
+    remarkDescription: item.RemarkContent || item.remarkContent || ''
   }
 }

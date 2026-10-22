@@ -68,6 +68,9 @@ func (s *PlanDetailService) PlanDetailQ(ctx context.Context, filters map[string]
 		"CapaStatus":       `d."CapaStatus"`,
 		"UserMemo":         `d."UserMemo"`,
 		"CreatedByName":    `d."CreatedByName"`,
+		"RemarkTypeName":   `rt."TypeName"`,
+		"RemarkTypeCode":   `rt."TypeCode"`,
+		"RemarkContent":    `d."RemarkContent"`,
 	}
 
 	for filterKey, colName := range likeFields {

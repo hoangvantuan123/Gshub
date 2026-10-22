@@ -56,8 +56,8 @@ type ERPPlanDetail struct {
 	ReportType       *string    `gorm:"->;column:ReportType" json:"ReportType,omitempty"`
 
 	// Joined RemarkType fields from _ERPProdStatsRemarkType
-	RemarkTypeName   *string    `gorm:"->;column:RemarkTypeName" json:"RemarkTypeName,omitempty"`
-	RemarkTypeCode   *string    `gorm:"->;column:RemarkTypeCode" json:"RemarkTypeCode,omitempty"`
+	RemarkTypeName   *string    `gorm:"->;column:RemarkTypeName" json:"RemarkTypeName"`
+	RemarkTypeCode   *string    `gorm:"->;column:RemarkTypeCode" json:"RemarkTypeCode"`
 }
 
 func (ERPPlanDetail) TableName() string {

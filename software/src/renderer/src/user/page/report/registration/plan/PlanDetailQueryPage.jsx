@@ -51,7 +51,12 @@ export default function PlanDetailQueryPage({
   const [columns, setColumns] = useState(() => {
     const saved = loadFromLocalStorageSheet('S_ERP_COLS_plan_detail_query_table', [])
     if (saved && saved.length > 0) {
-      return ensureStatusFirstColumn(saved, defaultCols)
+      const base = ensureStatusFirstColumn(saved, defaultCols)
+      const existingIds = new Set(base.map((c) => c.id))
+      const missingDefaultCols = defaultCols.filter(
+        (dc) => dc.visible !== false && !existingIds.has(dc.id)
+      )
+      return [...base, ...missingDefaultCols]
     }
     return defaultCols.filter((col) => col.visible !== false)
   })
@@ -193,7 +198,12 @@ export default function PlanDetailQueryPage({
 
         const res = await queryPlanDetail(payload)
         const rawItems = res?.data || []
-        const items = rawItems.map((row) => ({ ...row, WorkingTag: '' }))
+        const items = rawItems.map((row) => ({
+          ...row,
+          WorkingTag: '',
+          RemarkTypeName: row.RemarkTypeName || row.RemarkType || row.remarkTypeName || '',
+          RemarkContent: row.RemarkContent || row.remarkContent || ''
+        }))
         const pageInfo = res?.pageInfo || res?.raw?.pageInfo || res?.page || res?.raw?.page || {}
         const total = Number(
           pageInfo?.total ??

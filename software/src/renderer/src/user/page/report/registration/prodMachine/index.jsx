@@ -24,6 +24,7 @@ import { MACHINE_COMPARISON_COLUMN_SCHEMA } from '../../production/calcProductio
 import { PROD_MACHINE_COLUMNS } from './columns/prodMachineColumns'
 import ProdMachineActions from './components/ProdMachineActions'
 import ProdMachineQuery from './components/ProdMachineQuery'
+import AddProdMachineModal from './components/AddProdMachineModal'
 import {
   deleteProdMachineRegistrations,
   queryProdMachineRegistrations,
@@ -77,11 +78,20 @@ export default function ProdMachineRegistrationPage({
   const loadingBarRef = useRef(null)
   const [filters, setFilters] = useState({ TKSXRegCode: '', StatSlipNo: '' })
   const [isSourceData, setIsSourceData] = useState(false)
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [rowsToDelete, setRowsToDelete] = useState([])
+  const hasMachineRegistrationPermission =
+    Array.isArray(permissions) &&
+    permissions.some((item) => {
+      const menuKey = String(item?.MenuKey || item?.menuKey || item?.Key || '').trim().toLowerCase()
+      return menuKey === 'report_prod_machine_registration'
+    })
   const pagePerms = usePagePermissions({
     permissions,
-    menuKey: 'report_prod_machine_registration',
+    menuKey: hasMachineRegistrationPermission
+      ? 'report_prod_machine_registration'
+      : 'report_registration',
     canCreate,
     canDelete,
     canView,
@@ -108,20 +118,26 @@ export default function ProdMachineRegistrationPage({
         loadedCount: rows.length,
         total: rows.length,
         totalAll: rows.length,
-        totalColumns: MACHINE_COMPARISON_COLUMN_SCHEMA.length
+        totalColumns: PROD_MACHINE_COLUMNS.length
       }))
     },
     [setGridData, setNumRows, resetTable, setPageData]
   )
 
-  const handleSearchData = useCallback(async () => {
-    if (!pagePerms.canSearch || !pagePerms.canView) return
+  const handleOpenRegistration = useCallback(() => {
+    if (!pagePerms.canCreate || !pagePerms.canSave) return
+    setIsRegistrationModalOpen(true)
+  }, [pagePerms.canCreate, pagePerms.canSave])
+
+  const handleSearchData = useCallback(async (searchFilters = filters) => {
+    if (!pagePerms.canSearch || !pagePerms.canView) return false
     loadingBarRef.current?.continuousStart?.()
     try {
+      const effectiveFilters = searchFilters?.TKSXRegCode !== undefined ? searchFilters : filters
       const filtersForQuery = {
         pageSize: 1000,
-        TKSXRegCode: String(filters.TKSXRegCode || '').trim(),
-        StatSlipNo: String(filters.StatSlipNo || '').trim()
+        TKSXRegCode: String(effectiveFilters.TKSXRegCode || '').trim(),
+        StatSlipNo: String(effectiveFilters.StatSlipNo || '').trim()
       }
       const firstPage = await queryProdMachineRegistrations({ ...filtersForQuery, page: 1 })
       const rows = rowsFrom(firstPage)
@@ -138,14 +154,65 @@ export default function ProdMachineRegistrationPage({
         type: 'success',
         text: `Đã truy vấn ${displayRows.length.toLocaleString('vi-VN')} dòng đăng ký máy.`
       })
+      return true
     } catch (error) {
       setRows([])
       setIsSourceData(false)
       setStatusMessage?.({ type: 'error', text: error?.message || 'Không thể truy vấn đăng ký máy.' })
+      return false
     } finally {
       loadingBarRef.current?.complete?.()
     }
   }, [pagePerms.canSearch, pagePerms.canView, filters, setRows, setStatusMessage])
+
+  const handleRegisterUploadedRows = useCallback(async ({ report, rows }) => {
+    if (!pagePerms.canCreate || !pagePerms.canSave) {
+      throw new Error('Bạn chưa có quyền đăng ký báo cáo máy.')
+    }
+    const reportCode = String(report?.RegCode || '').trim()
+    const masterSeq = String(report?.IdSeq || '').trim()
+    if (!reportCode || !masterSeq) throw new Error('Báo cáo TKSX thiếu mã hoặc khóa master.')
+    const items = rows.map((row, index) => ({
+      ...row,
+      SourceRow: Number(row.SourceRow || index + 1),
+      RowSeq: Number(row.RowSeq || row.SourceRow || index + 1),
+      StatSlipNo: String(row.StatSlipNo || row.StatTicketNo || '').trim(),
+      MasterSeq: masterSeq,
+      TKSXMasterSeq: masterSeq,
+      RegCode: reportCode,
+      TKSXRegCode: reportCode
+    }))
+    if (!items.length) throw new Error('Không có dòng Tab 7 nào thuộc các phiếu đã chọn.')
+    if (items.some((row) => !row.StatSlipNo || !Number(row.SourceRow))) {
+      throw new Error('Dữ liệu Tab 7 có dòng thiếu số phiếu thống kê hoặc dòng nguồn.')
+    }
+    loadingBarRef.current?.continuousStart?.()
+    try {
+      for (let offset = 0; offset < items.length; offset += 1000) {
+        const result = await saveProdMachineRegistrations({
+          TKSXRegCode: reportCode,
+          TKSXMasterSeq: masterSeq,
+          items: items.slice(offset, offset + 1000)
+        })
+        if (result?.success === false) {
+          throw new Error(result?.message || 'Lưu đăng ký máy không thành công.')
+        }
+      }
+      setFilters((previous) => ({ ...previous, TKSXRegCode: reportCode, StatSlipNo: '' }))
+      const refreshed = await handleSearchData({ TKSXRegCode: reportCode, StatSlipNo: '' })
+      setStatusMessage?.({
+        type: refreshed ? 'success' : 'warning',
+        text: refreshed
+          ? `Đã đăng ký ${items.length.toLocaleString('vi-VN')} dòng Tab 7 cho báo cáo TKSX ${reportCode}.`
+          : `Đã lưu ${items.length.toLocaleString('vi-VN')} dòng vào ${reportCode}, nhưng không thể làm mới danh sách.`
+      })
+    } catch (error) {
+      setStatusMessage?.({ type: 'error', text: error?.message || 'Không thể đăng ký báo cáo máy.' })
+      throw error
+    } finally {
+      loadingBarRef.current?.complete?.()
+    }
+  }, [pagePerms.canCreate, pagePerms.canSave, handleSearchData, setStatusMessage])
 
   const handleLoadStatistics = useCallback(async () => {
     const reportCode = String(filters.TKSXRegCode || '').trim()
@@ -402,6 +469,7 @@ export default function ProdMachineRegistrationPage({
         actions={
           <ProdMachineActions
             onSearch={handleSearchData}
+            onOpenRegistration={handleOpenRegistration}
             onLoadStatistics={handleLoadStatistics}
             onRegister={handleRegister}
             onDelete={handleDelete}
@@ -435,6 +503,12 @@ export default function ProdMachineRegistrationPage({
             defaultCols={defaultCols}
           />
         }
+      />
+      <AddProdMachineModal
+        isOpen={isRegistrationModalOpen}
+        onClose={() => setIsRegistrationModalOpen(false)}
+        onRegister={handleRegisterUploadedRows}
+        permissions={pagePerms}
       />
       <WindowsConfirmModal
         isOpen={confirmDeleteOpen}

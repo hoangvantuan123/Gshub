@@ -59,7 +59,12 @@ const KEY_ALIASES = [
     'report/calc-production-query',
     'report_calc_production_group'
   ],
-  ['report_registration', 'report_registration_group', 'report/registration'],
+  [
+    'report_registration',
+    'report_registration_group',
+    'report/registration',
+    'report_prod_machine_registration'
+  ],
   ['report_plan_query', 'report/plan-query'],
   ['report_stat_query', 'report/stat-query'],
   ['report_handbook', 'report_handbook_group', 'report/handbook', 'report/handbook/formula']
@@ -90,25 +95,29 @@ const isKeyMatch = (key1, key2) => {
 export const findMenuByKey = (permissions, menuKey) => {
   if (!Array.isArray(permissions) || !menuKey) return null
   const target = String(menuKey).toLowerCase().trim()
+  const availableMenus = permissions.filter((menu) => menu && !menu.NavigationOnly)
+
+  const getKeys = (menu) => {
+    const key = String(menu.MenuKey || menu.menuKey || '').toLowerCase().trim()
+    const link = String(menu.MenuLink || menu.menuLink || '').toLowerCase().trim()
+    const cleanLink = link.replace(/^\/erp\/u\//, '')
+    return { key, link, cleanLink }
+  }
+
+  // Prefer a specific menu grant over its parent alias when both are present.
+  const exactMatch = availableMenus.find((menu) => {
+    const { key, link, cleanLink } = getKeys(menu)
+    return [key, link, cleanLink].some((value) => value && normalize(value) === normalize(target))
+  })
+  if (exactMatch) return exactMatch
 
   return (
-    permissions.find((menu) => {
-      if (!menu || menu.NavigationOnly) return false
-      const k = String(menu.MenuKey || menu.menuKey || '')
-        .toLowerCase()
-        .trim()
-      if (k && isKeyMatch(k, target)) return true
-
-      // Khớp theo MenuLink nếu có (ví dụ URL link chứa key hoặc ngược lại)
-      const link = String(menu.MenuLink || menu.menuLink || '')
-        .toLowerCase()
-        .trim()
-      if (link) {
-        const cleanLink = link.replace(/^\/erp\/u\//, '')
-        if (isKeyMatch(link, target) || isKeyMatch(cleanLink, target)) return true
-      }
-
-      return false
+    availableMenus.find((menu) => {
+      const { key, link, cleanLink } = getKeys(menu)
+      return (
+        (key && isKeyMatch(key, target)) ||
+        (link && (isKeyMatch(link, target) || isKeyMatch(cleanLink, target)))
+      )
     }) || null
   )
 }

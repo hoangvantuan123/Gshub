@@ -840,57 +840,16 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         return
       }
 
-      const indicesSet = new Set(selectedRowsIndices || [])
-
       if (activeTab === 'machine_comparison') {
-        const oldRows = machineComparisonRows || []
-        const toDeleteSet = new Set(
-          Array.isArray(explicitRowsToDelete) && explicitRowsToDelete.length > 0
-            ? explicitRowsToDelete
-            : (selectedRowsIndices || [])
-                .map((i) => (Array.isArray(oldRows) ? oldRows[i] : null))
-                .filter(Boolean)
+        notify(
+          'warning',
+          'Tab 7 là snapshot đối chiếu theo từng dòng TKSX, không thể xóa riêng dòng. Hãy chỉnh dữ liệu nguồn rồi tính lại KHSX & TKSX.'
         )
-        const count = toDeleteSet.size > 0 ? toDeleteSet.size : indicesSet.size
-
-        const filtered = oldRows.filter((r, idx) => {
-          if (toDeleteSet.size > 0) {
-            if (toDeleteSet.has(r)) return false
-            const rKey = `${r?.stt ?? ''}_${r?.StatSlipNo ?? ''}_${r?.OperationOrderNo ?? ''}_${r?.StatMachineCode ?? ''}_${r?.PlannedMachineCode ?? ''}`
-            for (const item of toDeleteSet) {
-              const itemKey = `${item?.stt ?? ''}_${item?.StatSlipNo ?? ''}_${item?.OperationOrderNo ?? ''}_${item?.StatMachineCode ?? ''}_${item?.PlannedMachineCode ?? ''}`
-              if (rKey && rKey === itemKey) return false
-            }
-          }
-          return !indicesSet.has(idx)
-        })
-
-        const updatedCalc = {
-          ...calcResults,
-          machineComparison: {
-            ...calcResults?.machineComparison,
-            calculatedRows: filtered,
-            matchVersion: 2
-          }
-        }
-        setCalcResults(updatedCalc)
-        const targetReg = masterInfo.regCode
-        if (targetReg) {
-          try {
-            await storageAdapter.saveCalcResults(targetReg, updatedCalc)
-          } catch (e) {
-            console.warn('Lỗi lưu kết quả sau xóa dòng machine_comparison:', e)
-          }
-        }
-        try {
-          await storageAdapter.saveCalcResults('CURRENT_CALC', updatedCalc)
-        } catch {}
-
-        setIsRegistered(false)
-        setIsDirty(true)
-        notify('info', `Đã xóa ${count} dòng khỏi Đối Chiếu Máy TK - KH và lưu vào CSDL`)
         return
       }
+
+      const indicesSet = new Set(selectedRowsIndices || [])
+      const count = indicesSet.size || explicitRowsToDelete?.length || 0
 
       if (activeTab === 'result_tksx') {
         const oldRows = calcResults?.stat?.calculatedRows || []

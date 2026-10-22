@@ -662,6 +662,18 @@ export default function CalcProductionPage({
         return
       }
 
+      if (activeTab === 'machine_comparison') {
+        if (typeof setStatusMessage === 'function') {
+          setStatusMessage({
+            type: 'warning',
+            text: t(
+              'Tab 7 là snapshot đối chiếu theo từng dòng TKSX, không thể xóa riêng dòng. Hãy chỉnh dữ liệu nguồn rồi tính lại KHSX & TKSX.'
+            )
+          })
+        }
+        return
+      }
+
       const targetIndices =
         Array.isArray(explicitIndices) && explicitIndices.length > 0
           ? explicitIndices
@@ -798,7 +810,7 @@ export default function CalcProductionPage({
             onAddQueryField={handleAddQueryField}
             onCellEdited={handleCellEdited}
             canEdit={activeTab !== 'machine_comparison' && activeTab !== 'factory_machines'}
-            canDelete={activeTab !== 'factory_machines'}
+            canDelete={activeTab !== 'factory_machines' && activeTab !== 'machine_comparison'}
             onDeleteRow={handleDeleteRows}
           />
         }

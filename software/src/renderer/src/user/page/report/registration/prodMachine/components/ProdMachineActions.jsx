@@ -1,9 +1,10 @@
 /* eslint-disable react/prop-types */
-import { Database, ListChecks, Search, Trash2 } from 'lucide-react'
+import { Database, FileSpreadsheet, ListChecks, Search, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 
 export default function ProdMachineActions({
   onSearch,
+  onOpenRegistration,
   onLoadStatistics,
   onRegister,
   onDelete,
@@ -16,6 +17,11 @@ export default function ProdMachineActions({
       {permissions.canSearch && (
         <Button variant="ghost" size="sm" onClick={onSearch} className="h-7 px-2 text-[11px] font-bold uppercase text-blue-700">
           <Search size={13} /> <span>Truy vấn đã đăng ký</span>
+        </Button>
+      )}
+      {permissions.canCreate && permissions.canSave && (
+        <Button variant="ghost" size="sm" onClick={onOpenRegistration} className="h-7 px-2 text-[11px] font-bold uppercase text-emerald-700">
+          <FileSpreadsheet size={13} /> <span>Đăng ký máy (nạp file Tab 7)</span>
         </Button>
       )}
       {permissions.canCreate && (

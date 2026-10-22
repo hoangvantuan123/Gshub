@@ -329,9 +329,10 @@ const CalcProductionActions = memo(function CalcProductionActions({
         </Button>
       )}
 
-      {/* 9. NÚT XÓA DÒNG (Chỉ hiển thị khi KHÔNG PHẢI bản PUBLISHED đã khóa, và KHÔNG PHẢI tab Máy theo nhà máy chỉ xem) */}
+      {/* 9. NÚT XÓA DÒNG (Tab 7 là snapshot tính toán theo từng dòng TKSX nên chỉ xem) */}
       {!isPublished &&
         activeTabDef?.id !== 'factory_machines' &&
+        activeTabDef?.id !== 'machine_comparison' &&
         (hasActiveFileData || selectedRowsCount > 0) &&
         typeof onDeleteSelectedRows === 'function' && (
           <Button

@@ -59,7 +59,10 @@ import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
 import { exportFull6TabsProductionExcel } from '../../calcProduction/engine/calcExcelExporter'
 import PlanRegistrationPushModal from '../../calcProduction/components/PlanRegistrationPushModal'
 import PlanRegistrationSelectModal from '../../calcProduction/components/PlanRegistrationSelectModal'
-import { savePlanRegistration } from '@renderer/user/page/report/registration/services/planRegistrationService'
+import {
+  queryPlanMaster,
+  savePlanRegistration
+} from '@renderer/user/page/report/registration/services/planRegistrationService'
 import { saveProdMachineRegistrations } from '@renderer/user/page/report/registration/prodMachine/prodMachineService'
 import { CloudDownload, Send, FileSpreadsheet } from 'lucide-react'
 import { usePageHotkeys } from '@renderer/user/hooks/usePageHotkeys'
@@ -102,6 +105,15 @@ const toMachineRegistrationRows = (rows, sourceMaster) => {
     QualifiedQty: row.QualifiedQty ?? ''
   }))
 }
+
+const rowsFromResponse = (response) => {
+  if (Array.isArray(response?.data)) return response.data
+  if (Array.isArray(response?.data?.items)) return response.data.items
+  if (Array.isArray(response?.items)) return response.items
+  return []
+}
+
+const normalizeReportKey = (value) => String(value ?? '').trim().toLocaleUpperCase('vi-VN')
 
 export default function CalcProductionDetailView() {
   const { t } = useTranslation()
@@ -157,15 +169,16 @@ export default function CalcProductionDetailView() {
     isComplete: false
   })
 
-  // State Modal Tùy chọn báo cáo KHSX / TKSX trước khi đẩy
+  // State Modal Tùy chọn báo cáo KHSX / TKSX / đối chiếu máy trước khi đẩy
   const [isSelectRegistrationOpen, setIsSelectRegistrationOpen] = useState(false)
   const [registrationSelectInfo, setRegistrationSelectInfo] = useState({
     khsxRowsCount: 0,
     statRowsCount: 0,
+    machineRowsCount: 0,
     freshCalc: null
   })
 
-  // State Modal Theo Dõi Tiến Trình Đăng Ký 2 Báo Cáo KHSX & TKSX lên /erp/u/report/registration
+  // State Modal Theo Dõi Tiến Trình Đăng Ký các báo cáo lên /erp/u/report/registration
   const [isPushingRegistration, setIsPushingRegistration] = useState(false)
   const [pushRegistrationProgress, setPushRegistrationProgress] = useState({
     isOpen: false,
@@ -176,9 +189,11 @@ export default function CalcProductionDetailView() {
     statusTag: '',
     khsxRows: 0,
     statRows: 0,
+    machineRows: 0,
     regCode: '',
     pushKhsx: true,
     pushTksx: true,
+    pushMachine: false,
     isComplete: false,
     isError: false
   })
@@ -2912,9 +2927,15 @@ export default function CalcProductionDetailView() {
   )
 
   const handleDeleteRows = useCallback(() => {
-    if (activeTab === 'machine_comparison') return
+    if (activeTab === 'machine_comparison') {
+      setStatusMessage?.({
+        type: 'warning',
+        text: 'Tab 7 là snapshot đối chiếu theo từng dòng TKSX, không thể xóa riêng dòng.'
+      })
+      return
+    }
     handleDeleteSelectedRows(selectedRowsIndices)
-  }, [activeTab, handleDeleteSelectedRows, selectedRowsIndices])
+  }, [activeTab, handleDeleteSelectedRows, selectedRowsIndices, setStatusMessage])
 
   // ── Xuất gói .gsprod ──
   const handleExportBundle = useCallback(async () => {
@@ -3115,6 +3136,7 @@ export default function CalcProductionDetailView() {
     if (!freshCalc?.plan?.calculatedRows || !freshCalc?.stat?.calculatedRows) {
       if (tabsCacheRef.current['result_khsx']?.data || tabsCacheRef.current['result_tksx']?.data) {
         freshCalc = {
+          ...freshCalc,
           plan: {
             calculatedRows: tabsCacheRef.current['result_khsx']?.data || [],
             columns: RESULT_KHSX_COLUMN_SCHEMA
@@ -3136,10 +3158,12 @@ export default function CalcProductionDetailView() {
     const khsxRows = freshCalc?.plan?.calculatedRows || []
     const statRows = freshCalc?.stat?.calculatedRows || []
 
-    if (khsxRows.length === 0 && statRows.length === 0) {
+    const machineRows = freshCalc?.machineComparison?.calculatedRows || []
+
+    if (khsxRows.length === 0 && statRows.length === 0 && machineRows.length === 0) {
       setStatusMessage?.({
         type: 'warning',
-        text: 'Chưa có dữ liệu kết quả KHSX và TKSX để đăng ký báo cáo!'
+        text: 'Chưa có dữ liệu kết quả KHSX, TKSX hoặc đối chiếu máy để đăng ký báo cáo!'
       })
       return
     }
@@ -3147,6 +3171,7 @@ export default function CalcProductionDetailView() {
     setRegistrationSelectInfo({
       khsxRowsCount: khsxRows.length,
       statRowsCount: statRows.length,
+      machineRowsCount: machineRows.length,
       freshCalc
     })
     setIsSelectRegistrationOpen(true)
@@ -3154,7 +3179,7 @@ export default function CalcProductionDetailView() {
 
   // BƯỚC 2: Người dùng xác nhận chọn báo cáo trên Modal rồi bấm Đồng ý mới thực hiện đẩy
   const handleConfirmPushRegistration = useCallback(
-    async ({ pushKhsx = true, pushTksx = true } = {}) => {
+    async ({ pushKhsx = true, pushTksx = true, pushMachine = false } = {}) => {
       setIsSelectRegistrationOpen(false)
 
       let freshCalc = registrationSelectInfo.freshCalc || calcResults
@@ -3164,6 +3189,7 @@ export default function CalcProductionDetailView() {
           tabsCacheRef.current['result_tksx']?.data
         ) {
           freshCalc = {
+            ...freshCalc,
             plan: {
               calculatedRows: tabsCacheRef.current['result_khsx']?.data || [],
               columns: RESULT_KHSX_COLUMN_SCHEMA
@@ -3184,9 +3210,17 @@ export default function CalcProductionDetailView() {
 
       const khsxRows = pushKhsx ? freshCalc?.plan?.calculatedRows || [] : []
       const statRows = pushTksx ? freshCalc?.stat?.calculatedRows || [] : []
+      const allStatRows = freshCalc?.stat?.calculatedRows || []
       const machineComparisonSnapshot = freshCalc?.machineComparison?.calculatedRows
+      const machineRowsCount =
+        pushMachine && Array.isArray(machineComparisonSnapshot)
+          ? machineComparisonSnapshot.length
+          : 0
+      const hasKhsxToPush = pushKhsx && khsxRows.length > 0
+      const hasTksxToPush = pushTksx && statRows.length > 0
+      const hasMachineToPush = pushMachine && machineRowsCount > 0
 
-      if (khsxRows.length === 0 && statRows.length === 0) {
+      if (!hasKhsxToPush && !hasTksxToPush && !hasMachineToPush) {
         setStatusMessage?.({
           type: 'warning',
           text: 'Không có báo cáo nào được chọn hoặc dữ liệu báo cáo được chọn đang trống!'
@@ -3194,21 +3228,36 @@ export default function CalcProductionDetailView() {
         return
       }
 
-      if (pushTksx && statRows.length > 0) {
+      if (pushMachine) {
         const missingMachineSource = !Array.isArray(machineComparisonSnapshot)
         const inconsistentMachineRows =
-          !missingMachineSource && machineComparisonSnapshot.length !== statRows.length
+          !missingMachineSource && machineComparisonSnapshot.length !== allStatRows.length
         const invalidMachineRow =
           !missingMachineSource &&
-          machineComparisonSnapshot.some(
-            (row, index) =>
-              !String(row.StatSlipNo || row.StatTicketNo || row['Số phiếu thống kê'] || '').trim() ||
-              Number(row.SourceRow || row.RowSeq || index + 1) < 1
-          )
-        if (missingMachineSource || inconsistentMachineRows || invalidMachineRow) {
+          machineComparisonSnapshot.some((row, index) => {
+            const sourceRow = Number(row?.SourceRow || row?.RowSeq || index + 1)
+            return (
+              !String(
+                row?.StatSlipNo || row?.StatTicketNo || row?.['Số phiếu thống kê'] || ''
+              ).trim() ||
+              !Number.isInteger(sourceRow) ||
+              sourceRow < 1
+            )
+          })
+        if (
+          allStatRows.length === 0 ||
+          missingMachineSource ||
+          machineComparisonSnapshot.length === 0 ||
+          inconsistentMachineRows ||
+          invalidMachineRow
+        ) {
           setStatusMessage?.({
             type: 'warning',
-            text: 'Tab 7 chưa có snapshot đối chiếu máy hợp lệ cùng lần tính TKSX hiện tại. Vui lòng tính lại KHSX & TKSX trước khi đăng ký báo cáo.'
+            text: inconsistentMachineRows
+              ? `Tab 7 hiện có ${machineComparisonSnapshot.length.toLocaleString('vi-VN')} dòng, nhưng TKSX có ${allStatRows.length.toLocaleString('vi-VN')} dòng (lệch ${Math.abs(
+                  machineComparisonSnapshot.length - allStatRows.length
+                ).toLocaleString('vi-VN')}). Mỗi dòng TKSX cần có một dòng đối chiếu máy. Vui lòng tính lại KHSX & TKSX trước khi đăng ký báo cáo.`
+              : 'Tab 7 chưa có snapshot đối chiếu máy hợp lệ cùng lần tính TKSX hiện tại. Vui lòng tính lại KHSX & TKSX trước khi đăng ký báo cáo.'
           })
           return
         }
@@ -3221,17 +3270,19 @@ export default function CalcProductionDetailView() {
         percent: 10,
         step: 'INIT',
         message:
-          pushKhsx && pushTksx
-            ? 'Đang chuẩn bị dữ liệu 2 báo cáo KHSX và TKSX...'
-            : pushKhsx
-              ? 'Đang chuẩn bị dữ liệu báo cáo KHSX...'
-              : 'Đang chuẩn bị dữ liệu báo cáo TKSX...',
+          [pushKhsx && 'KHSX', pushTksx && 'TKSX', pushMachine && 'đối chiếu máy Tab 7']
+            .filter(Boolean)
+            .join(' + ')
+            .replace(/^/, 'Đang chuẩn bị dữ liệu ')
+            .concat('...'),
         detail: `Mã đăng ký: ${currentRegCode} | Nhà máy: ${masterInfo.factoryName || 'GS1 Hà Nội'}`,
         statusTag: 'Khởi tạo',
         khsxRows: khsxRows.length,
         statRows: statRows.length,
+        machineRows: machineRowsCount,
         pushKhsx,
         pushTksx,
+        pushMachine,
         regCode: currentRegCode,
         isComplete: false,
         isError: false
@@ -3241,6 +3292,7 @@ export default function CalcProductionDetailView() {
 
       let savedKhsxRegistration = null
       let savedTksxRegistration = null
+      let existingTksxMaster = null
       let machineComparisonSyncStarted = false
       let machineComparisonSyncComplete = false
 
@@ -3259,6 +3311,26 @@ export default function CalcProductionDetailView() {
         const baseReg = String(regCode).replace(/-KHSX$|-TKSX$/i, '')
         const khsxRegCode = `${baseReg}-KHSX`
         const tksxRegCode = `${baseReg}-TKSX`
+
+        // Nếu chỉ chọn Tab 7, cần tìm Master TKSX đã đăng ký trước đó để gắn khóa liên kết.
+        // Truy vấn trước khi lưu các báo cáo khác để tránh phát sinh lưu dở dang khi thiếu Master.
+        if (pushMachine && !pushTksx) {
+          const masterResponse = await queryPlanMaster({
+            RegCode: tksxRegCode,
+            page: 1,
+            pageSize: 100
+          })
+          existingTksxMaster = rowsFromResponse(masterResponse).find(
+            (item) =>
+              normalizeReportKey(item.RegCode) === normalizeReportKey(tksxRegCode) &&
+              ['STATISTICS', 'TKSX'].includes(normalizeReportKey(item.ReportType))
+          )
+          if (!existingTksxMaster?.IdSeq || !existingTksxMaster?.RegCode) {
+            throw new Error(
+              `Chưa có báo cáo TKSX ${tksxRegCode}. Hãy chọn đăng ký TKSX cùng lượt hoặc đăng ký báo cáo TKSX trước.`
+            )
+          }
+        }
 
         const activeVersion =
           masterInfo.version || masterRecord?.version || freshCalc?.version || '1.0'
@@ -3350,10 +3422,10 @@ export default function CalcProductionDetailView() {
 
         // Ghi Tab 7 sau khi master TKSX đã được lưu để gắn đúng RegCode/MasterSeq.
         // Dùng snapshot của lần tính hiện tại, không tính lại khi đăng ký.
-        if (pushTksx && statRows.length > 0) {
-          const tksxMaster = savedTksxRegistration?.data
+        if (pushMachine && machineRowsCount > 0) {
+          const tksxMaster = savedTksxRegistration?.data || existingTksxMaster
           if (!tksxMaster?.IdSeq || !tksxMaster?.RegCode) {
-            throw new Error('Máy chủ chưa trả về MasterSeq và mã đăng ký TKSX đã lưu.')
+            throw new Error('Không tìm thấy MasterSeq và mã đăng ký TKSX để liên kết dữ liệu Tab 7.')
           }
 
           const sourceMaster = savedKhsxRegistration?.data?.IdSeq
@@ -3361,10 +3433,12 @@ export default function CalcProductionDetailView() {
             : tksxMaster
           const machineRows = toMachineRegistrationRows(machineComparisonSnapshot, sourceMaster)
           const batchCount = Math.ceil(machineRows.length / PROD_MACHINE_REGISTRATION_BATCH_SIZE)
+          const machineProgressStart =
+            (pushKhsx && khsxRows.length > 0) || (pushTksx && statRows.length > 0) ? 96 : 25
           machineComparisonSyncStarted = true
           setPushRegistrationProgress((prev) => ({
             ...prev,
-            percent: 96,
+            percent: machineProgressStart,
             step: 'MACHINE_COMPARISON',
             message: `Đang lưu ${machineRows.length.toLocaleString('vi-VN')} dòng đối chiếu máy Tab 7...`,
             detail: `Mã báo cáo TKSX: ${tksxMaster.RegCode}`,
@@ -3377,7 +3451,7 @@ export default function CalcProductionDetailView() {
             const response = await saveProdMachineRegistrations({
               TKSXRegCode: tksxMaster.RegCode,
               TKSXMasterSeq: tksxMaster.IdSeq,
-              items
+              items: items.map((item) => ({ ...item, TKSXRegCode: tksxMaster.RegCode }))
             })
             if (response?.success !== true) {
               throw new Error(response?.message || 'Máy chủ chưa xác nhận lưu dữ liệu Tab 7.')
@@ -3385,7 +3459,11 @@ export default function CalcProductionDetailView() {
             const savedCount = Math.min(start + items.length, machineRows.length)
             setPushRegistrationProgress((prev) => ({
               ...prev,
-              percent: Math.min(99, 96 + Math.round((savedCount / machineRows.length) * 3)),
+              percent: Math.min(
+                99,
+                machineProgressStart +
+                  Math.round((savedCount / machineRows.length) * (99 - machineProgressStart))
+              ),
               detail: `Đã lưu ${savedCount.toLocaleString('vi-VN')}/${machineRows.length.toLocaleString('vi-VN')} dòng Tab 7`,
               statusTag: `Tab 7 ${batchIndex + 1}/${batchCount}`
             }))
@@ -3394,15 +3472,12 @@ export default function CalcProductionDetailView() {
         }
 
         // Hoàn tất 100%
-        const machineComparisonNote = machineComparisonSyncComplete
-          ? ` và ${machineComparisonSnapshot.length.toLocaleString('vi-VN')} dòng đối chiếu máy Tab 7`
-          : ''
-        const successMsg =
-          pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
-            ? `Đã nạp thành công 2 báo cáo KHSX & TKSX${machineComparisonNote}!`
-            : pushKhsx && khsxRows.length > 0
-              ? 'Đã nạp thành công báo cáo KHSX!'
-              : `Đã nạp thành công báo cáo TKSX${machineComparisonNote}!`
+        const completedReports = [
+          pushKhsx && khsxRows.length > 0 ? 'KHSX' : '',
+          pushTksx && statRows.length > 0 ? 'TKSX' : '',
+          machineComparisonSyncComplete ? 'đối chiếu máy Tab 7' : ''
+        ].filter(Boolean)
+        const successMsg = `Đã nạp thành công ${completedReports.join(' và ')}!`
 
         setPushRegistrationProgress((prev) => ({
           ...prev,
@@ -3414,12 +3489,18 @@ export default function CalcProductionDetailView() {
           isComplete: true
         }))
 
-        const notifyMsg =
-          pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
-            ? `Đã nạp thành công 2 báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng) và TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)${machineComparisonNote}!`
-            : pushKhsx && khsxRows.length > 0
-              ? `Đã nạp thành công báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng)!`
-              : `Đã nạp thành công báo cáo TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)${machineComparisonNote}!`
+        const completedDetails = [
+          pushKhsx && khsxRows.length > 0
+            ? `KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng)`
+            : '',
+          pushTksx && statRows.length > 0
+            ? `TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)`
+            : '',
+          machineComparisonSyncComplete
+            ? `đối chiếu máy Tab 7 (${machineComparisonSnapshot.length.toLocaleString('vi-VN')} dòng)`
+            : ''
+        ].filter(Boolean)
+        const notifyMsg = `Đã nạp thành công ${completedDetails.join(' và ')}!`
 
         setStatusMessage?.({
           type: 'success',
@@ -3427,9 +3508,10 @@ export default function CalcProductionDetailView() {
         })
       } catch (err) {
         console.error('[PushRegistration Error in DetailView]', err)
-        const errorMessage = machineComparisonSyncStarted && !machineComparisonSyncComplete
-          ? `Đã lưu báo cáo TKSX ${savedTksxRegistration?.data?.RegCode || ''} nhưng chưa đồng bộ xong Tab 7: ${err?.message || err}. Có thể đăng ký lại để tiếp tục đồng bộ.`
-          : `Lỗi khi nạp báo cáo: ${err?.message || err}`
+        const errorMessage =
+          machineComparisonSyncStarted && !machineComparisonSyncComplete
+            ? `Báo cáo TKSX ${savedTksxRegistration?.data?.RegCode || existingTksxMaster?.RegCode || ''} đã sẵn sàng nhưng chưa đồng bộ xong Tab 7: ${err?.message || err}. Có thể đăng ký lại để tiếp tục đồng bộ.`
+            : `Lỗi khi nạp báo cáo: ${err?.message || err}`
         setPushRegistrationProgress((prev) => ({
           ...prev,
           isError: true,
@@ -3564,7 +3646,7 @@ export default function CalcProductionDetailView() {
             onVisibleRegionChanged={handleVisibleRegionChanged}
             onAddQueryField={handleAddQueryField}
             canEdit={activeTab !== 'machine_comparison' && activeTab !== 'factory_machines'}
-            canDelete={activeTab !== 'factory_machines'}
+            canDelete={activeTab !== 'factory_machines' && activeTab !== 'machine_comparison'}
           />
         }
       />
@@ -3710,6 +3792,8 @@ export default function CalcProductionDetailView() {
         masterInfo={masterInfo}
         khsxRowsCount={registrationSelectInfo?.khsxRowsCount || 0}
         statRowsCount={registrationSelectInfo?.statRowsCount || 0}
+        machineRowsCount={registrationSelectInfo?.machineRowsCount || 0}
+        showMachineOption
         isLoading={isPushingRegistration}
       />
 

@@ -229,6 +229,6 @@ func (s *Service) query(ctx context.Context, filters map[string]string) ([]model
 	return rows, &models.PlanPageInfo{
 		Page: page, PageSize: pageSize, Total: total, TotalRows: int(total),
 		TotalPages:  max(1, int((total+int64(pageSize)-1)/int64(pageSize))),
-		LoadedCount: len(rows), TotalColumns: 13,
+		LoadedCount: len(rows), TotalColumns: 14,
 	}, nil
 }

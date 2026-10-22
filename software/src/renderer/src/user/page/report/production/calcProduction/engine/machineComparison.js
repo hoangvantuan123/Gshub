@@ -30,9 +30,15 @@ export function mapMasterFactoryToCatalogKey(factoryName) {
 
 export function getMachineComparisonRows(results, summaryRows, mesRows, options = {}) {
   const stored = results?.machineComparison?.calculatedRows
-  // A saved comparison is a calculation snapshot. Reopening a report must not
-  // silently recalculate its machine status from a newer or missing catalog.
-  if (Array.isArray(stored)) return stored
+  // Version 2 is the authoritative calculation snapshot. Legacy snapshots must
+  // be rebuilt from their TKSX rows so they cannot stay stale or use old joins.
+  if (
+    Array.isArray(stored) &&
+    (results?.machineComparison?.matchVersion === 2 ||
+      !Array.isArray(results?.stat?.calculatedRows))
+  ) {
+    return stored
+  }
 
   const plans = results?.plan?.calculatedRows || []
   return buildMachineComparison(

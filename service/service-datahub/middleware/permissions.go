@@ -76,7 +76,12 @@ func machineRegistrationPolicy(method string) (reportPolicy, bool) {
 		"ProdMachineRegistrationQ": "Search",
 	}
 	op, ok := operations[method]
-	return reportPolicy{keys: []string{"report_prod_machine_registration"}, operation: op}, ok
+	// This screen is a child of report registration. Keep its own permission key
+	// when provisioned, while existing report-registration grants remain a fallback.
+	return reportPolicy{
+		keys:      []string{"report_prod_machine_registration", "report_registration"},
+		operation: op,
+	}, ok
 }
 
 func remarkTypePolicy(method string) (reportPolicy, bool) {

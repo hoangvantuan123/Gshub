@@ -75,13 +75,16 @@ export default function PlanRegistrationPushModal({
 
   const pushKhsx = progressInfo?.pushKhsx !== false
   const pushTksx = progressInfo?.pushTksx !== false
+  const pushMachine = Boolean(progressInfo?.pushMachine)
+  const selectedReportNames = [
+    pushKhsx && 'KHSX',
+    pushTksx && 'TKSX',
+    pushMachine && 'ĐỐI CHIẾU MÁY TAB 7'
+  ].filter(Boolean)
 
   const cleanMessage = () => {
     if (isCompleted) {
-      if (pushKhsx && pushTksx) return 'Đã đăng ký báo cáo KHSX và TKSX thành công!'
-      if (pushKhsx) return 'Đã đăng ký báo cáo KHSX thành công!'
-      if (pushTksx) return 'Đã đăng ký báo cáo TKSX thành công!'
-      return 'Đã đăng ký báo cáo thành công!'
+      return `Đã đăng ký ${selectedReportNames.join(' và ')} thành công!`
     }
     if (isError) return progressInfo?.message || 'Có lỗi xảy ra khi nạp báo cáo'
     if (progressInfo?.step === 'KHSX') return 'Đang nạp báo cáo Kế hoạch sản xuất (KHSX)...'
@@ -97,10 +100,22 @@ export default function PlanRegistrationPushModal({
     { title: 'Kiểm tra số liệu', key: 'INIT' },
     ...(pushKhsx ? [{ title: 'Nạp Báo cáo KHSX', key: 'KHSX' }] : []),
     ...(pushTksx ? [{ title: 'Nạp Báo cáo TKSX', key: 'TKSX' }] : []),
+    ...(pushMachine ? [{ title: 'Lưu đối chiếu máy Tab 7', key: 'MACHINE_COMPARISON' }] : []),
     { title: 'Hoàn tất đăng ký', key: 'DONE' }
   ]
 
   const currentStep = progressInfo?.step || 'INIT'
+  const rowCountItems = [
+    pushKhsx && progressInfo?.khsxRows !== undefined
+      ? { label: 'KHSX', count: progressInfo.khsxRows, className: 'text-blue-700' }
+      : null,
+    pushTksx && progressInfo?.statRows !== undefined
+      ? { label: 'TKSX', count: progressInfo.statRows, className: 'text-emerald-700' }
+      : null,
+    pushMachine && progressInfo?.machineRows !== undefined
+      ? { label: 'Tab 7', count: progressInfo.machineRows, className: 'text-violet-700' }
+      : null
+  ].filter(Boolean)
 
   const getStepStatus = (stepKey) => {
     if (isCompleted) return 'DONE'
@@ -120,6 +135,16 @@ export default function PlanRegistrationPushModal({
       )
         return 'PENDING'
       if (currentStep === 'TKSX' || currentStep === 'PUSHING_TKSX') return 'ACTIVE'
+      return 'DONE'
+    }
+    if (stepKey === 'MACHINE_COMPARISON') {
+      if (currentStep === 'MACHINE_COMPARISON') return 'ACTIVE'
+      if (
+        currentStep === 'INIT' ||
+        (pushKhsx && (currentStep === 'KHSX' || currentStep === 'PUSHING_KHSX')) ||
+        (pushTksx && (currentStep === 'TKSX' || currentStep === 'PUSHING_TKSX'))
+      )
+        return 'PENDING'
       return 'DONE'
     }
     if (stepKey === 'DONE') {
@@ -163,11 +188,7 @@ export default function PlanRegistrationPushModal({
               ) : (
                 <Send size={15} className="text-indigo-600 shrink-0" />
               )}
-              {pushKhsx && pushTksx
-                ? 'ĐĂNG KÝ BÁO CÁO KHSX & TKSX'
-                : pushKhsx
-                  ? 'ĐĂNG KÝ BÁO CÁO KHSX'
-                  : 'ĐĂNG KÝ BÁO CÁO TKSX'}
+              {`ĐĂNG KÝ ${selectedReportNames.join(' & ')}`}
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -217,27 +238,20 @@ export default function PlanRegistrationPushModal({
             <div className="flex-1 min-w-0">
               <div className="text-xs font-bold text-slate-800 leading-snug">{message}</div>
 
-              {(pushKhsx || pushTksx) && (
+              {rowCountItems.length > 0 && (
                 <div className="flex items-center gap-3 mt-2 text-[11px] font-medium text-slate-600 bg-white p-1.5 border border-slate-200">
-                  {pushKhsx && progressInfo?.khsxRows !== undefined && (
-                    <span>
-                      KHSX:{' '}
-                      <strong className="text-blue-700">
-                        {progressInfo.khsxRows.toLocaleString('vi-VN')}
-                      </strong>{' '}
-                      dòng
+                  {rowCountItems.map((item, index) => (
+                    <span key={item.label} className="contents">
+                      {index > 0 && <span className="text-slate-300">|</span>}
+                      <span>
+                        {item.label}:{' '}
+                        <strong className={item.className}>
+                          {item.count.toLocaleString('vi-VN')}
+                        </strong>{' '}
+                        dòng
+                      </span>
                     </span>
-                  )}
-                  {pushKhsx && pushTksx && <span className="text-slate-300">|</span>}
-                  {pushTksx && progressInfo?.statRows !== undefined && (
-                    <span>
-                      TKSX:{' '}
-                      <strong className="text-emerald-700">
-                        {progressInfo.statRows.toLocaleString('vi-VN')}
-                      </strong>{' '}
-                      dòng
-                    </span>
-                  )}
+                  ))}
                 </div>
               )}
             </div>

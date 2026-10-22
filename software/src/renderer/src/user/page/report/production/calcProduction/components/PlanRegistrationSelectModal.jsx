@@ -1,12 +1,11 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { Send, FileSpreadsheet, X, Check, Calendar, Building2, Tag, Layers } from 'lucide-react'
+import { Send, FileSpreadsheet, X, Check, Calendar, Building2, Tag, Layers, Cpu } from 'lucide-react'
 import { Button, Checkbox } from 'antd'
 
 /**
- * PlanRegistrationSelectModal - Modal Cho phép người dùng tùy chọn báo cáo cần nạp (KHSX / TKSX)
- * Mặc định chọn cả 2, cho phép tích bỏ nếu không muốn nạp.
+ * PlanRegistrationSelectModal - Chọn các báo cáo cần nạp lên hệ thống.
  */
 export default function PlanRegistrationSelectModal({
   isOpen = false,
@@ -15,34 +14,43 @@ export default function PlanRegistrationSelectModal({
   masterInfo = {},
   khsxRowsCount = 0,
   statRowsCount = 0,
+  machineRowsCount = 0,
+  showMachineOption = false,
   isLoading = false
 }) {
   const [pushKhsx, setPushKhsx] = useState(true)
   const [pushTksx, setPushTksx] = useState(true)
+  const [pushMachine, setPushMachine] = useState(false)
 
   // Reset về mặc định mỗi khi modal được mở ra
   useEffect(() => {
     if (isOpen) {
       setPushKhsx(khsxRowsCount > 0)
       setPushTksx(statRowsCount > 0)
+      setPushMachine(showMachineOption && machineRowsCount > 0)
     }
-  }, [isOpen, khsxRowsCount, statRowsCount])
+  }, [isOpen, khsxRowsCount, statRowsCount, machineRowsCount, showMachineOption])
 
   const baseRegCode = useMemo(() => {
     const raw = masterInfo?.regCode || 'REG-CALC'
     return String(raw).replace(/-KHSX$|-TKSX$/i, '')
   }, [masterInfo?.regCode])
 
-  const selectedCount = (pushKhsx ? 1 : 0) + (pushTksx ? 1 : 0)
-  const totalRowsSelected = (pushKhsx ? khsxRowsCount : 0) + (pushTksx ? statRowsCount : 0)
+  const selectedCount = (pushKhsx ? 1 : 0) + (pushTksx ? 1 : 0) + (pushMachine ? 1 : 0)
+  const totalRowsSelected =
+    (pushKhsx ? khsxRowsCount : 0) +
+    (pushTksx ? statRowsCount : 0) +
+    (pushMachine ? machineRowsCount : 0)
+  const hasAnySelection = pushKhsx || pushTksx || pushMachine
 
   if (!isOpen) return null
 
   const handleConfirm = () => {
-    if (!pushKhsx && !pushTksx) return
+    if (!hasAnySelection) return
     onConfirm?.({
       pushKhsx: Boolean(pushKhsx),
-      pushTksx: Boolean(pushTksx)
+      pushTksx: Boolean(pushTksx),
+      pushMachine: Boolean(pushMachine)
     })
   }
 
@@ -121,7 +129,7 @@ export default function PlanRegistrationSelectModal({
             Vui lòng tích chọn các báo cáo bạn muốn đăng ký nạp lên hệ thống:
           </div>
 
-          {/* Danh sách 2 báo cáo để tích chọn */}
+          {/* Danh sách báo cáo để tích chọn */}
           <div className="flex flex-col gap-2.5">
             {/* 1. Báo cáo KHSX */}
             <div
@@ -230,12 +238,69 @@ export default function PlanRegistrationSelectModal({
                 </div>
               </div>
             </div>
+
+            {showMachineOption && (
+              <div
+                onClick={() => {
+                  if (machineRowsCount > 0) setPushMachine((prev) => !prev)
+                }}
+                className={`p-3 border transition-all flex items-start gap-3 select-none ${
+                  machineRowsCount === 0
+                    ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                    : pushMachine
+                      ? 'bg-violet-50/60 border-violet-400 shadow-sm cursor-pointer'
+                      : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
+                }`}
+              >
+                <div className="pt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={pushMachine}
+                    disabled={machineRowsCount === 0}
+                    onChange={(e) => setPushMachine(e.target.checked)}
+                  />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Cpu size={15} className="text-violet-600 shrink-0" />
+                      <span className="text-xs font-bold text-slate-800">
+                        3. Đối chiếu máy TK - KH (Tab 7)
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 border ${
+                        machineRowsCount > 0
+                          ? 'bg-violet-100 text-violet-800 border-violet-300 font-mono'
+                          : 'bg-slate-100 text-slate-500 border-slate-200'
+                      }`}
+                    >
+                      {machineRowsCount > 0
+                        ? `${machineRowsCount.toLocaleString('vi-VN')} dòng`
+                        : '0 dòng (Không có DL)'}
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2 flex-wrap font-mono">
+                    <span>
+                      Mã báo cáo TKSX: <strong className="text-violet-700">{baseRegCode}-TKSX</strong>
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <span className="text-slate-500 font-sans">Module: Đăng ký đối chiếu máy</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Ghi chú tổng hợp */}
           <div className="flex items-center justify-between px-3 py-2 bg-slate-100 border border-slate-200 text-[11px]">
             <span className="text-slate-600">
-              Đã chọn: <strong className="text-slate-800">{selectedCount} / 2</strong> báo cáo
+              Đã chọn:{' '}
+              <strong className="text-slate-800">
+                {selectedCount} / {showMachineOption ? 3 : 2}
+              </strong>{' '}
+              báo cáo
             </span>
             <span className="text-slate-600 font-mono">
               Tổng số dòng:{' '}
@@ -246,7 +311,7 @@ export default function PlanRegistrationSelectModal({
             </span>
           </div>
 
-          {!pushKhsx && !pushTksx && (
+          {!hasAnySelection && (
             <div className="text-[11px] text-rose-600 font-medium bg-rose-50 border border-rose-200 px-3 py-1.5">
               * Vui lòng tích chọn ít nhất 1 báo cáo để thực hiện đăng ký!
             </div>
@@ -266,7 +331,7 @@ export default function PlanRegistrationSelectModal({
           <Button
             type="primary"
             onClick={handleConfirm}
-            disabled={(!pushKhsx && !pushTksx) || isLoading}
+            disabled={!hasAnySelection || isLoading}
             className="rounded-none h-7 px-4 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5"
           >
             <Check size={14} />

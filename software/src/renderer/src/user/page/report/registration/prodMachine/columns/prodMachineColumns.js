@@ -10,4 +10,14 @@ export const PROD_MACHINE_COLUMNS = MACHINE_COMPARISON_COLUMN_SCHEMA.map((column
   hasMenu: true,
   visible: true,
   trailingRowOptions: { disabled: true }
-}))
+})).concat({
+  title: 'Mã đăng ký TKSX (TKSXRegCode)',
+  id: 'TKSXRegCode',
+  group: 'Liên kết báo cáo',
+  kind: 'Text',
+  readonly: true,
+  width: 230,
+  hasMenu: true,
+  visible: true,
+  trailingRowOptions: { disabled: true }
+})

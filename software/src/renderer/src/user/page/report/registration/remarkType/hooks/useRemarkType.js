@@ -1,13 +1,16 @@
-/* eslint-disable react/prop-types, no-unused-vars, no-empty */
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { usePageData } from '../../../../../../context/PageDataContext'
+import { updateIndexNo } from '../../../../../components/sheet/js/updateIndexNo'
+import { generateEmptyData } from '../../../../../components/sheet/js/generateEmptyData'
 import {
   createProdStatsRemarkTypes,
   deleteProdStatsRemarkTypes,
   queryProdStatsRemarkTypes,
   updateProdStatsRemarkTypes
 } from '../remarkTypeService'
+
+export const EMPTY_TEMPLATE_COUNT = 50
 
 const hasBusinessData = (row) =>
   Boolean(String(row?.TypeCode || '').trim() || String(row?.TypeName || '').trim())
@@ -47,6 +50,15 @@ export function useRemarkType({
           type: 'error',
           text: result?.message || t('Không thể tải danh sách phân loại lỗi')
         })
+        if (canCreate) {
+          const emptyRows = generateEmptyData(EMPTY_TEMPLATE_COUNT, defaultCols || [])
+          const finalRows = updateIndexNo(emptyRows)
+          setGridData(finalRows)
+          setNumRows(finalRows.length)
+        } else {
+          setGridData([])
+          setNumRows(0)
+        }
         return
       }
 
@@ -70,8 +82,16 @@ export function useRemarkType({
         WorkingTag: '',
         Status: ''
       }))
-      setGridData(rows)
-      setNumRows(rows.length)
+
+      let finalRows = rows
+      if (canCreate) {
+        const emptyRows = generateEmptyData(EMPTY_TEMPLATE_COUNT, defaultCols || [])
+        finalRows = [...rows, ...emptyRows]
+      }
+
+      finalRows = updateIndexNo(finalRows)
+      setGridData(finalRows)
+      setNumRows(finalRows.length)
       resetTable?.()
       const pageInfo = result.pageInfo || result.page || {}
       const total = Number(pageInfo.total || pageInfo.totalRows || rows.length)
@@ -96,6 +116,7 @@ export function useRemarkType({
     }
   }, [
     canView,
+    canCreate,
     filters,
     loadingBarRef,
     setGridData,

@@ -122,7 +122,6 @@ export const PlanAuditDetailModal = ({
   data = [],
   plantName = 'Kế hoạch sản xuất',
   plantKey = 'hanoi_gs1',
-  canEdit = true,
   localOnly = true,
   showWorkingTag = true,
   onSaved,
@@ -233,7 +232,8 @@ export const PlanAuditDetailModal = ({
     []
   )
 
-  // Chỉ hiển thị 2 cột Phân loại & Diễn giải trên các tab cần đối soát giải trình (SX_SAI_NGAY, TRUOT_KH)
+  // Chỉ hiển thị 2 cột Phân loại & Diễn giải trên các tab cần đối soát giải trình (SX_SAI_NGAY, TRUOT_KH).
+  // Hai cột ghi chú này không phụ thuộc quyền Edit cấp báo cáo.
   const isAnnotationTab = activeCategory === 'SX_SAI_NGAY' || activeCategory === 'TRUOT_KH'
 
   const availableAuditColumns = useMemo(() => {
@@ -241,7 +241,7 @@ export const PlanAuditDetailModal = ({
       ? [WORKING_TAG_COLUMN, ...PLAN_AUDIT_COLUMNS]
       : PLAN_AUDIT_COLUMNS
     const mapped = baseCols.map((col) => {
-      if (canEdit && (col.id === 'remarkType' || col.id === 'remarkDescription')) {
+      if (col.id === 'remarkType' || col.id === 'remarkDescription') {
         return {
           ...col,
           title: col.id === 'remarkType' ? 'Phân loại *' : 'Diễn giải *',
@@ -252,7 +252,7 @@ export const PlanAuditDetailModal = ({
     })
     if (isAnnotationTab) return mapped
     return mapped.filter((col) => col.id !== 'remarkType' && col.id !== 'remarkDescription')
-  }, [isAnnotationTab, showWorkingTag, canEdit])
+  }, [isAnnotationTab, showWorkingTag])
 
   const columns = useMemo(() => {
     let effectiveOrder = [...columnOrder]
@@ -481,7 +481,6 @@ export const PlanAuditDetailModal = ({
     gridData: filteredData,
     selection,
     setSelection,
-    canEdit,
     codeHelpColumns: []
   })
 
@@ -512,7 +511,7 @@ export const PlanAuditDetailModal = ({
 
       if (colId === 'remarkType') {
         const typeText = String(item.remarkType || '')
-        const isEditable = canEdit && isAnnotationTab
+        const isEditable = isAnnotationTab
         return {
           kind: GridCellKind.Text,
           data: typeText,
@@ -532,7 +531,7 @@ export const PlanAuditDetailModal = ({
 
       if (colId === 'remarkDescription' || colId === 'note') {
         const descText = String(item.remarkDescription || item.note || '')
-        const isEditable = canEdit && isAnnotationTab
+        const isEditable = isAnnotationTab
         return {
           kind: GridCellKind.Text,
           data: descText,
@@ -774,13 +773,13 @@ export const PlanAuditDetailModal = ({
         themeOverride: READ_ONLY_CELL_THEME
       }
     },
-    [filteredData, columns, maskText, canEdit, isAnnotationTab]
+    [filteredData, columns, maskText, isAnnotationTab]
   )
 
   // Xử lý chỉnh sửa ô diễn giải (remarkDescription)
   const onCellEdited = useCallback(
     async (cell, newValue) => {
-      if (!canEdit || !isAnnotationTab) return
+      if (!isAnnotationTab) return
       if (
         newValue.kind !== GridCellKind.Text &&
         newValue.kind !== GridCellKind.Custom &&
@@ -825,13 +824,13 @@ export const PlanAuditDetailModal = ({
       }))
       setHasUnsavedEdits(true)
     },
-    [columns, filteredData, canEdit, isAnnotationTab, getRowKey]
+    [columns, filteredData, isAnnotationTab, getRowKey]
   )
 
   // Nhấn vào ô Phân loại mở CodeHelp Modal
   const onCellActivated = useCallback(
     (cell) => {
-      if (!canEdit || !isAnnotationTab) return
+      if (!isAnnotationTab) return
       const [col, row] = cell
       const columnKey = columns[col]?.id
       if (columnKey === 'remarkType') {
@@ -841,13 +840,13 @@ export const PlanAuditDetailModal = ({
         }
       }
     },
-    [canEdit, isAnnotationTab, columns, filteredData]
+    [isAnnotationTab, columns, filteredData]
   )
 
   // Hỗ trợ Paste từ Excel
   const onPaste = useCallback(
     async (target, values) => {
-      if (!values || values.length === 0 || !canEdit || !isAnnotationTab) return false
+      if (!values || values.length === 0 || !isAnnotationTab) return false
       const [startCol, startRow] = target
       const indexes = reorderColumns(columns)
       const numPastedRows = values.length
@@ -917,16 +916,21 @@ export const PlanAuditDetailModal = ({
       }
       return false
     },
-    [columns, filteredData, canEdit, isAnnotationTab, remarkTypesList, getRowKey]
+    [columns, filteredData, isAnnotationTab, remarkTypesList, getRowKey]
   )
 
   // Lưu chỉnh sửa nhật trình (Local Storage + DB nếu cần)
   const handleSave = async () => {
-    if (!hasUnsavedEdits) return
+    const editedRowKeys = Object.keys(dirtyAnnotations)
+    if (editedRowKeys.length === 0) {
+      setSaveStatus('Không có thay đổi cần lưu.')
+      setTimeout(() => setSaveStatus(''), 2500)
+      return
+    }
+
     setIsSaving(true)
     setSaveStatus('')
     try {
-      const editedRowKeys = Object.keys(dirtyAnnotations)
       const payload = []
       const incompleteRows = []
 
@@ -1212,6 +1216,7 @@ export const PlanAuditDetailModal = ({
               role="toolbar"
               aria-label="Thao tác nhật trình đối soát KHSX"
               className="flex items-center justify-between bg-white px-2 py-0.5 border-b border-slate-200 shrink-0"
+              style={{ position: 'relative', zIndex: 20, pointerEvents: 'auto' }}
             >
               <div className="flex items-center gap-1.5 py-0.5 select-none flex-wrap">
                 <Button
@@ -1229,8 +1234,23 @@ export const PlanAuditDetailModal = ({
                   variant="ghost"
                   size="sm"
                   onClick={handleSave}
-                  disabled={!hasUnsavedEdits || isSaving}
-                  className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0"
+                  disabled={isSaving}
+                  aria-label="Lưu nhật trình đối soát"
+                  title="Lưu thay đổi"
+                  className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 shrink-0"
+                  style={{
+                    position: 'relative',
+                    zIndex: 21,
+                    minWidth: 80,
+                    height: 32,
+                    minHeight: 32,
+                    padding: '0 12px',
+                    color: '#4338ca',
+                    background: 'transparent',
+                    border: 'none',
+                    pointerEvents: 'auto',
+                    touchAction: 'manipulation'
+                  }}
                 >
                   <Save size={13} />
                   <span>{isSaving ? 'Đang lưu...' : 'Lưu'}</span>

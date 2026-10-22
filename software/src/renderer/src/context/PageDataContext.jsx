@@ -129,18 +129,9 @@ export const PageDataProvider = ({ children }) => {
     (targetPath, options = {}) => {
       if (!targetPath) return
 
-      // 1. Chặn điều hướng khi trang đang tải dữ liệu API
-      if (loadingInfo?.isLoading) {
-        setStatusMessage?.({
-          type: 'warning',
-          text: t('Trang đang tải dữ liệu. Vui lòng đợi hoàn tất!')
-        })
-        return false
-      }
-
-      // 2. Nếu hệ thống đang bận (đang dán dữ liệu lớn hoặc đang khóa tương tác)
+      // 1. Nếu hệ thống đang bận thao tác dữ liệu lớn (đang dán clipboard, đang lưu batch)
       if (typeof isPageBusy === 'function' && isPageBusy()) {
-        setStatusMessage({
+        setStatusMessage?.({
           type: 'warning',
           text: t('Hệ thống đang bận xử lý dữ liệu. Vui lòng đợi hoàn tất!')
         })

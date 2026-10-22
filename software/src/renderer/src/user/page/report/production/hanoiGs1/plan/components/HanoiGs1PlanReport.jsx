@@ -1675,7 +1675,6 @@ export default function HanoiGs1PlanReport(props) {
         data={sortedData || []}
         plantKey={plantKey}
         plantName={plantName}
-        canEdit={permissions.canEdit}
         localOnly={true}
         showWorkingTag={true}
         onSaved={onRefreshMaster}

@@ -29,6 +29,7 @@
     "@grpc/proto-loader": "^0.7.13",
     "antd": "^5.13.3",
     "axios": "^1.7.9",
+    "better-sqlite3": "^11.8.0",
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.13",
     "electron-updater": "^6.8.9",
@@ -53,9 +54,7 @@
     "react-top-loading-bar": "^3.0.2",
     "recharts": "^3.10.1",
     "uuidv7": "^1.0.2",
-    "xlsx": "^0.18.5",
-    "sqlite3": "^5.1.7",
-    "better-sqlite3": "^11.8.0"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^1.0.2",

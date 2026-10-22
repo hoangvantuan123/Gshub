@@ -1,10 +1,10 @@
-/* eslint-disable react/prop-types */
-import { Search, Save, Trash2 } from 'lucide-react'
+import { Search, Save, Trash2, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@renderer/components/ui/button'
 
 export default function RemarkTypeActions({
   handleSearchData,
+  handleRowAppend,
   handleSaveData,
   handleDeleteDataSheet,
   permissions = {}
@@ -19,10 +19,22 @@ export default function RemarkTypeActions({
           size="sm"
           onClick={handleSearchData}
           className="uppercase text-[11px] font-bold text-blue-700 hover:text-blue-800 h-7 px-2 shrink-0"
-          title={t('Truy vấn danh sách phân loại')}
+          title={t('Truy vấn danh sách phân loại (Ctrl+Q)')}
         >
           <Search size={13} className="text-blue-600" />
           <span>{t('TRUY VẤN')}</span>
+        </Button>
+      )}
+      {permissions.canCreate && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleRowAppend?.(1)}
+          className="uppercase text-[11px] font-bold text-emerald-700 hover:text-emerald-800 h-7 px-2 shrink-0"
+          title={t('Thêm dòng mới vào bảng')}
+        >
+          <Plus size={13} className="text-emerald-600" />
+          <span>{t('THÊM DÒNG')}</span>
         </Button>
       )}
       {permissions.canSave && (
@@ -31,7 +43,7 @@ export default function RemarkTypeActions({
           size="sm"
           onClick={handleSaveData}
           className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0"
-          title={t('Lưu thông tin phân loại lỗi vào cơ sở dữ liệu')}
+          title={t('Lưu thông tin phân loại lỗi vào cơ sở dữ liệu (Ctrl+S)')}
         >
           <Save size={13} className="text-indigo-600" />
           <span>{t('LƯU ĐĂNG KÝ')}</span>

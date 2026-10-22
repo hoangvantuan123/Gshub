@@ -360,13 +360,17 @@ const Sidebar = ({ permissions = [], rootMenu = [], menuTransForm = [] }) => {
         path !== '#' &&
         path !== '[object Window]'
       ) {
-        if (itemKey) {
-          sessionStorage.setItem('current_action', itemKey)
-          setCurrentAction(itemKey)
-        }
         if (safeNavigate) {
-          safeNavigate(path)
+          const success = safeNavigate(path)
+          if (success && itemKey) {
+            sessionStorage.setItem('current_action', itemKey)
+            setCurrentAction(itemKey)
+          }
         } else {
+          if (itemKey) {
+            sessionStorage.setItem('current_action', itemKey)
+            setCurrentAction(itemKey)
+          }
           preloadRoute(path)
           navigate(path)
         }

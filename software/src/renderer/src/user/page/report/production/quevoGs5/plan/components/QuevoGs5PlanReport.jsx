@@ -1560,7 +1560,6 @@ export default function QuevoGs5PlanReport(props) {
         data={sortedData || []}
         plantKey={plantKey}
         plantName={plantName}
-        canEdit={permissions.canEdit}
         localOnly={true}
         showWorkingTag={true}
         onSaved={onRefreshMaster}

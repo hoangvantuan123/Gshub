@@ -41,13 +41,20 @@ export default function ProdStatsRemarkTypePage({
       (!pagePerms.canEdit && !pagePerms.canCreate) ||
       (pagePerms.raw?.ReadOnlyFields || restProps.readOnlyFields || []).includes(fieldId)
   })
-  const { gridData, setGridData, setNumRows, resetTable, getSelectedRows, tableProps } =
-    useDataGridSheet({
-      storageKey: 'cols_report_prod_stats_remark_type',
-      defaultCols,
-      canCreate: pagePerms.canCreate,
-      canView: pagePerms.canView
-    })
+  const {
+    gridData,
+    setGridData,
+    setNumRows,
+    resetTable,
+    getSelectedRows,
+    handleRowAppend,
+    tableProps
+  } = useDataGridSheet({
+    storageKey: 'cols_report_prod_stats_remark_type',
+    defaultCols,
+    canCreate: pagePerms.canCreate,
+    canView: pagePerms.canView
+  })
   const {
     filters,
     setFilters,
@@ -97,6 +104,7 @@ export default function ProdStatsRemarkTypePage({
         actions={
           <RemarkTypeActions
             handleSearchData={handleSearchData}
+            handleRowAppend={handleRowAppend}
             handleSaveData={handleSaveData}
             handleDeleteDataSheet={handleDeleteDataSheet}
             permissions={pagePerms}

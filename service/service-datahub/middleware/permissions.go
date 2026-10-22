@@ -20,10 +20,21 @@ type reportPolicy struct {
 
 func registrationPolicy(method string) (reportPolicy, bool) {
 	registration := []string{"report_registration"}
-	plan := []string{"report_registration", "report_plan_query"}
-	stat := []string{"report_registration", "report_stat_query"}
+	plan := []string{"report_registration", "report_plan_query", "report_hanoi_gs1_plan", "report_quevo_gs5_plan", "report_summary_plan"}
+	stat := []string{"report_registration", "report_stat_query", "report_hanoi_gs1_stat", "report_quevo_gs5_stat", "report_summary_stat"}
+	masterQuery := []string{
+		"report_registration",
+		"report_plan_query",
+		"report_stat_query",
+		"report_hanoi_gs1_plan",
+		"report_hanoi_gs1_stat",
+		"report_quevo_gs5_plan",
+		"report_quevo_gs5_stat",
+		"report_summary_plan",
+		"report_summary_stat",
+	}
 	policies := map[string]reportPolicy{
-		"QueryPlanMaster":       {registration, "Search"},
+		"QueryPlanMaster":       {masterQuery, "Search"},
 		"SavePlanRegistration":  {registration, "Create"},
 		"DeletePlanMaster":      {registration, "Delete"},
 		"QueryPlanDetail":       {plan, "Search"},
@@ -48,9 +59,6 @@ func remarkTypePolicy(method string) (reportPolicy, bool) {
 		"ProdStatsRemarkTypeD": "Delete", "ProdStatsRemarkTypeQ": "Search",
 	}
 	op, ok := operations[method]
-	if op == "Search" {
-		return reportPolicy{keys: []string{}, operation: op}, ok
-	}
 	return reportPolicy{keys: []string{"report_prod_stats_remark_type"}, operation: op}, ok
 }
 

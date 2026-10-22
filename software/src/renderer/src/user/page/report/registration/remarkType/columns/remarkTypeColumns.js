@@ -26,8 +26,8 @@ export function useRemarkTypeColumns({ isFieldVisible, isFieldReadOnly } = {}) {
         width: 220,
         hasMenu: true,
         visible: true,
-        icon: GridColumnIcon.HeaderString,
         trailingRowOptions: { disabled: true },
+        icon: GridColumnIcon.HeaderString,
         themeOverride: { textHeader: '#DD1144', bgIconHeader: '#DD1144' }
       },
       {
@@ -38,8 +38,8 @@ export function useRemarkTypeColumns({ isFieldVisible, isFieldReadOnly } = {}) {
         width: 280,
         hasMenu: true,
         visible: true,
-        icon: GridColumnIcon.HeaderString,
         trailingRowOptions: { disabled: true },
+        icon: GridColumnIcon.HeaderString,
         themeOverride: { textHeader: '#DD1144', bgIconHeader: '#DD1144' }
       },
       {
@@ -50,8 +50,8 @@ export function useRemarkTypeColumns({ isFieldVisible, isFieldReadOnly } = {}) {
         width: 420,
         hasMenu: true,
         visible: true,
-        icon: GridColumnIcon.HeaderString,
-        trailingRowOptions: { disabled: true }
+        trailingRowOptions: { disabled: true },
+        icon: GridColumnIcon.HeaderString
       },
       {
         title: t('Đang sử dụng'),
@@ -70,7 +70,8 @@ export function useRemarkTypeColumns({ isFieldVisible, isFieldReadOnly } = {}) {
         readonly: true,
         width: 100,
         hasMenu: true,
-        visible: false
+        visible: false,
+        trailingRowOptions: { disabled: true }
       },
       {
         title: t('Người tạo'),
@@ -79,7 +80,8 @@ export function useRemarkTypeColumns({ isFieldVisible, isFieldReadOnly } = {}) {
         readonly: true,
         width: 150,
         hasMenu: true,
-        visible: false
+        visible: false,
+        trailingRowOptions: { disabled: true }
       },
       {
         title: t('Thời gian tạo'),
@@ -88,7 +90,8 @@ export function useRemarkTypeColumns({ isFieldVisible, isFieldReadOnly } = {}) {
         readonly: true,
         width: 170,
         hasMenu: true,
-        visible: false
+        visible: false,
+        trailingRowOptions: { disabled: true }
       },
       {
         title: t('Người cập nhật'),
@@ -97,7 +100,8 @@ export function useRemarkTypeColumns({ isFieldVisible, isFieldReadOnly } = {}) {
         readonly: true,
         width: 150,
         hasMenu: true,
-        visible: false
+        visible: false,
+        trailingRowOptions: { disabled: true }
       },
       {
         title: t('Thời gian cập nhật'),
@@ -106,7 +110,8 @@ export function useRemarkTypeColumns({ isFieldVisible, isFieldReadOnly } = {}) {
         readonly: true,
         width: 170,
         hasMenu: true,
-        visible: false
+        visible: false,
+        trailingRowOptions: { disabled: true }
       },
       {
         title: t('Phiên bản dòng'),
@@ -115,7 +120,8 @@ export function useRemarkTypeColumns({ isFieldVisible, isFieldReadOnly } = {}) {
         readonly: true,
         width: 100,
         hasMenu: true,
-        visible: false
+        visible: false,
+        trailingRowOptions: { disabled: true }
       }
     ]
 

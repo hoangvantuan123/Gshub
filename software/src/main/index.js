@@ -6,7 +6,8 @@ import {
   screen,
   globalShortcut,
   clipboard,
-  dialog
+  dialog,
+  Menu
 } from 'electron'
 import { join } from 'path'
 import path from 'path'
@@ -383,7 +384,6 @@ function createWindow() {
     mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
   })
 
-  const { Menu } = require('electron')
 
   const menu = Menu.buildFromTemplate([
     {

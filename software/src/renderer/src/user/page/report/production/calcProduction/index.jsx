@@ -27,6 +27,8 @@ import CalculationProgressOverlay from './components/CalculationProgressOverlay'
 import ExcelMappingModal from './components/ExcelMappingModal'
 import PlanRegistrationPushModal from './components/PlanRegistrationPushModal'
 import PlanRegistrationSelectModal from './components/PlanRegistrationSelectModal'
+import FactoryMachineListModal from './components/FactoryMachineListModal'
+import { mapMasterFactoryToCatalogKey } from './engine/machineComparison'
 import { usePageHotkeys } from '@renderer/user/hooks/usePageHotkeys'
 import { Send } from 'lucide-react'
 
@@ -90,10 +92,15 @@ export default function CalcProductionPage({
     refreshFiles,
     setCalcResults,
     isDirty,
-    setIsDirty
+    setIsDirty,
+    machineCatalog,
+    handleReloadMachineCatalog,
+    isReloadingCatalog
   } = useCalcProductionLogic({
     setStatusMessage
   })
+
+  const [isMachineModalOpen, setIsMachineModalOpen] = useState(false)
 
   // Đăng ký kiểm tra dữ liệu chưa lưu - Chặn rời trang / chuyển menu khi chưa bấm ĐĂNG KÝ BÁO CÁO
   useEffect(() => {
@@ -114,6 +121,7 @@ export default function CalcProductionPage({
 
   // Mảng dữ liệu nguồn độc lập của từng Tab (Tab nào có file thì lấy file đó, chưa có file thì dứt khoát là mảng rỗng [])
   const currentTabRows = useMemo(() => {
+    if (activeTab === 'factory_machines') return machineCatalog || []
     if (activeTab === 'machine_comparison') return activeTabFileData?.data || []
     if (activeTab === 'result_tksx') {
       return calcResults?.stat?.calculatedRows || []
@@ -130,7 +138,10 @@ export default function CalcProductionPage({
       return curFileData.data
     }
     return []
-  }, [activeTab, calcResults, fileSummaries, filesDataMap, activeTabFileData])
+  }, [activeTab, calcResults, fileSummaries, filesDataMap, activeTabFileData, machineCatalog])
+
+  const currentTabRowsRef = useRef(currentTabRows)
+  currentTabRowsRef.current = currentTabRows
 
   // Lưu trữ riêng biệt mảng dữ liệu của từng tab, triệt tiêu 100% việc dùng chung giữa các tab
   const [tabDataMap, setTabDataMap] = useState({})
@@ -141,12 +152,12 @@ export default function CalcProductionPage({
       delete next.result_tksx
       delete next.result_khsx
       delete next.machine_comparison
+      delete next.factory_machines
       return next
     })
-  }, [calcResults?.calculatedAt])
+  }, [calcResults?.calculatedAt, machineCatalog])
 
   const gridData = useMemo(() => {
-    if (activeTab === 'machine_comparison') return currentTabRows
     if (tabDataMap[activeTab] !== undefined) {
       return tabDataMap[activeTab]
     }
@@ -155,7 +166,10 @@ export default function CalcProductionPage({
 
   const setGridData = useCallback((updater) => {
     setTabDataMap((prev) => {
-      const cur = prev[activeTabRef.current] !== undefined ? prev[activeTabRef.current] : []
+      const cur =
+        prev[activeTabRef.current] !== undefined
+          ? prev[activeTabRef.current]
+          : currentTabRowsRef.current || []
       const nextVal = typeof updater === 'function' ? updater(cur) : updater
       return {
         ...prev,
@@ -211,7 +225,9 @@ export default function CalcProductionPage({
 
   // Cột động cho Grid theo từng Tab riêng biệt
   const defaultCols = useMemo(() => {
-    if (activeTab === 'machine_comparison') return getGridColumnsForTab(activeTab)
+    if (activeTab === 'factory_machines' || activeTab === 'machine_comparison') {
+      return getGridColumnsForTab(activeTab)
+    }
     if (activeTab === 'result_tksx') {
       const statCols = calcResults?.stat?.columns || fileSummaries['stat_report']?.columns || []
       let merged = []
@@ -634,10 +650,69 @@ export default function CalcProductionPage({
     return indices
   }, [selection])
 
-  const handleDeleteRows = useCallback(() => {
-    if (activeTab === 'machine_comparison') return
-    handleDeleteSelectedRows(selectedRowsIndices)
-  }, [activeTab, handleDeleteSelectedRows, selectedRowsIndices])
+  const handleDeleteRows = useCallback(
+    (explicitIndices) => {
+      if (activeTab === 'factory_machines') {
+        if (typeof setStatusMessage === 'function') {
+          setStatusMessage({
+            type: 'warning',
+            text: t('Bảng Máy theo nhà máy là danh sách chỉ xem, không thể xóa.')
+          })
+        }
+        return
+      }
+
+      const targetIndices =
+        Array.isArray(explicitIndices) && explicitIndices.length > 0
+          ? explicitIndices
+          : selectedRowsIndices
+
+      if (!targetIndices || targetIndices.length === 0) {
+        if (typeof setStatusMessage === 'function') {
+          setStatusMessage({
+            type: 'warning',
+            text: t('Vui lòng chọn ít nhất 1 dòng để xóa')
+          })
+        }
+        return
+      }
+
+      // Lấy các đối tượng dòng cần xóa từ filteredGridData (hỗ trợ cả khi đang tìm kiếm hoặc lọc)
+      const rowsToDelete = new Set(
+        targetIndices.map((i) => filteredGridData[i]).filter(Boolean)
+      )
+
+      // Cập nhật tabDataMap ngay lập tức để dòng biến mất tức thì trên Grid
+      setTabDataMap((prev) => {
+        const cur = prev[activeTab] || currentTabRowsRef.current || []
+        const updated = cur.filter((r, idx) => {
+          if (rowsToDelete.size > 0) return !rowsToDelete.has(r)
+          return !targetIndices.includes(idx)
+        })
+        return {
+          ...prev,
+          [activeTab]: updated
+        }
+      })
+
+      // Đặt lại selection về rỗng để tránh dính selection cũ
+      setSelection({
+        columns: CompactSelection.empty(),
+        rows: CompactSelection.empty(),
+        current: undefined
+      })
+
+      handleDeleteSelectedRows(targetIndices, Array.from(rowsToDelete))
+    },
+    [
+      activeTab,
+      handleDeleteSelectedRows,
+      selectedRowsIndices,
+      filteredGridData,
+      setStatusMessage,
+      t
+    ]
+  )
 
   usePageHotkeys({
     onDelete: handleDeleteRows,
@@ -663,7 +738,7 @@ export default function CalcProductionPage({
             masterInfo={masterInfo}
             storageMode={storageMode}
             fileStatusSummary={fileStatusSummary}
-            selectedRowsCount={activeTab === 'machine_comparison' ? 0 : selectedRowsIndices.length}
+            selectedRowsCount={selectedRowsIndices.length}
             onUploadFile={handleUploadFileForTab}
             onOpenCustomMapping={openMappingModalForCurrentTab}
             onDeleteSelectedRows={handleDeleteRows}
@@ -677,6 +752,11 @@ export default function CalcProductionPage({
             isPushingRegistration={isPushingRegistration}
             onExportBundle={handleExportBundle}
             onExportTabExcel={handleExportExcel}
+            onOpenMachineCatalog={() => setIsMachineModalOpen(true)}
+            machineCatalogCount={machineCatalog?.length || 0}
+            onReloadMachineCatalog={handleReloadMachineCatalog}
+            isReloadingCatalog={isReloadingCatalog}
+            onGenerateRegCode={handleGenerateNewRegCode}
           />
         }
         query={
@@ -717,7 +797,9 @@ export default function CalcProductionPage({
             setShowSearch={setShowSearch}
             onAddQueryField={handleAddQueryField}
             onCellEdited={handleCellEdited}
-            canEdit={activeTab !== 'machine_comparison'}
+            canEdit={activeTab !== 'machine_comparison' && activeTab !== 'factory_machines'}
+            canDelete={activeTab !== 'factory_machines'}
+            onDeleteRow={handleDeleteRows}
           />
         }
       />
@@ -828,6 +910,19 @@ export default function CalcProductionPage({
           onConfirm={handleConfirmMapping}
         />
       )}
+
+      {/* Modal danh sách máy móc theo nhà máy */}
+      <FactoryMachineListModal
+        isOpen={isMachineModalOpen}
+        onClose={() => setIsMachineModalOpen(false)}
+        factoryName={masterInfo?.factoryName || masterInfo?.FactoryName || 'GS1 Hà Nội'}
+        factoryKey={mapMasterFactoryToCatalogKey(
+          masterInfo?.factoryName || masterInfo?.FactoryName || 'GS1 Hà Nội'
+        )}
+        machines={machineCatalog || []}
+        onReloadFromServer={handleReloadMachineCatalog}
+        isReloading={isReloadingCatalog}
+      />
     </>
   )
 }

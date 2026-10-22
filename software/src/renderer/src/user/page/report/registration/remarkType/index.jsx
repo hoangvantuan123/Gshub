@@ -63,12 +63,17 @@ export default function ProdStatsRemarkTypePage({
     handleDeleteDataSheet,
     showConfirmModal,
     handleConfirmSearch,
-    handleCancelSearch
+    handleCancelSearch,
+    showDeleteModal,
+    rowsToDelete,
+    handleConfirmDelete,
+    handleCancelDelete
   } = useRemarkType({
     gridData,
     setGridData,
     setNumRows,
     getSelectedRows,
+    selection: tableProps.selection,
     resetTable,
     defaultCols,
     canCreate: pagePerms.canCreate,
@@ -94,7 +99,6 @@ export default function ProdStatsRemarkTypePage({
     handleSearchData()
     return () => cancelAllRequestsRef.current?.()
     // Run initial query once when the page mounts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
@@ -132,6 +136,8 @@ export default function ProdStatsRemarkTypePage({
             tableTitle={t('Đăng ký phân loại lỗi TKSX')}
             canEdit={pagePerms.canEdit}
             canCreate={pagePerms.canCreate}
+            canDelete={pagePerms.canDelete}
+            onDeleteRow={handleDeleteDataSheet}
             defaultCols={defaultCols}
           />
         }
@@ -148,6 +154,22 @@ export default function ProdStatsRemarkTypePage({
         confirmText={t('Tiếp tục truy vấn')}
         cancelText={t('Quay lại')}
         type="warning"
+      />
+      <WindowsConfirmModal
+        isOpen={showDeleteModal}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        title={t('Xác nhận xóa phân loại lỗi')}
+        message={t('Bạn có chắc chắn muốn xóa {{count}} dòng đã chọn không?', {
+          count: rowsToDelete?.length || 0
+        })}
+        subMessage={t(
+          'Dữ liệu sẽ được xóa trực tiếp khỏi hệ thống và không thể hoàn tác. Bạn có muốn tiếp tục?'
+        )}
+        confirmText={t('Xóa dữ liệu')}
+        cancelText={t('Quay lại')}
+        type="danger"
+        confirmVariant="danger"
       />
     </>
   )

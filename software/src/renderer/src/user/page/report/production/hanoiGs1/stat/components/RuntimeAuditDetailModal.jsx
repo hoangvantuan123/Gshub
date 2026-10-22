@@ -1,7 +1,12 @@
 /* eslint-disable react/prop-types */
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
-import { Download, Copy, Search, Check, Save, X, ArrowLeft } from 'lucide-react'
-import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid'
+import { Download, Copy, Search, Check, Save, ArrowLeft, X } from 'lucide-react'
+import {
+  DataEditor,
+  GridCellKind,
+  CompactSelection,
+  GridColumnIcon
+} from '@glideapps/glide-data-grid'
 import * as XLSX from 'xlsx'
 import { Button } from '@renderer/components/ui/button'
 import { PureButton, PureSelect } from './reportUIComponents'
@@ -16,11 +21,24 @@ import { Drawer, Checkbox, message } from 'antd'
 import SystemConfirmModal from '@renderer/user/components/modal/SystemConfirmModal'
 import GenericCodeHelpModal from '@renderer/user/components/query/core/GenericCodeHelpModal'
 import { reorderColumns } from '@renderer/user/components/sheet/js/reorderColumns'
-import ProductionAuditModalHeader from '../../../components/ProductionAuditModalHeader'
 
 const AUDIT_COLUMNS = [
-  { id: 'remarkType', title: 'Phân loại', width: 160, hasMenu: true },
-  { id: 'remarkDescription', title: 'Diễn giải', width: 240, hasMenu: true },
+  {
+    id: 'remarkType',
+    title: 'Phân loại',
+    width: 160,
+    hasMenu: true,
+    kind: 'Text',
+    icon: GridColumnIcon.HeaderString
+  },
+  {
+    id: 'remarkDescription',
+    title: 'Diễn giải',
+    width: 240,
+    hasMenu: true,
+    kind: 'Text',
+    icon: GridColumnIcon.HeaderString
+  },
   { id: 'ticketNo', title: 'Mã phiếu', width: 140, hasMenu: true },
   { id: 'orderNo', title: 'Lệnh SX', width: 130, hasMenu: true },
   { id: 'machineCode', title: 'Mã máy', width: 100, hasMenu: true },
@@ -43,8 +61,34 @@ const WORKING_TAG_COLUMN = {
   width: 50,
   hasMenu: true,
   readonly: true,
-  themeOverride: { textDark: '#225588', baseFontStyle: '600 13px' }
+  themeOverride: { textDark: '#0f172a', baseFontStyle: '12px' }
 }
+
+const formatDateVN = (dateVal) => {
+  if (!dateVal) return ''
+  const s = String(dateVal).trim()
+  if (!s) return ''
+  const matchIso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  if (matchIso) {
+    const [, y, m, d] = matchIso
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`
+  }
+  const matchVn = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/)
+  if (matchVn) {
+    const [, d, m, y] = matchVn
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`
+  }
+  const dt = new Date(s)
+  if (!isNaN(dt.getTime())) {
+    const d = String(dt.getDate()).padStart(2, '0')
+    const m = String(dt.getMonth() + 1).padStart(2, '0')
+    const y = dt.getFullYear()
+    return `${d}/${m}/${y}`
+  }
+  return s
+}
+
+const isElectron = typeof window !== 'undefined' && Boolean(window.electron)
 
 // Cache danh mục phân loại trong bộ nhớ RAM để đảm bảo CodeHelp mở tức thì 0ms, không lag
 let cachedRemarkTypes = null
@@ -192,11 +236,21 @@ export const RuntimeAuditDetailModal = ({
   const availableAuditColumns = useMemo(() => {
     const baseColumns = showWorkingTag ? [WORKING_TAG_COLUMN, ...AUDIT_COLUMNS] : AUDIT_COLUMNS
     const mapped = baseColumns.map((col) => {
-      if (canEdit && (col.id === 'remarkType' || col.id === 'remarkDescription')) {
+      if (canEdit && col.id === 'remarkType') {
         return {
           ...col,
-          title: col.id === 'remarkType' ? 'Phân loại *' : 'Diễn giải *',
+          title: 'Phân loại *',
+          icon: GridColumnIcon.HeaderString,
           themeOverride: { textHeader: '#DD1144', bgIconHeader: '#DD1144' }
+        }
+      }
+      if (canEdit && col.id === 'remarkDescription') {
+        return {
+          ...col,
+          title: 'Diễn giải',
+          icon: GridColumnIcon.HeaderString,
+          readonly: false,
+          trailingRowOptions: { disabled: true }
         }
       }
       return col
@@ -409,20 +463,20 @@ export const RuntimeAuditDetailModal = ({
       const workingKey = String(ticketNo)
       const isDirty = Boolean(dirtyAnnotations[workingKey])
       const workingTag = isDirty ? 'U' : ''
-      const annotation = isDirty ? (annotations[workingKey] || {}) : {}
+      const annotation = isDirty ? annotations[workingKey] || {} : {}
 
       let remarkType =
         isDirty && annotation.remarkType !== undefined
           ? annotation.remarkType
-          : (item.remarkType || item.RemarkTypeName || item.RemarkType || '')
+          : item.remarkType || item.RemarkTypeName || item.RemarkType || ''
       let remarkTypeCode =
         isDirty && annotation.remarkTypeCode !== undefined
           ? annotation.remarkTypeCode
-          : (item.remarkTypeCode || item.RemarkTypeCode || '')
+          : item.remarkTypeCode || item.RemarkTypeCode || ''
       let remarkTypeSeq =
         isDirty && annotation.remarkTypeSeq !== undefined
           ? annotation.remarkTypeSeq
-          : (item.remarkTypeSeq || item.RemarkTypeSeq || '')
+          : item.remarkTypeSeq || item.RemarkTypeSeq || ''
 
       // Đồng bộ hai chiều giữa remarkType (TypeName) và remarkTypeSeq (UUIDv7)
       if (remarkTypeSeq && (!remarkType || remarkType === remarkTypeSeq)) {
@@ -437,8 +491,12 @@ export const RuntimeAuditDetailModal = ({
         const norm = String(remarkType).trim().toLowerCase()
         const found = remarkTypesList.find(
           (t) =>
-            String(t.TypeName || '').trim().toLowerCase() === norm ||
-            String(t.TypeCode || '').trim().toLowerCase() === norm
+            String(t.TypeName || '')
+              .trim()
+              .toLowerCase() === norm ||
+            String(t.TypeCode || '')
+              .trim()
+              .toLowerCase() === norm
         )
         if (found) {
           remarkTypeSeq = found.IdSeq || ''
@@ -449,7 +507,7 @@ export const RuntimeAuditDetailModal = ({
       const remarkDescription =
         isDirty && annotation.remarkDescription !== undefined
           ? annotation.remarkDescription
-          : (item.RemarkContent || item.remarkContent || '')
+          : item.RemarkContent || item.remarkContent || ''
 
       return {
         ...item,
@@ -508,21 +566,30 @@ export const RuntimeAuditDetailModal = ({
       if (selectedMachine !== 'ALL' && item.machineCode !== selectedMachine) return false
 
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim()
-        const match =
-          item.ticketNo.toLowerCase().includes(q) ||
-          item.orderNo.toLowerCase().includes(q) ||
-          item.machineCode.toLowerCase().includes(q) ||
-          item.machineName.toLowerCase().includes(q) ||
-          item.teamName.toLowerCase().includes(q) ||
-          item.operator.toLowerCase().includes(q) ||
-          String(item.remarkType || '')
-            .toLowerCase()
-            .includes(q) ||
-          String(item.remarkDescription || '')
-            .toLowerCase()
-            .includes(q)
-        if (!match) return false
+        const queries = searchQuery
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+
+        if (queries.length > 0) {
+          const match = queries.some((q) => {
+            return (
+              item.ticketNo.toLowerCase().includes(q) ||
+              item.orderNo.toLowerCase().includes(q) ||
+              item.machineCode.toLowerCase().includes(q) ||
+              item.machineName.toLowerCase().includes(q) ||
+              item.teamName.toLowerCase().includes(q) ||
+              item.operator.toLowerCase().includes(q) ||
+              String(item.remarkType || '')
+                .toLowerCase()
+                .includes(q) ||
+              String(item.remarkDescription || '')
+                .toLowerCase()
+                .includes(q)
+            )
+          })
+          if (!match) return false
+        }
       }
 
       return true
@@ -605,7 +672,13 @@ export const RuntimeAuditDetailModal = ({
     setShowSearch,
     codeHelpColumns: ['remarkType'],
     readOnlyColumns,
-    codeHelpConfig
+    codeHelpConfig,
+    gridTheme: {
+      bgCell: '#ffffff',
+      bgHeader: '#f8fafc',
+      headerFontStyle: '600 12px',
+      baseFontStyle: '12px'
+    }
   })
 
   // Cung cấp nội dung ô: Khóa cứng toàn bộ các cột ngoại trừ ô Diễn giải & Phân loại
@@ -627,10 +700,7 @@ export const RuntimeAuditDetailModal = ({
           allowOverlay: false,
           hasMenu: columns[col]?.hasMenu || false,
           contentAlign: 'center',
-          themeOverride: {
-            ...(tableManager.getCellTheme(columnId) || {}),
-            textDark: status === 'U' ? '#2563eb' : '#225588'
-          }
+          themeOverride: tableManager.getCellTheme(columnId)
         }
       }
 
@@ -651,14 +721,16 @@ export const RuntimeAuditDetailModal = ({
       // 2. Cột Diễn giải: CỘT DUY NHẤT cho phép chỉnh sửa văn bản trực tiếp
       if (columnId === 'remarkDescription') {
         const text = String(item.remarkDescription || '')
+        const isEditable = Boolean(canEdit && isAnnotationTab)
         return {
           kind: GridCellKind.Text,
           data: text,
           displayData: text,
-          readonly: !canEdit,
-          allowOverlay: canEdit,
+          readonly: !isEditable,
+          allowOverlay: isEditable,
+          hasMenu: true,
           contentAlign: 'left',
-          themeOverride: tableManager.getCellTheme('remarkDescription')
+          themeOverride: isEditable ? undefined : tableManager.getCellTheme('remarkDescription')
         }
       }
 
@@ -682,6 +754,9 @@ export const RuntimeAuditDetailModal = ({
       }
 
       let value = item[columnId]
+      if (['startDate', 'endDate'].includes(columnId) && value) {
+        value = formatDateVN(value)
+      }
       if (columnId === 'machineName') value = maskText(value, 5)
       if (columnId === 'operator' && value) value = maskText(value, 3)
       const text = String(value || '-')
@@ -804,7 +879,11 @@ export const RuntimeAuditDetailModal = ({
             const resolved = lookupMap.get(cellVal.toLowerCase())
             const updatedType = resolved ? resolved.TypeName : cellVal
             const updatedCode = resolved ? resolved.TypeCode : ''
-            const updatedSeq = resolved ? resolved.IdSeq : (cellVal.includes('-') && cellVal.length === 36 ? cellVal : '')
+            const updatedSeq = resolved
+              ? resolved.IdSeq
+              : cellVal.includes('-') && cellVal.length === 36
+                ? cellVal
+                : ''
 
             if (
               String(item.remarkType ?? '') === updatedType &&
@@ -987,9 +1066,15 @@ export const RuntimeAuditDetailModal = ({
           const norm = String(remarkType).trim().toLowerCase()
           const matched = remarkTypesList.find(
             (t) =>
-              String(t.TypeName || '').trim().toLowerCase() === norm ||
-              String(t.TypeCode || '').trim().toLowerCase() === norm ||
-              String(t.IdSeq || '').trim().toLowerCase() === norm
+              String(t.TypeName || '')
+                .trim()
+                .toLowerCase() === norm ||
+              String(t.TypeCode || '')
+                .trim()
+                .toLowerCase() === norm ||
+              String(t.IdSeq || '')
+                .trim()
+                .toLowerCase() === norm
           )
           if (matched?.IdSeq) finalSeq = String(matched.IdSeq).trim()
         }
@@ -997,9 +1082,7 @@ export const RuntimeAuditDetailModal = ({
         const remarkDescription =
           anno.remarkDescription !== undefined
             ? anno.remarkDescription
-            : (matchedRow?.RemarkContent ??
-              matchedRow?.remarkContent ??
-              '')
+            : (matchedRow?.RemarkContent ?? matchedRow?.remarkContent ?? '')
 
         if (
           !String(remarkType ?? '').trim() ||
@@ -1130,9 +1213,9 @@ export const RuntimeAuditDetailModal = ({
         'Mã máy': item.machineCode,
         'Tên máy sản xuất': item.machineName,
         'Tổ sản xuất': item.teamName,
-        'Ngày bắt đầu': item.startDate,
+        'Ngày bắt đầu': formatDateVN(item.startDate),
         'Giờ bắt đầu': item.startTime,
-        'Ngày kết thúc': item.endDate,
+        'Ngày kết thúc': formatDateVN(item.endDate),
         'Giờ kết thúc': item.endTime,
         'Giờ chạy (h)': Number(item.runtimeH.toFixed(2)),
         'SL Sản xuất': item.actual,
@@ -1183,9 +1266,9 @@ export const RuntimeAuditDetailModal = ({
         item.machineCode,
         item.machineName,
         item.teamName,
-        item.startDate,
+        formatDateVN(item.startDate),
         item.startTime,
-        item.endDate,
+        formatDateVN(item.endDate),
         item.endTime,
         item.runtimeH.toFixed(2),
         item.actual,
@@ -1211,7 +1294,10 @@ export const RuntimeAuditDetailModal = ({
       <div
         style={{
           position: 'fixed',
-          inset: 0,
+          top: isElectron ? 28 : 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           zIndex: 99990,
           background: 'rgba(0, 0, 0, 0.45)',
           display: 'flex',
@@ -1225,8 +1311,8 @@ export const RuntimeAuditDetailModal = ({
           style={{
             background: '#ffffff',
             width: '100vw',
-            height: '100dvh',
-            maxHeight: '100dvh',
+            height: isElectron ? 'calc(100dvh - 28px)' : '100dvh',
+            maxHeight: isElectron ? 'calc(100dvh - 28px)' : '100dvh',
             maxWidth: '100%',
             border: 'none',
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
@@ -1236,57 +1322,56 @@ export const RuntimeAuditDetailModal = ({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {localOnly ? (
-            <div
-              role="toolbar"
-              aria-label="Thao tác nhật trình đối soát"
-              className="flex items-center justify-between bg-white px-2 py-0.5 border-b border-slate-200 shrink-0"
-            >
-              <div className="flex items-center gap-1.5 py-0.5 select-none flex-wrap">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCloseRequest}
-                  disabled={isSaving}
-                  className="uppercase text-[11px] font-bold text-slate-700 hover:text-slate-900 h-7 px-2 shrink-0"
-                  title="Quay lại / Đóng nhật trình"
-                >
-                  <ArrowLeft size={13} />
-                  <span>Quay lại</span>
-                </Button>
+          {/* Thanh thao tác gọn: Quay lại, Lưu & Đóng */}
+          <div
+            role="toolbar"
+            aria-label="Thao tác nhật trình đối soát"
+            className="flex items-center justify-between bg-white px-3 py-1 border-b border-slate-200 shrink-0 select-none"
+            style={{ minHeight: 34 }}
+          >
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCloseRequest}
+                disabled={isSaving}
+                className="uppercase text-[11px] font-bold text-slate-700 hover:text-slate-900 h-7 px-2 shrink-0 border border-slate-200"
+                title="Quay lại / Đóng nhật trình"
+              >
+                <ArrowLeft size={13} />
+                <span>Quay lại</span>
+              </Button>
+              {canEdit && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleSave}
                   disabled={!hasUnsavedEdits || isSaving}
-                  className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0"
+                  aria-label="Lưu nhật trình đối soát"
+                  title="Lưu thay đổi phân loại và diễn giải"
+                  className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0 border border-indigo-200 bg-indigo-50/50"
                 >
                   <Save size={13} />
-                  <span>{isSaving ? 'Đang lưu...' : 'Lưu'}</span>
+                  <span>{isSaving ? 'Đang lưu...' : localOnly ? 'Lưu' : 'Lưu vào DB'}</span>
                 </Button>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCloseRequest}
-                aria-label="Đóng nhật trình đối soát"
-                title="Đóng nhật trình"
-                className="h-7 px-2 shrink-0 text-slate-500"
-              >
-                <X size={16} />
-              </Button>
+              )}
+              {saveStatus && (
+                <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                  <Check size={13} /> {saveStatus}
+                </span>
+              )}
             </div>
-          ) : (
-            <ProductionAuditModalHeader
-              plantName={plantName}
-              subtitle={
-                isAnnotationTab
-                  ? 'Thống kê sản xuất • Chỉnh sửa phân loại / diễn giải rồi lưu thay đổi.'
-                  : 'Thống kê sản xuất • Đối soát mốc thời gian các phiếu.'
-              }
-              onClose={handleCloseRequest}
-            />
-          )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCloseRequest}
+              aria-label="Đóng nhật trình đối soát"
+              title="Đóng nhật trình"
+              className="h-7 w-7 p-0 shrink-0 text-slate-500 hover:text-slate-800"
+            >
+              <X size={16} />
+            </Button>
+          </div>
 
           {/* Tabs phân loại và bộ lọc nhật trình */}
           <div
@@ -1465,13 +1550,13 @@ export const RuntimeAuditDetailModal = ({
                   background: '#ffffff',
                   border: '1px solid #e2e8f0',
                   padding: '3px 8px',
-                  width: 180
+                  width: 250
                 }}
               >
                 <Search size={13} color="#94a3b8" style={{ marginRight: 6 }} />
                 <input
                   type="text"
-                  placeholder="Tìm phiếu, máy, tổ..."
+                  placeholder="Tìm phiếu, máy, tổ (dấu ,)..."
                   value={draftSearchQuery}
                   onChange={(e) => {
                     setDraftSearchQuery(e.target.value)
@@ -1650,18 +1735,12 @@ export const RuntimeAuditDetailModal = ({
               #portal > * {
                 pointer-events: auto !important;
               }
-              .gdg-style {
-                box-shadow: 0 0 0 2px #1677ff, 0px 6px 18px rgba(0, 0, 0, 0.18) !important;
-                border-radius: 3px !important;
-                background-color: #ffffff !important;
-                z-index: 999999 !important;
-              }
               textarea.gdg-input,
               input.gdg-input {
                 color: #0f172a !important;
                 -webkit-text-fill-color: #0f172a !important;
                 background-color: transparent !important;
-                font-size: 13px !important;
+                font-size: 12px !important;
                 line-height: 18px !important;
                 padding: 2px 4px !important;
                 white-space: pre-wrap !important;
@@ -1687,8 +1766,8 @@ export const RuntimeAuditDetailModal = ({
               getCellsForSelection={true}
               showSearch={showSearch}
               onSearchClose={() => setShowSearch(false)}
-              headerHeight={28}
-              rowHeight={28}
+              headerHeight={23}
+              rowHeight={23}
               getRowThemeOverride={(rowIndex) => {
                 if (rowIndex === tableManager.hoverRow) {
                   return {

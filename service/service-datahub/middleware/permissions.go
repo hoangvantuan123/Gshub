@@ -31,8 +31,8 @@ func registrationPolicy(method string) (reportPolicy, bool) {
 		return reportPolicy{}, false
 	}
 	registration := []string{"report_registration"}
-	plan := []string{"report_registration", "report_plan_query", "report_hanoi_gs1_plan", "report_quevo_gs5_plan", "report_summary_plan"}
-	stat := []string{"report_registration", "report_stat_query", "report_hanoi_gs1_stat", "report_quevo_gs5_stat", "report_summary_stat"}
+	plan := []string{"report_registration", "report_plan_query", "report_hanoi_gs1_plan", "report_quevo_gs5_plan", "report_summary_plan", "report_prod_machine_registration"}
+	stat := []string{"report_registration", "report_stat_query", "report_hanoi_gs1_stat", "report_quevo_gs5_stat", "report_summary_stat", "report_prod_machine_registration"}
 	masterQuery := []string{
 		"report_registration",
 		"report_plan_query",
@@ -43,6 +43,7 @@ func registrationPolicy(method string) (reportPolicy, bool) {
 		"report_quevo_gs5_stat",
 		"report_summary_plan",
 		"report_summary_stat",
+		"report_prod_machine_registration",
 	}
 	policies := map[string]reportPolicy{
 		"QueryPlanMaster":       {masterQuery, "Search"},
@@ -59,7 +60,23 @@ func registrationPolicy(method string) (reportPolicy, bool) {
 	if !ok {
 		policy, ok = remarkTypePolicy(method)
 	}
+	if !ok {
+		policy, ok = machineCatalogPolicy(method)
+	}
+	if !ok {
+		policy, ok = machineRegistrationPolicy(method)
+	}
 	return policy, ok
+}
+
+func machineRegistrationPolicy(method string) (reportPolicy, bool) {
+	operations := map[string]string{
+		"ProdMachineRegistrationA": "Create",
+		"ProdMachineRegistrationD": "Delete",
+		"ProdMachineRegistrationQ": "Search",
+	}
+	op, ok := operations[method]
+	return reportPolicy{keys: []string{"report_prod_machine_registration"}, operation: op}, ok
 }
 
 func remarkTypePolicy(method string) (reportPolicy, bool) {
@@ -71,6 +88,19 @@ func remarkTypePolicy(method string) (reportPolicy, bool) {
 	return reportPolicy{keys: []string{"report_prod_stats_remark_type"}, operation: op}, ok
 }
 
+func machineCatalogPolicy(method string) (reportPolicy, bool) {
+	operations := map[string]string{
+		"ProdMachineCatalogA": "Create", "ProdMachineCatalogU": "Edit",
+		"ProdMachineCatalogD": "Delete", "ProdMachineCatalogQ": "Search",
+	}
+	op, ok := operations[method]
+	keys := []string{"report_prod_machine_catalog"}
+	if method == "ProdMachineCatalogQ" {
+		keys = append(keys, "report_prod_machine_registration")
+	}
+	return reportPolicy{keys: keys, operation: op}, ok
+}
+
 func httpRegistrationPolicy(path string) (reportPolicy, bool) {
 	if strings.HasSuffix(path, "/plan/update") || strings.HasSuffix(path, "/statistics/update") ||
 		strings.HasSuffix(path, "/PlanDetailU") || strings.HasSuffix(path, "/ProdStatsDetailU") {
@@ -79,6 +109,14 @@ func httpRegistrationPolicy(path string) (reportPolicy, bool) {
 	if strings.HasPrefix(path, "/api/v2/report/prod-stats-remark-type/") {
 		parts := strings.Split(path, "/")
 		return remarkTypePolicy(parts[len(parts)-1])
+	}
+	if strings.HasPrefix(path, "/api/v2/report/prod-machine-catalog/") {
+		parts := strings.Split(path, "/")
+		return machineCatalogPolicy(parts[len(parts)-1])
+	}
+	if strings.HasPrefix(path, "/api/v2/report/prod-machine-registration/") {
+		parts := strings.Split(path, "/")
+		return machineRegistrationPolicy(parts[len(parts)-1])
 	}
 	aliases := map[string]string{
 		"PlanMasterQ": "QueryPlanMaster", "query-master": "QueryPlanMaster",
@@ -156,10 +194,12 @@ func ReportPermissionInterceptor(db *gorm.DB) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		const prefix = "/datahub.DataHubService/"
 		const remarkPrefix = "/datahub.ProdStatsRemarkTypeService/"
-		if !strings.HasPrefix(info.FullMethod, prefix) && !strings.HasPrefix(info.FullMethod, remarkPrefix) {
+		const machinePrefix = "/datahub.ProdMachineCatalogService/"
+		const machineRegistrationPrefix = "/datahub.ProdMachineRegistrationService/"
+		if !strings.HasPrefix(info.FullMethod, prefix) && !strings.HasPrefix(info.FullMethod, remarkPrefix) && !strings.HasPrefix(info.FullMethod, machinePrefix) && !strings.HasPrefix(info.FullMethod, machineRegistrationPrefix) {
 			return handler(ctx, req)
 		}
-		method := strings.TrimPrefix(strings.TrimPrefix(info.FullMethod, prefix), remarkPrefix)
+		method := strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(info.FullMethod, prefix), remarkPrefix), machinePrefix), machineRegistrationPrefix)
 		if IsPublicUpdateMethod(method) {
 			return handler(ctx, req)
 		}

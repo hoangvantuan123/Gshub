@@ -176,7 +176,11 @@ const api = {
     importBundlePackage: (payload) => ipcRenderer.invoke('sqlite:import-bundle-package', payload),
     getVersionedBundle: (bundleCode) =>
       ipcRenderer.invoke('sqlite:get-versioned-bundle', bundleCode),
-    saveVersionedBundle: (payload) => ipcRenderer.invoke('sqlite:save-versioned-bundle', payload)
+    saveVersionedBundle: (payload) => ipcRenderer.invoke('sqlite:save-versioned-bundle', payload),
+    saveFactoryMachines: (payload) => ipcRenderer.invoke('sqlite:save-factory-machines', payload),
+    getFactoryMachines: (factoryKey) =>
+      ipcRenderer.invoke('sqlite:get-factory-machines', factoryKey),
+    clearFactoryMachines: () => ipcRenderer.invoke('sqlite:clear-factory-machines')
   }
 }
 

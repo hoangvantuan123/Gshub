@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { Search, Save, Trash2, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@renderer/components/ui/button'
@@ -25,18 +26,7 @@ export default function RemarkTypeActions({
           <span>{t('TRUY VẤN')}</span>
         </Button>
       )}
-      {permissions.canCreate && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleRowAppend?.(1)}
-          className="uppercase text-[11px] font-bold text-emerald-700 hover:text-emerald-800 h-7 px-2 shrink-0"
-          title={t('Thêm dòng mới vào bảng')}
-        >
-          <Plus size={13} className="text-emerald-600" />
-          <span>{t('THÊM DÒNG')}</span>
-        </Button>
-      )}
+
       {permissions.canSave && (
         <Button
           variant="ghost"
@@ -55,7 +45,7 @@ export default function RemarkTypeActions({
           size="sm"
           onClick={handleDeleteDataSheet}
           className="uppercase text-[11px] font-semibold text-rose-600 hover:text-rose-700 h-7 px-2 shrink-0 flex items-center gap-1"
-          title={t('Đánh dấu xóa các dòng đang chọn')}
+          title={t('Xóa các dòng đang chọn')}
         >
           <Trash2 size={13} className="text-rose-500" />
           <span>{t('XÓA DÒNG')}</span>

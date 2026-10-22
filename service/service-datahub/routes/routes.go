@@ -21,6 +21,8 @@ func SetupRouter(
 	planDetailHandler *handlers.PlanDetailHandler,
 	prodStatsDetailHandler *handlers.ProdStatsDetailHandler,
 	prodStatsRemarkTypeHandler *handlers.ProdStatsRemarkTypeHandler,
+	prodMachineCatalogHandler *handlers.ProdMachineCatalogHandler,
+	prodMachineRegistrationHandler *handlers.ProdMachineRegistrationHandler,
 	planReportHandler *handlers.PlanReportHandler,
 	summaryPlanReportHandler *handlers.SummaryPlanReportHandler,
 	summaryStatReportHandler *handlers.SummaryStatReportHandler,
@@ -80,6 +82,21 @@ func SetupRouter(
 			remarkTypes.POST("/ProdStatsRemarkTypeD", prodStatsRemarkTypeHandler.ProdStatsRemarkTypeD)
 			remarkTypes.POST("/ProdStatsRemarkTypeQ", prodStatsRemarkTypeHandler.ProdStatsRemarkTypeQ)
 			remarkTypes.GET("/ProdStatsRemarkTypeQ", prodStatsRemarkTypeHandler.ProdStatsRemarkTypeQ)
+		}
+		machineCatalogs := v2.Group("/report/prod-machine-catalog")
+		{
+			machineCatalogs.POST("/ProdMachineCatalogA", prodMachineCatalogHandler.ProdMachineCatalogA)
+			machineCatalogs.POST("/ProdMachineCatalogU", prodMachineCatalogHandler.ProdMachineCatalogU)
+			machineCatalogs.POST("/ProdMachineCatalogD", prodMachineCatalogHandler.ProdMachineCatalogD)
+			machineCatalogs.POST("/ProdMachineCatalogQ", prodMachineCatalogHandler.ProdMachineCatalogQ)
+			machineCatalogs.GET("/ProdMachineCatalogQ", prodMachineCatalogHandler.ProdMachineCatalogQ)
+		}
+		machineRegistrations := v2.Group("/report/prod-machine-registration")
+		{
+			machineRegistrations.POST("/ProdMachineRegistrationA", prodMachineRegistrationHandler.ProdMachineRegistrationA)
+			machineRegistrations.POST("/ProdMachineRegistrationD", prodMachineRegistrationHandler.ProdMachineRegistrationD)
+			machineRegistrations.POST("/ProdMachineRegistrationQ", prodMachineRegistrationHandler.ProdMachineRegistrationQ)
+			machineRegistrations.GET("/ProdMachineRegistrationQ", prodMachineRegistrationHandler.ProdMachineRegistrationQ)
 		}
 
 		// 2. Report Registration & Queries (Master, KHSX Detail, TKSX Detail)

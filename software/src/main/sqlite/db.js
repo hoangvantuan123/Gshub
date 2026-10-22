@@ -386,9 +386,13 @@ export function verifyAndMigrateDatabaseSchema(db) {
         summary TEXT,
         plan_data TEXT,
         stat_data TEXT,
+        machine_comparison_data TEXT,
         calculated_at TEXT
       );
     `)
+    try {
+      db.exec(`ALTER TABLE calc_results ADD COLUMN machine_comparison_data TEXT;`)
+    } catch {}
 
     // 5. Bảng lưu trữ cục bộ các phiên bản đã tải/công bố (calc_versioned_bundles)
     db.exec(`

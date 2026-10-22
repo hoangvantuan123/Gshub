@@ -361,6 +361,49 @@ export const storageAdapter = {
     } catch (e) {
       return { success: false, error: e?.message }
     }
+  },
+
+  saveFactoryMachines: async (factoryKey, machines) => {
+    // 1. Luôn lưu vào IndexedDB (để tra cứu trên Web và trong DevTools Application > IndexedDB)
+    const { saveFactoryMachinesIDB } = await import('./indexedDbStorage')
+    const idbRes = await saveFactoryMachinesIDB(factoryKey, machines)
+
+    // 2. Nếu môi trường hỗ trợ SQLite (Electron Desktop), lưu thêm vào SQLite
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      try {
+        const { saveFactoryMachinesSQLite } = await import('./sqliteStorage')
+        await saveFactoryMachinesSQLite(factoryKey, machines)
+      } catch (sqlErr) {
+        console.warn('Lỗi lưu SQLite factory machines:', sqlErr)
+      }
+    }
+    return idbRes
+  },
+
+  getFactoryMachines: async (factoryKey) => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      try {
+        const { getFactoryMachinesSQLite } = await import('./sqliteStorage')
+        const rows = await getFactoryMachinesSQLite(factoryKey)
+        if (Array.isArray(rows) && rows.length > 0) return rows
+      } catch (sqlErr) {
+        console.warn('Lỗi đọc SQLite factory machines, fallback sang IndexedDB:', sqlErr)
+      }
+    }
+    const { getFactoryMachinesIDB } = await import('./indexedDbStorage')
+    return await getFactoryMachinesIDB(factoryKey)
+  },
+
+  clearFactoryMachines: async () => {
+    const mode = getStorageMode()
+    if (mode === 'sqlite') {
+      const { clearFactoryMachinesSQLite } = await import('./sqliteStorage')
+      return await clearFactoryMachinesSQLite()
+    }
+    const { clearFactoryMachinesIDB } = await import('./indexedDbStorage')
+    return await clearFactoryMachinesIDB()
   }
 }
 

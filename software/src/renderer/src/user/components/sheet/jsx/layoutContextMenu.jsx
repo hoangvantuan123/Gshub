@@ -5,14 +5,20 @@ import {
   BetweenHorizontalStart,
   AlertTriangle,
   Copy,
-  ExternalLink
+  ExternalLink,
+  ClipboardPaste,
+  Trash2
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import { useTranslation } from 'react-i18next'
 import { getNow_yyyymmdd_hhmmss } from '../../../../utils/getToday_yyyymmdd_hhmmss'
 import { usePageData } from '../../../../context/PageDataContext'
-import { useTableClipboard, writeClipboardNativeOrWeb } from '../../../hooks/useTableClipboard'
+import {
+  useTableClipboard,
+  writeClipboardNativeOrWeb,
+  readClipboardNativeOrWeb
+} from '../../../hooks/useTableClipboard'
 import { useOpenInNewWindow } from '../../../hooks/useOpenInNewWindow'
 
 const LayoutContextMenuSheet = ({
@@ -24,7 +30,11 @@ const LayoutContextMenuSheet = ({
   cols = [],
   selection = null,
   canCreate = true,
-  onExportExcel = null
+  canEdit = true,
+  canDelete = true,
+  onExportExcel = null,
+  onPaste = null,
+  onDeleteRow = null
 }) => {
   const { t } = useTranslation()
   const { openInNewWindow } = useOpenInNewWindow()
@@ -167,7 +177,52 @@ const LayoutContextMenuSheet = ({
         <span className="font-medium">{t('Sao chép kèm tiêu đề')}</span>
       </div>
 
-      {/* 5. Xuất file Excel (.xlsx) chuẩn ERP */}
+      {/* 5. Dán giá trị từ Clipboard (hỗ trợ phím Ctrl+V hoặc bấm chuột phải) */}
+      {typeof onPaste === 'function' && (canEdit !== false || canCreate !== false) && (
+        <div
+          onClick={async () => {
+            setShowMenu(null)
+            try {
+              const clipboardText = await readClipboardNativeOrWeb()
+              if (!clipboardText) {
+                if (setStatusMessage) {
+                  setStatusMessage({
+                    type: 'warning',
+                    text: t('Clipboard đang trống, không có dữ liệu để dán!')
+                  })
+                }
+                return
+              }
+
+              const lines = clipboardText.split(/\r\n|\n|\r/)
+              if (lines.length > 0 && lines[lines.length - 1] === '') {
+                lines.pop()
+              }
+              const values = lines.map((line) => line.split('\t'))
+              const targetCol = showMenu?.col ?? selection?.current?.cell?.[0] ?? 0
+              const targetRow = showMenu?.row ?? selection?.current?.cell?.[1] ?? 0
+
+              onPaste([targetCol, targetRow], values)
+            } catch (err) {
+              if (setStatusMessage) {
+                setStatusMessage({
+                  type: 'error',
+                  text: t('Không thể dán dữ liệu: {{msg}}', { msg: err?.message || '' })
+                })
+              }
+            }
+          }}
+          className="flex items-center justify-between px-2.5 py-1.5 hover:bg-slate-100 rounded-none cursor-pointer transition-colors text-slate-800"
+        >
+          <div className="flex items-center gap-2">
+            <ClipboardPaste size={14} className="text-emerald-600 shrink-0" />
+            <span className="font-medium">{t('Dán giá trị')}</span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-mono">Ctrl+V</span>
+        </div>
+      )}
+
+      {/* 6. Xuất file Excel (.xlsx) chuẩn ERP */}
       <div
         onClick={() => {
           if (typeof onExportExcel === 'function') {
@@ -215,6 +270,21 @@ const LayoutContextMenuSheet = ({
               ? t('Chèn {{count}} hàng', { count: selectedRowsCount })
               : t('Chèn hàng')}
           </span>
+        </div>
+      )}
+
+      {/* 6. Xóa dòng đã chọn (kiểm soát theo phân quyền canDelete) */}
+      {typeof onDeleteRow === 'function' && canDelete !== false && (
+        <div
+          onClick={() => {
+            const targetRow = showMenu?.row
+            setShowMenu(null)
+            onDeleteRow(targetRow !== undefined ? [targetRow] : undefined)
+          }}
+          className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-rose-50 text-rose-700 rounded-none cursor-pointer transition-colors font-medium"
+        >
+          <Trash2 size={14} className="text-rose-600 shrink-0" />
+          <span>{t('Xóa dòng đã chọn')}</span>
         </div>
       )}
 

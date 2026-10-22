@@ -8,7 +8,6 @@ import LayoutStatusMenuSheet from '../../../../components/sheet/jsx/layoutStatus
 import LayoutContextMenuSheet from '../../../../components/sheet/jsx/layoutContextMenu'
 import { Drawer, Checkbox } from 'antd'
 import { reorderColumns } from '../../../../components/sheet/js/reorderColumns'
-import useOnFill from '../../../../components/hooks/sheet/onFillHook'
 import useTableManager from '../../../../components/hooks/sheet/useTableManager'
 import useTableConfig from '../../../../components/hooks/sheet/useTableConfig'
 import { useDateFormat } from '../../../../hooks/useDateFormat'
@@ -18,6 +17,17 @@ import { togglePageInteraction } from '../../../../../utils/togglePageInteractio
 const EMPTY_ARRAY = []
 const BOOLEAN_KEYS = new Set(['Active', 'IsDataLock'])
 const DATE_KEYS = new Set(['CreatedAt', 'UpdatedAt', 'CreatedDate', 'UpdatedDate'])
+
+const isDbRow = (row) =>
+  Boolean(
+    row &&
+      (row.IdSeq ||
+        row.RoleGroupSeq ||
+        row.UserSeq ||
+        row.RoleRecordId ||
+        row.CreatedAt ||
+        row.CreatedBy)
+  )
 
 export default function RoleGroupTable({
   tableTitle,
@@ -34,6 +44,8 @@ export default function RoleGroupTable({
   cols = [],
   canEdit,
   canCreate,
+  canDelete = true,
+  onDeleteRow = null,
   defaultCols,
   tableId = 'role_grp',
   readOnlyBg,
@@ -46,7 +58,6 @@ export default function RoleGroupTable({
   const { setStatusMessage } = usePageData() || {}
   const gridRef = useRef(null)
 
-  const onFill = useOnFill(setGridData, cols)
   const onSearchClose = useCallback(() => setShowSearch(false), [setShowSearch])
 
   const { freezeColumnsCount, handleFreezeColumn } = useTableConfig(tableId)
@@ -151,7 +162,7 @@ export default function RoleGroupTable({
           !(canCreate && (item.WorkingTag || item.Status) === 'A' && !item.IdSeq))
 
       if (meta.isStatus) {
-        const strVal = String(value)
+        const strVal = String(value || '')
         return {
           kind: GridCellKind.Text,
           data: strVal,
@@ -224,8 +235,9 @@ export default function RoleGroupTable({
       const key = indexes[col]
       const column = cols[col]
       const rowData = gridData[row]
+      const isDb = isDbRow(rowData)
       const isNewRow =
-        canCreate && rowData && (rowData.WorkingTag || rowData.Status) === 'A' && !rowData.IdSeq
+        canCreate && !isDb && (rowData?.WorkingTag === 'A' || rowData?.Status === 'A')
       if (canEdit === false && !isNewRow) return
 
       if (
@@ -248,8 +260,10 @@ export default function RoleGroupTable({
         const updatedData = [...prevData]
         if (!updatedData[row]) updatedData[row] = {}
 
-        const currentStatus = updatedData[row]['WorkingTag'] || updatedData[row]['Status'] || ''
-        const nextStatus = currentStatus === 'A' ? 'A' : 'U'
+        const rowItem = updatedData[row]
+        const isDbItem = isDbRow(rowItem)
+        const currentStatus = rowItem['WorkingTag'] || rowItem['Status'] || ''
+        const nextStatus = isDbItem ? (currentStatus === 'D' ? 'D' : 'U') : 'A'
         updatedData[row][key] = newValue.data
         updatedData[row]['WorkingTag'] = nextStatus
         updatedData[row]['Status'] = nextStatus
@@ -274,7 +288,9 @@ export default function RoleGroupTable({
       )
       const canPasteToNewRows =
         canCreate &&
-        pastedRows.every((row) => row && (row.WorkingTag || row.Status) === 'A' && !row.IdSeq)
+        pastedRows.every(
+          (row) => row && !isDbRow(row) && (row.WorkingTag === 'A' || row.Status === 'A')
+        )
       if (canEdit === false && !canPasteToNewRows) return false
       const indexes = reorderColumns(cols)
       const numPastedRows = values.length
@@ -316,12 +332,12 @@ export default function RoleGroupTable({
             const existingRow = nextData[targetRow]
               ? { ...nextData[targetRow] }
               : { WorkingTag: 'A', Status: 'A' }
+            const isDb = isDbRow(existingRow)
             const isNewRow =
-              !nextData[targetRow] ||
-              !existingRow.WorkingTag ||
-              existingRow.WorkingTag === 'A' ||
-              !existingRow.Status ||
-              existingRow.Status === 'A'
+              !isDb &&
+              (!nextData[targetRow] ||
+                existingRow.WorkingTag === 'A' ||
+                existingRow.Status === 'A')
 
             let hasRowModified = false
 
@@ -365,7 +381,7 @@ export default function RoleGroupTable({
 
             if (hasRowModified || isNewRow) {
               const curStatus = existingRow.WorkingTag || existingRow.Status || ''
-              const nextStatus = isNewRow ? 'A' : curStatus === 'A' ? 'A' : 'U'
+              const nextStatus = isDb ? (curStatus === 'D' ? 'D' : 'U') : 'A'
               existingRow.WorkingTag = nextStatus
               existingRow.Status = nextStatus
             }
@@ -422,6 +438,132 @@ export default function RoleGroupTable({
 
   const effectiveRows = numRows ?? gridData?.length ?? 0
 
+  // ── 5. KÉO ĐIỀN (FILL HANDLE / DRAG-FILL) CHUẨN GLIDE DATA GRID ──
+  const onFillPattern = useCallback(
+    (args) => {
+      if (!canEdit && !canCreate) return
+      const patternSource = args?.patternSource
+      const fillDestination = args?.fillDestination
+      if (!patternSource || !fillDestination) return
+
+      const indexes = reorderColumns(cols)
+
+      setGridData((prevData) => {
+        const nextData = [...prevData]
+        let hasAnyChange = false
+
+        for (let dy = 0; dy < fillDestination.height; dy++) {
+          const targetRow = fillDestination.y + dy
+          if (targetRow < 0) continue
+
+          if (!nextData[targetRow]) {
+            if (!canCreate) continue
+            nextData[targetRow] = { WorkingTag: 'A', Status: 'A' }
+          }
+
+          const existingRow = { ...nextData[targetRow] }
+          const isDb = isDbRow(existingRow)
+          const isNewRow =
+            !isDb &&
+            (!nextData[targetRow] ||
+              existingRow.WorkingTag === 'A' ||
+              existingRow.Status === 'A')
+
+          if (canEdit === false && !isNewRow) continue
+
+          const srcPatternY = patternSource.y + (dy % patternSource.height)
+          const srcRow = prevData[srcPatternY] || {}
+          let rowChanged = false
+
+          for (let dx = 0; dx < fillDestination.width; dx++) {
+            const targetCol = fillDestination.x + dx
+            if (targetCol >= cols.length) continue
+
+            const colKey = indexes[targetCol]
+            const column = cols[targetCol]
+
+            if (
+              !colKey ||
+              colKey === 'WorkingTag' ||
+              colKey === 'Status' ||
+              colKey === 'Id' ||
+              colKey === 'IdSeq' ||
+              colKey === 'IdxNo' ||
+              colKey === 'CreatedByName' ||
+              colKey === 'CreatedBy' ||
+              colKey === 'CreatedAt' ||
+              colKey === 'UpdatedByName' ||
+              colKey === 'UpdatedBy' ||
+              colKey === 'UpdatedAt' ||
+              column?.readonly ||
+              isReadOnlyColumn(colKey, column)
+            ) {
+              continue
+            }
+
+            const srcPatternX = patternSource.x + (dx % patternSource.width)
+            const srcColKey = indexes[srcPatternX]
+            if (!srcColKey) continue
+
+            const sourceVal = srcRow[srcColKey]
+            const isBoolCol = column?.kind === 'Boolean' || BOOLEAN_KEYS.has(colKey)
+            const isNumCol = column?.kind === 'Number'
+
+            if (isBoolCol) {
+              const boolVal = Boolean(
+                sourceVal === true ||
+                sourceVal === 1 ||
+                sourceVal === '1' ||
+                String(sourceVal).toLowerCase() === 'true'
+              )
+              const oldBool = Boolean(
+                existingRow[colKey] === true ||
+                existingRow[colKey] === 1 ||
+                existingRow[colKey] === '1' ||
+                String(existingRow[colKey]).toLowerCase() === 'true'
+              )
+              if (oldBool !== boolVal) {
+                existingRow[colKey] = boolVal
+                rowChanged = true
+              }
+            } else if (isNumCol) {
+              const numVal = Number(sourceVal)
+              const finalNum = Number.isFinite(numVal) ? numVal : 0
+              if (Number(existingRow[colKey]) !== finalNum) {
+                existingRow[colKey] = finalNum
+                rowChanged = true
+              }
+            } else {
+              const textVal = sourceVal ?? ''
+              if (String(existingRow[colKey] ?? '') !== String(textVal)) {
+                existingRow[colKey] = textVal
+                rowChanged = true
+              }
+            }
+          }
+
+          if (rowChanged) {
+            const curStatus = existingRow.WorkingTag || existingRow.Status || ''
+            const nextStatus = isDb ? (curStatus === 'D' ? 'D' : 'U') : 'A'
+            existingRow.WorkingTag = nextStatus
+            existingRow.Status = nextStatus
+            nextData[targetRow] = existingRow
+            hasAnyChange = true
+          }
+        }
+
+        if (hasAnyChange) {
+          if (typeof setNumRows === 'function' && nextData.length !== prevData.length) {
+            setNumRows(nextData.length)
+          }
+          return nextData
+        }
+        return prevData
+      })
+    },
+    [canEdit, canCreate, cols, isReadOnlyColumn, setGridData, setNumRows]
+  )
+
   return (
     <div className="w-full h-full flex items-center justify-center">
       <div className="w-full h-full flex flex-col bg-white overflow-hidden">
@@ -434,7 +576,7 @@ export default function RoleGroupTable({
           theme={gridTheme}
           columns={cols}
           getCellContent={getData}
-          onFill={onFill}
+          onFillPattern={onFillPattern}
           rows={effectiveRows}
           showSearch={showSearch}
           onSearchClose={onSearchClose}
@@ -460,7 +602,7 @@ export default function RoleGroupTable({
           freezeTrailingRows={0}
           rowHeight={23}
           onPaste={onPaste}
-          fillHandle={Boolean(canEdit)}
+          fillHandle={Boolean(canEdit || canCreate)}
           keybindings={keybindings}
           isDraggable={false}
           onRowAppended={() => handleRowAppend(1)}
@@ -504,6 +646,10 @@ export default function RoleGroupTable({
                   handleRowAppend={handleRowAppend}
                   selection={selection}
                   canCreate={canCreate}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onDeleteRow={onDeleteRow}
+                  onPaste={onPaste}
                 />
               ) : (
                 <LayoutMenuSheet

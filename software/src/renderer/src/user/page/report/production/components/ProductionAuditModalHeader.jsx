@@ -5,7 +5,7 @@ export default function ProductionAuditModalHeader({ plantName, subtitle, onClos
   return (
     <div
       style={{
-        padding: '12px 18px',
+        padding: '8px 16px',
         background: '#ffffff',
         color: '#0f172a',
         display: 'flex',

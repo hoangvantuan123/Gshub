@@ -17,6 +17,7 @@ import {
   MES_APPROVAL_COLUMN_SCHEMA,
   RESULT_KHSX_COLUMN_SCHEMA,
   MACHINE_COMPARISON_COLUMN_SCHEMA,
+  FACTORY_MACHINES_COLUMN_SCHEMA,
   getNextVersion
 } from '../../calcProduction/constants/calcConstants'
 import {
@@ -28,6 +29,7 @@ import {
   getMachineComparisonRows,
   getMachineComparisonPage
 } from '../../calcProduction/engine/machineComparison'
+import { loadFactoryMachineCatalog } from '../../calcProduction/hooks/factoryMachineCatalog'
 import { DEFAULT_CALC_RULES } from '../../calcProduction/engine/calcRuleConfig'
 import CalcDataGridTable from '../../calcProduction/components/CalcDataGridTable'
 import CalcProductionActions from '../../calcProduction/components/CalcProductionActions'
@@ -58,11 +60,48 @@ import { exportFull6TabsProductionExcel } from '../../calcProduction/engine/calc
 import PlanRegistrationPushModal from '../../calcProduction/components/PlanRegistrationPushModal'
 import PlanRegistrationSelectModal from '../../calcProduction/components/PlanRegistrationSelectModal'
 import { savePlanRegistration } from '@renderer/user/page/report/registration/services/planRegistrationService'
+import { saveProdMachineRegistrations } from '@renderer/user/page/report/registration/prodMachine/prodMachineService'
 import { CloudDownload, Send, FileSpreadsheet } from 'lucide-react'
 import { usePageHotkeys } from '@renderer/user/hooks/usePageHotkeys'
 import storageAdapter from '../storageAdapterProxy'
 
 const PAGE_SIZE = 1500
+const PROD_MACHINE_REGISTRATION_BATCH_SIZE = 1000
+
+const toMachineRegistrationRows = (rows, sourceMaster) => {
+  const masterSeq = String(sourceMaster?.IdSeq || '').trim()
+  const regCode = String(sourceMaster?.RegCode || '').trim()
+
+  return rows.map((row, index) => ({
+    MasterSeq: masterSeq,
+    RegCode: regCode,
+    RowSeq: Number(row.RowSeq || row.SourceRow || index + 1),
+    SourceRow: Number(row.SourceRow || row.RowSeq || index + 1),
+    StatSlipNo: row.StatSlipNo || row.StatTicketNo || row['Số phiếu thống kê'] || '',
+    StatDate: row.StatDate || row['Ngày thống kê'] || '',
+    OperationOrderNo: row.OperationOrderNo || row['Số lệnh thao tác'] || '',
+    StageOrderNo: row.StageOrderNo || row['Số lệnh công đoạn'] || '',
+    OperationName: row.OperationName || row['Thao tác'] || '',
+    MaterialCode: row.MaterialCode || row['Mã vật tư'] || '',
+    MaterialName: row.MaterialName || row['Tên vật tư'] || '',
+    ActualMachineCode: row.ActualMachineCode || row['Mã máy thực tế'] || '',
+    ActualMachineName: row.ActualMachineName || row['Tên máy thực tế'] || '',
+    MesSlipNo: row.MesSlipNo || '',
+    MesMachineCode: row.MesMachineCode || '',
+    MesMachineName: row.MesMachineName || '',
+    MesComparisonStatus: row.MesComparisonStatus || '',
+    MesComparisonBasis: row.MesComparisonBasis || '',
+    PlannedMachineCode: row.PlannedMachineCode || row['Mã máy khai báo'] || '',
+    PlannedMachineName: row.PlannedMachineName || row['Tên máy khai báo'] || '',
+    IsBelongToFactory:
+      row.IsBelongToFactory ?? row['Thuộc nhà máy'] ?? row['Máy thuộc nhà máy'] ?? 'FALSE',
+    MachineComparisonStatus: row.MachineComparisonStatus || '',
+    MachineDifference: row.MachineDifference || '',
+    KhsxStatus: row.KhsxStatus || '',
+    ProducedQty: row.ProducedQty ?? '',
+    QualifiedQty: row.QualifiedQty ?? ''
+  }))
+}
 
 export default function CalcProductionDetailView() {
   const { t } = useTranslation()
@@ -103,6 +142,8 @@ export default function CalcProductionDetailView() {
   activeTabRef.current = activeTab
 
   const [masterRecord, setMasterRecord] = useState(null)
+  const masterRecordRef = useRef(null)
+  masterRecordRef.current = masterRecord
   const [availableVersions, setAvailableVersions] = useState([])
   // Cache bundle nhị phân đã tải của các version để không bao giờ phải gọi lại API khi chuyển qua lại
   const versionBundleCacheRef = useRef(new Map())
@@ -244,7 +285,8 @@ export default function CalcProductionDetailView() {
     mes_approval: [],
     result_tksx: [],
     result_khsx: [],
-    machine_comparison: []
+    machine_comparison: [],
+    factory_machines: []
   })
 
   const gridData = useMemo(() => {
@@ -338,6 +380,8 @@ export default function CalcProductionDetailView() {
   const defaultCols = useMemo(() => {
     if (activeTab === 'machine_comparison')
       return getGridColumnsForTab(activeTab, MACHINE_COMPARISON_COLUMN_SCHEMA)
+    if (activeTab === 'factory_machines')
+      return getGridColumnsForTab(activeTab, FACTORY_MACHINES_COLUMN_SCHEMA)
     if (activeTab === 'result_tksx') {
       const statCols = calcResults?.stat?.columns || fileSummaries['stat_report']?.columns || []
       let merged = []
@@ -519,8 +563,18 @@ export default function CalcProductionDetailView() {
           summaryRows = summaryFile?.data
           mesRows = mesFile?.data
         }
+        const currentFactory = masterRecordRef.current?.factoryName || masterInfo.factoryName || 'GS1 Hà Nội'
+        const catalogMachines = Array.isArray(results?.machineComparison?.calculatedRows)
+          ? []
+          : await loadFactoryMachineCatalog(currentFactory, {
+              preferredCatalog: results?.machineComparison?.catalogMachines || [],
+              preferredFactoryKey: results?.machineComparison?.factoryKey || ''
+            })
         return getMachineComparisonPage(
-          getMachineComparisonRows(results, summaryRows, mesRows),
+          getMachineComparisonRows(results, summaryRows, mesRows, {
+            factoryName: currentFactory,
+            catalogMachines
+          }),
           pageNumber,
           PAGE_SIZE,
           (rows) => applyRowSearchFilters(rows, searchFilters)
@@ -553,6 +607,30 @@ export default function CalcProductionDetailView() {
           return { rows: [], total: 0, page: 1, totalPages: 1, hasMore: false }
         }
         const filteredRows = applyRowSearchFilters(rawRows, searchFilters)
+        const total = filteredRows.length
+        const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+        const offset = (pageNumber - 1) * PAGE_SIZE
+        const pagedRows = filteredRows.slice(offset, offset + PAGE_SIZE)
+
+        return {
+          rows: pagedRows,
+          total,
+          page: pageNumber,
+          totalPages,
+          hasMore: offset + pagedRows.length < total && pagedRows.length > 0
+        }
+      }
+
+      if (tabId === 'factory_machines') {
+        const curMaster = masterRecordRef.current
+        const currentFactory =
+          curMaster?.factoryName || curMaster?.FactoryName || masterInfo.factoryName || 'GS1 Hà Nội'
+        const list = await loadFactoryMachineCatalog(currentFactory, {
+          preferredCatalog: results?.machineComparison?.catalogMachines || [],
+          preferredFactoryKey: results?.machineComparison?.factoryKey || ''
+        })
+
+        const filteredRows = applyRowSearchFilters(list, searchFilters)
         const total = filteredRows.length
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
         const offset = (pageNumber - 1) * PAGE_SIZE
@@ -600,7 +678,7 @@ export default function CalcProductionDetailView() {
         return { rows: [], total: 0, page: 1, totalPages: 1, hasMore: false }
       }
     },
-    [fileSummaries, calcResults, applyRowSearchFilters, targetRegCode]
+    [fileSummaries, calcResults, applyRowSearchFilters, targetRegCode, masterInfo]
   )
 
   // ── Hàm nạp trước dữ liệu toàn bộ 6 tabs ở chế độ ngầm (Background Preload) ──
@@ -816,6 +894,16 @@ export default function CalcProductionDetailView() {
                 rowCount: results?.plan?.calculatedRows?.length || 0,
                 fileName: 'Kết quả KHSX',
                 columns: results?.plan?.columns || []
+              }
+              const machineRows = results?.machineComparison?.calculatedRows
+              if (Array.isArray(machineRows)) {
+                mergedSummaries.machine_comparison = {
+                  isUploaded: machineRows.length > 0,
+                  rowCount: machineRows.length,
+                  fileName: 'Đối chiếu máy TK - KH - MES',
+                  columns: MACHINE_COMPARISON_COLUMN_SCHEMA,
+                  isResult: true
+                }
               }
             }
           } catch (rErr) {
@@ -1277,6 +1365,15 @@ export default function CalcProductionDetailView() {
           uploadedAt: calcResults?.calculatedAt || null,
           isResult: true
         }
+      } else if (tab.id === 'factory_machines') {
+        const rows = tabDataMap.factory_machines || tabsCacheRef.current.factory_machines?.rows || []
+        summary[tab.id] = {
+          isUploaded: rows.length > 0,
+          fileName: 'DanhSachMay_NhaMay.xlsx',
+          rowCount: rows.length,
+          uploadedAt: null,
+          isResult: true
+        }
       } else {
         const fileObj = fileSummaries[tab.id]
         const count = fileObj?.rowCount || 0
@@ -1367,6 +1464,12 @@ export default function CalcProductionDetailView() {
     try {
       const allFiles = await storageAdapter.getAllFiles(targetRegCode)
 
+      const factoryCatalog = await loadFactoryMachineCatalog(masterInfo.factoryName, {
+        preferredCatalog: calcResults?.machineComparison?.catalogMachines || [],
+        preferredFactoryKey: calcResults?.machineComparison?.factoryKey || '',
+        preferSnapshot: false
+      })
+
       setCalculationProgress({
         percent: 50,
         step: 'CALC_TKSX',
@@ -1396,7 +1499,8 @@ export default function CalcProductionDetailView() {
         {
           ...masterInfo,
           regCode: targetRegCode,
-          version: nextVersion
+          version: nextVersion,
+          catalogMachines: factoryCatalog
         },
         calcRules,
         async ({ activeTab: calculatingTab, ...progress }) => {
@@ -1459,7 +1563,12 @@ export default function CalcProductionDetailView() {
           ...masterRecord,
           version: nextVersion,
           status: 'REGISTERED',
-          isPublished: false
+          isPublished: false,
+          hasCalcResults: true,
+          resultTksxRows: tksxAllRows.length,
+          resultKhsxRows: khsxAllRows.length,
+          resultMachineRows: machineAllRows.length,
+          fileSummaries: updatedSummaries
         }
         setMasterRecord(updatedMaster)
         try {
@@ -1544,6 +1653,7 @@ export default function CalcProductionDetailView() {
     targetRegCode,
     masterInfo,
     masterRecord,
+    calcResults,
     calcRules,
     setPageData,
     setStatusMessage
@@ -2288,6 +2398,16 @@ export default function CalcProductionDetailView() {
           isResult: true
         }
       }
+      if (Array.isArray(calcResults?.machineComparison?.calculatedRows)) {
+        mergedSummaries.machine_comparison = {
+          isUploaded: calcResults.machineComparison.calculatedRows.length > 0,
+          rowCount: calcResults.machineComparison.calculatedRows.length,
+          fileName: 'Đối chiếu máy TK - KH - MES',
+          uploadedAt: calcResults.calculatedAt || new Date().toISOString(),
+          columns: MACHINE_COMPARISON_COLUMN_SCHEMA,
+          isResult: true
+        }
+      }
 
       const updatedMaster = {
         ...masterRecord,
@@ -2299,6 +2419,8 @@ export default function CalcProductionDetailView() {
         mesApprovalRows: mesRows,
         resultTksxRows: calcResults?.stat?.calculatedRows?.length || 0,
         resultKhsxRows: calcResults?.plan?.calculatedRows?.length || 0,
+        resultMachineRows: calcResults?.machineComparison?.calculatedRows?.length || 0,
+        hasCalcResults: Boolean(calcResults),
         totalRows: total,
         fileSummaries: mergedSummaries,
         updatedAt: new Date().toISOString()
@@ -2545,6 +2667,14 @@ export default function CalcProductionDetailView() {
 
       const indicesSet = new Set(indicesToDel)
       const count = indicesSet.size
+
+      if (activeTab === 'factory_machines') {
+        setStatusMessage?.({
+          type: 'info',
+          text: 'Danh mục máy móc theo nhà máy là dữ liệu nguồn chỉ xem, không thể xóa dòng.'
+        })
+        return
+      }
 
       if (activeTab === 'result_tksx') {
         const oldRows = calcResults?.stat?.calculatedRows || []
@@ -3054,6 +3184,7 @@ export default function CalcProductionDetailView() {
 
       const khsxRows = pushKhsx ? freshCalc?.plan?.calculatedRows || [] : []
       const statRows = pushTksx ? freshCalc?.stat?.calculatedRows || [] : []
+      const machineComparisonSnapshot = freshCalc?.machineComparison?.calculatedRows
 
       if (khsxRows.length === 0 && statRows.length === 0) {
         setStatusMessage?.({
@@ -3061,6 +3192,26 @@ export default function CalcProductionDetailView() {
           text: 'Không có báo cáo nào được chọn hoặc dữ liệu báo cáo được chọn đang trống!'
         })
         return
+      }
+
+      if (pushTksx && statRows.length > 0) {
+        const missingMachineSource = !Array.isArray(machineComparisonSnapshot)
+        const inconsistentMachineRows =
+          !missingMachineSource && machineComparisonSnapshot.length !== statRows.length
+        const invalidMachineRow =
+          !missingMachineSource &&
+          machineComparisonSnapshot.some(
+            (row, index) =>
+              !String(row.StatSlipNo || row.StatTicketNo || row['Số phiếu thống kê'] || '').trim() ||
+              Number(row.SourceRow || row.RowSeq || index + 1) < 1
+          )
+        if (missingMachineSource || inconsistentMachineRows || invalidMachineRow) {
+          setStatusMessage?.({
+            type: 'warning',
+            text: 'Tab 7 chưa có snapshot đối chiếu máy hợp lệ cùng lần tính TKSX hiện tại. Vui lòng tính lại KHSX & TKSX trước khi đăng ký báo cáo.'
+          })
+          return
+        }
       }
 
       setIsPushingRegistration(true)
@@ -3087,6 +3238,11 @@ export default function CalcProductionDetailView() {
       })
 
       await new Promise((r) => setTimeout(r, 200))
+
+      let savedKhsxRegistration = null
+      let savedTksxRegistration = null
+      let machineComparisonSyncStarted = false
+      let machineComparisonSyncComplete = false
 
       try {
         const factoryCode =
@@ -3119,7 +3275,7 @@ export default function CalcProductionDetailView() {
           }))
 
           const maxKhsxP = pushTksx && statRows.length > 0 ? 60 : 95
-          await savePlanRegistration(
+          savedKhsxRegistration = await savePlanRegistration(
             {
               reportType: 'plan',
               factoryCode,
@@ -3164,7 +3320,7 @@ export default function CalcProductionDetailView() {
             statusTag: 'Đang nạp TKSX'
           }))
 
-          await savePlanRegistration(
+          savedTksxRegistration = await savePlanRegistration(
             {
               reportType: 'statistics',
               factoryCode,
@@ -3192,13 +3348,61 @@ export default function CalcProductionDetailView() {
           )
         }
 
+        // Ghi Tab 7 sau khi master TKSX đã được lưu để gắn đúng RegCode/MasterSeq.
+        // Dùng snapshot của lần tính hiện tại, không tính lại khi đăng ký.
+        if (pushTksx && statRows.length > 0) {
+          const tksxMaster = savedTksxRegistration?.data
+          if (!tksxMaster?.IdSeq || !tksxMaster?.RegCode) {
+            throw new Error('Máy chủ chưa trả về MasterSeq và mã đăng ký TKSX đã lưu.')
+          }
+
+          const sourceMaster = savedKhsxRegistration?.data?.IdSeq
+            ? savedKhsxRegistration.data
+            : tksxMaster
+          const machineRows = toMachineRegistrationRows(machineComparisonSnapshot, sourceMaster)
+          const batchCount = Math.ceil(machineRows.length / PROD_MACHINE_REGISTRATION_BATCH_SIZE)
+          machineComparisonSyncStarted = true
+          setPushRegistrationProgress((prev) => ({
+            ...prev,
+            percent: 96,
+            step: 'MACHINE_COMPARISON',
+            message: `Đang lưu ${machineRows.length.toLocaleString('vi-VN')} dòng đối chiếu máy Tab 7...`,
+            detail: `Mã báo cáo TKSX: ${tksxMaster.RegCode}`,
+            statusTag: 'Đang lưu Tab 7'
+          }))
+
+          for (let batchIndex = 0; batchIndex < batchCount; batchIndex += 1) {
+            const start = batchIndex * PROD_MACHINE_REGISTRATION_BATCH_SIZE
+            const items = machineRows.slice(start, start + PROD_MACHINE_REGISTRATION_BATCH_SIZE)
+            const response = await saveProdMachineRegistrations({
+              TKSXRegCode: tksxMaster.RegCode,
+              TKSXMasterSeq: tksxMaster.IdSeq,
+              items
+            })
+            if (response?.success !== true) {
+              throw new Error(response?.message || 'Máy chủ chưa xác nhận lưu dữ liệu Tab 7.')
+            }
+            const savedCount = Math.min(start + items.length, machineRows.length)
+            setPushRegistrationProgress((prev) => ({
+              ...prev,
+              percent: Math.min(99, 96 + Math.round((savedCount / machineRows.length) * 3)),
+              detail: `Đã lưu ${savedCount.toLocaleString('vi-VN')}/${machineRows.length.toLocaleString('vi-VN')} dòng Tab 7`,
+              statusTag: `Tab 7 ${batchIndex + 1}/${batchCount}`
+            }))
+          }
+          machineComparisonSyncComplete = true
+        }
+
         // Hoàn tất 100%
+        const machineComparisonNote = machineComparisonSyncComplete
+          ? ` và ${machineComparisonSnapshot.length.toLocaleString('vi-VN')} dòng đối chiếu máy Tab 7`
+          : ''
         const successMsg =
           pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
-            ? 'Đã nạp thành công 2 báo cáo KHSX & TKSX!'
+            ? `Đã nạp thành công 2 báo cáo KHSX & TKSX${machineComparisonNote}!`
             : pushKhsx && khsxRows.length > 0
               ? 'Đã nạp thành công báo cáo KHSX!'
-              : 'Đã nạp thành công báo cáo TKSX!'
+              : `Đã nạp thành công báo cáo TKSX${machineComparisonNote}!`
 
         setPushRegistrationProgress((prev) => ({
           ...prev,
@@ -3212,10 +3416,10 @@ export default function CalcProductionDetailView() {
 
         const notifyMsg =
           pushKhsx && pushTksx && khsxRows.length > 0 && statRows.length > 0
-            ? `Đã nạp thành công 2 báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng) và TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
+            ? `Đã nạp thành công 2 báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng) và TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)${machineComparisonNote}!`
             : pushKhsx && khsxRows.length > 0
               ? `Đã nạp thành công báo cáo KHSX (${khsxRows.length.toLocaleString('vi-VN')} dòng)!`
-              : `Đã nạp thành công báo cáo TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)!`
+              : `Đã nạp thành công báo cáo TKSX (${statRows.length.toLocaleString('vi-VN')} dòng)${machineComparisonNote}!`
 
         setStatusMessage?.({
           type: 'success',
@@ -3223,18 +3427,21 @@ export default function CalcProductionDetailView() {
         })
       } catch (err) {
         console.error('[PushRegistration Error in DetailView]', err)
+        const errorMessage = machineComparisonSyncStarted && !machineComparisonSyncComplete
+          ? `Đã lưu báo cáo TKSX ${savedTksxRegistration?.data?.RegCode || ''} nhưng chưa đồng bộ xong Tab 7: ${err?.message || err}. Có thể đăng ký lại để tiếp tục đồng bộ.`
+          : `Lỗi khi nạp báo cáo: ${err?.message || err}`
         setPushRegistrationProgress((prev) => ({
           ...prev,
           isError: true,
           isComplete: false,
           step: 'ERROR',
-          message: `Lỗi khi nạp báo cáo: ${err?.message || err}`,
+          message: errorMessage,
           detail: 'Vui lòng kiểm tra kết nối mạng hoặc thử lại.',
           statusTag: 'Lỗi nạp dữ liệu'
         }))
         setStatusMessage?.({
           type: 'error',
-          text: `Lỗi đăng ký báo cáo: ${err?.message || err}`
+          text: errorMessage
         })
       } finally {
         setIsPushingRegistration(false)
@@ -3356,7 +3563,8 @@ export default function CalcProductionDetailView() {
             setShowSearch={setShowSearch}
             onVisibleRegionChanged={handleVisibleRegionChanged}
             onAddQueryField={handleAddQueryField}
-            canEdit={activeTab !== 'machine_comparison'}
+            canEdit={activeTab !== 'machine_comparison' && activeTab !== 'factory_machines'}
+            canDelete={activeTab !== 'factory_machines'}
           />
         }
       />

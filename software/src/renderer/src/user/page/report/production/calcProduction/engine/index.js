@@ -10,7 +10,8 @@ import storageAdapter from '../storage'
 import {
   attachDeclaredMachines,
   buildMachineComparison,
-  getMesMachineSources
+  getMesMachineSources,
+  mapMasterFactoryToCatalogKey
 } from './machineComparison'
 
 export * from './calcRuleConfig'
@@ -69,13 +70,22 @@ export const runProductionCalculations = async (
     'machine_comparison'
   )
   const mesMachines = getMesMachineSources(allFiles.mes_approval?.data || [])
+  const catalogMachines = masterInfo?.catalogMachines || masterInfo?.machineCatalog || []
+  const factoryName = masterInfo?.factoryName || masterInfo?.FactoryName || ''
   const machineComparison = {
     matchVersion: 2,
+    factoryName,
+    factoryKey: mapMasterFactoryToCatalogKey(factoryName),
     mesMachines,
+    catalogMachines,
     calculatedRows: buildMachineComparison(
       statResult.calculatedRows,
       planResult.calculatedRows,
-      mesMachines
+      mesMachines,
+      {
+        factoryName,
+        catalogMachines
+      }
     )
   }
 

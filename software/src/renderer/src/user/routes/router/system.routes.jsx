@@ -21,6 +21,8 @@ export const pageLoaders = {
   StatDetailQueryPage: () =>
     import('../../page/report/registration/statistics/StatDetailQueryPage'),
   ProdStatsRemarkTypePage: () => import('../../page/report/registration/remarkType'),
+  ProdMachineCatalogPage: () => import('../../page/report/registration/machineCatalog'),
+  ProdMachineRegistrationPage: () => import('../../page/report/registration/prodMachine'),
   PlanRegistrationDetailView: () =>
     import('../../page/report/registration/components/PlanRegistrationDetailView'),
   PlanRegistrationCreateView: () =>
@@ -51,6 +53,8 @@ const RegistrationPage = lazy(pageLoaders.RegistrationPage)
 const PlanDetailQueryPage = lazy(pageLoaders.PlanDetailQueryPage)
 const StatDetailQueryPage = lazy(pageLoaders.StatDetailQueryPage)
 const ProdStatsRemarkTypePage = lazy(pageLoaders.ProdStatsRemarkTypePage)
+const ProdMachineCatalogPage = lazy(pageLoaders.ProdMachineCatalogPage)
+const ProdMachineRegistrationPage = lazy(pageLoaders.ProdMachineRegistrationPage)
 const PlanRegistrationDetailView = lazy(pageLoaders.PlanRegistrationDetailView)
 const PlanRegistrationCreateView = lazy(pageLoaders.PlanRegistrationCreateView)
 const FormulaHandbookPage = lazy(pageLoaders.FormulaHandbookPage)
@@ -90,6 +94,8 @@ export const routeToLoaderMap = {
   '/erp/u/report/plan-query': pageLoaders.PlanDetailQueryPage,
   '/erp/u/report/stat-query': pageLoaders.StatDetailQueryPage,
   '/erp/u/report/prod-stats-remark-type': pageLoaders.ProdStatsRemarkTypePage,
+  '/erp/u/report/prod-machine-catalog': pageLoaders.ProdMachineCatalogPage,
+  '/erp/u/report/prod-machine': pageLoaders.ProdMachineRegistrationPage,
   '/erp/u/report/registration/plan-query': pageLoaders.PlanDetailQueryPage,
   '/erp/u/report/registration/stat-query': pageLoaders.StatDetailQueryPage,
   '/erp/u/report/registration/create': pageLoaders.PlanRegistrationCreateView,
@@ -444,6 +450,18 @@ export const systemsRoutes = [
     path: '/erp/u/report/prod-stats-remark-type',
     element: ProdStatsRemarkTypePage,
     permission: 'report_prod_stats_remark_type',
+    public: false
+  },
+  {
+    path: '/erp/u/report/prod-machine-catalog',
+    element: ProdMachineCatalogPage,
+    permission: 'report_prod_machine_catalog',
+    public: false
+  },
+  {
+    path: '/erp/u/report/prod-machine',
+    element: ProdMachineRegistrationPage,
+    permission: 'report_prod_machine_registration',
     public: false
   },
   {

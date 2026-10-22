@@ -1,0 +1,16 @@
+syntax = "proto3";
+package datahub;
+option go_package = "service-datahub/pb/datahub";
+
+// filters_json carries the original query or selected Tab 7 rows.
+message ProdMachineRegistrationRequest { string filters_json = 1; }
+message ProdMachineRegistrationResponse {
+  bool success = 1;
+  string data_json = 2;
+  string page = 3;
+}
+service ProdMachineRegistrationService {
+  rpc ProdMachineRegistrationA(ProdMachineRegistrationRequest) returns (ProdMachineRegistrationResponse);
+  rpc ProdMachineRegistrationD(ProdMachineRegistrationRequest) returns (ProdMachineRegistrationResponse);
+  rpc ProdMachineRegistrationQ(ProdMachineRegistrationRequest) returns (ProdMachineRegistrationResponse);
+}

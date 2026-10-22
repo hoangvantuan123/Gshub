@@ -182,6 +182,7 @@ export function useDataGridSheet({
   defaultCols = [],
   canCreate = true,
   canView = true,
+  includeStatusColumn = true,
   initialRowCount = 100
 }) {
   const { registerDirtyChecker, setSelectionStats, setPageData, setStatusMessage } =
@@ -217,9 +218,9 @@ export function useDataGridSheet({
             width: column.width ?? definition.width
           }
         })
-      return ensureStatusFirstColumn(normalized, defaultCols)
+      return includeStatusColumn ? ensureStatusFirstColumn(normalized, defaultCols) : normalized
     },
-    [defaultCols]
+    [defaultCols, includeStatusColumn]
   )
 
   // Khởi tạo cột từ LocalStorage hoặc cấu hình default

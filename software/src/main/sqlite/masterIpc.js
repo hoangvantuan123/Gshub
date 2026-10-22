@@ -248,4 +248,79 @@ export function setupMasterIpc() {
       return { success: false, error: err.message }
     }
   })
+
+  // 6. Lưu danh mục máy móc theo nhà máy (xóa danh mục máy cũ để chỉ lưu nhà máy đang chọn)
+  ipcMain.handle('sqlite:save-factory-machines', async (_, payload) => {
+    const db = getDb()
+    if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calc_factory_machines (
+          factory_key TEXT PRIMARY KEY,
+          machines TEXT,
+          updated_at TEXT
+        );
+      `)
+      const { factoryKey, machines } = payload || {}
+      if (factoryKey && Array.isArray(machines) && machines.length > 0) {
+        db.prepare(`
+          INSERT INTO calc_factory_machines (factory_key, machines, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(factory_key) DO UPDATE SET
+            machines = excluded.machines,
+            updated_at = excluded.updated_at
+        `).run(factoryKey, JSON.stringify(machines), new Date().toISOString())
+      }
+      return { success: true }
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi lưu danh mục máy móc theo nhà máy:', err)
+      return { success: false, error: err?.message }
+    }
+  })
+
+  // 7. Lấy danh mục máy móc theo nhà máy
+  ipcMain.handle('sqlite:get-factory-machines', async (_, factoryKey) => {
+    const db = getDb()
+    if (!db) return []
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calc_factory_machines (
+          factory_key TEXT PRIMARY KEY,
+          machines TEXT,
+          updated_at TEXT
+        );
+      `)
+      let row = null
+      if (factoryKey) {
+        row = db
+          .prepare('SELECT machines FROM calc_factory_machines WHERE factory_key = ?')
+          .get(factoryKey)
+      } else {
+        row = db.prepare('SELECT machines FROM calc_factory_machines LIMIT 1').get()
+      }
+      if (row && row.machines) {
+        try {
+          return JSON.parse(row.machines)
+        } catch {
+          return []
+        }
+      }
+      return []
+    } catch (err) {
+      console.error('[SQLite IPC] Lỗi lấy danh mục máy móc theo nhà máy:', err)
+      return []
+    }
+  })
+
+  // 8. Xóa toàn bộ danh mục máy móc trong SQLite
+  ipcMain.handle('sqlite:clear-factory-machines', async () => {
+    const db = getDb()
+    if (!db) return { success: false }
+    try {
+      db.exec('DELETE FROM calc_factory_machines;')
+      return { success: true }
+    } catch {
+      return { success: false }
+    }
+  })
 }

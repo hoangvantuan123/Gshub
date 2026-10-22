@@ -243,3 +243,80 @@ test('multiple declared machines stay paired and ambiguous without multiplying T
   assert.equal(rows[0].MachineComparisonStatus, 'Nhiều máy khai báo')
   assert.deepEqual(buildMachineComparison([], plans), [])
 })
+
+test('matches operation name to select specific declared machine from KHSX', () => {
+  const plans = [
+    { OperationOrderNo: 'TT_MULTI', OperationName: 'In Offset', MachineCode: 'M_IN', MachineName: 'Máy In' },
+    { OperationOrderNo: 'TT_MULTI', OperationName: 'Bế Tự Động', MachineCode: 'M_BE', MachineName: 'Máy Bế' }
+  ]
+  const rows = buildMachineComparison(
+    [
+      { OperationOrderNo: 'TT_MULTI', OperationName: 'In Offset', MachineCode: 'M_IN' },
+      { OperationOrderNo: 'TT_MULTI', OperationName: 'Bế Tự Động', MachineCode: 'M_BE' }
+    ],
+    plans
+  )
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].PlannedMachineCode, 'M_IN')
+  assert.equal(rows[0].PlannedMachineName, 'Máy In')
+  assert.equal(rows[0].MachineComparisonStatus, 'Khớp máy')
+  assert.equal(rows[1].PlannedMachineCode, 'M_BE')
+  assert.equal(rows[1].PlannedMachineName, 'Máy Bế')
+  assert.equal(rows[1].MachineComparisonStatus, 'Khớp máy')
+})
+
+test('correctly evaluates IsBelongToFactory as TRUE or FALSE against factory machine catalog with GS51B', () => {
+  const plans = [
+    { OperationOrderNo: 'TT_01', OperationName: 'In Offset', MachineCode: 'M_QV1B_01', MachineName: 'Máy In 1B' },
+    { OperationOrderNo: 'TT_02', OperationName: 'Bế Tự Động', MachineCode: 'M_OTHER_99', MachineName: 'Máy Ngoài' }
+  ]
+  const catalogMachines = [
+    { Factory: 'GS51B', MachineCode: 'M_QV1B_01', MachineName: 'Máy In 1B' },
+    { Factory: 'GS51B', MachineCode: 'M_QV1B_02', MachineName: 'Máy Bế 1B' },
+    { Factory: 'GS1', MachineCode: 'M_HN_01', MachineName: 'Máy Hà Nội' }
+  ]
+  const rows = buildMachineComparison(
+    [
+      { OperationOrderNo: 'TT_01', OperationName: 'In Offset', MachineCode: 'M_QV1B_01' },
+      { OperationOrderNo: 'TT_02', OperationName: 'Bế Tự Động', MachineCode: 'M_OTHER_99' }
+    ],
+    plans,
+    [],
+    {
+      factoryName: 'GS5 Quế Võ 1B',
+      catalogMachines
+    }
+  )
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].IsBelongToFactory, 'TRUE')
+  assert.equal(rows[1].IsBelongToFactory, 'FALSE')
+})
+
+test('correctly evaluates multiple declared machines joined by pipe or comma against catalog', () => {
+  const plans = [
+    { OperationOrderNo: 'TT_01', OperationName: 'In Offset', MachineCode: 'QV-01 | QV-02', MachineName: 'Máy 1 | Máy 2' },
+    { OperationOrderNo: 'TT_02', OperationName: 'Bế Tự Động', MachineCode: 'QV-01, FOREIGN-01', MachineName: 'Máy 1, Máy lạ' }
+  ]
+  const catalogMachines = [
+    { MachineCode: 'QV-01', MachineName: 'Máy 1' },
+    { MachineCode: 'QV-02', MachineName: 'Máy 2' }
+  ]
+  const rows = buildMachineComparison(
+    [
+      { OperationOrderNo: 'TT_01', OperationName: 'In Offset', MachineCode: 'QV-01' },
+      { OperationOrderNo: 'TT_02', OperationName: 'Bế Tự Động', MachineCode: 'QV-01' }
+    ],
+    plans,
+    [],
+    {
+      factoryName: 'GS5 Quế Võ 1B',
+      catalogMachines
+    }
+  )
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].IsBelongToFactory, 'TRUE')
+  assert.equal(rows[1].IsBelongToFactory, 'FALSE')
+  assert.equal(rows[0].PlannedMachineCode, 'QV-01 | QV-02')
+})
+
+

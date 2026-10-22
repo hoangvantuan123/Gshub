@@ -174,8 +174,15 @@ export function packProductionBundle(
     },
     results: {
       summary: results?.summary || {},
+      calculatedAt: results?.calculatedAt || new Date().toISOString(),
       plan: objectsToMatrix(planResults),
-      stat: objectsToMatrix(statResults)
+      stat: objectsToMatrix(statResults),
+      machineComparison: results?.machineComparison
+        ? {
+            ...results.machineComparison,
+            calculatedRows: objectsToMatrix(results.machineComparison.calculatedRows || [])
+          }
+        : null
     }
   }
 
@@ -220,6 +227,16 @@ export function unpackProductionBundle(buffer) {
 
   const planCalculatedRows = matrixToObjects(res.plan?.calculatedRows || res.plan)
   const statCalculatedRows = matrixToObjects(res.stat?.calculatedRows || res.stat)
+  const machineComparison = res.machineComparison
+    ? {
+        ...res.machineComparison,
+        calculatedRows: res.machineComparison.calculatedRows?.cols
+          ? matrixToObjects(res.machineComparison.calculatedRows)
+          : Array.isArray(res.machineComparison.calculatedRows)
+            ? res.machineComparison.calculatedRows
+            : []
+      }
+    : null
 
   const architectureFiles = {
     STAT_REPORT: statRows,
@@ -281,7 +298,8 @@ export function unpackProductionBundle(buffer) {
       summary: res.summary || {},
       plan: { calculatedRows: planCalculatedRows },
       stat: { calculatedRows: statCalculatedRows },
-      calculatedAt: bundleObj.exportedAt || new Date().toISOString()
+      machineComparison,
+      calculatedAt: res.calculatedAt || bundleObj.exportedAt || new Date().toISOString()
     }
   }
 }

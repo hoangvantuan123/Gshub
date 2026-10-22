@@ -12,6 +12,7 @@ import {
   STAT_REPORT_COLUMN_SCHEMA,
   RESULT_KHSX_COLUMN_SCHEMA,
   MACHINE_COMPARISON_COLUMN_SCHEMA,
+  FACTORY_MACHINES_COLUMN_SCHEMA,
   ARCHITECTURE_FILE_TYPES,
   getNextVersion
 } from '../constants/calcConstants'
@@ -22,7 +23,12 @@ import {
   formatTemporalWarnings
 } from '../engine/fileParsers'
 import { runProductionCalculations } from '../engine'
-import { attachDeclaredMachines, buildMachineComparison } from '../engine/machineComparison'
+import {
+  attachDeclaredMachines,
+  buildMachineComparison,
+  mapMasterFactoryToCatalogKey
+} from '../engine/machineComparison'
+import { loadFactoryMachineCatalog } from './factoryMachineCatalog'
 import storageAdapter from '../storage'
 import {
   publishMasterRegistrationSQLite,
@@ -32,12 +38,40 @@ import { publishProductionBundleOnline } from '@renderer/api/production/calcBund
 import { packProductionBundle, uint8ArrayToBase64 } from '../engine/bundlePacker'
 import { getEmployeeCode, getUserSeq, getUserDisplayName } from '@renderer/services/tokenService'
 import { savePlanRegistration } from '@renderer/user/page/report/registration/services/planRegistrationService'
+import { queryProdMachineCatalogs } from '@renderer/user/page/report/registration/machineCatalog/machineCatalogService'
 import { useArchitectureStorage } from './useArchitectureStorage'
 
 const generateDefaultRegCode = () => {
   const dateStr = dayjs().format('YYYYMMDD')
   const rand = Math.floor(1000 + Math.random() * 9000)
   return `REG-CALC-${dateStr}-${rand}`
+}
+
+const CALC_LAST_ACTIVE_REG_CODE_KEY = 'CALC_LAST_ACTIVE_REG_CODE'
+const CALC_LAST_SELECTED_FACTORY_KEY = 'CALC_LAST_SELECTED_FACTORY'
+
+const getStoredItem = (key, fallback = '') => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const val = window.localStorage.getItem(key)
+      return val !== null && val !== undefined && String(val).trim() !== ''
+        ? String(val).trim()
+        : fallback
+    }
+  } catch {}
+  return fallback
+}
+
+const setStoredItem = (key, val) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (val === null || val === undefined) {
+        window.localStorage.removeItem(key)
+      } else {
+        window.localStorage.setItem(key, String(val).trim())
+      }
+    }
+  } catch {}
 }
 
 export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}) {
@@ -52,6 +86,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     } catch (_e) {
       // Bỏ qua lỗi parse URL
     }
+    // Mặc định luôn sinh mã đăng ký mới duy nhất cho mỗi đợt tính toán mới
     return generateDefaultRegCode()
   }, [initialRegCode])
 
@@ -99,17 +134,21 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     inspectData: null
   })
 
-  // Thông tin Master Đăng Ký Báo Cáo - Tự động tạo mã hệ thống duy nhất cho đợt đăng ký mới
-  const [masterInfo, setMasterInfo] = useState(() => ({
-    regCode: resolvedRegCode,
-    factoryName: 'GS1 Hà Nội',
-    applyDate: dayjs().format('YYYY-MM-DD'),
-    productionTeam: 'Tất cả các tổ',
-    remark: '',
-    status: 'DRAFT',
-    version: '1.0',
-    isPublished: false
-  }))
+  // Thông tin Master Đăng Ký Báo Cáo - Tự động nạp nhà máy mặc định đã lưu trước đó nếu có
+  const [masterInfo, setMasterInfo] = useState(() => {
+    const savedFactory = getStoredItem(CALC_LAST_SELECTED_FACTORY_KEY, 'GS1 Hà Nội')
+    return {
+      regCode: resolvedRegCode,
+      factoryName: savedFactory,
+      FactoryName: savedFactory,
+      applyDate: dayjs().format('YYYY-MM-DD'),
+      productionTeam: 'Tất cả các tổ',
+      remark: '',
+      status: 'DRAFT',
+      version: '1.0',
+      isPublished: false
+    }
+  })
 
   const notify = useCallback(
     (type, text) => {
@@ -123,10 +162,188 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
   const handleChangeMasterInfo = useCallback((key, value) => {
     setMasterInfo((prev) => ({
       ...prev,
-      [key]: value
+      [key]: value,
+      ...(key === 'FactoryName' ? { factoryName: value } : {}),
+      ...(key === 'factoryName' ? { FactoryName: value } : {})
     }))
+    if (key === 'factoryName' || key === 'FactoryName') {
+      setStoredItem(CALC_LAST_SELECTED_FACTORY_KEY, value)
+    }
     setIsDirty(true)
   }, [])
+
+  const [machineCatalog, setMachineCatalog] = useState([])
+  const [isReloadingCatalog, setIsReloadingCatalog] = useState(false)
+
+  // Nạp lại danh mục máy móc trực tiếp từ máy chủ API
+  const handleReloadMachineCatalog = useCallback(async () => {
+    const currentFactory = masterInfo?.factoryName || masterInfo?.FactoryName || 'GS1 Hà Nội'
+    const factoryKey = mapMasterFactoryToCatalogKey(currentFactory)
+    setIsReloadingCatalog(true)
+    try {
+      const params = { page: 1, pageSize: 1000 }
+      if (factoryKey) {
+        params.Factory = factoryKey
+      }
+      let list = []
+      const res = await queryProdMachineCatalogs(params)
+      const rawData = res?.data !== undefined ? res.data : res
+      list = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData?.items)
+          ? rawData.items
+          : Array.isArray(rawData?.rows)
+            ? rawData.rows
+            : Array.isArray(res?.items)
+              ? res.items
+              : []
+
+      if (list.length === 0) {
+        try {
+          const resAll = await queryProdMachineCatalogs({ page: 1, pageSize: 1000 })
+          const rawAll = resAll?.data !== undefined ? resAll.data : resAll
+          const allList = Array.isArray(rawAll)
+            ? rawAll
+            : Array.isArray(rawAll?.items)
+              ? rawAll.items
+              : Array.isArray(rawAll?.rows)
+                ? rawAll.rows
+                : Array.isArray(resAll?.items)
+                  ? resAll.items
+                  : []
+          if (allList.length > 0) {
+            const filtered = allList.filter((m) => {
+              const rawMFactory = m.Factory || m['Nhà máy'] || m.factory || ''
+              const mKey = mapMasterFactoryToCatalogKey(rawMFactory)
+              return (
+                !factoryKey ||
+                mKey === factoryKey ||
+                String(rawMFactory).toUpperCase().includes(factoryKey)
+              )
+            })
+            list = filtered.length > 0 ? filtered : allList
+          }
+        } catch {}
+      }
+
+      if (Array.isArray(list) && list.length > 0) {
+        await storageAdapter.saveFactoryMachines(factoryKey, list)
+        setMachineCatalog(list)
+        notify('success', `Đã đồng bộ ${list.length} máy cho nhà máy ${currentFactory} (${factoryKey})`)
+      } else {
+        notify('warning', `Không tìm thấy danh sách máy móc trên máy chủ cho nhà máy ${currentFactory}`)
+      }
+    } catch (e) {
+      notify('error', `Lỗi tải danh mục máy móc: ${e?.message || e}`)
+    } finally {
+      setIsReloadingCatalog(false)
+    }
+  }, [masterInfo?.factoryName, masterInfo?.FactoryName, notify])
+
+  // Quản lý danh mục máy móc theo nhà máy:
+  // - Khi vào tab tính KHSX & TKSX hoặc khi đổi nhà máy: gọi API lấy danh mục máy theo mã nhà máy đó (vd: GS5 Quế Võ 1B -> GS51B)
+  // - Xóa danh mục máy cũ và lưu vào IndexedDB (Web) hoặc SQLite (Desktop)
+  // - Khi bấm tính KHSX sẽ căn cứ dữ liệu đã lưu để kiểm tra TRUE/FALSE
+  useEffect(() => {
+    let isMounted = true
+    const currentFactory = masterInfo?.factoryName || masterInfo?.FactoryName || 'GS1 Hà Nội'
+    const factoryKey = mapMasterFactoryToCatalogKey(currentFactory)
+
+    const syncMachineCatalog = async () => {
+      // 1. Đọc ngay cache cục bộ từ IndexedDB / SQLite nếu có để hiển thị tức thì
+      try {
+        const cached = await storageAdapter.getFactoryMachines(factoryKey)
+        if (isMounted) {
+          if (Array.isArray(cached) && cached.length > 0) {
+            setMachineCatalog(cached)
+          } else {
+            setMachineCatalog([])
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi đọc cache máy từ storage:', err)
+      }
+
+      // 2. Gọi API lấy danh sách máy theo mã nhà máy (Factory: factoryKey)
+      try {
+        const params = { page: 1, pageSize: 1000 }
+        if (factoryKey) {
+          params.Factory = factoryKey
+        }
+        console.log(
+          `[MachineCatalog] Đang gọi API lấy danh mục máy cho nhà máy: "${currentFactory}" (key: ${factoryKey})`,
+          params
+        )
+        let list = []
+        const res = await queryProdMachineCatalogs(params)
+        console.log('[MachineCatalog] Kết quả phản hồi từ API:', res)
+        const rawData = res?.data !== undefined ? res.data : res
+        list = Array.isArray(rawData)
+          ? rawData
+          : Array.isArray(rawData?.items)
+            ? rawData.items
+            : Array.isArray(rawData?.rows)
+              ? rawData.rows
+              : Array.isArray(res?.items)
+                ? res.items
+                : []
+
+        // Nếu truy vấn có tham số Factory không trả về bản ghi nào, truy vấn toàn bộ catalog rồi lọc cục bộ
+        if (list.length === 0) {
+          try {
+            const resAll = await queryProdMachineCatalogs({ page: 1, pageSize: 1000 })
+            const rawAll = resAll?.data !== undefined ? resAll.data : resAll
+            const allList = Array.isArray(rawAll)
+              ? rawAll
+              : Array.isArray(rawAll?.items)
+                ? rawAll.items
+                : Array.isArray(rawAll?.rows)
+                  ? rawAll.rows
+                  : Array.isArray(resAll?.items)
+                    ? resAll.items
+                    : []
+            if (allList.length > 0) {
+              const filtered = allList.filter((m) => {
+                const rawMFactory = m.Factory || m['Nhà máy'] || m.factory || ''
+                const mKey = mapMasterFactoryToCatalogKey(rawMFactory)
+                return (
+                  !factoryKey ||
+                  mKey === factoryKey ||
+                  String(rawMFactory).toUpperCase().includes(factoryKey)
+                )
+              })
+              list = filtered.length > 0 ? filtered : allList
+            }
+          } catch {}
+        }
+
+        if (isMounted && Array.isArray(list) && list.length > 0) {
+          console.log(
+            `[MachineCatalog] Đã trích xuất ${list.length} máy cho nhà máy "${currentFactory}" (${factoryKey}). Đang lưu vào storage...`
+          )
+          await storageAdapter.saveFactoryMachines(factoryKey, list)
+          if (isMounted) {
+            setMachineCatalog(list)
+          }
+        }
+      } catch (e) {
+        console.warn('Không thể tải danh mục máy móc từ máy chủ:', e)
+      }
+    }
+
+    syncMachineCatalog()
+
+    return () => {
+      isMounted = false
+    }
+  }, [masterInfo?.factoryName, masterInfo?.FactoryName])
+
+  // Khi người dùng bấm sang Tab 8 (Máy theo nhà máy), nếu chưa có dữ liệu thì tự động gọi API tải về
+  useEffect(() => {
+    if (activeTab === 'factory_machines' && (!machineCatalog || machineCatalog.length === 0)) {
+      handleReloadMachineCatalog()
+    }
+  }, [activeTab, machineCatalog, handleReloadMachineCatalog])
 
   const {
     fileSummaries,
@@ -141,24 +358,54 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     loadAllFilesForCalculation
   } = useArchitectureStorage({ autoLoad: true, regCode: masterInfo.regCode })
 
-  // Tự động tải bản ghi master và calc results nếu regCode đã tồn tại trong CSDL
+  // Tự động tải bản ghi master và calc results nếu có mã chỉ định từ URL hoặc prop (ví dụ Xem chi tiết)
   useEffect(() => {
-    if (!masterInfo.regCode) return
     let isMounted = true
     const loadExistingRecord = async () => {
       try {
-        const master = await storageAdapter.getMasterRegistration(masterInfo.regCode)
+        const hasExplicitCode = Boolean(
+          (initialRegCode && String(initialRegCode).trim()) ||
+          (() => {
+            try {
+              const sp = new URLSearchParams(
+                window.location.hash.split('?')[1] || window.location.search
+              )
+              return Boolean(sp.get('regCode') || sp.get('seq'))
+            } catch {
+              return false
+            }
+          })()
+        )
+
+        // Nếu là phiên làm việc / đợt tính mới (New) không truyền mã URL:
+        // Tuyệt đối không nạp đè dữ liệu cũ của phiếu trước, bảo đảm dữ liệu các tab hoàn toàn sạch!
+        if (!hasExplicitCode) {
+          return
+        }
+
+        const currentCode = masterInfo.regCode
+        if (!currentCode) return
+
+        const master = await storageAdapter.getMasterRegistration(currentCode)
         if (master && isMounted) {
+          const resolvedFactory = master.factoryName || master.FactoryName || 'GS1 Hà Nội'
           setMasterInfo((prev) => ({
             ...prev,
             ...master,
-            regCode: masterInfo.regCode
+            regCode: currentCode,
+            factoryName: resolvedFactory,
+            FactoryName: resolvedFactory
           }))
+          setStoredItem(CALC_LAST_SELECTED_FACTORY_KEY, resolvedFactory)
+
           if (master.status === 'PUBLISHED' || master.isPublished) {
+            setIsRegistered(true)
+          } else {
             setIsRegistered(true)
           }
         }
-        const results = await storageAdapter.getCalcResults(masterInfo.regCode)
+
+        const results = await storageAdapter.getCalcResults(currentCode)
         if (results && isMounted) {
           setCalcResults(results)
         }
@@ -170,37 +417,72 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     return () => {
       isMounted = false
     }
-  }, [masterInfo.regCode])
+  }, [masterInfo.regCode, initialRegCode])
 
   const handleGenerateNewRegCode = useCallback(() => {
     const newCode = generateDefaultRegCode()
-    setMasterInfo((prev) => ({
-      ...prev,
+    const rememberedFactory =
+      masterInfo?.factoryName ||
+      masterInfo?.FactoryName ||
+      getStoredItem(CALC_LAST_SELECTED_FACTORY_KEY, 'GS1 Hà Nội')
+    setMasterInfo({
       regCode: newCode,
+      factoryName: rememberedFactory,
+      FactoryName: rememberedFactory,
+      applyDate: dayjs().format('YYYY-MM-DD'),
+      productionTeam: 'Tất cả các tổ',
+      remark: '',
       status: 'DRAFT',
       version: '1.0',
       isPublished: false
-    }))
+    })
+    setStoredItem(CALC_LAST_SELECTED_FACTORY_KEY, rememberedFactory)
     clearAllFiles(newCode)
     setCalcResults(null)
     setIsRegistered(false)
     setIsDirty(false)
-    notify('info', `Đã tạo mã đăng ký mới: ${newCode}`)
-  }, [clearAllFiles, notify])
+    notify('info', `Đã tạo đợt tính toán mới với mã: ${newCode}`)
+  }, [clearAllFiles, notify, masterInfo?.factoryName, masterInfo?.FactoryName])
 
   const machineComparisonRows = useMemo(() => {
+    // 1. Luôn sử dụng kết quả tính toán đã lưu trong DB (chứa đầy đủ cột IsBelongToFactory)
+    const storedRows = calcResults?.machineComparison?.calculatedRows
+    if (Array.isArray(storedRows)) {
+      return storedRows
+    }
+
+    // 2. Fallback chỉ dùng khi chưa có kết quả tính toán trong DB
     const plans = calcResults?.plan?.calculatedRows || []
     const summaryRows = filesDataMap.summary_op?.data
     const comparisonPlans =
       summaryRows && plans.some((row) => !Array.isArray(row.DeclaredMachines))
         ? attachDeclaredMachines(plans, summaryRows)
         : plans
+    const currentFactory = masterInfo?.factoryName || masterInfo?.FactoryName || ''
+    const currentCatalog =
+      Array.isArray(machineCatalog) && machineCatalog.length > 0
+        ? machineCatalog
+        : calcResults?.machineComparison?.catalogMachines || []
+
     return buildMachineComparison(
       calcResults?.stat?.calculatedRows || [],
       comparisonPlans,
-      calcResults?.machineComparison?.mesMachines || filesDataMap.mes_approval?.data || []
+      calcResults?.machineComparison?.mesMachines || filesDataMap.mes_approval?.data || [],
+      {
+        factoryName: currentFactory,
+        catalogMachines: currentCatalog
+      }
     )
-  }, [calcResults, filesDataMap.summary_op, filesDataMap.mes_approval])
+  }, [
+    calcResults?.machineComparison?.calculatedRows,
+    calcResults?.plan?.calculatedRows,
+    calcResults?.stat?.calculatedRows,
+    filesDataMap.summary_op,
+    filesDataMap.mes_approval,
+    masterInfo?.factoryName,
+    masterInfo?.FactoryName,
+    machineCatalog
+  ])
 
   // Older saved results have no declared machine codes; read their source LTT
   // when opening tab 7 so these reports can also be compared without recalculation.
@@ -228,17 +510,27 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
   }, [activeTab, calcResults, fileSummaries.mes_approval, filesDataMap.mes_approval, loadTabDetail])
 
   const activeTabFileData = useMemo(() => {
+    if (activeTab === 'factory_machines') {
+      const data = Array.isArray(machineCatalog) ? machineCatalog : []
+      return {
+        columns: FACTORY_MACHINES_COLUMN_SCHEMA,
+        data,
+        rowCount: data.length,
+        fileName: 'DanhSachMay_NhaMay.xlsx',
+        uploadedAt: new Date().toISOString(),
+        isResult: true
+      }
+    }
     if (activeTab === 'machine_comparison') {
-      return machineComparisonRows.length
-        ? {
-            columns: MACHINE_COMPARISON_COLUMN_SCHEMA,
-            data: machineComparisonRows,
-            rowCount: machineComparisonRows.length,
-            fileName: 'DoiChieuMay_TK_KH.xlsx',
-            uploadedAt: calcResults?.calculatedAt,
-            isResult: true
-          }
-        : null
+      if (!calcResults && machineComparisonRows.length === 0) return null
+      return {
+        columns: MACHINE_COMPARISON_COLUMN_SCHEMA,
+        data: machineComparisonRows,
+        rowCount: machineComparisonRows.length,
+        fileName: 'DoiChieuMay_TK_KH.xlsx',
+        uploadedAt: calcResults?.calculatedAt,
+        isResult: true
+      }
     }
     if (activeTab === 'result_tksx') {
       const rows = calcResults?.stat?.calculatedRows || []
@@ -534,14 +826,71 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
 
   // Xóa các dòng đang chọn trong Tab hiện tại
   const handleDeleteSelectedRows = useCallback(
-    async (selectedRowsIndices) => {
-      if (!selectedRowsIndices || selectedRowsIndices.length === 0) {
+    async (selectedRowsIndices, explicitRowsToDelete = null) => {
+      if (
+        (!selectedRowsIndices || selectedRowsIndices.length === 0) &&
+        (!explicitRowsToDelete || explicitRowsToDelete.length === 0)
+      ) {
         notify('warning', 'Vui lòng chọn ít nhất 1 dòng để xóa')
         return
       }
 
-      const indicesSet = new Set(selectedRowsIndices)
-      const count = indicesSet.size
+      if (activeTab === 'factory_machines') {
+        notify('warning', 'Bảng Máy theo nhà máy là danh sách hệ thống chỉ xem, không thể xóa')
+        return
+      }
+
+      const indicesSet = new Set(selectedRowsIndices || [])
+
+      if (activeTab === 'machine_comparison') {
+        const oldRows = machineComparisonRows || []
+        const toDeleteSet = new Set(
+          Array.isArray(explicitRowsToDelete) && explicitRowsToDelete.length > 0
+            ? explicitRowsToDelete
+            : (selectedRowsIndices || [])
+                .map((i) => (Array.isArray(oldRows) ? oldRows[i] : null))
+                .filter(Boolean)
+        )
+        const count = toDeleteSet.size > 0 ? toDeleteSet.size : indicesSet.size
+
+        const filtered = oldRows.filter((r, idx) => {
+          if (toDeleteSet.size > 0) {
+            if (toDeleteSet.has(r)) return false
+            const rKey = `${r?.stt ?? ''}_${r?.StatSlipNo ?? ''}_${r?.OperationOrderNo ?? ''}_${r?.StatMachineCode ?? ''}_${r?.PlannedMachineCode ?? ''}`
+            for (const item of toDeleteSet) {
+              const itemKey = `${item?.stt ?? ''}_${item?.StatSlipNo ?? ''}_${item?.OperationOrderNo ?? ''}_${item?.StatMachineCode ?? ''}_${item?.PlannedMachineCode ?? ''}`
+              if (rKey && rKey === itemKey) return false
+            }
+          }
+          return !indicesSet.has(idx)
+        })
+
+        const updatedCalc = {
+          ...calcResults,
+          machineComparison: {
+            ...calcResults?.machineComparison,
+            calculatedRows: filtered,
+            matchVersion: 2
+          }
+        }
+        setCalcResults(updatedCalc)
+        const targetReg = masterInfo.regCode
+        if (targetReg) {
+          try {
+            await storageAdapter.saveCalcResults(targetReg, updatedCalc)
+          } catch (e) {
+            console.warn('Lỗi lưu kết quả sau xóa dòng machine_comparison:', e)
+          }
+        }
+        try {
+          await storageAdapter.saveCalcResults('CURRENT_CALC', updatedCalc)
+        } catch {}
+
+        setIsRegistered(false)
+        setIsDirty(true)
+        notify('info', `Đã xóa ${count} dòng khỏi Đối Chiếu Máy TK - KH và lưu vào CSDL`)
+        return
+      }
 
       if (activeTab === 'result_tksx') {
         const oldRows = calcResults?.stat?.calculatedRows || []
@@ -612,7 +961,15 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         )
       }
     },
-    [activeTab, calcResults, filesDataMap, saveFile, notify, masterInfo.regCode]
+    [
+      activeTab,
+      calcResults,
+      filesDataMap,
+      saveFile,
+      notify,
+      masterInfo.regCode,
+      machineComparisonRows
+    ]
   )
 
   // Lưu đăng ký Master vào DB khi người dùng bấm ĐĂNG KÝ BÁO CÁO (LƯU ĐĂNG KÝ)
@@ -670,6 +1027,18 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         }
       }
 
+      const resultMachineRows =
+        calcResults?.machineComparison?.calculatedRows?.length ?? machineComparisonRows.length
+      if (resultMachineRows > 0) {
+        mergedSummaries.machine_comparison = {
+          isUploaded: true,
+          rowCount: resultMachineRows,
+          fileName: 'DoiChieuMay_TK_KH.xlsx',
+          uploadedAt: calcResults?.calculatedAt || new Date().toISOString(),
+          isResult: true
+        }
+      }
+
       // Lưu thông tin đăng ký Master
       const masterRecord = {
         regCode: masterInfo.regCode,
@@ -685,6 +1054,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         mesApprovalRows: mesRows,
         resultTksxRows,
         resultKhsxRows,
+        resultMachineRows,
         hasCalcResults: hasCalc,
         totalRows: total,
         registeredAt: new Date().toISOString(),
@@ -699,6 +1069,11 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       // Lưu toàn bộ bảng kết quả tính toán nếu đã có
       if (calcResults) {
         await storageAdapter.saveCalcResults(masterInfo.regCode, calcResults)
+      }
+
+      setStoredItem(CALC_LAST_ACTIVE_REG_CODE_KEY, masterInfo.regCode)
+      if (masterInfo.factoryName) {
+        setStoredItem(CALC_LAST_SELECTED_FACTORY_KEY, masterInfo.factoryName)
       }
 
       setIsRegistered(true)
@@ -784,6 +1159,10 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
           publishedAt: res.publishedAt || new Date().toISOString()
         }))
         setIsRegistered(true)
+        setStoredItem(CALC_LAST_ACTIVE_REG_CODE_KEY, masterInfo.regCode)
+        if (masterInfo.factoryName) {
+          setStoredItem(CALC_LAST_SELECTED_FACTORY_KEY, masterInfo.factoryName)
+        }
 
         setPublishProgress({
           percent: 55,
@@ -1112,12 +1491,20 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       // Nhường luồng cho UI
       await new Promise((resolve) => setTimeout(resolve, 60))
 
+      // Dùng chung bộ nạp danh mục để không lệch giữa form mới và bản nháp mở lại.
+      const currentFactory = masterInfo.factoryName || masterInfo.FactoryName || 'GS1 Hà Nội'
+      const catalogMachinesToUse = await loadFactoryMachineCatalog(currentFactory, {
+        preferSnapshot: false
+      })
+      if (catalogMachinesToUse.length > 0) setMachineCatalog(catalogMachinesToUse)
+
       const results = await runProductionCalculations(
         allFiles,
         {
           ...masterInfo,
           regCode: calcRegCode,
-          version: nextVersion
+          version: nextVersion,
+          catalogMachines: catalogMachinesToUse
         },
         null,
         async ({ activeTab: calculatingTab, ...progress }) => {
@@ -1283,6 +1670,15 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
           uploadedAt: calcResults?.calculatedAt || null,
           isResult: true
         }
+      } else if (tab.id === 'factory_machines') {
+        const count = Array.isArray(machineCatalog) ? machineCatalog.length : 0
+        summary[tab.id] = {
+          isUploaded: count > 0,
+          fileName: 'DanhSachMay_NhaMay.xlsx',
+          rowCount: count,
+          uploadedAt: new Date().toISOString(),
+          isResult: true
+        }
       } else {
         const summaryItem = fileSummaries[tab.id]
         const hasValidReg =
@@ -1297,7 +1693,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       }
     })
     return summary
-  }, [fileSummaries, calcResults, masterInfo.regCode, machineComparisonRows])
+  }, [fileSummaries, calcResults, masterInfo.regCode, machineComparisonRows, machineCatalog])
 
   // BƯỚC 1: Khi bấm ĐĂNG KÝ BÁO CÁO -> Mở Modal tích chọn báo cáo (mặc định tích 2 báo cáo KHSX & TKSX nếu có dữ liệu)
   const handleRegisterReportsToSystem = useCallback(async () => {
@@ -1588,6 +1984,10 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       refreshSummaries()
       loadTabDetail(activeTab, true)
       notify('info', 'Đã nạp lại dữ liệu từ CSDL')
-    }
+    },
+    machineCatalog,
+    setMachineCatalog,
+    handleReloadMachineCatalog,
+    isReloadingCatalog
   }
 }

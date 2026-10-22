@@ -30,7 +30,9 @@ export default function CalcDataGridTable({
   onVisibleRegionChanged,
   onAddQueryField,
   onCellEdited: externalOnCellEdited,
-  canEdit = true
+  canEdit = true,
+  canDelete = true,
+  onDeleteRow = null
 }) {
   const { t } = useTranslation()
   const gridRef = useRef(null)
@@ -85,6 +87,45 @@ export default function CalcDataGridTable({
     onAddQueryField,
     setShowSearch
   })
+
+  const handleDeleteRowFromMenu = useCallback(
+    (explicitIndices) => {
+      if (canDelete === false) return
+      if (typeof onDeleteRow === 'function') {
+        if (Array.isArray(explicitIndices) && explicitIndices.length > 0) {
+          onDeleteRow(explicitIndices)
+          return
+        }
+        const rowIdx = showMenu?.row
+        const selRows = selection?.rows ? selection.rows.toArray() : []
+        if (selRows.length > 0) {
+          onDeleteRow(selRows)
+        } else if (rowIdx !== undefined) {
+          onDeleteRow([rowIdx])
+        } else {
+          onDeleteRow()
+        }
+      }
+    },
+    [onDeleteRow, showMenu, selection, canDelete]
+  )
+
+  const handleKeyDownInternal = useCallback(
+    (event) => {
+      if ((event.key === 'Delete' || event.key === 'Del') && canDelete !== false) {
+        if (typeof onDeleteRow === 'function') {
+          event.preventDefault()
+          event.stopPropagation()
+          onDeleteRow()
+          return
+        }
+      }
+      if (typeof onKeyDown === 'function') {
+        onKeyDown(event)
+      }
+    },
+    [onKeyDown, onDeleteRow, canDelete]
+  )
 
   const onClose = () => setOpen(false)
 
@@ -209,6 +250,20 @@ export default function CalcDataGridTable({
         }
 
         const strVal = value !== null && value !== undefined ? String(value) : ''
+        let cellTheme = meta.cellTheme
+        if (meta.columnKey === 'IsBelongToFactory') {
+          if (strVal === 'TRUE') {
+            cellTheme = {
+              ...(cellTheme || {}),
+              textDark: '#16a34a'
+            }
+          } else if (strVal === 'FALSE') {
+            cellTheme = {
+              ...(cellTheme || {}),
+              textDark: '#dc2626'
+            }
+          }
+        }
         return {
           kind: GridCellKind.Text,
           data: strVal,
@@ -216,7 +271,7 @@ export default function CalcDataGridTable({
           readonly: meta.isReadOnly,
           allowOverlay: !meta.isReadOnly,
           hasMenu: meta.hasMenu,
-          themeOverride: meta.cellTheme
+          themeOverride: cellTheme
         }
       } catch (err) {
         console.warn('Lỗi đọc ô bảng tính:', err)
@@ -275,18 +330,6 @@ export default function CalcDataGridTable({
   const effectiveRows = numRows !== undefined ? numRows : gridData?.length || 0
   const getRowThemeOverride = useCallback(
     (rowIndex) => {
-      if (tableId.endsWith('_machine_comparison')) {
-        const status = gridData[rowIndex]?.MachineComparisonStatus
-        if (!status) return undefined
-        const mesStatus = gridData[rowIndex]?.MesComparisonStatus
-        const bgCell =
-          status === 'Khác máy' || mesStatus === 'Khác máy MES'
-            ? '#fff1f2'
-            : status === 'Khớp máy' && mesStatus === 'Khớp máy MES'
-              ? '#f0fdf4'
-              : '#fffbeb'
-        return { bgCell, bgCellMedium: bgCell }
-      }
       if (!tableId.endsWith('_result_khsx')) return undefined
       const row = gridData[rowIndex]
       const lttStatus = String(
@@ -348,7 +391,7 @@ export default function CalcDataGridTable({
           onHeaderMenuClick={onHeaderMenuClick}
           onHeaderContextMenu={onHeaderContextMenu}
           onColumnMoved={onColumnMoved}
-          onKeyDown={onKeyDown}
+          onKeyDown={handleKeyDownInternal}
           onVisibleRegionChanged={onVisibleRegionChanged}
           onCellClicked={onCellClicked}
           onCellActivated={onCellActivated}
@@ -381,6 +424,9 @@ export default function CalcDataGridTable({
                   data={gridData}
                   selection={selection}
                   canCreate={false}
+                  canEdit={canEdit}
+                  canDelete={canDelete !== false}
+                  onDeleteRow={handleDeleteRowFromMenu}
                 />
               ) : (
                 <LayoutMenuSheet

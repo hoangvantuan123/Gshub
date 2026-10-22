@@ -247,7 +247,9 @@ export default function PlanDetailQueryTable({
 
       // Cột phân loại đối soát
       if (meta.columnKey === 'RemarkTypeName' || meta.columnKey === 'RemarkType') {
-        const strVal = String(rowItem.RemarkTypeName || rowItem.RemarkType || rowItem.remarkTypeName || '')
+        const strVal = String(
+          rowItem.RemarkTypeName || rowItem.RemarkType || rowItem.remarkTypeName || ''
+        )
         return {
           kind: GridCellKind.Text,
           data: strVal,

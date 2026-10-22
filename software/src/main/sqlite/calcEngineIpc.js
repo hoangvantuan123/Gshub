@@ -5,7 +5,17 @@
 import { ipcMain } from 'electron'
 import { getDb, getFullDataForFileType } from './db.js'
 
+function ensureCalcResultsColumns(db) {
+  if (!db) return
+  try {
+    db.exec(`ALTER TABLE calc_results ADD COLUMN machine_comparison_data TEXT;`)
+  } catch {}
+}
+
 export function setupCalcEngineIpc() {
+  const dbInit = getDb()
+  if (dbInit) ensureCalcResultsColumns(dbInit)
+
   // 1. Tính toán trực tiếp KHSX & TKSX từ CSDL SQLite
   ipcMain.handle('sqlite:calculate-production', async () => {
     const db = getDb()
@@ -826,12 +836,13 @@ export function setupCalcEngineIpc() {
       // Tự động lưu kết quả vào bảng calc_results trong SQLite
       try {
         const insStmt = db.prepare(`
-          INSERT INTO calc_results (id, summary, plan_data, stat_data, calculated_at)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO calc_results (id, summary, plan_data, stat_data, machine_comparison_data, calculated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             summary = excluded.summary,
             plan_data = excluded.plan_data,
             stat_data = excluded.stat_data,
+            machine_comparison_data = excluded.machine_comparison_data,
             calculated_at = excluded.calculated_at
         `)
         insStmt.run(
@@ -839,6 +850,7 @@ export function setupCalcEngineIpc() {
           JSON.stringify(result.summary || {}),
           JSON.stringify(result.plan || {}),
           JSON.stringify(result.stat || {}),
+          result.machineComparison ? JSON.stringify(result.machineComparison) : null,
           result.calculatedAt
         )
       } catch (saveErr) {
@@ -856,6 +868,7 @@ export function setupCalcEngineIpc() {
   ipcMain.handle('sqlite:save-calc-results', async (_, payload, maybeData) => {
     const db = getDb()
     if (!db) return { success: false, error: 'Database SQLite chưa sẵn sàng' }
+    ensureCalcResultsColumns(db)
     try {
       let targetId = ''
       let dataObj = {}
@@ -875,23 +888,27 @@ export function setupCalcEngineIpc() {
       const summary = dataObj?.summary || {}
       const plan = dataObj?.planData ? { calculatedRows: dataObj.planData } : dataObj?.plan || {}
       const stat = dataObj?.statData ? { calculatedRows: dataObj.statData } : dataObj?.stat || {}
+      const machineComp = dataObj?.machineComparison || null
       const calculatedAt = dataObj?.calculatedAt || new Date().toISOString()
 
       const stmt = db.prepare(`
-        INSERT INTO calc_results (id, summary, plan_data, stat_data, calculated_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO calc_results (id, summary, plan_data, stat_data, machine_comparison_data, calculated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           summary = excluded.summary,
           plan_data = excluded.plan_data,
           stat_data = excluded.stat_data,
+          machine_comparison_data = excluded.machine_comparison_data,
           calculated_at = excluded.calculated_at
       `)
 
       const sumJson = typeof summary === 'string' ? summary : JSON.stringify(summary)
       const planJson = typeof plan === 'string' ? plan : JSON.stringify(plan)
       const statJson = typeof stat === 'string' ? stat : JSON.stringify(stat)
+      const machineCompJson =
+        machineComp ? (typeof machineComp === 'string' ? machineComp : JSON.stringify(machineComp)) : null
 
-      stmt.run(targetId, sumJson, planJson, statJson, calculatedAt)
+      stmt.run(targetId, sumJson, planJson, statJson, machineCompJson, calculatedAt)
 
       return { success: true }
     } catch (err) {
@@ -908,11 +925,20 @@ export function setupCalcEngineIpc() {
       const stmt = db.prepare('SELECT * FROM calc_results WHERE id = ?')
       const r = stmt.get(id)
       if (!r) return null
+
+      let machineComparison = null
+      if (r.machine_comparison_data) {
+        try {
+          machineComparison = JSON.parse(r.machine_comparison_data)
+        } catch {}
+      }
+
       return {
         id: r.id,
         summary: JSON.parse(r.summary || '{}'),
         plan: JSON.parse(r.plan_data || '{}'),
         stat: JSON.parse(r.stat_data || '{}'),
+        machineComparison,
         calculatedAt: r.calculated_at
       }
     } catch (err) {

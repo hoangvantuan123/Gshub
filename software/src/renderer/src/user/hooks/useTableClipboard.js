@@ -54,6 +54,33 @@ export async function writeClipboardNativeOrWeb(text) {
 }
 
 /**
+ * readClipboardNativeOrWeb: Hàm đọc dữ liệu text từ Clipboard đa nền tảng
+ * - Electron Desktop: Tận dụng IPC Native Clipboard window.electron.readClipboardText()
+ * - Web Browser: Tận dụng navigator.clipboard.readText()
+ */
+export async function readClipboardNativeOrWeb() {
+  if (typeof window !== 'undefined' && window.electron?.readClipboardText) {
+    try {
+      const text = await window.electron.readClipboardText()
+      if (typeof text === 'string') return text
+    } catch (err) {
+      console.warn('[Desktop Clipboard Read Warning]', err)
+    }
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (typeof text === 'string') return text
+    } catch (err) {
+      console.warn('[Web Clipboard Read Warning]', err)
+    }
+  }
+
+  return ''
+}
+
+/**
  * useTableClipboard: Hook quản lý toàn diện các chức năng Sao Chép dữ liệu bảng ERP
  * Tối ưu hóa tối đa cho 10.000 - 50.000 dòng dữ liệu
  */

@@ -10,7 +10,10 @@ import {
   Share2,
   CheckCircle2,
   FileSpreadsheet,
-  Send
+  Send,
+  Cpu,
+  RotateCcw,
+  Plus
 } from 'lucide-react'
 
 const CalcProductionActions = memo(function CalcProductionActions({
@@ -40,7 +43,12 @@ const CalcProductionActions = memo(function CalcProductionActions({
   onUnlockForEdit,
   onExportAllTabsExcel,
   onExportTabExcel,
-  isDirty = false
+  onOpenMachineCatalog,
+  machineCatalogCount = 0,
+  onReloadMachineCatalog,
+  isReloadingCatalog = false,
+  isDirty = false,
+  onGenerateRegCode
 }) {
   const { t } = useTranslation()
   const fileInputRef = useRef(null)
@@ -86,6 +94,22 @@ const CalcProductionActions = memo(function CalcProductionActions({
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
+
+      {/* 0. TẠO ĐỢT MỚI (Khởi tạo mã đăng ký mới và làm sạch dữ liệu các tab) */}
+      {!isDetailView && typeof onGenerateRegCode === 'function' && (
+        <Button
+          key="NewCalc"
+          variant="ghost"
+          size="sm"
+          onClick={onGenerateRegCode}
+          disabled={isRegistering || isCalculating || isParsing}
+          className="uppercase text-[11px] font-bold text-sky-700 hover:text-sky-800 h-7 px-2 shrink-0 bg-sky-50/70 border border-sky-200/80 hover:bg-sky-100/70"
+          title={t('Tạo mã đăng ký mới và làm sạch dữ liệu để tính đợt sản xuất mới')}
+        >
+          <Plus size={13} className="text-sky-600" />
+          <span>{t('TẠO ĐỢT MỚI')}</span>
+        </Button>
+      )}
 
       {/* 1. LƯU ĐĂNG KÝ (Chỉ khi chưa công bố hoặc đang ở chế độ chỉnh sửa) */}
       {!isPublished && typeof onRegisterMaster === 'function' && (
@@ -271,8 +295,43 @@ const CalcProductionActions = memo(function CalcProductionActions({
         </Button>
       )}
 
-      {/* 9. NÚT XÓA DÒNG (Chỉ hiển thị khi KHÔNG PHẢI bản PUBLISHED đã khóa, hoặc đang ở bản nháp/chỉnh sửa) */}
+      {/* 8.1. NÚT MỞ DANH MỤC MÁY THEO NHÀ MÁY */}
+      {typeof onOpenMachineCatalog === 'function' && (
+        <Button
+          key="MachineCatalog"
+          variant="ghost"
+          size="sm"
+          onClick={onOpenMachineCatalog}
+          className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0 bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200 shadow-2xs"
+          title={t('Xem danh sách máy móc đã nạp theo nhà máy áp dụng để đối chiếu ở Tab 7')}
+        >
+          <Cpu size={13} className="text-indigo-600" />
+          <span>
+            {t('MÁY NHÀ MÁY')}
+            {machineCatalogCount > 0 ? ` (${machineCatalogCount})` : ''}
+          </span>
+        </Button>
+      )}
+
+      {/* 8.2. NÚT TẢI LẠI TỪ MÁY CHỦ (Khi đang mở Tab 8 Máy theo nhà máy) */}
+      {activeTabDef?.id === 'factory_machines' && typeof onReloadMachineCatalog === 'function' && (
+        <Button
+          key="ReloadMachineCatalog"
+          variant="ghost"
+          size="sm"
+          onClick={onReloadMachineCatalog}
+          disabled={isReloadingCatalog}
+          className="uppercase text-[11px] font-bold text-teal-700 hover:text-teal-800 h-7 px-2 shrink-0 bg-teal-50/70 hover:bg-teal-100/80 border border-teal-200"
+          title={t('Tải lại danh sách máy mới nhất của nhà máy hiện tại từ máy chủ API')}
+        >
+          <RotateCcw size={13} className={`text-teal-600 ${isReloadingCatalog ? 'animate-spin' : ''}`} />
+          <span>{isReloadingCatalog ? t('ĐANG TẢI...') : t('TẢI LẠI TỪ MÁY CHỦ')}</span>
+        </Button>
+      )}
+
+      {/* 9. NÚT XÓA DÒNG (Chỉ hiển thị khi KHÔNG PHẢI bản PUBLISHED đã khóa, và KHÔNG PHẢI tab Máy theo nhà máy chỉ xem) */}
       {!isPublished &&
+        activeTabDef?.id !== 'factory_machines' &&
         (hasActiveFileData || selectedRowsCount > 0) &&
         typeof onDeleteSelectedRows === 'function' && (
           <Button

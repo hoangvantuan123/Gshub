@@ -20,6 +20,7 @@ export function useRemarkType({
   setGridData,
   setNumRows,
   getSelectedRows,
+  selection,
   resetTable,
   defaultCols,
   canCreate,
@@ -34,6 +35,8 @@ export function useRemarkType({
   const { setPageData, setStatusMessage } = usePageData() || {}
   const [filters, setFilters] = useState({ Keyword: '', IsActive: '' })
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [rowsToDelete, setRowsToDelete] = useState([])
 
   const fetchRows = useCallback(async () => {
     if (!canView) return
@@ -132,7 +135,12 @@ export function useRemarkType({
     () =>
       (gridData || []).some((row) => {
         const tag = row?.WorkingTag || row?.Status
-        return tag === 'U' || tag === 'D' || (tag === 'A' && hasBusinessData(row))
+        return (
+          tag === 'U' ||
+          tag === 'D' ||
+          (!row?.IdSeq && tag === 'A' && hasBusinessData(row)) ||
+          (row?.IdSeq && tag === 'A')
+        )
       }),
     [gridData]
   )
@@ -164,26 +172,82 @@ export function useRemarkType({
       setStatusMessage?.({ type: 'warning', text: t('Bạn không có quyền xóa dữ liệu!') })
       return
     }
-    const selected = getSelectedRows?.() || []
-    if (!selected.length) {
+    let selected = getSelectedRows?.() || []
+    if (!selected.length && selection?.current) {
+      const { cell, range } = selection.current
+      if (range) {
+        for (let r = range.y; r < range.y + range.height; r++) {
+          if (gridData[r]) selected.push(gridData[r])
+        }
+      } else if (cell && cell[1] >= 0 && gridData[cell[1]]) {
+        selected.push(gridData[cell[1]])
+      }
+    }
+
+    // Lọc các dòng hợp lệ cần xóa (đã lưu trên DB hoặc đã nhập dữ liệu trên dòng mới)
+    const validRows = (selected || []).filter((row) => row && (row.IdSeq || hasBusinessData(row)))
+
+    if (!validRows.length) {
       setStatusMessage?.({ type: 'warning', text: t('Vui lòng chọn dòng cần xóa!') })
       return
     }
-    const selectedRows = new Set(selected)
-    const localRows = selected.filter((row) => !row.IdSeq)
-    setGridData((prev) =>
-      prev
-        .filter((row) => !localRows.includes(row))
-        .map((row) => (selectedRows.has(row) ? { ...row, WorkingTag: 'D', Status: 'D' } : row))
-    )
-    if (localRows.length) setNumRows((count) => Math.max(0, count - localRows.length))
-    resetTable?.()
-    setStatusMessage?.(
-      localRows.length
-        ? t('Đã xóa dòng mới và đánh dấu xóa dữ liệu đã lưu. Nhấn Lưu để hoàn tất.')
-        : t('Đã đánh dấu xóa. Nhấn Lưu để hoàn tất.')
-    )
-  }, [canDelete, getSelectedRows, setGridData, setNumRows, resetTable, setStatusMessage, t])
+
+    setRowsToDelete(validRows)
+    setShowDeleteModal(true)
+  }, [canDelete, getSelectedRows, selection, gridData, setStatusMessage, t])
+
+  const handleConfirmDelete = useCallback(async () => {
+    setShowDeleteModal(false)
+    const items = rowsToDelete || []
+    if (!items.length) return
+
+    const dbRows = items.filter((row) => row.IdSeq)
+    const localRows = items.filter((row) => !row.IdSeq)
+
+    loadingBarRef?.current?.continuousStart?.()
+    try {
+      if (dbRows.length > 0) {
+        const response = await deleteProdStatsRemarkTypes(
+          dbRows.map((row) => ({ IdSeq: row.IdSeq, RowVersion: Number(row.RowVersion || 1) }))
+        )
+        if (!response?.success) {
+          throw new Error(response?.message || t('Xóa dữ liệu không thành công'))
+        }
+      }
+
+      if (localRows.length > 0) {
+        const localSet = new Set(localRows)
+        setGridData((prev) => prev.filter((row) => !localSet.has(row)))
+        setNumRows((count) => Math.max(0, count - localRows.length))
+        resetTable?.()
+      }
+
+      setStatusMessage?.(t('Đã xóa thành công {{count}} dòng.', { count: items.length }))
+      await fetchRows()
+    } catch (error) {
+      setStatusMessage?.({
+        type: 'error',
+        text: error?.message || t('Lỗi khi xóa phân loại lỗi')
+      })
+    } finally {
+      loadingBarRef?.current?.complete?.()
+      setRowsToDelete([])
+    }
+  }, [
+    rowsToDelete,
+    loadingBarRef,
+    setGridData,
+    setNumRows,
+    resetTable,
+    setStatusMessage,
+    t,
+    fetchRows
+  ])
+
+  const handleCancelDelete = useCallback(() => {
+    setShowDeleteModal(false)
+    setRowsToDelete([])
+  }, [])
 
   const handleSaveData = useCallback(async () => {
     if (!canSave) {
@@ -192,9 +256,14 @@ export function useRemarkType({
     }
     const rows = gridData || []
     const additions = rows.filter(
-      (row) => (row.WorkingTag || row.Status) === 'A' && hasBusinessData(row)
+      (row) => !row.IdSeq && (row.WorkingTag || row.Status) === 'A' && hasBusinessData(row)
     )
-    const updates = rows.filter((row) => (row.WorkingTag || row.Status) === 'U')
+    const updates = rows.filter(
+      (row) =>
+        Boolean(row.IdSeq) &&
+        ((row.WorkingTag || row.Status) === 'U' || (row.WorkingTag || row.Status) === 'A') &&
+        hasBusinessData(row)
+    )
     const deletions = rows.filter((row) => (row.WorkingTag || row.Status) === 'D' && row.IdSeq)
 
     if (additions.length > 0 && !canCreate) {
@@ -279,6 +348,10 @@ export function useRemarkType({
     handleDeleteDataSheet,
     showConfirmModal,
     handleConfirmSearch,
-    handleCancelSearch
+    handleCancelSearch,
+    showDeleteModal,
+    rowsToDelete,
+    handleConfirmDelete,
+    handleCancelDelete
   }
 }

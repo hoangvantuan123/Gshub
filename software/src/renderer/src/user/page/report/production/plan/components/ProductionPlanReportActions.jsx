@@ -46,17 +46,6 @@ export default function ProductionPlanReportActions({
           <Search size={14} />
           <span>{t('Truy vấn')}</span>
         </button>
-
-        {canCreate && (
-          <button
-            onClick={() => handleRowAppend?.(1)}
-            className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold shadow-sm transition"
-          >
-            <Plus size={14} />
-            <span>{t('Thêm dòng')}</span>
-          </button>
-        )}
-
         {canEdit && (
           <button
             onClick={handleSaveData}

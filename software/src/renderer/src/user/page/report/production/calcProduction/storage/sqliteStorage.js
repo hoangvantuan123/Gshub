@@ -600,3 +600,66 @@ export const vacuumDbSQLite = async () => {
   }
   return { success: false }
 }
+
+/**
+ * Lưu danh mục máy móc theo nhà máy vào SQLite (xóa máy cũ để chỉ lưu nhà máy đang chọn, fallback IndexedDB)
+ */
+export const saveFactoryMachinesSQLite = async (factoryKey, machines = []) => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.saveFactoryMachines) {
+        return await window.electron.sqlite.saveFactoryMachines({
+          factoryKey,
+          machines
+        })
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:save-factory-machines', {
+          factoryKey,
+          machines
+        })
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] saveFactoryMachines error:', error)
+    }
+  }
+  const { saveFactoryMachinesIDB } = await import('./indexedDbStorage')
+  return await saveFactoryMachinesIDB(factoryKey, machines)
+}
+
+/**
+ * Lấy danh mục máy móc theo nhà máy từ SQLite (fallback IndexedDB)
+ */
+export const getFactoryMachinesSQLite = async (factoryKey) => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.getFactoryMachines) {
+        return await window.electron.sqlite.getFactoryMachines(factoryKey)
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:get-factory-machines', factoryKey)
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] getFactoryMachines error:', error)
+    }
+  }
+  const { getFactoryMachinesIDB } = await import('./indexedDbStorage')
+  return await getFactoryMachinesIDB(factoryKey)
+}
+
+/**
+ * Xóa danh mục máy móc trong SQLite (fallback IndexedDB)
+ */
+export const clearFactoryMachinesSQLite = async () => {
+  if (isElectronSqliteAvailable()) {
+    try {
+      if (window?.electron?.sqlite?.clearFactoryMachines) {
+        return await window.electron.sqlite.clearFactoryMachines()
+      } else if (window?.electron?.ipcRenderer) {
+        return await window.electron.ipcRenderer.invoke('sqlite:clear-factory-machines')
+      }
+    } catch (error) {
+      console.warn('[SQLite Storage] clearFactoryMachines error:', error)
+    }
+  }
+  const { clearFactoryMachinesIDB } = await import('./indexedDbStorage')
+  return await clearFactoryMachinesIDB()
+}

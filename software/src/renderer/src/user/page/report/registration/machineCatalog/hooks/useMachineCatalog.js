@@ -1,0 +1,367 @@
+import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { usePageData } from '../../../../../../context/PageDataContext'
+import { updateIndexNo } from '../../../../../components/sheet/js/updateIndexNo'
+import { generateEmptyData } from '../../../../../components/sheet/js/generateEmptyData'
+import {
+  createProdMachineCatalogs,
+  deleteProdMachineCatalogs,
+  queryProdMachineCatalogs,
+  updateProdMachineCatalogs
+} from '../machineCatalogService'
+
+export const EMPTY_TEMPLATE_COUNT = 50
+
+const hasBusinessData = (row) =>
+  Boolean(String(row?.MachineCode || '').trim() || String(row?.MachineName || '').trim())
+
+export function useMachineCatalog({
+  gridData,
+  setGridData,
+  setNumRows,
+  getSelectedRows,
+  selection,
+  resetTable,
+  defaultCols,
+  canCreate,
+  canEdit,
+  canSave,
+  canView,
+  canSearch,
+  canDelete,
+  loadingBarRef
+}) {
+  const { t } = useTranslation()
+  const { setPageData, setStatusMessage } = usePageData() || {}
+  const [filters, setFilters] = useState({ Keyword: '', Factory: '', IsActive: '' })
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [rowsToDelete, setRowsToDelete] = useState([])
+
+  const fetchRows = useCallback(async () => {
+    if (!canView) return
+    loadingBarRef?.current?.continuousStart?.()
+    try {
+      const params = { page: 1, pageSize: 1000 }
+      const keyword = String(filters.Keyword || '').trim()
+      const factory = String(filters.Factory || '').trim()
+      if (keyword) params.Keyword = keyword
+      if (factory) params.Factory = factory
+      if (filters.IsActive !== '') params.IsActive = filters.IsActive
+
+      const result = await queryProdMachineCatalogs(params)
+      if (!result?.success) {
+        setStatusMessage?.({
+          type: 'error',
+          text: result?.message || t('Không thể tải danh mục máy móc')
+        })
+        if (canCreate) {
+          const emptyRows = generateEmptyData(EMPTY_TEMPLATE_COUNT, defaultCols || [])
+          const finalRows = updateIndexNo(emptyRows)
+          setGridData(finalRows)
+          setNumRows(finalRows.length)
+        } else {
+          setGridData([])
+          setNumRows(0)
+        }
+        return
+      }
+
+      const records = Array.isArray(result.data)
+        ? result.data
+        : Array.isArray(result.data?.items)
+          ? result.data.items
+          : []
+      const rows = records.map((item, index) => ({
+        ...item,
+        IdSeq: item.IdSeq ?? item.Id ?? '',
+        Id: item.Id ?? item.IdSeq ?? '',
+        IdxNo: Number(item.IdxNo ?? index + 1),
+        RowVersion: Number(item.RowVersion || 1),
+        MachineCode: item.MachineCode || '',
+        MachineName: item.MachineName || '',
+        TeamCode: item.TeamCode || '',
+        TeamName: item.TeamName || '',
+        Factory: item.Factory || '',
+        Description: item.Description || '',
+        IsActive: item.IsActive !== false && item.IsActive !== 0 && item.IsActive !== '0',
+        CreatedByName: item.CreatedByName || item.CreatedBy || '',
+        UpdatedByName: item.UpdatedByName || item.UpdatedBy || '',
+        WorkingTag: '',
+        Status: ''
+      }))
+
+      let finalRows = rows
+      if (canCreate) {
+        const emptyRows = generateEmptyData(EMPTY_TEMPLATE_COUNT, defaultCols || [])
+        finalRows = [...rows, ...emptyRows]
+      }
+
+      finalRows = updateIndexNo(finalRows)
+      setGridData(finalRows)
+      setNumRows(finalRows.length)
+      resetTable?.()
+      const pageInfo = result.pageInfo || result.page || {}
+      const total = Number(pageInfo.total || pageInfo.totalRows || rows.length)
+      setPageData?.({
+        page: Number(pageInfo.page || 1),
+        pageSize: Number(pageInfo.pageSize || 1000),
+        totalRows: total,
+        total,
+        totalPages: Number(pageInfo.totalPages || 1),
+        totalAll: Number(pageInfo.totalAll || total),
+        loadedCount: rows.length,
+        totalColumns: defaultCols?.length || 14
+      })
+      setStatusMessage?.(t('Đã tải {{count}} máy móc.', { count: rows.length }))
+    } catch (error) {
+      setStatusMessage?.({
+        type: 'error',
+        text: error?.message || t('Lỗi khi tải danh mục máy móc')
+      })
+    } finally {
+      loadingBarRef?.current?.complete?.()
+    }
+  }, [
+    canView,
+    canCreate,
+    filters,
+    loadingBarRef,
+    setGridData,
+    setNumRows,
+    resetTable,
+    setPageData,
+    setStatusMessage,
+    defaultCols,
+    t
+  ])
+
+  const hasChanges = useCallback(
+    () =>
+      (gridData || []).some((row) => {
+        const tag = row?.WorkingTag || row?.Status
+        return (
+          tag === 'U' ||
+          tag === 'D' ||
+          (!row?.IdSeq && tag === 'A' && hasBusinessData(row)) ||
+          (row?.IdSeq && tag === 'A')
+        )
+      }),
+    [gridData]
+  )
+
+  const handleSearchData = useCallback(() => {
+    if (!canView || canSearch === false) {
+      setStatusMessage?.({
+        type: 'warning',
+        text: t('Bạn không có quyền tìm kiếm hoặc xem dữ liệu!')
+      })
+      return
+    }
+    if (hasChanges()) {
+      setShowConfirmModal(true)
+      return
+    }
+    fetchRows()
+  }, [canView, canSearch, setStatusMessage, t, hasChanges, fetchRows])
+
+  const handleConfirmSearch = useCallback(() => {
+    setShowConfirmModal(false)
+    fetchRows()
+  }, [fetchRows])
+
+  const handleCancelSearch = useCallback(() => setShowConfirmModal(false), [])
+
+  const handleDeleteDataSheet = useCallback(() => {
+    if (!canDelete) {
+      setStatusMessage?.({ type: 'warning', text: t('Bạn không có quyền xóa dữ liệu!') })
+      return
+    }
+    let selected = getSelectedRows?.() || []
+    if (!selected.length && selection?.current) {
+      const { cell, range } = selection.current
+      if (range) {
+        for (let r = range.y; r < range.y + range.height; r++) {
+          if (gridData[r]) selected.push(gridData[r])
+        }
+      } else if (cell && cell[1] >= 0 && gridData[cell[1]]) {
+        selected.push(gridData[cell[1]])
+      }
+    }
+
+    // Lọc các dòng hợp lệ cần xóa (đã lưu trên DB hoặc đã nhập dữ liệu trên dòng mới)
+    const validRows = (selected || []).filter((row) => row && (row.IdSeq || hasBusinessData(row)))
+
+    if (!validRows.length) {
+      setStatusMessage?.({ type: 'warning', text: t('Vui lòng chọn dòng cần xóa!') })
+      return
+    }
+
+    setRowsToDelete(validRows)
+    setShowDeleteModal(true)
+  }, [canDelete, getSelectedRows, selection, gridData, setStatusMessage, t])
+
+  const handleConfirmDelete = useCallback(async () => {
+    setShowDeleteModal(false)
+    const items = rowsToDelete || []
+    if (!items.length) return
+
+    const dbRows = items.filter((row) => row.IdSeq)
+    const localRows = items.filter((row) => !row.IdSeq)
+
+    loadingBarRef?.current?.continuousStart?.()
+    try {
+      if (dbRows.length > 0) {
+        const response = await deleteProdMachineCatalogs(
+          dbRows.map((row) => ({ IdSeq: row.IdSeq, RowVersion: Number(row.RowVersion || 1) }))
+        )
+        if (!response?.success) {
+          throw new Error(response?.message || t('Xóa dữ liệu không thành công'))
+        }
+      }
+
+      if (localRows.length > 0) {
+        const localSet = new Set(localRows)
+        setGridData((prev) => prev.filter((row) => !localSet.has(row)))
+        setNumRows((count) => Math.max(0, count - localRows.length))
+        resetTable?.()
+      }
+
+      setStatusMessage?.(t('Đã xóa thành công {{count}} dòng.', { count: items.length }))
+      await fetchRows()
+    } catch (error) {
+      setStatusMessage?.({
+        type: 'error',
+        text: error?.message || t('Lỗi khi xóa máy móc')
+      })
+    } finally {
+      loadingBarRef?.current?.complete?.()
+      setRowsToDelete([])
+    }
+  }, [
+    rowsToDelete,
+    loadingBarRef,
+    setGridData,
+    setNumRows,
+    resetTable,
+    setStatusMessage,
+    t,
+    fetchRows
+  ])
+
+  const handleCancelDelete = useCallback(() => {
+    setShowDeleteModal(false)
+    setRowsToDelete([])
+  }, [])
+
+  const handleSaveData = useCallback(async () => {
+    if (!canSave) {
+      setStatusMessage?.({ type: 'warning', text: t('Bạn không có quyền lưu dữ liệu!') })
+      return
+    }
+    const rows = gridData || []
+    const additions = rows.filter(
+      (row) => !row.IdSeq && (row.WorkingTag || row.Status) === 'A' && hasBusinessData(row)
+    )
+    const updates = rows.filter(
+      (row) =>
+        Boolean(row.IdSeq) &&
+        ((row.WorkingTag || row.Status) === 'U' || (row.WorkingTag || row.Status) === 'A') &&
+        hasBusinessData(row)
+    )
+    const deletions = rows.filter((row) => (row.WorkingTag || row.Status) === 'D' && row.IdSeq)
+
+    if (additions.length > 0 && !canCreate) {
+      setStatusMessage?.({ type: 'warning', text: t('Bạn không có quyền thêm mới dữ liệu!') })
+      return
+    }
+    if (updates.length > 0 && !canEdit) {
+      setStatusMessage?.({ type: 'warning', text: t('Bạn không có quyền chỉnh sửa dữ liệu!') })
+      return
+    }
+    if (deletions.length > 0 && !canDelete) {
+      setStatusMessage?.({ type: 'warning', text: t('Bạn không có quyền xóa dữ liệu!') })
+      return
+    }
+    const changed = [...additions, ...updates]
+    for (let index = 0; index < changed.length; index++) {
+      const row = changed[index]
+      if (!String(row.MachineCode || '').trim() || !String(row.MachineName || '').trim()) {
+        setStatusMessage?.({
+          type: 'error',
+          text: t('Dòng {{row}} cần có Mã máy và Tên máy móc.', {
+            row: row.IdxNo || index + 1
+          })
+        })
+        return
+      }
+    }
+    if (!additions.length && !updates.length && !deletions.length) {
+      setStatusMessage?.(t('Không có thay đổi cần lưu.'))
+      return
+    }
+
+    loadingBarRef?.current?.continuousStart?.()
+    try {
+      const normalize = (row) => ({
+        IdSeq: row.IdSeq || undefined,
+        IdxNo: Number(row.IdxNo || 0),
+        MachineCode: String(row.MachineCode || '').trim(),
+        MachineName: String(row.MachineName || '').trim(),
+        TeamCode: String(row.TeamCode || '').trim(),
+        TeamName: String(row.TeamName || '').trim(),
+        Factory: String(row.Factory || '').trim(),
+        Description: String(row.Description || '').trim() || null,
+        IsActive: Boolean(row.IsActive),
+        RowVersion: Number(row.RowVersion || 1)
+      })
+      const assertSuccess = (response) => {
+        if (!response?.success)
+          throw new Error(response?.message || t('Lưu dữ liệu không thành công'))
+      }
+      if (additions.length) assertSuccess(await createProdMachineCatalogs(additions.map(normalize)))
+      if (updates.length) assertSuccess(await updateProdMachineCatalogs(updates.map(normalize)))
+      if (deletions.length) {
+        assertSuccess(
+          await deleteProdMachineCatalogs(
+            deletions.map((row) => ({ IdSeq: row.IdSeq, RowVersion: Number(row.RowVersion || 1) }))
+          )
+        )
+      }
+      setStatusMessage?.(t('Đã lưu thay đổi danh mục máy móc thành công.'))
+      await fetchRows()
+    } catch (error) {
+      setStatusMessage?.({
+        type: 'error',
+        text: error?.message || t('Lỗi khi lưu danh mục máy móc')
+      })
+    } finally {
+      loadingBarRef?.current?.complete?.()
+    }
+  }, [
+    canSave,
+    canCreate,
+    canEdit,
+    canDelete,
+    gridData,
+    setStatusMessage,
+    t,
+    loadingBarRef,
+    fetchRows
+  ])
+
+  return {
+    filters,
+    setFilters,
+    handleSearchData,
+    handleSaveData,
+    handleDeleteDataSheet,
+    showConfirmModal,
+    handleConfirmSearch,
+    handleCancelSearch,
+    showDeleteModal,
+    rowsToDelete,
+    handleConfirmDelete,
+    handleCancelDelete
+  }
+}

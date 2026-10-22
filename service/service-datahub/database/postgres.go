@@ -76,7 +76,7 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 	        FROM pg_constraint
 	        WHERE contype = 'f'
 	          AND (
-	              conrelid::regclass::text IN ('"_ERPPlanMaster"', '"_ERPPlanDetail"', '"_ERPProdStatsDetail"', '_ERPPlanMaster', '_ERPPlanDetail', '_ERPProdStatsDetail')
+	              conrelid::regclass::text IN ('"_ERPPlanMaster"', '"_ERPPlanDetail"', '"_ERPProdStatsDetail"', '"_ERPMachineComparisonDetail"', '_ERPPlanMaster', '_ERPPlanDetail', '_ERPProdStatsDetail', '_ERPMachineComparisonDetail')
 	              OR confrelid::regclass::text IN ('"_ERPPlanMaster"', '_ERPPlanMaster')
 	          )
 	    ) LOOP
@@ -88,7 +88,7 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 	        SELECT table_name, column_name, data_type 
 	        FROM information_schema.columns 
 	        WHERE table_schema = 'public' 
-	          AND table_name IN ('_ERPPlanMaster', '_ERPPlanDetail', '_ERPProdStatsDetail')
+	          AND table_name IN ('_ERPPlanMaster', '_ERPPlanDetail', '_ERPProdStatsDetail', '_ERPMachineComparisonDetail')
 	          AND column_name IN ('IdSeq', 'MasterSeq')
 	          AND data_type IN ('bigint', 'integer', 'smallint')
 	    ) LOOP
@@ -125,10 +125,18 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		&reportModels.ERPPlanMaster{},
 		&reportModels.ERPPlanDetail{},
 		&reportModels.ERPProdStatsDetail{},
+		&reportModels.ERPMachineComparisonDetail{},
 		&reportModels.ERPProdStatsRemarkType{},
+		&reportModels.ERPProdMachineCatalog{},
 		&reportModels.CalcProductionBundle{},
 	)
 	if err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE "_ERPMachineComparisonDetail" ADD COLUMN IF NOT EXISTS "TKSXRegCode" TEXT`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE INDEX IF NOT EXISTS "idx_machine_comp_tksxregcode" ON "_ERPMachineComparisonDetail" ("TKSXRegCode")`).Error; err != nil {
 		return err
 	}
 
@@ -170,7 +178,7 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 	        SELECT table_name, column_name 
 	        FROM information_schema.columns 
 	        WHERE table_schema = 'public' 
-	          AND table_name IN ('_ERPProdStatsDetail', '_ERPPlanDetail')
+	          AND table_name IN ('_ERPProdStatsDetail', '_ERPPlanDetail', '_ERPMachineComparisonDetail')
 	          AND data_type = 'character varying'
 	          AND column_name NOT IN ('WorkingTag', 'IdSeq', 'MasterSeq')
 	    ) LOOP

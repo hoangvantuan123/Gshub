@@ -19,6 +19,8 @@ import (
 	"service-datahub/services/report/plan_detail"
 	"service-datahub/services/report/plan_master"
 	"service-datahub/services/report/plan_report"
+	"service-datahub/services/report/prod_machine_catalog"
+	"service-datahub/services/report/prod_machine_registration"
 	"service-datahub/services/report/prod_stats_detail"
 	"service-datahub/services/report/prod_stats_remark_type"
 	"service-datahub/services/report/summary_plan_report"
@@ -85,6 +87,8 @@ func main() {
 	planReportHandler := handlers.NewPlanReportHandler(planReportService, logger)
 	prodStatsDetailHandler := handlers.NewProdStatsDetailHandler(prodStatsDetailService, logger)
 	prodStatsRemarkTypeHandler := handlers.NewProdStatsRemarkTypeHandler(prod_stats_remark_type.NewProdStatsRemarkTypeService(db), logger)
+	prodMachineCatalogHandler := handlers.NewProdMachineCatalogHandler(prod_machine_catalog.NewProdMachineCatalogService(db), logger)
+	prodMachineRegistrationHandler := handlers.NewProdMachineRegistrationHandler(prod_machine_registration.NewService(db), logger)
 	summaryPlanReportHandler := handlers.NewSummaryPlanReportHandler(summaryPlanReportService, logger)
 	summaryStatReportHandler := handlers.NewSummaryStatReportHandler(summaryStatReportService, logger)
 	calcBundleHandler := handlers.NewCalcBundleHandler(db, logger)
@@ -102,6 +106,8 @@ func main() {
 		planDetailHandler,
 		prodStatsDetailHandler,
 		prodStatsRemarkTypeHandler,
+		prodMachineCatalogHandler,
+		prodMachineRegistrationHandler,
 		planReportHandler,
 		summaryPlanReportHandler,
 		summaryStatReportHandler,

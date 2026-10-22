@@ -12,13 +12,14 @@ import {
 } from 'lucide-react'
 import DynamicQueryBar from '@renderer/user/components/query/core/DynamicQueryBar'
 import { TAB_DEFINITIONS } from '../constants/calcConstants'
-import { MACHINE_COMPARISON_STATUSES, MES_MACHINE_STATUSES } from '../engine/machineComparison'
+import { MACHINE_COMPARISON_STATUSES } from '../engine/machineComparison'
 
 export default function CalcProductionQuery({
   activeTab,
   onSelectTab,
   masterInfo = {},
   onChangeMasterInfo,
+  onGenerateRegCode,
   availableVersions = [],
   onSelectVersion,
   fileStatusSummary = {},
@@ -130,7 +131,7 @@ export default function CalcProductionQuery({
         options: [
           { value: 'ALL', label: t('Tất cả trạng thái') },
           ...(activeTab === 'machine_comparison'
-            ? [...MACHINE_COMPARISON_STATUSES, ...MES_MACHINE_STATUSES].map((status) => ({
+            ? MACHINE_COMPARISON_STATUSES.map((status) => ({
                 value: status,
                 label: t(status)
               }))
@@ -253,6 +254,21 @@ export default function CalcProductionQuery({
             )}
             <ClipboardList size={12} className="text-indigo-600 shrink-0" />
             <span>{t('1. THÔNG TIN ĐĂNG KÝ MASTER')}</span>
+
+            {typeof onGenerateRegCode === 'function' && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onGenerateRegCode()
+                }}
+                className="ml-3 px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center gap-1 border border-indigo-200 transition-colors shadow-xs"
+                title={t('Tạo mã đăng ký mới cho đợt tính toán này')}
+              >
+                <RotateCcw size={10} className="text-indigo-600" />
+                <span>{t('TẠO MÃ MỚI')}</span>
+              </button>
+            )}
 
             {/* Khi thu gọn: hiển thị tóm tắt ngắn gọn */}
             {!isMasterOpen && masterInfo.regCode && (
@@ -454,27 +470,7 @@ export default function CalcProductionQuery({
         </div>
       </div>
 
-      {activeTab === 'machine_comparison' && (
-        <div className="px-3 py-2 text-[11px] text-slate-600 bg-emerald-50/50 border-t border-emerald-100">
-          {t(
-            'Tự động tính sau tab 5 và 6. Giữ từng dòng phiếu TK; nối KHSX theo đầy đủ số lệnh thao tác. Nối MES (tab 4) bằng Số phiếu thống kê → Mã TK (Mã lệnh thống kê Bravo), kiểm tra cùng lệnh thao tác. Máy TKSX, máy khai báo và máy MES được hiển thị riêng. MES được so theo mã máy nếu đủ mã, nếu không thì theo tên máy; cột tiêu chí ghi rõ cách so sánh. Không gộp các phiếu cùng lệnh.'
-          )}
-          <div className="flex flex-wrap gap-2 mt-2">
-            {[...MACHINE_COMPARISON_STATUSES, ...MES_MACHINE_STATUSES].map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter?.(statusFilter === status ? 'ALL' : status)}
-                className={`rounded border px-2 py-1 cursor-pointer ${statusFilter === status ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-              >
-                {t(status)}:{' '}
-                {(fileStatusSummary.machine_comparison?.statusCounts?.[status] || 0).toLocaleString(
-                  'vi-VN'
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
     </div>
   )
 }

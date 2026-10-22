@@ -603,7 +603,7 @@ export const saveCalculationResultIDB = async (resultId, data) => {
     await db.put(STORAGE_KEYS.STORE_CALC_RESULTS, {
       id: resultId,
       ...data,
-      calculatedAt: new Date().toISOString()
+      calculatedAt: data?.calculatedAt || new Date().toISOString()
     })
     return { success: true }
   } catch (error) {
@@ -878,5 +878,75 @@ export const clearAllCalcCacheIDB = async (options = {}) => {
   } catch (err) {
     console.error('[IndexedDB] Lỗi xóa toàn bộ cache IndexedDB:', err)
     return { success: false, error: err.message }
+  }
+}
+
+/**
+ * Lưu danh mục máy móc theo nhà máy vào IndexedDB (xóa danh mục máy cũ để chỉ lưu nhà máy đang chọn)
+ */
+export const saveFactoryMachinesIDB = async (factoryKey, machines = []) => {
+  try {
+    const db = await getCalcProductionDB()
+
+    if (factoryKey) {
+      await db.put(STORAGE_KEYS.STORE_METADATA, {
+        key: `FACTORY_MACHINES_${factoryKey}`,
+        factoryKey,
+        machines: Array.isArray(machines) ? machines : [],
+        updatedAt: new Date().toISOString()
+      })
+    }
+    console.log(
+      `[IndexedDB] Đã lưu thành công ${machines?.length || 0} máy vào calc_metadata (key: FACTORY_MACHINES_${factoryKey})`
+    )
+    return { success: true }
+  } catch (err) {
+    console.error('[IndexedDB] saveFactoryMachinesIDB error:', err)
+    return { success: false, error: err?.message }
+  }
+}
+
+/**
+ * Lấy danh mục máy móc theo nhà máy từ IndexedDB
+ */
+export const getFactoryMachinesIDB = async (factoryKey) => {
+  try {
+    const db = await getCalcProductionDB()
+    if (factoryKey) {
+      const record = await db.get(STORAGE_KEYS.STORE_METADATA, `FACTORY_MACHINES_${factoryKey}`)
+      return Array.isArray(record?.machines) ? record.machines : []
+    }
+    const keys = await db.getAllKeys(STORAGE_KEYS.STORE_METADATA)
+    for (const k of keys) {
+      if (typeof k === 'string' && k.startsWith('FACTORY_MACHINES_')) {
+        const record = await db.get(STORAGE_KEYS.STORE_METADATA, k)
+        if (record?.machines) return record.machines
+      }
+    }
+    return []
+  } catch (err) {
+    console.debug('[IndexedDB] getFactoryMachinesIDB error:', err)
+    return []
+  }
+}
+
+/**
+ * Xóa danh mục máy móc trong IndexedDB
+ */
+export const clearFactoryMachinesIDB = async () => {
+  try {
+    const db = await getCalcProductionDB()
+    const keys = await db.getAllKeys(STORAGE_KEYS.STORE_METADATA)
+    if (Array.isArray(keys)) {
+      for (const k of keys) {
+        if (typeof k === 'string' && k.startsWith('FACTORY_MACHINES_')) {
+          await db.delete(STORAGE_KEYS.STORE_METADATA, k)
+        }
+      }
+    }
+    return { success: true }
+  } catch (err) {
+    console.error('[IndexedDB] clearFactoryMachinesIDB error:', err)
+    return { success: false }
   }
 }

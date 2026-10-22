@@ -687,5 +687,64 @@ CREATE INDEX IF NOT EXISTS "idx_mesapproval_bravostatcode" ON "_ERPMesApprovalDe
 CREATE INDEX IF NOT EXISTS "idx_mesapproval_operationorderno" ON "_ERPMesApprovalDetail" ("OperationOrderNo");
 CREATE INDEX IF NOT EXISTS "idx_mesapproval_approvedtime" ON "_ERPMesApprovalDetail" ("ApprovedTime");
 
+-- =============================================================================
+-- 17. BẢNG 4: CHI TIẾT ĐỐI CHIẾU MÁY TKSX VÀ KHSX (_ERPMachineComparisonDetail)
+--     (Lưu trữ kết quả đối chiếu máy Tab 7, gồm mã KHSX và mã TKSX, không dùng FK)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS "_ERPMachineComparisonDetail" (
+    "IdSeq"                   VARCHAR(36) PRIMARY KEY, -- UUIDv7
+    "MasterSeq"               VARCHAR(36) NOT NULL,    -- UUIDv7 của master báo cáo nguồn
+    "RegCode"                 TEXT NOT NULL,
+    "TKSXRegCode"             TEXT,
+    "RowSeq"                  INTEGER DEFAULT 0,
+    "WorkingTag"              VARCHAR(10) DEFAULT 'A',
+    "SourceRow"               INTEGER DEFAULT 0,
+    "StatSlipNo"              TEXT,
+    "StatDate"                TEXT,
+    "OperationOrderNo"        TEXT,
+    "StageOrderNo"            TEXT,
+    "OperationName"           TEXT,
+    "MaterialCode"            TEXT,
+    "MaterialName"            TEXT,
+    "ActualMachineCode"       TEXT,
+    "ActualMachineName"       TEXT,
+    "MesSlipNo"               TEXT,
+    "MesMachineCode"          TEXT,
+    "MesMachineName"          TEXT,
+    "MesComparisonStatus"     TEXT,
+    "MesComparisonBasis"      TEXT,
+    "PlannedMachineCode"      TEXT,
+    "PlannedMachineName"      TEXT,
+    "IsBelongToFactory"       TEXT,
+    "MachineComparisonStatus" TEXT,
+    "MachineDifference"       TEXT,
+    "KhsxStatus"              TEXT,
+    "ProducedQty"             TEXT,
+    "QualifiedQty"            TEXT,
+    "UserMemo"                TEXT,
+    "RemarkTypeSeq"           VARCHAR(36),
+    "RemarkContent"           TEXT,
+    "RowVersion"              BIGINT DEFAULT 1,
+    "IsActive"                BOOLEAN DEFAULT true,
+    "CreatedBy"               TEXT,
+    "CreatedByName"           TEXT,
+    "CreatedAt"               TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "UpdatedBy"               TEXT,
+    "UpdatedByName"           TEXT,
+    "UpdatedAt"               TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE "_ERPMachineComparisonDetail"
+    ADD COLUMN IF NOT EXISTS "TKSXRegCode" TEXT;
+
+CREATE INDEX IF NOT EXISTS "idx_machine_comp_masterseq" ON "_ERPMachineComparisonDetail" ("MasterSeq");
+CREATE INDEX IF NOT EXISTS "idx_machine_comp_regcode" ON "_ERPMachineComparisonDetail" ("RegCode");
+CREATE INDEX IF NOT EXISTS "idx_machine_comp_tksxregcode" ON "_ERPMachineComparisonDetail" ("TKSXRegCode");
+CREATE INDEX IF NOT EXISTS "idx_machine_comp_operationno" ON "_ERPMachineComparisonDetail" ("OperationOrderNo");
+CREATE INDEX IF NOT EXISTS "idx_machine_comp_statslipno" ON "_ERPMachineComparisonDetail" ("StatSlipNo");
+CREATE INDEX IF NOT EXISTS "idx_machine_comp_actualcode" ON "_ERPMachineComparisonDetail" ("ActualMachineCode");
+CREATE INDEX IF NOT EXISTS "idx_machine_comp_plannedcode" ON "_ERPMachineComparisonDetail" ("PlannedMachineCode");
+
+
 
 

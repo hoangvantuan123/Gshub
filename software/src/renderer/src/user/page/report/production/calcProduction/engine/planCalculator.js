@@ -1073,8 +1073,25 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     ).trim()
 
     // 10. Máy sản xuất (So sánh mã lệnh để lấy từ Tab 2 hoặc Tab 3)
+    const machineCode = String(
+      sumRow?.PlannedMachineCode ??
+        sumRow?.MachineCode ??
+        sumRow?.['Mã máy'] ??
+        sumRow?.['Mã máy sản xuất'] ??
+        unfinRow.MachineCode ??
+        row.PlannedMachineCode ??
+        row.MachineCode ??
+        row['Mã máy'] ??
+        row['Mã máy sản xuất'] ??
+        ''
+    ).trim()
+
     const machineName = String(
-      unfinRow.MachineName ??
+      sumRow?.PlannedMachineName ??
+        sumRow?.MachineName ??
+        sumRow?.['Tên máy'] ??
+        sumRow?.['Máy sản xuất'] ??
+        unfinRow.MachineName ??
         row.PlannedMachineName ??
         row.MachineName ??
         row['Tên máy'] ??
@@ -1256,6 +1273,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     let finalMatName = matName
     let finalOpName = opName
     let finalOpTypeName = opTypeName
+    let finalMachineCode = machineCode
     let finalMachineName = machineName
     let finalUnit = unit
     let finalTargetQty = hasTargetQty ? targetQty : ''
@@ -1274,6 +1292,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       finalMatName = ''
       finalOpName = ''
       finalOpTypeName = ''
+      finalMachineCode = ''
       finalMachineName = ''
       finalUnit = ''
       finalTargetQty = ''
@@ -1303,6 +1322,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       MaterialName: finalMatName,
       OperationName: finalOpName,
       OperationTypeName: finalOpTypeName,
+      MachineCode: finalMachineCode,
       MachineName: finalMachineName,
       Unit: finalUnit,
       OpTargetQty: finalTargetQty,
@@ -1332,6 +1352,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       'Tên hàng': finalMatName,
       'Thao tác': finalOpName,
       'Phân loại thao tác': finalOpTypeName,
+      'Mã máy sản xuất': finalMachineCode,
+      'Mã máy': finalMachineCode,
       'Máy sản xuất': finalMachineName,
       Đvt: finalUnit,
       'Số lượng cần đạt LTT': finalTargetQty,
@@ -1462,14 +1484,21 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
         'Ngoài KH'
     ).trim()
 
+    const machineCode = String(
+      exactSumRow.PlannedMachineCode ??
+        exactSumRow.MachineCode ??
+        exactSumRow['Mã máy'] ??
+        exactSumRow['Mã máy sản xuất'] ??
+        unfinRow.MachineCode ??
+        ''
+    ).trim()
+
     const machineName = String(
       exactSumRow.PlannedMachineName ??
         exactSumRow.MachineName ??
         exactSumRow['Tên máy'] ??
         exactSumRow['Máy sản xuất'] ??
         unfinRow.MachineName ??
-        statRow.MachineName ??
-        statRow['Tên máy sản xuất'] ??
         ''
     ).trim()
 
@@ -1652,6 +1681,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
     let finalMatName = matName
     let finalOpName = opName
     let finalOpTypeName = opTypeName
+    let finalMachineCode = machineCode
     let finalMachineName = machineName
     let finalUnit = unit
     let finalTargetQty = hasTargetQty ? targetQty : ''
@@ -1670,6 +1700,7 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       finalMatName = ''
       finalOpName = ''
       finalOpTypeName = ''
+      finalMachineCode = ''
       finalMachineName = ''
       finalUnit = ''
       finalTargetQty = ''
@@ -1698,7 +1729,10 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       MaterialName: finalMatName,
       OperationName: finalOpName,
       OperationTypeName: finalOpTypeName,
+      MachineCode: finalMachineCode,
       MachineName: finalMachineName,
+      PlannedMachineCode: finalMachineCode,
+      PlannedMachineName: finalMachineName,
       Unit: finalUnit,
       OpTargetQty: finalTargetQty,
       OpPlannedQty: finalPlannedQty,
@@ -1726,6 +1760,8 @@ export const calculateKHSX = (files = {}, masterInfo = {}, customRules = null) =
       'Tên hàng': finalMatName,
       'Thao tác': finalOpName,
       'Phân loại thao tác': finalOpTypeName,
+      'Mã máy sản xuất': finalMachineCode,
+      'Mã máy': finalMachineCode,
       'Máy sản xuất': finalMachineName,
       Đvt: finalUnit,
       'Số lượng cần đạt LTT': finalTargetQty,

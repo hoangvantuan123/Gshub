@@ -1,41 +1,60 @@
 /* eslint-disable react/prop-types */
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { Download, Copy, Search, Save, X, ArrowLeft } from 'lucide-react'
-import { DataEditor, GridCellKind, CompactSelection } from '@glideapps/glide-data-grid'
+import { Download, Copy, Search, Save, ArrowLeft, Check, X } from 'lucide-react'
+import {
+  DataEditor,
+  GridCellKind,
+  CompactSelection,
+  GridColumnIcon
+} from '@glideapps/glide-data-grid'
 import * as XLSX from 'xlsx'
 import { Button } from '@renderer/components/ui/button'
-import { PureButton, PureSelect } from './reportUIComponents'
 import { DEFAULT_GRID_THEME } from '@renderer/user/components/hooks/sheet/useTableCellTheme'
 import { updatePlanDetail } from '@renderer/user/page/report/registration/services/planRegistrationService'
 import { queryProdStatsRemarkTypes } from '@renderer/user/page/report/registration/remarkType/remarkTypeService'
 import useTableManager from '@renderer/user/components/hooks/sheet/useTableManager'
+import LayoutMenuSheet from '@renderer/user/components/sheet/jsx/layoutMenu'
+import LayoutStatusMenuSheet from '@renderer/user/components/sheet/jsx/layoutStatusMenu'
 import LayoutContextMenuSheet from '@renderer/user/components/sheet/jsx/layoutContextMenu'
-import { message } from 'antd'
+import { Drawer, Checkbox, message } from 'antd'
 import SystemConfirmModal from '@renderer/user/components/modal/SystemConfirmModal'
 import GenericCodeHelpModal from '@renderer/user/components/query/core/GenericCodeHelpModal'
 import { reorderColumns } from '@renderer/user/components/sheet/js/reorderColumns'
-import ProductionAuditModalHeader from '../../../components/ProductionAuditModalHeader'
 
 const PLAN_AUDIT_COLUMNS = [
-  { id: 'remarkType', title: 'Phân loại', width: 160 },
-  { id: 'remarkDescription', title: 'Diễn giải', width: 240 },
-  { id: 'docNo', title: 'Số LSX', width: 135 },
-  { id: 'orderNo', title: 'Lệnh công đoạn', width: 120 },
-  { id: 'dpStatus', title: 'Trạng thái ĐP-SX', width: 155 },
-  { id: 'timeStatus', title: 'Trạng thái Thời gian', width: 145 },
-  { id: 'capaStatus', title: 'Trạng thái Capa', width: 135 },
-  { id: 'pic', title: 'PIC Điều phối', width: 130 },
-  { id: 'planDate', title: 'Ngày KH', width: 95 },
-  { id: 'actualDate', title: 'Ngày thực tế', width: 95 },
-  { id: 'planQty', title: 'SL Kế hoạch', width: 105 },
-  { id: 'actualQty', title: 'SL Thực tế', width: 105 },
-  { id: 'completionRate', title: 'Tỷ lệ HT', width: 80 },
-  { id: 'machineCode', title: 'Mã máy', width: 100 },
-  { id: 'machineName', title: 'Tên máy', width: 160 },
-  { id: 'itemCode', title: 'Mã sản phẩm', width: 130 },
-  { id: 'itemName', title: 'Tên sản phẩm', width: 230 },
-  { id: 'customer', title: 'Khách hàng', width: 180 },
-  { id: 'note', title: 'Ghi chú điều phối', width: 200 }
+  {
+    id: 'remarkType',
+    title: 'Phân loại',
+    width: 160,
+    hasMenu: true,
+    kind: 'Text',
+    icon: GridColumnIcon.HeaderString
+  },
+  {
+    id: 'remarkDescription',
+    title: 'Diễn giải',
+    width: 240,
+    hasMenu: true,
+    kind: 'Text',
+    icon: GridColumnIcon.HeaderString
+  },
+  { id: 'docNo', title: 'Số LSX', width: 135, hasMenu: true },
+  { id: 'orderNo', title: 'Lệnh công đoạn', width: 120, hasMenu: true },
+  { id: 'dpStatus', title: 'Trạng thái ĐP-SX', width: 155, hasMenu: true },
+  { id: 'timeStatus', title: 'Trạng thái Thời gian', width: 145, hasMenu: true },
+  { id: 'capaStatus', title: 'Trạng thái Capa', width: 135, hasMenu: true },
+  { id: 'pic', title: 'PIC Điều phối', width: 130, hasMenu: true },
+  { id: 'planDate', title: 'Ngày KH', width: 95, hasMenu: true },
+  { id: 'actualDate', title: 'Ngày thực tế', width: 95, hasMenu: true },
+  { id: 'planQty', title: 'SL Kế hoạch', width: 105, hasMenu: true },
+  { id: 'actualQty', title: 'SL Thực tế', width: 105, hasMenu: true },
+  { id: 'completionRate', title: 'Tỷ lệ HT', width: 80, hasMenu: true },
+  { id: 'machineCode', title: 'Mã máy', width: 100, hasMenu: true },
+  { id: 'machineName', title: 'Tên máy', width: 160, hasMenu: true },
+  { id: 'itemCode', title: 'Mã sản phẩm', width: 130, hasMenu: true },
+  { id: 'itemName', title: 'Tên sản phẩm', width: 230, hasMenu: true },
+  { id: 'customer', title: 'Khách hàng', width: 180, hasMenu: true },
+  { id: 'note', title: 'Ghi chú điều phối', width: 200, hasMenu: true }
 ]
 
 const WORKING_TAG_COLUMN = {
@@ -44,20 +63,38 @@ const WORKING_TAG_COLUMN = {
   width: 50,
   hasMenu: true,
   readonly: true,
-  themeOverride: { textDark: '#225588', baseFontStyle: '600 13px' }
+  themeOverride: { textDark: '#0f172a', baseFontStyle: '12px' }
+}
+
+const formatDateVN = (dateVal) => {
+  if (!dateVal) return ''
+  const s = String(dateVal).trim()
+  if (!s) return ''
+  const matchIso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  if (matchIso) {
+    const [, y, m, d] = matchIso
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`
+  }
+  const matchVn = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/)
+  if (matchVn) {
+    const [, d, m, y] = matchVn
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`
+  }
+  const dt = new Date(s)
+  if (!isNaN(dt.getTime())) {
+    const d = String(dt.getDate()).padStart(2, '0')
+    const m = String(dt.getMonth() + 1).padStart(2, '0')
+    const y = dt.getFullYear()
+    return `${d}/${m}/${y}`
+  }
+  return s
 }
 
 const READ_ONLY_CELL_THEME = {
-  bgCell: '#eeeeee',
-  bgCellMedium: '#f5f5f5',
-  textDark: '#64748b',
-  borderColor: '#cbd5e1'
-}
-
-const EDITABLE_CELL_THEME = {
-  bgCell: '#ffffff',
-  bgCellMedium: '#f8fafc',
-  textDark: '#1e293b',
+  bgCell: '#f8fafc',
+  bgCellMedium: '#f1f5f9',
+  textDark: '#0f172a',
+  baseFontStyle: '12px',
   borderColor: '#cbd5e1'
 }
 
@@ -65,9 +102,12 @@ const EDITABLE_CELL_THEME = {
 const CODE_HELP_CELL_THEME = {
   bgCell: '#eaf1f8',
   bgCellMedium: '#e0ecf7',
-  textDark: '#1e293b',
+  textDark: '#0f172a',
+  baseFontStyle: '12px',
   borderColor: '#cbd5e1'
 }
+
+const isElectron = typeof window !== 'undefined' && Boolean(window.electron)
 
 let cachedPlanRemarkTypes = null
 let planRemarkTypesPromise = null
@@ -233,11 +273,21 @@ export const PlanAuditDetailModal = ({
       ? [WORKING_TAG_COLUMN, ...PLAN_AUDIT_COLUMNS]
       : PLAN_AUDIT_COLUMNS
     const mapped = baseCols.map((col) => {
-      if (col.id === 'remarkType' || col.id === 'remarkDescription') {
+      if (col.id === 'remarkType') {
         return {
           ...col,
-          title: col.id === 'remarkType' ? 'Phân loại *' : 'Diễn giải *',
+          title: 'Phân loại *',
+          icon: GridColumnIcon.HeaderString,
           themeOverride: { textHeader: '#DD1144', bgIconHeader: '#DD1144' }
+        }
+      }
+      if (col.id === 'remarkDescription') {
+        return {
+          ...col,
+          title: 'Diễn giải',
+          icon: GridColumnIcon.HeaderString,
+          readonly: false,
+          trailingRowOptions: { disabled: true }
         }
       }
       return col
@@ -320,20 +370,20 @@ export const PlanAuditDetailModal = ({
       const rowKey = getRowKey(item) || `ROW-${idx + 1}`
       const isDirty = Boolean(dirtyAnnotations[rowKey])
       const workingTag = isDirty ? 'U' : ''
-      const annotation = isDirty ? (annotations[rowKey] || {}) : {}
+      const annotation = isDirty ? annotations[rowKey] || {} : {}
 
       let remarkType =
         isDirty && annotation.remarkType !== undefined
           ? annotation.remarkType
-          : (item.remarkType || item.RemarkTypeName || item.RemarkType || '')
+          : item.remarkType || item.RemarkTypeName || item.RemarkType || ''
       let remarkTypeCode =
         isDirty && annotation.remarkTypeCode !== undefined
           ? annotation.remarkTypeCode
-          : (item.remarkTypeCode || item.RemarkTypeCode || '')
+          : item.remarkTypeCode || item.RemarkTypeCode || ''
       let remarkTypeSeq =
         isDirty && annotation.remarkTypeSeq !== undefined
           ? annotation.remarkTypeSeq
-          : (item.remarkTypeSeq || item.RemarkTypeSeq || '')
+          : item.remarkTypeSeq || item.RemarkTypeSeq || ''
 
       // Đồng bộ hai chiều giữa remarkType (TypeName) và remarkTypeSeq (UUIDv7)
       if (remarkTypeSeq && (!remarkType || remarkType === remarkTypeSeq)) {
@@ -348,8 +398,12 @@ export const PlanAuditDetailModal = ({
         const norm = String(remarkType).trim().toLowerCase()
         const found = remarkTypesList.find(
           (t) =>
-            String(t.TypeName || '').trim().toLowerCase() === norm ||
-            String(t.TypeCode || '').trim().toLowerCase() === norm
+            String(t.TypeName || '')
+              .trim()
+              .toLowerCase() === norm ||
+            String(t.TypeCode || '')
+              .trim()
+              .toLowerCase() === norm
         )
         if (found) {
           remarkTypeSeq = found.IdSeq || ''
@@ -360,7 +414,7 @@ export const PlanAuditDetailModal = ({
       const remarkDescription =
         isDirty && annotation.remarkDescription !== undefined
           ? annotation.remarkDescription
-          : (item.RemarkContent || item.remarkContent || '')
+          : item.RemarkContent || item.remarkContent || ''
 
       return {
         ...item,
@@ -469,20 +523,29 @@ export const PlanAuditDetailModal = ({
       }
 
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim()
-        const match =
-          (item.docNo && item.docNo.toLowerCase().includes(q)) ||
-          (item.orderNo && item.orderNo.toLowerCase().includes(q)) ||
-          (item.planNo && item.planNo.toLowerCase().includes(q)) ||
-          (item.itemCode && item.itemCode.toLowerCase().includes(q)) ||
-          (item.itemName && item.itemName.toLowerCase().includes(q)) ||
-          (item.customer && item.customer.toLowerCase().includes(q)) ||
-          (item.machineCode && item.machineCode.toLowerCase().includes(q)) ||
-          (item.machineName && item.machineName.toLowerCase().includes(q)) ||
-          (item.pic && item.pic.toLowerCase().includes(q)) ||
-          (item.remarkType && item.remarkType.toLowerCase().includes(q)) ||
-          (item.remarkDescription && item.remarkDescription.toLowerCase().includes(q))
-        if (!match) return false
+        const queries = searchQuery
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+
+        if (queries.length > 0) {
+          const match = queries.some((q) => {
+            return (
+              (item.docNo && item.docNo.toLowerCase().includes(q)) ||
+              (item.orderNo && item.orderNo.toLowerCase().includes(q)) ||
+              (item.planNo && item.planNo.toLowerCase().includes(q)) ||
+              (item.itemCode && item.itemCode.toLowerCase().includes(q)) ||
+              (item.itemName && item.itemName.toLowerCase().includes(q)) ||
+              (item.customer && item.customer.toLowerCase().includes(q)) ||
+              (item.machineCode && item.machineCode.toLowerCase().includes(q)) ||
+              (item.machineName && item.machineName.toLowerCase().includes(q)) ||
+              (item.pic && item.pic.toLowerCase().includes(q)) ||
+              (item.remarkType && item.remarkType.toLowerCase().includes(q)) ||
+              (item.remarkDescription && item.remarkDescription.toLowerCase().includes(q))
+            )
+          })
+          if (!match) return false
+        }
       }
 
       return true
@@ -547,14 +610,29 @@ export const PlanAuditDetailModal = ({
 
   const tableManager = useTableManager({
     tableId: 'production_plan_audit_detail',
-    defaultCols: PLAN_AUDIT_COLUMNS,
+    defaultCols: showWorkingTag ? [WORKING_TAG_COLUMN, ...PLAN_AUDIT_COLUMNS] : PLAN_AUDIT_COLUMNS,
     cols: columns,
     gridData: filteredData,
     selection,
     setSelection,
+    canEdit: isAnnotationTab,
+    setShowSearch,
     codeHelpColumns: ['remarkType'],
     codeHelpConfig
   })
+
+  const gridTheme = useMemo(
+    () => ({
+      ...DEFAULT_GRID_THEME,
+      ...tableManager.gridTheme,
+      bgCell: '#ffffff',
+      bgHeader: '#f8fafc',
+      headerFontStyle: '600 12px',
+      baseFontStyle: '12px',
+      textDark: '#0f172a'
+    }),
+    [tableManager.gridTheme]
+  )
 
   // Cell Content Callback cho Glide Data Grid
   const getCellContent = useCallback(
@@ -565,7 +643,7 @@ export const PlanAuditDetailModal = ({
       const colId = columns[col]?.id
 
       if (colId === 'WorkingTag') {
-        const tag = item.WorkingTag || ''
+        const tag = item.workingTag || ''
         return {
           kind: GridCellKind.Text,
           data: tag,
@@ -573,11 +651,7 @@ export const PlanAuditDetailModal = ({
           readonly: true,
           allowOverlay: false,
           contentAlign: 'center',
-          themeOverride: {
-            textDark: tag === 'U' ? '#2563eb' : '#225588',
-            baseFontStyle: '700 13px',
-            bgCell: '#f8fafc'
-          }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -591,13 +665,7 @@ export const PlanAuditDetailModal = ({
           readonly: true,
           allowOverlay: false,
           contentAlign: 'left',
-          themeOverride: isEditable
-            ? {
-                ...CODE_HELP_CELL_THEME,
-                textDark: typeText ? '#1e293b' : '#64748b',
-                baseFontStyle: typeText ? '600 12px' : 'italic 12px'
-              }
-            : READ_ONLY_CELL_THEME
+          themeOverride: isEditable ? CODE_HELP_CELL_THEME : READ_ONLY_CELL_THEME
         }
       }
 
@@ -610,9 +678,9 @@ export const PlanAuditDetailModal = ({
           displayData: descText,
           readonly: !isEditable,
           allowOverlay: isEditable,
+          hasMenu: true,
           contentAlign: 'left',
-          activationBehaviorOverride: isEditable ? 'single-click' : 'second-click',
-          themeOverride: isEditable ? EDITABLE_CELL_THEME : READ_ONLY_CELL_THEME
+          themeOverride: isEditable ? undefined : READ_ONLY_CELL_THEME
         }
       }
 
@@ -649,7 +717,7 @@ export const PlanAuditDetailModal = ({
           displayData: txt,
           readonly: true,
           allowOverlay: false,
-          themeOverride: { ...READ_ONLY_CELL_THEME, textDark: '#0f172a', baseFontStyle: '600 12px' }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -685,7 +753,7 @@ export const PlanAuditDetailModal = ({
           displayData: txt,
           readonly: true,
           allowOverlay: false,
-          themeOverride: { ...READ_ONLY_CELL_THEME, textDark: '#334155', baseFontStyle: '500 12px' }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -697,7 +765,7 @@ export const PlanAuditDetailModal = ({
           displayData: txt,
           readonly: true,
           allowOverlay: false,
-          themeOverride: { ...READ_ONLY_CELL_THEME, textDark: '#334155', baseFontStyle: '500 12px' }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -709,16 +777,17 @@ export const PlanAuditDetailModal = ({
           displayData: txt,
           readonly: true,
           allowOverlay: false,
-          themeOverride: { ...READ_ONLY_CELL_THEME, textDark: '#0f172a', baseFontStyle: '500 12px' }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
       if (colId === 'planDate') {
-        const txt = item.planDate || item.RoutingDocDate || ''
+        const raw = item.planDate || item.RoutingDocDate || ''
+        const display = formatDateVN(raw)
         return {
           kind: GridCellKind.Text,
-          data: txt,
-          displayData: txt,
+          data: display,
+          displayData: display,
           readonly: true,
           allowOverlay: false,
           contentAlign: 'center',
@@ -727,20 +796,16 @@ export const PlanAuditDetailModal = ({
       }
 
       if (colId === 'actualDate') {
-        const txt = item.actualDate || item.prodDate || item.OpDate || ''
-        const isDiff = item.planDate && txt && item.planDate !== txt
+        const raw = item.actualDate || item.prodDate || item.OpDate || ''
+        const display = formatDateVN(raw)
         return {
           kind: GridCellKind.Text,
-          data: txt,
-          displayData: txt,
+          data: display,
+          displayData: display,
           readonly: true,
           allowOverlay: false,
           contentAlign: 'center',
-          themeOverride: {
-            ...READ_ONLY_CELL_THEME,
-            textDark: isDiff ? '#d97706' : '#334155',
-            baseFontStyle: isDiff ? '700 12px' : '400 12px'
-          }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -766,7 +831,7 @@ export const PlanAuditDetailModal = ({
           readonly: true,
           allowOverlay: false,
           contentAlign: 'right',
-          themeOverride: { ...READ_ONLY_CELL_THEME, textDark: '#047857', baseFontStyle: '700 12px' }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -781,11 +846,7 @@ export const PlanAuditDetailModal = ({
           readonly: true,
           allowOverlay: false,
           contentAlign: 'right',
-          themeOverride: {
-            ...READ_ONLY_CELL_THEME,
-            textDark: Number(rate) >= 95 ? '#047857' : '#be123c',
-            baseFontStyle: '700 12px'
-          }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -797,7 +858,7 @@ export const PlanAuditDetailModal = ({
           displayData: txt,
           readonly: true,
           allowOverlay: false,
-          themeOverride: { ...READ_ONLY_CELL_THEME, textDark: '#0284c7', baseFontStyle: '600 12px' }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -833,7 +894,7 @@ export const PlanAuditDetailModal = ({
           displayData: txt,
           readonly: true,
           allowOverlay: false,
-          themeOverride: { ...READ_ONLY_CELL_THEME, textDark: '#0f172a', baseFontStyle: '500 12px' }
+          themeOverride: READ_ONLY_CELL_THEME
         }
       }
 
@@ -961,7 +1022,11 @@ export const PlanAuditDetailModal = ({
             const resolved = lookupMap.get(cellVal.toLowerCase())
             const updatedType = resolved ? resolved.TypeName : cellVal
             const updatedCode = resolved ? resolved.TypeCode : ''
-            const updatedSeq = resolved ? resolved.IdSeq : (cellVal.includes('-') && cellVal.length === 36 ? cellVal : '')
+            const updatedSeq = resolved
+              ? resolved.IdSeq
+              : cellVal.includes('-') && cellVal.length === 36
+                ? cellVal
+                : ''
 
             if (
               String(item.remarkType ?? '') === updatedType &&
@@ -1146,9 +1211,15 @@ export const PlanAuditDetailModal = ({
           const norm = String(remarkType).trim().toLowerCase()
           const matched = remarkTypesList.find(
             (t) =>
-              String(t.TypeName || '').trim().toLowerCase() === norm ||
-              String(t.TypeCode || '').trim().toLowerCase() === norm ||
-              String(t.IdSeq || '').trim().toLowerCase() === norm
+              String(t.TypeName || '')
+                .trim()
+                .toLowerCase() === norm ||
+              String(t.TypeCode || '')
+                .trim()
+                .toLowerCase() === norm ||
+              String(t.IdSeq || '')
+                .trim()
+                .toLowerCase() === norm
           )
           if (matched?.IdSeq) finalSeq = String(matched.IdSeq).trim()
         }
@@ -1312,7 +1383,7 @@ export const PlanAuditDetailModal = ({
     XLSX.utils.book_append_sheet(wb, ws, 'ChiTiet_DieuPhoi_KHSX')
     XLSX.writeFile(
       wb,
-      `ChiTiet_DieuPhoi_KHSX_${plantKey}_${activeCategory}_${new Date().toISOString().slice(0, 10)}.xlsx`
+      `ChiTiet_DieuPhoi_KHSX_${plantName || plantKey}_${activeCategory}_${new Date().toISOString().slice(0, 10)}.xlsx`
     )
   }
 
@@ -1324,10 +1395,8 @@ export const PlanAuditDetailModal = ({
       const rows = filteredData.map((item, idx) =>
         columns.map((col) => {
           if (col.id === 'stt') return idx + 1
-          if (col.id === 'completionRate') {
-            const p = Number(item.planQty ?? item.TargetProdQty ?? 0) || 0
-            const a = Number(item.actualQty ?? item.StatPassQty ?? 0) || 0
-            return p > 0 ? `${((a / p) * 100).toFixed(1)}%` : '100%'
+          if (col.id === 'planDate' || col.id === 'actualDate') {
+            return formatDateVN(item[col.id])
           }
           return item[col.id] ?? ''
         })
@@ -1347,7 +1416,10 @@ export const PlanAuditDetailModal = ({
       <div
         style={{
           position: 'fixed',
-          inset: 0,
+          top: isElectron ? 28 : 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           zIndex: 99990,
           background: 'rgba(0, 0, 0, 0.45)',
           display: 'flex',
@@ -1361,8 +1433,8 @@ export const PlanAuditDetailModal = ({
           style={{
             background: '#ffffff',
             width: '100vw',
-            height: '100dvh',
-            maxHeight: '100dvh',
+            height: isElectron ? 'calc(100dvh - 28px)' : '100dvh',
+            maxHeight: isElectron ? 'calc(100dvh - 28px)' : '100dvh',
             maxWidth: '100%',
             border: 'none',
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
@@ -1372,73 +1444,56 @@ export const PlanAuditDetailModal = ({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {localOnly ? (
-            <div
-              role="toolbar"
-              aria-label="Thao tác nhật trình đối soát KHSX"
-              className="flex items-center justify-between bg-white px-2 py-0.5 border-b border-slate-200 shrink-0"
-              style={{ position: 'relative', zIndex: 20, pointerEvents: 'auto' }}
-            >
-              <div className="flex items-center gap-1.5 py-0.5 select-none flex-wrap">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCloseRequest}
-                  disabled={isSaving}
-                  className="uppercase text-[11px] font-bold text-slate-700 hover:text-slate-900 h-7 px-2 shrink-0"
-                  title="Quay lại / Đóng nhật trình"
-                >
-                  <ArrowLeft size={13} />
-                  <span>Quay lại</span>
-                </Button>
+          {/* Thanh thao tác gọn: Quay lại, Lưu & Đóng */}
+          <div
+            role="toolbar"
+            aria-label="Thao tác nhật trình đối soát KHSX"
+            className="flex items-center justify-between bg-white px-3 py-1 border-b border-slate-200 shrink-0 select-none"
+            style={{ minHeight: 34 }}
+          >
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCloseRequest}
+                disabled={isSaving}
+                className="uppercase text-[11px] font-bold text-slate-700 hover:text-slate-900 h-7 px-2 shrink-0 border border-slate-200"
+                title="Quay lại / Đóng nhật trình"
+              >
+                <ArrowLeft size={13} />
+                <span>Quay lại</span>
+              </Button>
+              {isAnnotationTab && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleSave}
                   disabled={isSaving}
                   aria-label="Lưu nhật trình đối soát"
-                  title="Lưu thay đổi"
-                  className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 shrink-0"
-                  style={{
-                    position: 'relative',
-                    zIndex: 21,
-                    minWidth: 80,
-                    height: 32,
-                    minHeight: 32,
-                    padding: '0 12px',
-                    color: '#4338ca',
-                    background: 'transparent',
-                    border: 'none',
-                    pointerEvents: 'auto',
-                    touchAction: 'manipulation'
-                  }}
+                  title="Lưu thay đổi phân loại và diễn giải"
+                  className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0 border border-indigo-200 bg-indigo-50/50"
                 >
                   <Save size={13} />
                   <span>{isSaving ? 'Đang lưu...' : 'Lưu'}</span>
                 </Button>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCloseRequest}
-                aria-label="Đóng nhật trình đối soát"
-                title="Đóng nhật trình"
-                className="h-7 px-2 shrink-0 text-slate-500"
-              >
-                <X size={16} />
-              </Button>
+              )}
+              {saveStatus && (
+                <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                  <Check size={13} /> {saveStatus}
+                </span>
+              )}
             </div>
-          ) : (
-            <ProductionAuditModalHeader
-              plantName={plantName}
-              subtitle={
-                isAnnotationTab
-                  ? 'Kế hoạch sản xuất • Chỉnh sửa phân loại / diễn giải rồi lưu thay đổi.'
-                  : 'Kế hoạch sản xuất • Đối soát tiến độ và trạng thái điều phối.'
-              }
-              onClose={handleCloseRequest}
-            />
-          )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCloseRequest}
+              aria-label="Đóng nhật trình đối soát"
+              title="Đóng nhật trình"
+              className="h-7 w-7 p-0 shrink-0 text-slate-500 hover:text-slate-800"
+            >
+              <X size={16} />
+            </Button>
+          </div>
 
           {/* Hàng 1: Tabs điều hướng trạng thái đối soát */}
           <div
@@ -1608,7 +1663,7 @@ export const PlanAuditDetailModal = ({
               />
               <input
                 type="text"
-                placeholder="Tìm mã lệnh, SO, PIC, máy..."
+                placeholder="Tìm mã lệnh, SO, PIC, máy (cách nhau bởi dấu ,)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -1617,18 +1672,54 @@ export const PlanAuditDetailModal = ({
                   border: '1px solid #cbd5e1',
                   borderRadius: 2,
                   outline: 'none',
-                  width: 220,
+                  width: 270,
                   background: '#ffffff'
                 }}
               />
             </div>
+
+            <button
+              onClick={handleCopyTable}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 10px',
+                fontSize: 12,
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: 2,
+                cursor: 'pointer',
+                color: '#334155'
+              }}
+            >
+              <Copy size={13} />
+              <span>Sao chép</span>
+            </button>
+
+            <button
+              onClick={handleExportExcel}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: 500,
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: 2,
+                cursor: 'pointer',
+                color: '#0f172a'
+              }}
+            >
+              <Download size={13} />
+              <span>Xuất Excel</span>
+            </button>
           </div>
 
           {/* Hàng 3: Glide Data Grid Sheet (Bảng dữ liệu bên dưới) */}
-          <div
-            className="gdg-style"
-            style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}
-          >
+          <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
             <DataEditor
               ref={gridRef}
               columns={columns}
@@ -1644,25 +1735,98 @@ export const PlanAuditDetailModal = ({
               onCellClicked={tableManager.onCellClicked}
               onCellActivated={tableManager.onCellActivated}
               onKeyDown={tableManager.onKeyDown}
+              onHeaderMenuClick={tableManager.onHeaderMenuClick}
+              onCellContextMenu={tableManager.onCellContextMenu}
               onPaste={onPaste}
               onColumnResize={onColumnResize}
               onColumnMoved={onColumnMoved}
               rowHeight={rowHeight}
-              headerHeight={28}
+              headerHeight={23}
               gridSelection={selection}
               onGridSelectionChange={setSelection}
               showSearch={showSearch}
               onSearchClose={() => setShowSearch(false)}
               keybindings={{ search: true, downFill: true, rightFill: true }}
-              theme={DEFAULT_GRID_THEME}
+              theme={gridTheme}
               width="100%"
               height="100%"
             />
-            {tableManager?.contextMenu && (
-              <LayoutContextMenuSheet
-                menuPosition={tableManager.contextMenu}
-                onClose={() => tableManager.setContextMenu(null)}
-                tableManager={tableManager}
+            {tableManager.showMenu !== null &&
+              tableManager.renderLayer(
+                <div
+                  {...tableManager.layerProps}
+                  className="border w-72 rounded-lg bg-white shadow-lg cursor-pointer z-[9999]"
+                >
+                  {tableManager.showMenu.menuType === 'statusMenu' ? (
+                    <LayoutStatusMenuSheet
+                      showMenu={tableManager.showMenu}
+                      handleSort={tableManager.handleSort}
+                      cols={columns}
+                      renderLayer={tableManager.renderLayer}
+                      setShowSearch={setShowSearch}
+                      setShowMenu={tableManager.setShowMenu}
+                      layerProps={tableManager.layerProps}
+                      handleReset={tableManager.handleReset}
+                      showDrawer={tableManager.showDrawer}
+                      data={filteredData}
+                    />
+                  ) : tableManager.showMenu.menuType === 'contextMenu' ? (
+                    <LayoutContextMenuSheet
+                      showMenu={tableManager.showMenu}
+                      cols={columns}
+                      setShowSearch={setShowSearch}
+                      setShowMenu={tableManager.setShowMenu}
+                      data={filteredData}
+                      selection={selection}
+                      canCreate={false}
+                    />
+                  ) : (
+                    <LayoutMenuSheet
+                      showMenu={tableManager.showMenu}
+                      handleSort={tableManager.handleSort}
+                      handleHideColumn={tableManager.handleHideColumn}
+                      cols={columns}
+                      renderLayer={tableManager.renderLayer}
+                      setShowSearch={setShowSearch}
+                      setShowMenu={tableManager.setShowMenu}
+                      layerProps={tableManager.layerProps}
+                      handleFreezeColumn={tableManager.handleFreezeColumn}
+                    />
+                  )}
+                </div>
+              )}
+            <Drawer
+              title={
+                <span className="text-xs flex items-center justify-end font-bold">
+                  CÀI ĐẶT SHEET
+                </span>
+              }
+              styles={{ body: { padding: 15 } }}
+              onClose={() => tableManager.setOpenDrawer(false)}
+              open={tableManager.openDrawer}
+            >
+              {(tableManager.configurableCols || []).map((col) => (
+                <div key={col.id} style={{ marginBottom: '10px' }}>
+                  <Checkbox
+                    checked={!tableManager.hiddenColumns?.includes(col.id)}
+                    onChange={(e) => tableManager.handleCheckboxChange(col.id, e.target.checked)}
+                  >
+                    {col.title || col.id}
+                  </Checkbox>
+                </div>
+              ))}
+            </Drawer>
+            {tableManager.codeHelpModal?.isOpen && (
+              <GenericCodeHelpModal
+                isOpen={tableManager.codeHelpModal.isOpen}
+                onClose={tableManager.closeCodeHelpModal}
+                title={tableManager.codeHelpModal.title}
+                helpData={tableManager.codeHelpModal.helpData}
+                fetchHelpData={tableManager.codeHelpModal.fetchHelpData}
+                columns={tableManager.codeHelpModal.columns}
+                initialSearchText={tableManager.codeHelpModal.initialSearchText}
+                storageKey="prod_plan_remark_type_codehelp"
+                onSelect={tableManager.handleSelectCodeHelp}
               />
             )}
           </div>

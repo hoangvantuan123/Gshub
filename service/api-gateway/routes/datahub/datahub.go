@@ -18,6 +18,17 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 			remarkTypes.POST("/ProdStatsRemarkType"+operation, datahub.ProdStatsRemarkType(pool, operation))
 		}
 		remarkTypes.GET("/ProdStatsRemarkTypeQ", datahub.ProdStatsRemarkType(pool, "Q"))
+
+		machineCatalogs := v2.Group("/report/prod-machine-catalog")
+		for _, operation := range []string{"A", "U", "D", "Q"} {
+			machineCatalogs.POST("/ProdMachineCatalog"+operation, datahub.ProdMachineCatalog(pool, operation))
+		}
+		machineCatalogs.GET("/ProdMachineCatalogQ", datahub.ProdMachineCatalog(pool, "Q"))
+		machineRegistrations := v2.Group("/report/prod-machine-registration")
+		for _, operation := range []string{"A", "D", "Q"} {
+			machineRegistrations.POST("/ProdMachineRegistration"+operation, datahub.ProdMachineRegistration(pool, operation))
+		}
+		machineRegistrations.GET("/ProdMachineRegistrationQ", datahub.ProdMachineRegistration(pool, "Q"))
 		// 1. Report Plan
 		planV2 := v2.Group("/report/plan")
 		{

@@ -69,7 +69,9 @@ export function setupBundlePackageIpc() {
           calcRes = {
             summary: JSON.parse(resRow.summary || '{}'),
             plan: JSON.parse(resRow.plan_data || '{}'),
-            stat: JSON.parse(resRow.stat_data || '{}')
+            stat: JSON.parse(resRow.stat_data || '{}'),
+            calculatedAt: resRow.calculated_at,
+            machineComparison: resRow.machine_comparison_data ? JSON.parse(resRow.machine_comparison_data) : null
           }
         }
       }
@@ -89,8 +91,15 @@ export function setupBundlePackageIpc() {
         },
         calcResults: {
           summary: calcRes?.summary || {},
+          calculatedAt: calcRes?.calculatedAt || new Date().toISOString(),
           plan: objectsToMatrix(calcRes?.plan?.calculatedRows || calcRes?.plan || []),
-          stat: objectsToMatrix(calcRes?.stat?.calculatedRows || calcRes?.stat || [])
+          stat: objectsToMatrix(calcRes?.stat?.calculatedRows || calcRes?.stat || []),
+          machineComparison: calcRes?.machineComparison
+            ? {
+                ...calcRes.machineComparison,
+                calculatedRows: objectsToMatrix(calcRes.machineComparison.calculatedRows || [])
+              }
+            : null
         }
       }
 
@@ -195,6 +204,16 @@ export function setupBundlePackageIpc() {
       const mesRows = matrixToObjects(arch.MES_APPROVAL)
       const planRows = matrixToObjects(res.plan)
       const statCalcRows = matrixToObjects(res.stat)
+      const machineComparison = res.machineComparison
+        ? {
+            ...res.machineComparison,
+            calculatedRows: res.machineComparison.calculatedRows?.cols
+              ? matrixToObjects(res.machineComparison.calculatedRows)
+              : Array.isArray(res.machineComparison.calculatedRows)
+                ? res.machineComparison.calculatedRows
+                : []
+          }
+        : null
 
       const CHUNK_SIZE = 5000
 
@@ -299,12 +318,13 @@ export function setupBundlePackageIpc() {
 
         // 3. Lưu kết quả tính
         const calcStmt = db.prepare(`
-          INSERT INTO calc_results (id, summary, plan_data, stat_data, calculated_at)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO calc_results (id, summary, plan_data, stat_data, machine_comparison_data, calculated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             summary = excluded.summary,
             plan_data = excluded.plan_data,
             stat_data = excluded.stat_data,
+            machine_comparison_data = excluded.machine_comparison_data,
             calculated_at = excluded.calculated_at
         `)
 
@@ -313,7 +333,8 @@ export function setupBundlePackageIpc() {
           JSON.stringify(res.summary || {}),
           JSON.stringify({ calculatedRows: planRows }),
           JSON.stringify({ calculatedRows: statCalcRows }),
-          new Date().toISOString()
+          machineComparison ? JSON.stringify(machineComparison) : null,
+          res.calculatedAt || new Date().toISOString()
         )
       })
 

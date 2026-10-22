@@ -105,6 +105,12 @@ export function mapHanoiPlanRow(item, idx, master) {
     TimeStatus: timeStatusText,
     CapaStatus: capaStatusText,
 
+    IdSeq: item.IdSeq || item.idSeq || item.Id || '',
+    idSeq: item.IdSeq || item.idSeq || item.Id || '',
+    RemarkTypeSeq: item.RemarkTypeSeq || item.remarkTypeSeq || '',
+    remarkTypeSeq: item.RemarkTypeSeq || item.remarkTypeSeq || '',
+    RemarkContent: item.RemarkContent || item.remarkContent || item.UserMemo || item.note || '',
+    remarkDescription: item.RemarkContent || item.remarkContent || item.UserMemo || item.note || '',
     id: item.IdSeq || item.id || `HN-PL-${String(idx + 1).padStart(4, '0')}`,
     docNo,
     orderNo,

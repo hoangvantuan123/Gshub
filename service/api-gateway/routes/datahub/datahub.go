@@ -56,6 +56,8 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 				hanoiV2.GET("/plan", datahub.GetHanoiGs1PlanReport(pool))
 				hanoiV2.POST("/statistics", datahub.GetHanoiGs1StatReport(pool))
 				hanoiV2.GET("/statistics", datahub.GetHanoiGs1StatReport(pool))
+				hanoiV2.POST("/plan/update", datahub.PlanDetailU(pool))
+				hanoiV2.POST("/statistics/update", datahub.ProdStatsDetailU(pool))
 			}
 
 			quevoV2 := prodReportsV2.Group("/quevo-gs5")
@@ -64,6 +66,8 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 				quevoV2.GET("/plan", datahub.GetQuevoGs5PlanReport(pool))
 				quevoV2.POST("/statistics", datahub.GetQuevoGs5StatReport(pool))
 				quevoV2.GET("/statistics", datahub.GetQuevoGs5StatReport(pool))
+				quevoV2.POST("/plan/update", datahub.PlanDetailU(pool))
+				quevoV2.POST("/statistics/update", datahub.ProdStatsDetailU(pool))
 			}
 
 			summaryV2 := prodReportsV2.Group("/summary")
@@ -78,6 +82,8 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 			prodReportsV2.POST("/statistics", datahub.GetProductionStatisticsReport(pool))
 			prodReportsV2.GET("/plan", datahub.GetProductionPlanReport(pool))
 			prodReportsV2.POST("/plan", datahub.GetProductionPlanReport(pool))
+			prodReportsV2.POST("/plan/update", datahub.PlanDetailU(pool))
+			prodReportsV2.POST("/statistics/update", datahub.ProdStatsDetailU(pool))
 		}
 	}
 

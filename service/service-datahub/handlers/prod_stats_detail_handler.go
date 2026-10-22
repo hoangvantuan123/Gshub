@@ -172,7 +172,10 @@ func (h *ProdStatsDetailHandler) ProdStatsDetailU(c *gin.Context) {
 		return
 	}
 
-	userId := c.GetString("user_id")
+	userId := c.GetString("login")
+	if userId == "" {
+		userId = c.GetString("user_id")
+	}
 	if userId == "" {
 		userId = c.GetString("UserId")
 	}

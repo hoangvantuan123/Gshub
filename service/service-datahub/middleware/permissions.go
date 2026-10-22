@@ -18,7 +18,18 @@ type reportPolicy struct {
 	operation string
 }
 
+func IsPublicUpdateMethod(method string) bool {
+	switch method {
+	case "UpdatePlanDetail", "PlanDetailU", "UpdateProdStatsDetail", "ProdStatsDetailU":
+		return true
+	}
+	return false
+}
+
 func registrationPolicy(method string) (reportPolicy, bool) {
+	if IsPublicUpdateMethod(method) {
+		return reportPolicy{}, false
+	}
 	registration := []string{"report_registration"}
 	plan := []string{"report_registration", "report_plan_query", "report_hanoi_gs1_plan", "report_quevo_gs5_plan", "report_summary_plan"}
 	stat := []string{"report_registration", "report_stat_query", "report_hanoi_gs1_stat", "report_quevo_gs5_stat", "report_summary_stat"}
@@ -40,10 +51,8 @@ func registrationPolicy(method string) (reportPolicy, bool) {
 		"QueryPlanDetail":       {plan, "Search"},
 		"QueryProdStatsDetail":  {stat, "Search"},
 		"AddPlanDetail":         {registration, "Create"},
-		"UpdatePlanDetail":      {registration, "Edit"},
 		"DeletePlanDetail":      {registration, "Delete"},
 		"AddProdStatsDetail":    {registration, "Create"},
-		"UpdateProdStatsDetail": {registration, "Edit"},
 		"DeleteProdStatsDetail": {registration, "Delete"},
 	}
 	policy, ok := policies[method]
@@ -63,6 +72,10 @@ func remarkTypePolicy(method string) (reportPolicy, bool) {
 }
 
 func httpRegistrationPolicy(path string) (reportPolicy, bool) {
+	if strings.HasSuffix(path, "/plan/update") || strings.HasSuffix(path, "/statistics/update") ||
+		strings.HasSuffix(path, "/PlanDetailU") || strings.HasSuffix(path, "/ProdStatsDetailU") {
+		return reportPolicy{}, false
+	}
 	if strings.HasPrefix(path, "/api/v2/report/prod-stats-remark-type/") {
 		parts := strings.Split(path, "/")
 		return remarkTypePolicy(parts[len(parts)-1])
@@ -73,8 +86,8 @@ func httpRegistrationPolicy(path string) (reportPolicy, bool) {
 		"PlanRegistrationA": "SavePlanRegistration", "save": "SavePlanRegistration",
 		"PlanDetailQ": "QueryPlanDetail", "query-detail": "QueryPlanDetail",
 		"ProdStatsDetailQ": "QueryProdStatsDetail", "query-stats-detail": "QueryProdStatsDetail",
-		"PlanDetailA": "AddPlanDetail", "PlanDetailU": "UpdatePlanDetail", "PlanDetailD": "DeletePlanDetail",
-		"ProdStatsDetailA": "AddProdStatsDetail", "ProdStatsDetailU": "UpdateProdStatsDetail", "ProdStatsDetailD": "DeleteProdStatsDetail",
+		"PlanDetailA": "AddPlanDetail", "PlanDetailD": "DeletePlanDetail",
+		"ProdStatsDetailA": "AddProdStatsDetail", "ProdStatsDetailD": "DeleteProdStatsDetail",
 	}
 	if !strings.HasPrefix(path, "/api/v1/report/plan/") && !strings.HasPrefix(path, "/api/v2/report/plan/") && !strings.HasPrefix(path, "/api/v2/report/stat/") {
 		return reportPolicy{}, false
@@ -108,6 +121,14 @@ func ReportPermissionMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		policy, protected := httpRegistrationPolicy(c.FullPath())
 		if !protected {
+			token := c.GetHeader("Authorization")
+			if token != "" && db != nil {
+				if user, err := auth.AuthenticateUserWithToken(c.Request.Context(), db, token); err == nil && user != nil {
+					c.Set("user_id", user.UserId)
+					c.Set("user_seq", user.UserSeq)
+					c.Set("login", user.UserName)
+				}
+			}
 			c.Next()
 			return
 		}
@@ -139,6 +160,9 @@ func ReportPermissionInterceptor(db *gorm.DB) grpc.UnaryServerInterceptor {
 			return handler(ctx, req)
 		}
 		method := strings.TrimPrefix(strings.TrimPrefix(info.FullMethod, prefix), remarkPrefix)
+		if IsPublicUpdateMethod(method) {
+			return handler(ctx, req)
+		}
 		policy, protected := registrationPolicy(method)
 		if !protected {
 			return handler(ctx, req)

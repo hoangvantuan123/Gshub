@@ -278,7 +278,14 @@ export const PlanAuditDetailModal = ({
         return column ? { ...column, width: columnWidths[id] ?? column.width } : null
       })
       .filter(Boolean)
-  }, [columnOrder, hiddenColumns, columnWidths, isAnnotationTab, availableAuditColumns, showWorkingTag])
+  }, [
+    columnOrder,
+    hiddenColumns,
+    columnWidths,
+    isAnnotationTab,
+    availableAuditColumns,
+    showWorkingTag
+  ])
 
   const onColumnResize = useCallback(
     (column, width, colIndex) => {
@@ -972,7 +979,10 @@ export const PlanAuditDetailModal = ({
       preventDefault?.()
       if (!isAnnotationTab || !patternSource || !fillDestination) return
 
-      const normalize = (value) => String(value ?? '').trim().toLowerCase()
+      const normalize = (value) =>
+        String(value ?? '')
+          .trim()
+          .toLowerCase()
       const remarkTypeLookup = new Map()
       remarkTypesList.forEach((type) => {
         if (type.TypeCode) remarkTypeLookup.set(normalize(type.TypeCode), type)
@@ -1122,47 +1132,9 @@ export const PlanAuditDetailModal = ({
         if (matchedRow) {
           payload.push({
             IdSeq: idSeq,
-            MasterSeq: matchedRow.MasterSeq || matchedRow.masterSeq || '',
-            RegCode: matchedRow.RegCode || matchedRow.regCode || '',
-            RowSeq: Number(matchedRow.RowSeq || matchedRow.rowSeq || 0),
-            WorkingTag: 'U',
-            PicDp: matchedRow.PicDp || matchedRow.pic || '',
-            OperationNo:
-              matchedRow.OperationNo || matchedRow.operationNo || matchedRow.planNo || '',
-            OpDate: matchedRow.OpDate || matchedRow.opDate || matchedRow.actualDate || '',
-            RoutingDocNo:
-              matchedRow.RoutingDocNo || matchedRow.routingDocNo || matchedRow.orderNo || '',
-            RoutingDocDate:
-              matchedRow.RoutingDocDate || matchedRow.routingDocDate || matchedRow.planDate || '',
-            ItemCode: matchedRow.ItemCode || matchedRow.itemCode || '',
-            ItemName: matchedRow.ItemName || matchedRow.itemName || '',
-            OperationName: matchedRow.OperationName || matchedRow.operationName || '',
-            OpTypeName: matchedRow.OpTypeName || matchedRow.opTypeName || '',
-            MachineName: matchedRow.MachineName || matchedRow.machineName || '',
-            Unit: matchedRow.Unit || matchedRow.unit || '',
-            TargetPassQty: String(
-              matchedRow.TargetPassQty ?? matchedRow.targetPassQty ?? matchedRow.planQty ?? 0
-            ),
-            TargetProdQty: String(
-              matchedRow.TargetProdQty ?? matchedRow.targetProdQty ?? matchedRow.planQty ?? 0
-            ),
-            StatPassQty: String(
-              matchedRow.StatPassQty ?? matchedRow.statPassQty ?? matchedRow.actualQty ?? 0
-            ),
-            StartTime: matchedRow.StartTime || matchedRow.startTime || '',
-            EndTime: matchedRow.EndTime || matchedRow.endTime || '',
-            StandardProdTime: String(
-              matchedRow.StandardProdTime ?? matchedRow.standardProdTime ?? 0
-            ),
-            ActualProdTime: String(matchedRow.ActualProdTime ?? matchedRow.actualProdTime ?? 0),
-            StandardCapa: String(matchedRow.StandardCapa ?? matchedRow.standardCapa ?? 0),
-            ActualCapa: String(matchedRow.ActualCapa ?? matchedRow.actualCapa ?? 0),
-            StatusDpSx: matchedRow.StatusDpSx || matchedRow.dpStatus || '',
-            TimeStatus: matchedRow.TimeStatus || matchedRow.timeStatus || '',
-            CapaStatus: matchedRow.CapaStatus || matchedRow.capaStatus || '',
-            UserMemo: String(remarkDescription),
             RemarkTypeSeq: String(remarkTypeSeq),
-            RemarkContent: String(remarkDescription)
+            RemarkContent: String(remarkDescription),
+            RowVersion: Number(matchedRow.RowVersion || matchedRow.rowVersion || 1)
           })
         }
       }
@@ -1182,7 +1154,7 @@ export const PlanAuditDetailModal = ({
         return
       }
 
-      if (!localOnly && payload.length > 0) {
+      if (payload.length > 0) {
         const rowsWithoutId = payload.filter((item) => !item.IdSeq)
         if (rowsWithoutId.length) {
           setErrorModalConfig({
@@ -1191,11 +1163,11 @@ export const PlanAuditDetailModal = ({
             message: `${rowsWithoutId.length} dòng chưa có IdSeq trong CSDL nên chưa thể lưu đồng bộ vào DB. Giá trị vẫn được lưu trên thiết bị.`,
             type: 'warning'
           })
-        } else {
-          const res = await updatePlanDetail(payload)
-          if (res?.success === false) {
-            throw new Error(res.message || 'Lưu vào cơ sở dữ liệu thất bại')
-          }
+          return
+        }
+        const res = await updatePlanDetail(payload, { plantKey })
+        if (res?.success === false) {
+          throw new Error(res.message || 'Lưu vào cơ sở dữ liệu thất bại')
         }
       }
 
@@ -1240,9 +1212,7 @@ export const PlanAuditDetailModal = ({
       setHasUnsavedEdits(false)
       setDirtyAnnotations({})
       setShowCloseConfirm(false)
-      setSaveStatus(
-        localOnly ? 'Đã lưu trên thiết bị này.' : 'Đã lưu thành công vào cơ sở dữ liệu!'
-      )
+      setSaveStatus('Đã lưu thành công vào cơ sở dữ liệu!')
       setTimeout(() => setSaveStatus(''), 4000)
     } catch (error) {
       console.error('Không thể lưu phân loại và diễn giải nhật trình KHSX:', error)
@@ -1615,7 +1585,6 @@ export const PlanAuditDetailModal = ({
                 }}
               />
             </div>
-
           </div>
 
           {/* Hàng 3: Glide Data Grid Sheet (Bảng dữ liệu bên dưới) */}

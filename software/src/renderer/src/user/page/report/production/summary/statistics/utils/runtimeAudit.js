@@ -4,7 +4,9 @@ const HN_SON_PREFIX = 'HN-SON'
 export const isRuntimeAuditExcludedMachine = (item = {}) => {
   if (item.runtimeAuditExcluded === true || item.RuntimeAuditExcluded === true) return true
 
-  const auditCategory = String(item.auditCategory || item.AuditCategory || '').trim().toUpperCase()
+  const auditCategory = String(item.auditCategory || item.AuditCategory || '')
+    .trim()
+    .toUpperCase()
   if (auditCategory === 'EXCLUDED_MACHINE') return true
 
   const machineIdentifiers = [
@@ -24,6 +26,9 @@ export const isRuntimeAuditExcludedMachine = (item = {}) => {
   ]
 
   return machineIdentifiers.some((value) =>
-    String(value ?? '').trim().toUpperCase().startsWith(HN_SON_PREFIX)
+    String(value ?? '')
+      .trim()
+      .toUpperCase()
+      .startsWith(HN_SON_PREFIX)
   )
 }

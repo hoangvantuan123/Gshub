@@ -106,7 +106,12 @@ export function mapQuevoStatRow(item, idx, masterInfo) {
       item.MachineName,
       item.RawLineCode,
       item.RawLineName
-    ].some((value) => String(value || '').trim().toUpperCase().startsWith('HN-SON'))
+    ].some((value) =>
+      String(value || '')
+        .trim()
+        .toUpperCase()
+        .startsWith('HN-SON')
+    )
 
   const rawTeam =
     item.TeamName ||
@@ -134,6 +139,7 @@ export function mapQuevoStatRow(item, idx, masterInfo) {
     ...item,
     id: item.IdSeq ? String(item.IdSeq) : item.StatTicketNo || String(idx + 1),
     IdSeq: item.IdSeq || item.idSeq || item.Id || '',
+    idSeq: item.IdSeq || item.idSeq || item.Id || '',
     ticketNo: item.StatTicketNo || item.statTicketNo || item.ticketNo || item.RegCode || '',
     StatTicketNo: item.StatTicketNo || item.statTicketNo || item.ticketNo || item.RegCode || '',
     docNo: item.OperationNo || item.operationNo || item.RoutingDocNo || item.routingDocNo || '',

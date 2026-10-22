@@ -123,6 +123,8 @@ func SetupRouter(
 				hanoiV2.GET("/plan", planReportHandler.GetHanoiGs1PlanReport)
 				hanoiV2.POST("/statistics", prodStatsDetailHandler.GetHanoiGs1StatReport)
 				hanoiV2.GET("/statistics", prodStatsDetailHandler.GetHanoiGs1StatReport)
+				hanoiV2.POST("/plan/update", planDetailHandler.PlanDetailU)
+				hanoiV2.POST("/statistics/update", prodStatsDetailHandler.ProdStatsDetailU)
 			}
 
 			// 2. GS5 Quế Võ riêng biệt
@@ -132,6 +134,8 @@ func SetupRouter(
 				quevoV2.GET("/plan", planReportHandler.GetQuevoGs5PlanReport)
 				quevoV2.POST("/statistics", prodStatsDetailHandler.GetQuevoGs5StatReport)
 				quevoV2.GET("/statistics", prodStatsDetailHandler.GetQuevoGs5StatReport)
+				quevoV2.POST("/plan/update", planDetailHandler.PlanDetailU)
+				quevoV2.POST("/statistics/update", prodStatsDetailHandler.ProdStatsDetailU)
 			}
 
 			// 3. Báo Cáo Tổng Hợp Toàn Công Ty (Summary)
@@ -148,6 +152,8 @@ func SetupRouter(
 			prodReportsV2.POST("/statistics", prodStatsDetailHandler.GetProductionStatisticsReport)
 			prodReportsV2.GET("/plan", planReportHandler.GetProductionPlanReport)
 			prodReportsV2.POST("/plan", planReportHandler.GetProductionPlanReport)
+			prodReportsV2.POST("/plan/update", planDetailHandler.PlanDetailU)
+			prodReportsV2.POST("/statistics/update", prodStatsDetailHandler.ProdStatsDetailU)
 		}
 	}
 

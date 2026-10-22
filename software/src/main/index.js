@@ -384,7 +384,6 @@ function createWindow() {
     mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
   })
 
-
   const menu = Menu.buildFromTemplate([
     {
       label: 'View',

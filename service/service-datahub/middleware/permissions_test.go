@@ -19,7 +19,7 @@ func TestRegistrationRequiresLoginOverHTTPAndGRPC(t *testing.T) {
 		{"/api/v1/report/plan/save", "SavePlanRegistration"},
 		{"/api/v2/report/plan/PlanMasterD", "DeletePlanMaster"},
 		{"/api/v1/report/plan/delete-master", "DeletePlanMaster"},
-		{"/api/v2/report/plan/PlanDetailU", "UpdatePlanDetail"},
+		{"/api/v2/report/plan/PlanDetailD", "DeletePlanDetail"},
 		{"/api/v2/report/stat/ProdStatsDetailD", "DeleteProdStatsDetail"},
 		{"/api/v2/report/plan/PlanMasterQ", "QueryPlanMaster"},
 	}
@@ -43,6 +43,44 @@ func TestRegistrationRequiresLoginOverHTTPAndGRPC(t *testing.T) {
 			})
 			if status.Code(err) != codes.Unauthenticated {
 				t.Fatalf("gRPC error %v", err)
+			}
+		})
+	}
+}
+
+func TestPublicUpdateEndpointsBypassPermissions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct{ path, method string }{
+		{"/api/v2/report/plan/PlanDetailU", "UpdatePlanDetail"},
+		{"/api/v2/report/production/quevo-gs5/plan/update", "UpdatePlanDetail"},
+		{"/api/v2/report/production/hanoi-gs1/plan/update", "UpdatePlanDetail"},
+		{"/api/v2/report/stat/ProdStatsDetailU", "UpdateProdStatsDetail"},
+		{"/api/v2/report/production/quevo-gs5/statistics/update", "UpdateProdStatsDetail"},
+		{"/api/v2/report/production/hanoi-gs1/statistics/update", "UpdateProdStatsDetail"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.method+tc.path, func(t *testing.T) {
+			router := gin.New()
+			router.Use(ReportPermissionMiddleware(nil))
+			executed := false
+			router.POST(tc.path, func(c *gin.Context) {
+				executed = true
+				c.Status(http.StatusOK)
+			})
+			req := httptest.NewRequest(http.MethodPost, tc.path, nil)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if !executed || rec.Code != http.StatusOK {
+				t.Fatalf("Public HTTP endpoint was blocked: code=%d, executed=%v", rec.Code, executed)
+			}
+
+			rpcExecuted := false
+			_, err := ReportPermissionInterceptor(nil)(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/datahub.DataHubService/" + tc.method}, func(context.Context, interface{}) (interface{}, error) {
+				rpcExecuted = true
+				return nil, nil
+			})
+			if err != nil || !rpcExecuted {
+				t.Fatalf("Public gRPC method was blocked: err=%v, rpcExecuted=%v", err, rpcExecuted)
 			}
 		})
 	}

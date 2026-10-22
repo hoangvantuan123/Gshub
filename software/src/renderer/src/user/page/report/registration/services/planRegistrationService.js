@@ -159,12 +159,19 @@ export const queryPlanDetail = async (filters = {}, signal = null) => {
 }
 
 // Cập nhật chi tiết KHSX (_ERPPlanDetail), dùng cho chỉnh sửa nhật trình đối soát.
-export const updatePlanDetail = async (items = [], signal = null) => {
+export const updatePlanDetail = async (items = [], options = {}, signal = null) => {
+  const plantKey = typeof options === 'string' ? options : options?.plantKey
+  let url = '/report/plan/PlanDetailU'
+  if (plantKey === 'quevo_gs5' || plantKey === 'GS5') {
+    url = '/report/production/quevo-gs5/plan/update'
+  } else if (plantKey === 'hanoi_gs1' || plantKey === 'GS1') {
+    url = '/report/production/hanoi-gs1/plan/update'
+  }
   return request({
-    url: '/report/plan/PlanDetailU',
+    url,
     method: 'POST',
     data: items,
-    signal
+    signal: typeof options === 'object' && options?.signal ? options.signal : signal
   })
 }
 
@@ -179,12 +186,19 @@ export const queryProdStatsDetail = async (filters = {}, signal = null) => {
 }
 
 // 4.1. Cập nhật chi tiết Thống kê sản xuất (_ERPProdStatsDetail - bao gồm RemarkTypeSeq, RemarkContent)
-export const updateProdStatsDetail = async (items = [], signal = null) => {
+export const updateProdStatsDetail = async (items = [], options = {}, signal = null) => {
+  const plantKey = typeof options === 'string' ? options : options?.plantKey
+  let url = '/report/plan/ProdStatsDetailU'
+  if (plantKey === 'quevo_gs5' || plantKey === 'GS5') {
+    url = '/report/production/quevo-gs5/statistics/update'
+  } else if (plantKey === 'hanoi_gs1' || plantKey === 'GS1') {
+    url = '/report/production/hanoi-gs1/statistics/update'
+  }
   return request({
-    url: '/report/plan/ProdStatsDetailU',
+    url,
     method: 'POST',
     data: items,
-    signal
+    signal: typeof options === 'object' && options?.signal ? options.signal : signal
   })
 }
 

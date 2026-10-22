@@ -389,7 +389,12 @@ export const RuntimeAuditDetailModal = ({
           item.MachineName,
           item.RawLineCode,
           item.RawLineName
-        ].some((value) => String(value || '').trim().toUpperCase().startsWith('HN-SON'))
+        ].some((value) =>
+          String(value || '')
+            .trim()
+            .toUpperCase()
+            .startsWith('HN-SON')
+        )
 
       let category = 'NORMAL'
       let auditText = 'Bình thường'
@@ -820,7 +825,10 @@ export const RuntimeAuditDetailModal = ({
       preventDefault?.()
       if (!canEdit || !isAnnotationTab || !patternSource || !fillDestination) return
 
-      const normalize = (value) => String(value ?? '').trim().toLowerCase()
+      const normalize = (value) =>
+        String(value ?? '')
+          .trim()
+          .toLowerCase()
       const remarkTypeLookup = new Map()
       remarkTypesList.forEach((type) => {
         if (type.TypeCode) remarkTypeLookup.set(normalize(type.TypeCode), type)
@@ -972,9 +980,9 @@ export const RuntimeAuditDetailModal = ({
 
         payload.push({
           IdSeq: idSeq,
-          StatTicketNo: statTicketNo,
           RemarkTypeSeq: String(remarkTypeSeq),
-          RemarkContent: String(remarkDescription)
+          RemarkContent: String(remarkDescription),
+          RowVersion: Number(matchedRow?.RowVersion || matchedRow?.rowVersion || 1)
         })
       }
 
@@ -993,8 +1001,18 @@ export const RuntimeAuditDetailModal = ({
         return
       }
 
-      if (!localOnly && payload.length > 0) {
-        const res = await updateProdStatsDetail(payload)
+      if (payload.length > 0) {
+        const rowsWithoutId = payload.filter((item) => !item.IdSeq)
+        if (rowsWithoutId.length) {
+          setErrorModalConfig({
+            isOpen: true,
+            title: 'Chưa có IdSeq',
+            message: `${rowsWithoutId.length} phiếu chưa có IdSeq trong CSDL nên chưa thể lưu đồng bộ vào DB. Giá trị vẫn được lưu trên thiết bị.`,
+            type: 'warning'
+          })
+          return
+        }
+        const res = await updateProdStatsDetail(payload, { plantKey })
         if (res && res.success === false) {
           throw new Error(res.message || 'Lưu vào cơ sở dữ liệu thất bại')
         }
@@ -1039,9 +1057,7 @@ export const RuntimeAuditDetailModal = ({
       setHasUnsavedEdits(false)
       setDirtyAnnotations({})
       setShowCloseConfirm(false)
-      setSaveStatus(
-        localOnly ? 'Đã lưu trên thiết bị này.' : 'Đã lưu thành công vào cơ sở dữ liệu!'
-      )
+      setSaveStatus('Đã lưu thành công vào cơ sở dữ liệu!')
       setTimeout(() => setSaveStatus(''), 4000)
     } catch (error) {
       console.error('Không thể lưu phân loại và diễn giải nhật trình:', error)

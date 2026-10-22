@@ -537,7 +537,12 @@ export const useProductionStatisticsLogic = ({
           item.MachineName,
           item.RawLineCode,
           item.RawLineName
-        ].some((value) => String(value || '').trim().toUpperCase().startsWith('HN-SON'))
+        ].some((value) =>
+          String(value || '')
+            .trim()
+            .toUpperCase()
+            .startsWith('HN-SON')
+        )
       let runtimeAuditCategory = 'NORMAL'
       let runtimeAuditText = 'Chuẩn tiến độ (5p - 12h)'
       if (isTimeReversed) {

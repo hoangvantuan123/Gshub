@@ -1225,6 +1225,15 @@ func (s *Server) UpdatePlanDetail(ctx context.Context, req *pb.UpdatePlanDetailP
 
 	userId := req.UserId
 	if userId == "" {
+		if authUser, err := auth.AuthenticateUser(ctx, s.db); err == nil && authUser != nil {
+			if authUser.UserName != "" {
+				userId = authUser.UserName
+			} else if authUser.UserId != "" {
+				userId = authUser.UserId
+			}
+		}
+	}
+	if userId == "" {
 		userId = "SystemAdmin"
 	}
 
@@ -1347,6 +1356,15 @@ func (s *Server) UpdateProdStatsDetail(ctx context.Context, req *pb.UpdateProdSt
 	}
 
 	userId := req.UserId
+	if userId == "" {
+		if authUser, err := auth.AuthenticateUser(ctx, s.db); err == nil && authUser != nil {
+			if authUser.UserName != "" {
+				userId = authUser.UserName
+			} else if authUser.UserId != "" {
+				userId = authUser.UserId
+			}
+		}
+	}
 	if userId == "" {
 		userId = "SystemAdmin"
 	}

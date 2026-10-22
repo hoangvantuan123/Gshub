@@ -3,6 +3,7 @@ package plan_detail
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	models "service-datahub/models/report"
@@ -10,7 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// PlanDetailU - Cập nhật chi tiết các dòng KHSX Điều Phối
+// PlanDetailU - Cập nhật đúng 2 trường RemarkTypeSeq và RemarkContent theo IdSeq của từng dòng KHSX,
+// kiểm tra RowVersion khi lưu để cảnh báo xung đột dữ liệu và cập nhật UpdatedBy người thực hiện.
 func (s *PlanDetailService) PlanDetailU(
 	ctx context.Context,
 	items []models.ERPPlanDetail,
@@ -26,41 +28,46 @@ func (s *PlanDetailService) PlanDetailU(
 				continue
 			}
 
-			updates := map[string]interface{}{
-				"WorkingTag":       "U",
-				"PicDp":            item.PicDp,
-				"OperationNo":      item.OperationNo,
-				"OpDate":           item.OpDate,
-				"RoutingDocNo":     item.RoutingDocNo,
-				"RoutingDocDate":   item.RoutingDocDate,
-				"ItemCode":         item.ItemCode,
-				"ItemName":         item.ItemName,
-				"OperationName":    item.OperationName,
-				"OpTypeName":       item.OpTypeName,
-				"MachineName":      item.MachineName,
-				"Unit":             item.Unit,
-				"TargetPassQty":    item.TargetPassQty,
-				"TargetProdQty":    item.TargetProdQty,
-				"StatPassQty":      item.StatPassQty,
-				"StartTime":        item.StartTime,
-				"EndTime":          item.EndTime,
-				"StandardProdTime": item.StandardProdTime,
-				"ActualProdTime":   item.ActualProdTime,
-				"StandardCapa":     item.StandardCapa,
-				"ActualCapa":       item.ActualCapa,
-				"StatusDpSx":       item.StatusDpSx,
-				"TimeStatus":       item.TimeStatus,
-				"CapaStatus":       item.CapaStatus,
-				"UserMemo":         item.UserMemo,
-				"RemarkTypeSeq":    item.RemarkTypeSeq,
-				"RemarkContent":    item.RemarkContent,
-				"RowVersion":       gorm.Expr(`"RowVersion" + 1`),
-				"UpdatedBy":        userId,
-				"UpdatedAt":        time.Now(),
+			// 1. Kiểm tra RowVersion nếu client gửi lên
+			if item.RowVersion > 0 {
+				var current models.ERPPlanDetail
+				if err := tx.Select(`"IdSeq", "RowVersion"`).Where(`"IdSeq" = ?`, item.IdSeq).First(&current).Error; err != nil {
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						return fmt.Errorf("không tìm thấy bản ghi KHSX với IdSeq=%s", item.IdSeq)
+					}
+					return err
+				}
+				if current.RowVersion != item.RowVersion {
+					return fmt.Errorf("xung đột phiên bản: Dòng kế hoạch %s đã bị thay đổi bởi người khác (version hiện tại: %d, version của bạn: %d). Vui lòng tải lại trang!", item.IdSeq, current.RowVersion, item.RowVersion)
+				}
 			}
 
-			if err := tx.Model(&models.ERPPlanDetail{}).Where(`"IdSeq" = ?`, item.IdSeq).Updates(updates).Error; err != nil {
-				return err
+			// 2. Chỉ cập nhật đúng 2 trường RemarkTypeSeq, RemarkContent và các trường quản trị hệ thống
+			updates := map[string]interface{}{
+				"UpdatedBy":  userId,
+				"UpdatedAt":  time.Now(),
+				"RowVersion": gorm.Expr(`"RowVersion" + 1`),
+			}
+
+			if item.RemarkTypeSeq != nil {
+				updates["RemarkTypeSeq"] = *item.RemarkTypeSeq
+			}
+			if item.RemarkContent != nil {
+				updates["RemarkContent"] = *item.RemarkContent
+				updates["UserMemo"] = *item.RemarkContent
+			}
+
+			q := tx.Model(&models.ERPPlanDetail{}).Where(`"IdSeq" = ?`, item.IdSeq)
+			if item.RowVersion > 0 {
+				q = q.Where(`"RowVersion" = ?`, item.RowVersion)
+			}
+
+			res := q.Updates(updates)
+			if res.Error != nil {
+				return res.Error
+			}
+			if item.RowVersion > 0 && res.RowsAffected == 0 {
+				return fmt.Errorf("xung đột phiên bản: Dòng kế hoạch %s đã bị cập nhật đồng thời bởi người dùng khác. Vui lòng tải lại!", item.IdSeq)
 			}
 		}
 		return nil

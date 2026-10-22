@@ -74,8 +74,10 @@ export function mapHanoiStatRow(item, idx, masterInfo) {
   const prodDate = getCleanDate(rawDate) || new Date().toISOString().slice(0, 10)
 
   const rawMachineCode =
-    item.MachineCode ||
     item.machineCode ||
+    item.machineCodeVal ||
+    item.MachineCodeVal ||
+    item.MachineCode ||
     item.MachineId ||
     item.machineId ||
     item.RawLineCode ||
@@ -83,8 +85,10 @@ export function mapHanoiStatRow(item, idx, masterInfo) {
     ''
 
   const rawMachineName =
-    item.MachineName ||
     item.machineName ||
+    item.machineNameVal ||
+    item.MachineNameVal ||
+    item.MachineName ||
     item.RawLineName ||
     item.rawLineName ||
     item.WorkCenter ||
@@ -93,6 +97,16 @@ export function mapHanoiStatRow(item, idx, masterInfo) {
 
   const machineCode = rawMachineCode ? String(rawMachineCode).trim() : ''
   const machineName = rawMachineName ? String(rawMachineName).trim() : machineCode || ''
+  const runtimeAuditExcluded =
+    Boolean(item.runtimeAuditExcluded) ||
+    [
+      machineCode,
+      machineName,
+      item.MachineCode,
+      item.MachineName,
+      item.RawLineCode,
+      item.RawLineName
+    ].some((value) => String(value || '').trim().toUpperCase().startsWith('HN-SON'))
 
   const rawTeam =
     item.TeamName ||
@@ -182,8 +196,10 @@ export function mapHanoiStatRow(item, idx, masterInfo) {
     PassRate: passRate,
     runtimeHours,
     durationMinutes: finalDurationMinutes,
-    AuditCategory:
-      finalDurationMinutes < 5
+    runtimeAuditExcluded,
+    AuditCategory: runtimeAuditExcluded
+      ? 'EXCLUDED_MACHINE'
+      : finalDurationMinutes < 5
         ? 'UNDER_5MIN'
         : finalDurationMinutes > 720
           ? 'OVER_12H'

@@ -158,7 +158,7 @@ func calcDurationMinutes(actualRunTime, startTime, endTime, startDate, endDate *
 					hrs += m / 60.0
 				}
 			}
-			val := math.Round((hrs * 60.0) * 10) / 10
+			val := math.Round((hrs*60.0)*10) / 10
 			if val > 0 {
 				return val
 			}
@@ -325,6 +325,15 @@ func formatSecondsToTime(totalSec float64) string {
 func isManualMachine(name, code string) bool {
 	combined := strings.ToLower(name + " " + code)
 	return strings.Contains(combined, "thủ công") || strings.Contains(combined, "thu cong")
+}
+
+func isHNSonMachine(values ...string) bool {
+	for _, value := range values {
+		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(value)), "HN-SON") {
+			return true
+		}
+	}
+	return false
 }
 
 // Helper: Kiểm tra trạng thái chứng từ tự động
@@ -674,13 +683,6 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		durMin := calcDurationMinutes(row.ActualRunTime, row.StartTime, row.EndTime, row.StartDate, row.EndDate, wasteMin)
 		rtHours := math.Round((durMin/60.0)*100) / 100
 
-		auditCat := "5MIN_12H"
-		if durMin < 5 {
-			auditCat = "UNDER_5MIN"
-		} else if durMin > 720 {
-			auditCat = "OVER_12H"
-		}
-
 		team := ""
 		if row.TeamName != nil && strings.TrimSpace(*row.TeamName) != "" {
 			team = strings.TrimSpace(*row.TeamName)
@@ -710,6 +712,23 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		} else if machineCodeVal == "" && machineNameVal == "" {
 			machineCodeVal = "MAY_KHAC"
 			machineNameVal = "Máy / Dây chuyền khác"
+		}
+		machineIdentifiers := []string{machineCodeVal, machineNameVal}
+		for _, value := range []*string{row.MachineCode, row.MachineName, row.RawLineCode, row.RawLineName} {
+			if value != nil {
+				machineIdentifiers = append(machineIdentifiers, *value)
+			}
+		}
+		isHNSon := isHNSonMachine(machineIdentifiers...)
+
+		// HN-SON vẫn được tính vào sản lượng, nhưng không đưa vào phân loại thời gian.
+		auditCat := "5MIN_12H"
+		if isHNSon {
+			auditCat = "EXCLUDED_MACHINE"
+		} else if durMin < 5 {
+			auditCat = "UNDER_5MIN"
+		} else if durMin > 720 {
+			auditCat = "OVER_12H"
 		}
 
 		effectiveDate := ""
@@ -790,8 +809,9 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			syncEmpty++
 		}
 
-		isUnder5Min := durMin < 5 && durMin >= 0
-		isOver12hCheck := durMin > 720 && actualQty < 50000
+		isUnder5Min := !isHNSon && durMin < 5 && durMin >= 0
+		isOver12hCheck := !isHNSon && durMin > 720 && actualQty < 50000
+		isRuntimeNormal := !isHNSon && durMin >= 5 && durMin <= 720
 
 		ticketNo := row.IdSeq
 		if row.StatTicketNo != nil && strings.TrimSpace(*row.StatTicketNo) != "" {
@@ -857,6 +877,7 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			RuntimeHours:         &rtHours,
 			RuntimeHoursVal:      &rtHours,
 			AuditCategory:        &auditCat,
+			RuntimeAuditExcluded: isHNSon,
 			PassRate:             &passRate,
 			PassRateVal:          &passRate,
 			ProdDateVal:          &prodDate,
@@ -908,7 +929,7 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 
 		if isUnder5Min {
 			summary.RuntimeUnder5Min++
-		} else if durMin >= 5 && durMin <= 720 {
+		} else if isRuntimeNormal {
 			summary.RuntimeNormal++
 		}
 		if isOver12hCheck {
@@ -1980,4 +2001,3 @@ func buildTeamTimelineBreakdown(
 		TeamClusters:  teamClusters,
 	}
 }
-

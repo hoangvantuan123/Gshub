@@ -380,6 +380,16 @@ export const RuntimeAuditDetailModal = ({
           getMinutesOfDay(endTime) !== null &&
           getMinutesOfDay(endTime) < getMinutesOfDay(startTime))
       )
+      const runtimeAuditExcluded =
+        item.runtimeAuditExcluded ||
+        [
+          item.machineCode,
+          item.MachineCode,
+          item.machineName,
+          item.MachineName,
+          item.RawLineCode,
+          item.RawLineName
+        ].some((value) => String(value || '').trim().toUpperCase().startsWith('HN-SON'))
 
       let category = 'NORMAL'
       let auditText = 'Bình thường'
@@ -387,6 +397,9 @@ export const RuntimeAuditDetailModal = ({
       if (isReversed) {
         category = 'INVALID_TIME'
         auditText = `Sai mốc giờ (${startTime} > ${endTime})`
+      } else if (runtimeAuditExcluded) {
+        category = 'EXCLUDED_MACHINE'
+        auditText = 'Không kiểm tra thời gian với máy HN-SON'
       } else if (durMin < 5) {
         category = 'UNDER_5MIN'
         auditText = '< 5 phút'
@@ -440,6 +453,7 @@ export const RuntimeAuditDetailModal = ({
         remarkTypeSeq,
         remarkDescription,
         isTimeReversed: isReversed,
+        runtimeAuditExcluded,
         auditCategory: category,
         auditText
       }

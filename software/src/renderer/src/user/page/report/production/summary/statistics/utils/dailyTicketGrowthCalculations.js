@@ -4,6 +4,7 @@ import {
   isMissingAutoIo
 } from '../../../hanoiGs1/stat/hooks/useProductionStatisticsLogic'
 import { getCleanDate } from '../../../../common/reportUtils'
+import { isRuntimeAuditExcludedMachine } from './runtimeAudit'
 
 /**
  * Format chuỗi ngày hiển thị chuẩn Việt Nam (DD/MM/YYYY)
@@ -135,11 +136,9 @@ export function extractDailyTicketGrowthData(
       // Chỉ tiêu 1 & 2: Thời lượng chạy máy (> 12h và < 5 phút)
       const rHours = Number(item.runtimeHours || 0)
       const durMin = Number(item.durationMinutes ?? rHours * 60)
-      if (rHours > 12 || durMin > 720) {
-        rec.over12hCount += 1
-      }
-      if (durMin < 5) {
-        rec.under5MinCount += 1
+      if (!isRuntimeAuditExcludedMachine(item)) {
+        if (rHours > 12 || durMin > 720) rec.over12hCount += 1
+        if (durMin < 5) rec.under5MinCount += 1
       }
 
       // Chỉ tiêu 3: Sinh phiếu X/N tự động (Đã sinh vs Chưa sinh)

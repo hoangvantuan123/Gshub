@@ -7,21 +7,21 @@ type ProdStatsSummary struct {
 	TotalActualQty        float64 `json:"totalActualQty"`
 	TotalPassQty          float64 `json:"totalPassQty"`
 	TotalDefectQty        float64 `json:"totalDefectQty"`
-	OverallPassRate       float64 `json:"overallPassRate"`       // % Đạt = (TotalPass / TotalActual) * 100
-	AvgPassRate           float64 `json:"avgPassRate"`           // Alias % Đạt
-	PlanCompletionRate    float64 `json:"planCompletionRate"`    // % Hoàn thành = (TotalActual / TotalPlan) * 100
-	TotalRuntimeHours     float64 `json:"totalRuntimeHours"`     // Tổng giờ chạy máy
-	AvgRuntimeHours       float64 `json:"avgRuntimeHours"`       // Trung bình giờ chạy máy / phiếu
-	MesCreatedCount       int     `json:"mesCreatedCount"`       // Số phiếu tạo qua MES
-	BravoCreatedCount     int     `json:"bravoCreatedCount"`     // Số phiếu tạo nguồn khác
-	MesRate               float64 `json:"mesRate"`               // Tỷ lệ số hóa MES (%)
-	AutoExportCount       int     `json:"autoExportCount"`       // Số phiếu có XKTĐ / NKTĐ
-	NoAutoExportCount     int     `json:"noAutoExportCount"`     // Số phiếu thiếu chứng từ
-	NoMaterialCount       int     `json:"noMaterialCount"`       // Không sử dụng NVL
-	AutoExportRate        float64 `json:"autoExportRate"`        // Tỷ lệ chứng từ tự động (%)
-	RuntimeUnder5Min      int     `json:"runtimeUnder5Min"`      // Thao tác < 5 phút
-	RuntimeNormal         int     `json:"runtimeNormal"`         // Thao tác chuẩn 5p - 12h
-	RuntimeOver12hCheck   int     `json:"runtimeOver12hCheck"`   // Chạy > 12h cần kiểm tra (<50k SP)
+	OverallPassRate       float64 `json:"overallPassRate"`     // % Đạt = (TotalPass / TotalActual) * 100
+	AvgPassRate           float64 `json:"avgPassRate"`         // Alias % Đạt
+	PlanCompletionRate    float64 `json:"planCompletionRate"`  // % Hoàn thành = (TotalActual / TotalPlan) * 100
+	TotalRuntimeHours     float64 `json:"totalRuntimeHours"`   // Tổng giờ chạy máy
+	AvgRuntimeHours       float64 `json:"avgRuntimeHours"`     // Trung bình giờ chạy máy / phiếu
+	MesCreatedCount       int     `json:"mesCreatedCount"`     // Số phiếu tạo qua MES
+	BravoCreatedCount     int     `json:"bravoCreatedCount"`   // Số phiếu tạo nguồn khác
+	MesRate               float64 `json:"mesRate"`             // Tỷ lệ số hóa MES (%)
+	AutoExportCount       int     `json:"autoExportCount"`     // Số phiếu có XKTĐ / NKTĐ
+	NoAutoExportCount     int     `json:"noAutoExportCount"`   // Số phiếu thiếu chứng từ
+	NoMaterialCount       int     `json:"noMaterialCount"`     // Không sử dụng NVL
+	AutoExportRate        float64 `json:"autoExportRate"`      // Tỷ lệ chứng từ tự động (%)
+	RuntimeUnder5Min      int     `json:"runtimeUnder5Min"`    // Thao tác < 5 phút
+	RuntimeNormal         int     `json:"runtimeNormal"`       // Thao tác chuẩn 5p - 12h
+	RuntimeOver12hCheck   int     `json:"runtimeOver12hCheck"` // Chạy > 12h cần kiểm tra (<50k SP)
 	CountCompleted        int     `json:"countCompleted"`
 	CountRunning          int     `json:"countRunning"`
 	AvgSyncDelaySeconds   float64 `json:"avgSyncDelaySeconds"`   // Độ trễ đồng bộ trung bình (giây)
@@ -39,9 +39,9 @@ type TeamStatAggregate struct {
 	TicketCount       int     `json:"ticketCount"`
 	PlanQty           float64 `json:"planQty"`
 	ActualQty         float64 `json:"actualQty"`
-	TotalActualQty    float64 `json:"totalActualQty"`    // Alias cho FE Table 2
+	TotalActualQty    float64 `json:"totalActualQty"` // Alias cho FE Table 2
 	PassQty           float64 `json:"passQty"`
-	TotalPassQty      float64 `json:"totalPassQty"`      // Alias cho FE Table 2
+	TotalPassQty      float64 `json:"totalPassQty"` // Alias cho FE Table 2
 	DefectQty         float64 `json:"defectQty"`
 	TotalDefectQty    float64 `json:"totalDefectQty"`    // Alias cho FE Table 2
 	PassRate          float64 `json:"passRate"`          // % Đạt
@@ -90,15 +90,15 @@ type MachineStatAggregate struct {
 
 // DailyStatAggregate: Dữ liệu xu hướng theo Ngày
 type DailyStatAggregate struct {
-	Date              string  `json:"date"`
-	PlanQty           float64 `json:"planQty"`
-	ActualQty         float64 `json:"actualQty"`
-	TotalActualQty    float64 `json:"totalActualQty"`
-	PassQty           float64 `json:"passQty"`
-	TotalPassQty      float64 `json:"totalPassQty"`
-	DefectQty         float64 `json:"defectQty"`
-	TotalDefectQty    float64 `json:"totalDefectQty"`
-	PassRate          float64 `json:"passRate"`
+	Date                 string  `json:"date"`
+	PlanQty              float64 `json:"planQty"`
+	ActualQty            float64 `json:"actualQty"`
+	TotalActualQty       float64 `json:"totalActualQty"`
+	PassQty              float64 `json:"passQty"`
+	TotalPassQty         float64 `json:"totalPassQty"`
+	DefectQty            float64 `json:"defectQty"`
+	TotalDefectQty       float64 `json:"totalDefectQty"`
+	PassRate             float64 `json:"passRate"`
 	RuntimeHours         float64 `json:"runtimeHours"`
 	TotalRuntimeHours    float64 `json:"totalRuntimeHours"`
 	TicketCount          int     `json:"ticketCount"`
@@ -158,29 +158,30 @@ type FilterOptionList struct {
 // ProdStatsDetailReportItem: Bản ghi chi tiết TKSX kế thừa toàn bộ cấu trúc bảng DB _ERPProdStatsDetail + các chỉ số tính toán cho Báo cáo
 type ProdStatsDetailReportItem struct {
 	ERPProdStatsDetail
-	Id              *string  `json:"id,omitempty"`
-	TicketNo        *string  `json:"ticketNo,omitempty"`
-	DocNo           *string  `json:"docNo,omitempty"`
-	OrderNoVal      *string  `json:"orderNo,omitempty"`
-	Team            *string  `json:"team,omitempty"`
-	TeamNameVal     *string  `json:"teamName,omitempty"`
-	MachineNameVal  *string  `json:"machineName,omitempty"`
-	MachineCodeVal  *string  `json:"machineCode,omitempty"`
-	PlanQtyVal      *float64 `json:"planQty,omitempty"`
-	ActualQtyVal    *float64 `json:"actualQty,omitempty"`
-	PassQtyVal      *float64 `json:"passQty,omitempty"`
-	DefectQtyVal    *float64 `json:"defectQty,omitempty"`
-	DurationMinutes *float64 `json:"DurationMinutes,omitempty"`
-	DurationMinVal  *float64 `json:"durationMinutes,omitempty"`
-	RuntimeHours    *float64 `json:"RuntimeHours,omitempty"`
-	RuntimeHoursVal *float64 `json:"runtimeHours,omitempty"`
-	AuditCategory   *string  `json:"AuditCategory,omitempty"`
-	PassRate        *float64 `json:"PassRate,omitempty"`
-	PassRateVal     *float64 `json:"passRate,omitempty"`
-	ProdDateVal     *string  `json:"prodDate,omitempty"`
-	StartTimeVal    *string  `json:"startTime,omitempty"`
-	EndTimeVal      *string  `json:"endTime,omitempty"`
-	CreatedSource   *string  `json:"createdSource,omitempty"`
+	Id                   *string  `json:"id,omitempty"`
+	TicketNo             *string  `json:"ticketNo,omitempty"`
+	DocNo                *string  `json:"docNo,omitempty"`
+	OrderNoVal           *string  `json:"orderNo,omitempty"`
+	Team                 *string  `json:"team,omitempty"`
+	TeamNameVal          *string  `json:"teamName,omitempty"`
+	MachineNameVal       *string  `json:"machineName,omitempty"`
+	MachineCodeVal       *string  `json:"machineCode,omitempty"`
+	PlanQtyVal           *float64 `json:"planQty,omitempty"`
+	ActualQtyVal         *float64 `json:"actualQty,omitempty"`
+	PassQtyVal           *float64 `json:"passQty,omitempty"`
+	DefectQtyVal         *float64 `json:"defectQty,omitempty"`
+	DurationMinutes      *float64 `json:"DurationMinutes,omitempty"`
+	DurationMinVal       *float64 `json:"durationMinutes,omitempty"`
+	RuntimeHours         *float64 `json:"RuntimeHours,omitempty"`
+	RuntimeHoursVal      *float64 `json:"runtimeHours,omitempty"`
+	AuditCategory        *string  `json:"AuditCategory,omitempty"`
+	RuntimeAuditExcluded bool     `json:"runtimeAuditExcluded,omitempty"`
+	PassRate             *float64 `json:"PassRate,omitempty"`
+	PassRateVal          *float64 `json:"passRate,omitempty"`
+	ProdDateVal          *string  `json:"prodDate,omitempty"`
+	StartTimeVal         *string  `json:"startTime,omitempty"`
+	EndTimeVal           *string  `json:"endTime,omitempty"`
+	CreatedSource        *string  `json:"createdSource,omitempty"`
 	Supervisor           *string  `json:"supervisor,omitempty"`
 	StatusVal            *string  `json:"status,omitempty"`
 	RemarkTypeSeqVal     *string  `json:"remarkTypeSeq,omitempty"`
@@ -227,4 +228,3 @@ type ProdStatsReportResponse struct {
 	Items                    []ProdStatsDetailReportItem  `json:"items"`
 	Pagination               PlanPageInfo                 `json:"pagination"`
 }
-

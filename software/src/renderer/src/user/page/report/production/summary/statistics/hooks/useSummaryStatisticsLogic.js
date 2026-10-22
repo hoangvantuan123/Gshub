@@ -28,6 +28,7 @@ import {
   calculatePresetDateRange
 } from '../../common/utils/summaryReportUtils'
 import { executeExportSummaryExcel } from '../../common/utils/summaryExcelExporter'
+import { isRuntimeAuditExcludedMachine } from '../utils/runtimeAudit'
 
 const STORAGE_KEY_SUMMARY_STAT_FILTERS = 'S_SUMMARY_STAT_FILTERS'
 
@@ -360,6 +361,7 @@ export function useSummaryStatisticsLogic() {
             machineCode ||
             ''
         ).trim()
+        const runtimeAuditExcluded = isRuntimeAuditExcludedMachine(row)
         const team = String(
           row.team ||
             row.teamName ||
@@ -403,6 +405,7 @@ export function useSummaryStatisticsLogic() {
           team,
           machineCode,
           machineName,
+          runtimeAuditExcluded,
           itemCode: row.itemCode || row.ItemCode || '',
           itemName: row.itemName || row.ItemName || '',
           planQty,
@@ -668,8 +671,10 @@ export function useSummaryStatisticsLogic() {
       runtimeHours += rHours
       const durMin = Number(item.durationMinutes || rHours * 60) || 0
       durationMinutes += durMin
-      if (rHours > 12 || durMin > 720) over12hCount++
-      if (durMin < 5) under5MinCount++
+      if (!isRuntimeAuditExcludedMachine(item)) {
+        if (rHours > 12 || durMin > 720) over12hCount++
+        if (durMin < 5) under5MinCount++
+      }
 
       const orig = String(item.source || item.origin || '').toUpperCase()
       if (orig.includes('MES')) mesCount++
@@ -917,7 +922,9 @@ export function useSummaryStatisticsLogic() {
       rec.totalPassQty += Number(item.passQty || item.PassQty || 0) || 0
       rec.totalDefectQty += Number(item.defectQty || 0) || 0
       rec.totalRuntimeHours += Number(item.runtimeHours || 0) || 0
-      if (Number(item.runtimeHours || 0) > 12) rec.over12hCount++
+      if (!isRuntimeAuditExcludedMachine(item) && Number(item.runtimeHours || 0) > 12) {
+        rec.over12hCount++
+      }
       const orig = String(item.source || item.origin || '').toUpperCase()
       if (orig.includes('MES')) rec.mesCount++
     })
@@ -1334,11 +1341,9 @@ export function useSummaryStatisticsLogic() {
       rec.totalDefectQty += def
       rec.totalRuntimeHours += Number(item.runtimeHours || 0) || 0
 
-      if (durMin > 720) {
-        rec.anomalies++
-      }
-      if (durMin < 5) {
-        rec.under5Min++
+      if (!isRuntimeAuditExcludedMachine(item)) {
+        if (durMin > 720) rec.anomalies++
+        if (durMin < 5) rec.under5Min++
       }
 
       const orig = String(item.origin || item.createdSource || item.source || '').toUpperCase()
@@ -1510,8 +1515,10 @@ export function useSummaryStatisticsLogic() {
       const rHours = Number(item.runtimeHours || 0) || 0
       rec.runtimeHours += rHours
       const durMin = Number(item.durationMinutes ?? rHours * 60) || 0
-      if (rHours > 12 || durMin > 720) rec.over12hCount++
-      if (durMin < 5) rec.under5MinCount++
+      if (!isRuntimeAuditExcludedMachine(item)) {
+        if (rHours > 12 || durMin > 720) rec.over12hCount++
+        if (durMin < 5) rec.under5MinCount++
+      }
 
       const typeKey = getAutoExportType(item)
       if (isPassAutoIo(typeKey)) rec.autoExportedCount++

@@ -526,6 +526,33 @@ export const useProductionStatisticsLogic = ({
       let finalTeam = rawTeam ? String(rawTeam).trim() : ''
       let finalMachineCode = rawMachineCode ? String(rawMachineCode).trim() : ''
       let finalMachineName = rawMachineName ? String(rawMachineName).trim() : finalMachineCode || ''
+      const runtimeAuditExcluded =
+        Boolean(item.runtimeAuditExcluded) ||
+        [
+          finalMachineCode,
+          finalMachineName,
+          item.machineCodeVal,
+          item.MachineCodeVal,
+          item.MachineCode,
+          item.MachineName,
+          item.RawLineCode,
+          item.RawLineName
+        ].some((value) => String(value || '').trim().toUpperCase().startsWith('HN-SON'))
+      let runtimeAuditCategory = 'NORMAL'
+      let runtimeAuditText = 'Chuẩn tiến độ (5p - 12h)'
+      if (isTimeReversed) {
+        runtimeAuditCategory = 'INVALID_TIME'
+        runtimeAuditText = 'Ngược giờ (Bắt đầu > Kết thúc)'
+      } else if (runtimeAuditExcluded) {
+        runtimeAuditCategory = 'EXCLUDED_MACHINE'
+        runtimeAuditText = 'Không kiểm tra thời gian với máy HN-SON'
+      } else if (durMinutes < 5) {
+        runtimeAuditCategory = 'UNDER_5MIN'
+        runtimeAuditText = '< 5p Nhập nhanh (Cảnh báo)'
+      } else if (durMinutes > 720 && a < 50000) {
+        runtimeAuditCategory = 'OVER_12H'
+        runtimeAuditText = '> 12h Cần kiểm tra (Cảnh báo)'
+      }
 
       const rawItemCode = item.ItemCode || item.itemCode || item.partNo || item.PartNo || ''
       const rawItemName =
@@ -573,21 +600,10 @@ export const useProductionStatisticsLogic = ({
         ticketCode: rawTicketNo,
         orderCode: rawOpNo,
         isTimeReversed: Boolean(isTimeReversed),
+        runtimeAuditExcluded,
         timeError: isTimeReversed ? 'REVERSED_TIME' : null,
-        auditCategory: isTimeReversed
-          ? 'INVALID_TIME'
-          : durMinutes < 5
-            ? 'UNDER_5MIN'
-            : durMinutes > 720 && a < 50000
-              ? 'OVER_12H'
-              : 'NORMAL',
-        auditText: isTimeReversed
-          ? 'Ngược giờ (Bắt đầu > Kết thúc)'
-          : durMinutes < 5
-            ? '< 5p Nhập nhanh (Cảnh báo)'
-            : durMinutes > 720 && a < 50000
-              ? '> 12h Cần kiểm tra (Cảnh báo)'
-              : 'Chuẩn tiến độ (5p - 12h)',
+        auditCategory: runtimeAuditCategory,
+        auditText: runtimeAuditText,
         // ── Khung đăng ký chuẩn Thống kê sản xuất (statisticsImportColumns.js) ──
         StatTicketNo: rawTicketNo,
         OperationNo: rawOpNo,
@@ -698,13 +714,7 @@ export const useProductionStatisticsLogic = ({
         AutoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || null,
         autoIoStatus: item.AutoIoStatus || item.autoIoStatus || item.AutoIOStatus || null,
         operator: rawMainWorker,
-        AuditCategory: isTimeReversed
-          ? 'INVALID_TIME'
-          : durMinutes < 5
-            ? 'UNDER_5MIN'
-            : durMinutes > 720 && a < 50000
-              ? 'OVER_12H'
-              : 'NORMAL'
+        AuditCategory: runtimeAuditCategory
       }
     })
   }, [inputDataset, plantKey])
@@ -747,6 +757,7 @@ export const useProductionStatisticsLogic = ({
 
       // 3. Lọc theo Thời gian thao tác
       if (selectedDurationAudit !== 'ALL') {
+        if (item.runtimeAuditExcluded) return false
         const durMin = Number(item.durationMinutes ?? item.ActualRunTime ?? 0)
 
         if (selectedDurationAudit === 'UNDER_5MIN') {
@@ -903,16 +914,18 @@ export const useProductionStatisticsLogic = ({
       }
 
       const durMinutes = Number(item.durationMinutes ?? rt * 60) || 0
-      if (durMinutes < 5) {
-        rUnder5++
-      } else if (durMinutes > 720) {
-        if (a < 50000) {
-          rOver12Check++
+      if (!item.runtimeAuditExcluded) {
+        if (durMinutes < 5) {
+          rUnder5++
+        } else if (durMinutes > 720) {
+          if (a < 50000) {
+            rOver12Check++
+          } else {
+            rOver12Valid++
+          }
         } else {
-          rOver12Valid++
+          rNormal++
         }
-      } else {
-        rNormal++
       }
 
       // 1. Phân nhóm độ trễ đồng bộ từ cột thực tế
@@ -1272,11 +1285,13 @@ export const useProductionStatisticsLogic = ({
       rec.totalDefectQty += def
       rec.totalRuntimeHours += Number(item.runtimeHours) || 0
 
-      if (durMin > 720) {
-        rec.anomalies++
-      }
-      if (durMin < 5) {
-        rec.under5Min++
+      if (!item.runtimeAuditExcluded) {
+        if (durMin > 720 && a < 50000) {
+          rec.anomalies++
+        }
+        if (durMin < 5) {
+          rec.under5Min++
+        }
       }
 
       const orig = String(item.origin || item.createdSource || item.source || '').toUpperCase()

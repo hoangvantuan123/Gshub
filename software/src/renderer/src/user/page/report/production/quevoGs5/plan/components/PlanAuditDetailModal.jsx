@@ -158,7 +158,6 @@ export const PlanAuditDetailModal = ({
     type: 'danger'
   })
   const [remarkTypesList, setRemarkTypesList] = useState(() => cachedPlanRemarkTypes || [])
-  const [activeCodeHelpRow, setActiveCodeHelpRow] = useState(null)
   const [selection, setSelection] = useState({
     columns: CompactSelection.empty(),
     rows: CompactSelection.empty()
@@ -474,6 +473,62 @@ export const PlanAuditDetailModal = ({
     })
   }, [editableData, activeCategory, selectedPic, selectedMachine, searchQuery])
 
+  const codeHelpConfig = useMemo(
+    () => ({
+      remarkType: {
+        title: 'Tra cứu danh mục phân loại',
+        columns: REMARK_TYPE_CODEHELP_COLUMNS,
+        helpData: remarkTypesForModal,
+        onSelect: (selected, rowIndex) => {
+          const item = filteredData[rowIndex]
+          if (!item) return {}
+
+          const rowKey = item.rowKey || getRowKey(item)
+          const isClear = !selected || selected.TypeCode === '(Trống)' || !selected.IdSeq
+          const typeName = isClear ? '' : selected.TypeName || ''
+          const typeCode = isClear ? '' : selected.TypeCode || ''
+          const typeSeq = isClear ? '' : selected.IdSeq || ''
+
+          if (
+            String(item.remarkType ?? '') === typeName &&
+            String(item.remarkTypeCode ?? '') === typeCode &&
+            String(item.remarkTypeSeq ?? '') === typeSeq
+          ) {
+            return {
+              remarkType: typeName,
+              remarkTypeCode: typeCode,
+              remarkTypeSeq: typeSeq
+            }
+          }
+
+          setAnnotations((prev) => ({
+            ...prev,
+            [rowKey]: {
+              ...(prev[rowKey] || {}),
+              idSeq: item.IdSeq || item.idSeq || item.id || '',
+              rowKey,
+              remarkType: typeName,
+              remarkTypeCode: typeCode,
+              remarkTypeSeq: typeSeq
+            }
+          }))
+          setDirtyAnnotations((prev) => ({
+            ...prev,
+            [rowKey]: { ...(prev[rowKey] || {}), remarkTypeSeq: true }
+          }))
+          setHasUnsavedEdits(true)
+
+          return {
+            remarkType: typeName,
+            remarkTypeCode: typeCode,
+            remarkTypeSeq: typeSeq
+          }
+        }
+      }
+    }),
+    [remarkTypesForModal, filteredData, getRowKey]
+  )
+
   const tableManager = useTableManager({
     tableId: 'production_plan_audit_detail',
     defaultCols: PLAN_AUDIT_COLUMNS,
@@ -481,7 +536,8 @@ export const PlanAuditDetailModal = ({
     gridData: filteredData,
     selection,
     setSelection,
-    codeHelpColumns: []
+    codeHelpColumns: ['remarkType'],
+    codeHelpConfig
   })
 
   // Cell Content Callback cho Glide Data Grid
@@ -502,7 +558,7 @@ export const PlanAuditDetailModal = ({
           allowOverlay: false,
           contentAlign: 'center',
           themeOverride: {
-            textDark: tag === 'U' ? '#e11d48' : '#225588',
+            textDark: tag === 'U' ? '#2563eb' : '#225588',
             baseFontStyle: '700 13px',
             bgCell: '#f8fafc'
           }
@@ -827,22 +883,6 @@ export const PlanAuditDetailModal = ({
     [columns, filteredData, isAnnotationTab, getRowKey]
   )
 
-  // Nhấn vào ô Phân loại mở CodeHelp Modal
-  const onCellActivated = useCallback(
-    (cell) => {
-      if (!isAnnotationTab) return
-      const [col, row] = cell
-      const columnKey = columns[col]?.id
-      if (columnKey === 'remarkType') {
-        const item = filteredData[row]
-        if (item) {
-          setActiveCodeHelpRow(item)
-        }
-      }
-    },
-    [isAnnotationTab, columns, filteredData]
-  )
-
   // Hỗ trợ Paste từ Excel
   const onPaste = useCallback(
     async (target, values) => {
@@ -891,9 +931,17 @@ export const PlanAuditDetailModal = ({
           } else if (columnKey === 'remarkType') {
             const cellVal = String(rowValues[c] ?? '').trim()
             const resolved = lookupMap.get(cellVal.toLowerCase())
-            const updatedType = resolved ? resolved.TypeName : cellVal
+            const updatedType = resolved ? resolved.TypeName : ''
             const updatedCode = resolved ? resolved.TypeCode : ''
             const updatedSeq = resolved ? resolved.IdSeq : ''
+
+            if (
+              String(item.remarkType ?? '') === updatedType &&
+              String(item.remarkTypeCode ?? '') === updatedCode &&
+              String(item.remarkTypeSeq ?? '') === updatedSeq
+            ) {
+              continue
+            }
 
             setAnnotations((prev) => ({
               ...prev,
@@ -917,6 +965,112 @@ export const PlanAuditDetailModal = ({
       return false
     },
     [columns, filteredData, isAnnotationTab, remarkTypesList, getRowKey]
+  )
+
+  const onFillPattern = useCallback(
+    ({ patternSource, fillDestination, preventDefault }) => {
+      preventDefault?.()
+      if (!isAnnotationTab || !patternSource || !fillDestination) return
+
+      const normalize = (value) => String(value ?? '').trim().toLowerCase()
+      const remarkTypeLookup = new Map()
+      remarkTypesList.forEach((type) => {
+        if (type.TypeCode) remarkTypeLookup.set(normalize(type.TypeCode), type)
+        if (type.TypeName) remarkTypeLookup.set(normalize(type.TypeName), type)
+      })
+
+      const annotationUpdates = new Map()
+      const dirtyUpdates = new Map()
+
+      for (let y = 0; y < fillDestination.height; y++) {
+        for (let x = 0; x < fillDestination.width; x++) {
+          const targetCol = fillDestination.x + x
+          const targetRow = fillDestination.y + y
+          const sourceCol = patternSource.x + (x % patternSource.width)
+          const sourceRow = patternSource.y + (y % patternSource.height)
+          const targetColumnId = columns[targetCol]?.id
+          const sourceColumnId = columns[sourceCol]?.id
+
+          if (
+            targetColumnId !== sourceColumnId ||
+            (targetColumnId !== 'remarkType' && targetColumnId !== 'remarkDescription') ||
+            (targetCol >= patternSource.x &&
+              targetCol < patternSource.x + patternSource.width &&
+              targetRow >= patternSource.y &&
+              targetRow < patternSource.y + patternSource.height)
+          ) {
+            continue
+          }
+
+          const sourceItem = filteredData[sourceRow]
+          const targetItem = filteredData[targetRow]
+          if (!targetItem) continue
+
+          const rowKey = targetItem.rowKey || getRowKey(targetItem)
+          const rowUpdate = annotationUpdates.get(rowKey) || {
+            idSeq: targetItem.IdSeq || targetItem.idSeq || targetItem.id || '',
+            rowKey
+          }
+          const dirtyRow = dirtyUpdates.get(rowKey) || {}
+
+          if (targetColumnId === 'remarkType') {
+            const sourceType = sourceItem
+              ? remarkTypeLookup.get(normalize(sourceItem.remarkTypeCode)) ||
+                remarkTypeLookup.get(normalize(sourceItem.remarkType))
+              : null
+            const typeName = sourceType?.TypeName || ''
+            const typeCode = sourceType?.TypeCode || ''
+            const typeSeq = sourceType?.IdSeq || ''
+
+            if (
+              String(targetItem.remarkType ?? '') === typeName &&
+              String(targetItem.remarkTypeCode ?? '') === typeCode &&
+              String(targetItem.remarkTypeSeq ?? '') === typeSeq
+            ) {
+              continue
+            }
+
+            Object.assign(rowUpdate, {
+              remarkType: typeName,
+              remarkTypeCode: typeCode,
+              remarkTypeSeq: typeSeq
+            })
+            dirtyRow.remarkTypeSeq = true
+          } else {
+            const description = String(sourceItem?.remarkDescription ?? '')
+            if (String(targetItem.remarkDescription ?? '') === description) continue
+            Object.assign(rowUpdate, {
+              remarkDescription: description,
+              note: description,
+              UserMemo: description
+            })
+            dirtyRow.remarkDescription = true
+          }
+
+          annotationUpdates.set(rowKey, rowUpdate)
+          dirtyUpdates.set(rowKey, dirtyRow)
+        }
+      }
+
+      if (annotationUpdates.size === 0) return
+
+      setAnnotations((previous) => {
+        const next = { ...previous }
+        annotationUpdates.forEach((updates, rowKey) => {
+          next[rowKey] = { ...(previous[rowKey] || {}), ...updates }
+        })
+        return next
+      })
+      setDirtyAnnotations((previous) => {
+        const next = { ...previous }
+        dirtyUpdates.forEach((updates, rowKey) => {
+          next[rowKey] = { ...(previous[rowKey] || {}), ...updates }
+        })
+        return next
+      })
+      setHasUnsavedEdits(true)
+    },
+    [isAnnotationTab, columns, filteredData, getRowKey, remarkTypesList]
   )
 
   // Lưu chỉnh sửa nhật trình (Local Storage + DB nếu cần)
@@ -1474,10 +1628,16 @@ export const PlanAuditDetailModal = ({
               columns={columns}
               rows={filteredData.length}
               getCellContent={getCellContent}
+              rowMarkers="both"
+              rowSelect="multi"
+              columnSelect="single"
+              fillHandle={isAnnotationTab}
+              onFillPattern={onFillPattern}
               getCellsForSelection={true}
               onCellEdited={onCellEdited}
-              onCellClicked={onCellActivated}
-              onCellActivated={onCellActivated}
+              onCellClicked={tableManager.onCellClicked}
+              onCellActivated={tableManager.onCellActivated}
+              onKeyDown={tableManager.onKeyDown}
               onPaste={onPaste}
               onColumnResize={onColumnResize}
               onColumnMoved={onColumnMoved}
@@ -1533,40 +1693,17 @@ export const PlanAuditDetailModal = ({
       </div>
 
       {/* CodeHelp Modal chọn Phân loại KHSX */}
-      {activeCodeHelpRow && (
+      {tableManager.codeHelpModal?.isOpen && (
         <GenericCodeHelpModal
-          isOpen={Boolean(activeCodeHelpRow)}
-          onClose={() => setActiveCodeHelpRow(null)}
-          title={`Chọn Phân loại cho Lệnh: ${activeCodeHelpRow.docNo || activeCodeHelpRow.orderNo || activeCodeHelpRow.rowKey}`}
-          columns={REMARK_TYPE_CODEHELP_COLUMNS}
-          helpData={remarkTypesForModal}
-          data={remarkTypesForModal}
-          initialSearchText=""
-          onSelect={(selected) => {
-            const rowKey = activeCodeHelpRow.rowKey || getRowKey(activeCodeHelpRow)
-            const typeName = selected?.TypeCode === '(Trống)' ? '' : selected?.TypeName || ''
-            const typeCode = selected?.TypeCode === '(Trống)' ? '' : selected?.TypeCode || ''
-            const typeSeq = selected?.TypeCode === '(Trống)' ? '' : selected?.IdSeq || ''
-
-            setAnnotations((prev) => ({
-              ...prev,
-              [rowKey]: {
-                ...(prev[rowKey] || {}),
-                idSeq:
-                  activeCodeHelpRow.IdSeq || activeCodeHelpRow.idSeq || activeCodeHelpRow.id || '',
-                rowKey,
-                remarkType: typeName,
-                remarkTypeCode: typeCode,
-                remarkTypeSeq: typeSeq
-              }
-            }))
-            setDirtyAnnotations((prev) => ({
-              ...prev,
-              [rowKey]: { ...(prev[rowKey] || {}), remarkTypeSeq: true }
-            }))
-            setHasUnsavedEdits(true)
-            setActiveCodeHelpRow(null)
-          }}
+          isOpen={tableManager.codeHelpModal.isOpen}
+          onClose={tableManager.closeCodeHelpModal}
+          title={tableManager.codeHelpModal.title}
+          columns={tableManager.codeHelpModal.columns}
+          helpData={tableManager.codeHelpModal.helpData}
+          initialSearchText={tableManager.codeHelpModal.initialSearchText}
+          searchPlaceholder="Dán mã phân loại hoặc nhập tên để tìm..."
+          storageKey="prod_plan_remark_type_codehelp"
+          onSelect={tableManager.handleSelectCodeHelp}
         />
       )}
 

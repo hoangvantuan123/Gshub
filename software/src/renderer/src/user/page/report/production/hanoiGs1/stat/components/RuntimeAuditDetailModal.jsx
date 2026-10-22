@@ -532,6 +532,18 @@ export const RuntimeAuditDetailModal = ({
           const updatedCode = isClear ? '' : selected?.TypeCode || ''
           const updatedSeq = isClear ? '' : selected?.IdSeq || ''
 
+          if (
+            String(item.remarkType ?? '') === updatedType &&
+            String(item.remarkTypeCode ?? '') === updatedCode &&
+            String(item.remarkTypeSeq ?? '') === updatedSeq
+          ) {
+            return {
+              remarkType: updatedType,
+              remarkTypeCode: updatedCode,
+              remarkTypeSeq: updatedSeq
+            }
+          }
+
           setAnnotations((prev) => ({
             ...prev,
             [ticketKey]: {
@@ -593,7 +605,10 @@ export const RuntimeAuditDetailModal = ({
           allowOverlay: false,
           hasMenu: columns[col]?.hasMenu || false,
           contentAlign: 'center',
-          themeOverride: tableManager.getCellTheme(columnId)
+          themeOverride: {
+            ...(tableManager.getCellTheme(columnId) || {}),
+            textDark: status === 'U' ? '#2563eb' : '#225588'
+          }
         }
       }
 
@@ -764,9 +779,17 @@ export const RuntimeAuditDetailModal = ({
           } else if (columnKey === 'remarkType') {
             const cellVal = String(rowValues[c] ?? '').trim()
             const resolved = lookupMap.get(cellVal.toLowerCase())
-            const updatedType = resolved ? resolved.TypeName : cellVal
+            const updatedType = resolved ? resolved.TypeName : ''
             const updatedCode = resolved ? resolved.TypeCode : ''
             const updatedSeq = resolved ? resolved.IdSeq : ''
+
+            if (
+              String(item.remarkType ?? '') === updatedType &&
+              String(item.remarkTypeCode ?? '') === updatedCode &&
+              String(item.remarkTypeSeq ?? '') === updatedSeq
+            ) {
+              continue
+            }
 
             setAnnotations((prev) => ({
               ...prev,
@@ -790,6 +813,108 @@ export const RuntimeAuditDetailModal = ({
       return false
     },
     [columns, filteredData, canEdit, remarkTypesList]
+  )
+
+  const onFillPattern = useCallback(
+    ({ patternSource, fillDestination, preventDefault }) => {
+      preventDefault?.()
+      if (!canEdit || !isAnnotationTab || !patternSource || !fillDestination) return
+
+      const normalize = (value) => String(value ?? '').trim().toLowerCase()
+      const remarkTypeLookup = new Map()
+      remarkTypesList.forEach((type) => {
+        if (type.TypeCode) remarkTypeLookup.set(normalize(type.TypeCode), type)
+        if (type.TypeName) remarkTypeLookup.set(normalize(type.TypeName), type)
+      })
+
+      const annotationUpdates = new Map()
+      const dirtyUpdates = new Map()
+
+      for (let y = 0; y < fillDestination.height; y++) {
+        for (let x = 0; x < fillDestination.width; x++) {
+          const targetCol = fillDestination.x + x
+          const targetRow = fillDestination.y + y
+          const sourceCol = patternSource.x + (x % patternSource.width)
+          const sourceRow = patternSource.y + (y % patternSource.height)
+          const targetColumnId = columns[targetCol]?.id
+          const sourceColumnId = columns[sourceCol]?.id
+
+          if (
+            targetColumnId !== sourceColumnId ||
+            (targetColumnId !== 'remarkType' && targetColumnId !== 'remarkDescription') ||
+            (targetCol >= patternSource.x &&
+              targetCol < patternSource.x + patternSource.width &&
+              targetRow >= patternSource.y &&
+              targetRow < patternSource.y + patternSource.height)
+          ) {
+            continue
+          }
+
+          const sourceItem = filteredData[sourceRow]
+          const targetItem = filteredData[targetRow]
+          if (!targetItem) continue
+
+          const ticketKey = String(targetItem.ticketNo)
+          const rowUpdate = annotationUpdates.get(ticketKey) || {
+            idSeq: targetItem.IdSeq || targetItem.idSeq || targetItem.id || '',
+            ticketNo: targetItem.ticketNo
+          }
+          const dirtyRow = dirtyUpdates.get(ticketKey) || {}
+
+          if (targetColumnId === 'remarkType') {
+            const sourceType = sourceItem
+              ? remarkTypeLookup.get(normalize(sourceItem.remarkTypeCode)) ||
+                remarkTypeLookup.get(normalize(sourceItem.remarkType))
+              : null
+            const typeName = sourceType?.TypeName || ''
+            const typeCode = sourceType?.TypeCode || ''
+            const typeSeq = sourceType?.IdSeq || ''
+
+            if (
+              String(targetItem.remarkType ?? '') === typeName &&
+              String(targetItem.remarkTypeCode ?? '') === typeCode &&
+              String(targetItem.remarkTypeSeq ?? '') === typeSeq
+            ) {
+              continue
+            }
+
+            Object.assign(rowUpdate, {
+              remarkType: typeName,
+              remarkTypeCode: typeCode,
+              remarkTypeSeq: typeSeq
+            })
+            dirtyRow.remarkTypeSeq = true
+          } else {
+            const description = String(sourceItem?.remarkDescription ?? '')
+            if (String(targetItem.remarkDescription ?? '') === description) continue
+            rowUpdate.remarkDescription = description
+            dirtyRow.remarkDescription = true
+          }
+
+          annotationUpdates.set(ticketKey, rowUpdate)
+          dirtyUpdates.set(ticketKey, dirtyRow)
+        }
+      }
+
+      if (annotationUpdates.size === 0) return
+
+      setAnnotations((previous) => {
+        const next = { ...previous }
+        annotationUpdates.forEach((updates, ticketKey) => {
+          next[ticketKey] = { ...(previous[ticketKey] || {}), ...updates }
+        })
+        return next
+      })
+      setDirtyAnnotations((previous) => {
+        const next = { ...previous }
+        dirtyUpdates.forEach((updates, ticketKey) => {
+          next[ticketKey] = { ...(previous[ticketKey] || {}), ...updates }
+        })
+        return next
+      })
+      setHasUnsavedEdits(true)
+    },
+    [canEdit, isAnnotationTab, columns, filteredData, remarkTypesList]
   )
 
   const handleQuery = () => {
@@ -1535,7 +1660,8 @@ export const RuntimeAuditDetailModal = ({
                 tint: true
               }}
               freezeTrailingRows={0}
-              fillHandle={true}
+              fillHandle={Boolean(isAnnotationTab && canEdit)}
+              onFillPattern={onFillPattern}
               isDraggable={false}
               keybindings={tableManager.keybindings || keybindings}
               onPaste={onPaste}

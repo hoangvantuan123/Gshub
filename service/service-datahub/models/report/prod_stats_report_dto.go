@@ -212,19 +212,21 @@ type TeamTimelineBreakdownDTO struct {
 
 // ProdStatsReportResponse: Toàn bộ kết quả trả về cho FE
 type ProdStatsReportResponse struct {
-	Summary                  ProdStatsSummary             `json:"summary"`
-	ChartByTeam              []TeamStatAggregate          `json:"chartByTeam"`
-	TeamBreakdown            []TeamStatAggregate          `json:"teamBreakdown"`
-	ChartByMachine           []MachineStatAggregate       `json:"chartByMachine"`
-	MachineBreakdown         []MachineStatAggregate       `json:"machineBreakdown"`
-	ChartByDay               []DailyStatAggregate         `json:"chartByDay"`
-	DailyTrendData           []DailyStatAggregate         `json:"dailyTrendData"`
-	DailyAggregates          []DailyStatAggregate         `json:"dailyAggregates"`
-	MachineTimelineBreakdown *MachineTimelineBreakdownDTO `json:"machineTimelineBreakdown,omitempty"`
-	TeamTimelineBreakdown    *TeamTimelineBreakdownDTO    `json:"teamTimelineBreakdown,omitempty"`
-	SyncDelayBreakdown       []SyncDelayGroupItem         `json:"syncDelayBreakdown"`
-	AutoExportBreakdown      []AutoExportGroupItem        `json:"autoExportBreakdown"`
-	FilterOptions            FilterOptionList             `json:"filterOptions"`
-	Items                    []ProdStatsDetailReportItem  `json:"items"`
-	Pagination               PlanPageInfo                 `json:"pagination"`
+	Summary                        ProdStatsSummary             `json:"summary"`
+	OutsideFactoryOperationCount   int                          `json:"outsideFactoryOperationCount"`
+	OutsideFactoryOperationDetails []ERPMachineComparisonDetail `json:"outsideFactoryOperationDetails"`
+	ChartByTeam                    []TeamStatAggregate          `json:"chartByTeam"`
+	TeamBreakdown                  []TeamStatAggregate          `json:"teamBreakdown"`
+	ChartByMachine                 []MachineStatAggregate       `json:"chartByMachine"`
+	MachineBreakdown               []MachineStatAggregate       `json:"machineBreakdown"`
+	ChartByDay                     []DailyStatAggregate         `json:"chartByDay"`
+	DailyTrendData                 []DailyStatAggregate         `json:"dailyTrendData"`
+	DailyAggregates                []DailyStatAggregate         `json:"dailyAggregates"`
+	MachineTimelineBreakdown       *MachineTimelineBreakdownDTO `json:"machineTimelineBreakdown,omitempty"`
+	TeamTimelineBreakdown          *TeamTimelineBreakdownDTO    `json:"teamTimelineBreakdown,omitempty"`
+	SyncDelayBreakdown             []SyncDelayGroupItem         `json:"syncDelayBreakdown"`
+	AutoExportBreakdown            []AutoExportGroupItem        `json:"autoExportBreakdown"`
+	FilterOptions                  FilterOptionList             `json:"filterOptions"`
+	Items                          []ProdStatsDetailReportItem  `json:"items"`
+	Pagination                     PlanPageInfo                 `json:"pagination"`
 }

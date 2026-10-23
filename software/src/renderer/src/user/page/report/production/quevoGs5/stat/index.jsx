@@ -17,6 +17,7 @@ export default function QuevoGs5StatPage({ permissions = [] }) {
     selectedMasterKey,
     currentMaster,
     statDataset,
+    machineAudit,
     dataSourceType,
     handleSelectMaster,
     handleRefresh
@@ -30,6 +31,7 @@ export default function QuevoGs5StatPage({ permissions = [] }) {
           plantName="Nhà máy GS Quế Võ 1B"
           dataset={statDataset}
           initialData={statDataset}
+          machineAudit={machineAudit}
           masterList={masterList}
           selectedMasterKey={selectedMasterKey}
           onSelectMaster={handleSelectMaster}

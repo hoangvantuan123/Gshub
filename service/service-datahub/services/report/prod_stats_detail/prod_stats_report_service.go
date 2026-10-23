@@ -366,6 +366,48 @@ func isNoMaterialAutoIo(label string) bool {
 		strings.Contains(s, "không sử dụng nguyên vật liệu")
 }
 
+func isGs5Factory(factoryCode string) bool {
+	code := strings.ToUpper(strings.TrimSpace(factoryCode))
+	return strings.Contains(code, "GS5") || strings.Contains(code, "QV")
+}
+
+func (s *ProdStatsDetailService) getOutsideFactoryOperations(
+	ctx context.Context,
+	factoryCode string,
+	regCode string,
+) (int, []models.ERPMachineComparisonDetail, error) {
+	details := make([]models.ERPMachineComparisonDetail, 0)
+	if !isGs5Factory(factoryCode) || strings.TrimSpace(regCode) == "" || strings.EqualFold(strings.TrimSpace(regCode), "ALL") {
+		return 0, details, nil
+	}
+
+	var rows []models.ERPMachineComparisonDetail
+	if err := s.db.WithContext(ctx).
+		Where(`"TKSXRegCode" = ?`, strings.TrimSpace(regCode)).
+		Where(`"IsActive" = TRUE`).
+		Where(`LOWER(BTRIM(COALESCE("IsBelongToFactory", ''))) = 'false'`).
+		Order(`"OperationOrderNo" ASC, "SourceRow" ASC, "RowSeq" ASC`).
+		Find(&rows).Error; err != nil {
+		return 0, nil, err
+	}
+
+	seenOperationOrders := make(map[string]struct{}, len(rows))
+	for _, row := range rows {
+		if row.OperationOrderNo == nil {
+			continue
+		}
+		operationOrderNo := strings.TrimSpace(*row.OperationOrderNo)
+		if operationOrderNo == "" {
+			continue
+		}
+		details = append(details, row)
+		key := strings.ToUpper(operationOrderNo)
+		seenOperationOrders[key] = struct{}{}
+	}
+
+	return len(seenOperationOrders), details, nil
+}
+
 // GenerateProductionStatisticsReport: API chính tính toán và tổng hợp báo cáo TKSX
 func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.Context, filters map[string]string) (*models.ProdStatsReportResponse, error) {
 	regCode := getFilterValue(filters, "regCode", "RegCode", "reg_code", "Reg_Code")
@@ -1323,22 +1365,28 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 	// 8. Build Machine & Team Timeline Breakdown
 	machineTimelineBreakdown := buildMachineTimelineBreakdown(dayMap, machineMap, machineDailyMap, dateSet)
 	teamTimelineBreakdown := buildTeamTimelineBreakdown(dayMap, teamMap, teamDailyMap, dateSet)
+	outsideFactoryOperationCount, outsideFactoryOperationDetails, err := s.getOutsideFactoryOperations(ctx, factoryCode, regCode)
+	if err != nil {
+		return nil, fmt.Errorf("không thể truy vấn đối chiếu máy GS5: %w", err)
+	}
 
 	return &models.ProdStatsReportResponse{
-		Summary:                  summary,
-		ChartByTeam:              chartByTeam,
-		TeamBreakdown:            chartByTeam,
-		ChartByMachine:           chartByMachine,
-		MachineBreakdown:         chartByMachine,
-		ChartByDay:               chartByDay,
-		DailyTrendData:           chartByDay,
-		DailyAggregates:          chartByDay,
-		MachineTimelineBreakdown: machineTimelineBreakdown,
-		TeamTimelineBreakdown:    teamTimelineBreakdown,
-		SyncDelayBreakdown:       syncBreakdown,
-		AutoExportBreakdown:      autoExportBreakdown,
-		FilterOptions:            filterOpts,
-		Items:                    pagedItems,
+		Summary:                        summary,
+		OutsideFactoryOperationCount:   outsideFactoryOperationCount,
+		OutsideFactoryOperationDetails: outsideFactoryOperationDetails,
+		ChartByTeam:                    chartByTeam,
+		TeamBreakdown:                  chartByTeam,
+		ChartByMachine:                 chartByMachine,
+		MachineBreakdown:               chartByMachine,
+		ChartByDay:                     chartByDay,
+		DailyTrendData:                 chartByDay,
+		DailyAggregates:                chartByDay,
+		MachineTimelineBreakdown:       machineTimelineBreakdown,
+		TeamTimelineBreakdown:          teamTimelineBreakdown,
+		SyncDelayBreakdown:             syncBreakdown,
+		AutoExportBreakdown:            autoExportBreakdown,
+		FilterOptions:                  filterOpts,
+		Items:                          pagedItems,
 		Pagination: models.PlanPageInfo{
 			Page:        page,
 			PageSize:    pageSize,

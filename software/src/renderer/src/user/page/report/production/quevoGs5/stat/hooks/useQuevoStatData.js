@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   queryPlanMaster,
   queryQuevoGs5StatReport
@@ -39,11 +39,58 @@ export function useQuevoStatData({ pagePerms } = {}) {
   const [dataSourceType, setDataSourceType] = useState(
     cachedInitialDataset.length > 0 ? 'database' : 'empty'
   )
+  const [machineAudit, setMachineAudit] = useState({
+    outsideFactoryOperationCount: 0,
+    outsideFactoryOperationDetails: [],
+    loading: Boolean(initialDetailKey)
+  })
+  const machineAuditRequestRef = useRef(0)
+
+  const applyMachineAuditResponse = useCallback((response, requestId) => {
+    if (requestId !== machineAuditRequestRef.current) return
+    const reportData = response?.data || response || {}
+    setMachineAudit({
+      outsideFactoryOperationCount: Number(reportData.outsideFactoryOperationCount) || 0,
+      outsideFactoryOperationDetails: Array.isArray(reportData.outsideFactoryOperationDetails)
+        ? reportData.outsideFactoryOperationDetails
+        : [],
+      loading: false
+    })
+  }, [])
+
+  const loadMachineAuditForMaster = useCallback(
+    async (master, requestId) => {
+      const reportCode = String(master?.RegCode || master?.regCode || '').trim()
+      if (!reportCode) {
+        applyMachineAuditResponse({}, requestId)
+        return
+      }
+
+      try {
+        const response = await queryQuevoGs5StatReport({
+          regCode: reportCode,
+          factoryCode: 'GS5',
+          withoutItems: 'true',
+          pageSize: '1'
+        })
+        applyMachineAuditResponse(response, requestId)
+      } catch {
+        applyMachineAuditResponse({}, requestId)
+      }
+    },
+    [applyMachineAuditResponse]
+  )
 
   const loadDetailForMaster = useCallback(async (master, forceRefresh = false) => {
     if (!master) return
+    const auditRequestId = ++machineAuditRequestRef.current
     const regCode = master.RegCode || master.regCode || String(master.IdSeq || master.MasterSeq)
     const detailKey = `quevo_stat_${regCode}`
+    setMachineAudit({
+      outsideFactoryOperationCount: 0,
+      outsideFactoryOperationDetails: [],
+      loading: Boolean(master.RegCode || master.regCode)
+    })
 
     if (!forceRefresh) {
       const cached = getCachedDetail(detailKey)
@@ -51,6 +98,7 @@ export function useQuevoStatData({ pagePerms } = {}) {
         setStatDataset(cached)
         setDataSourceType('database')
         setLoading(false)
+        loadMachineAuditForMaster(master, auditRequestId)
         return
       }
     }
@@ -65,6 +113,7 @@ export function useQuevoStatData({ pagePerms } = {}) {
           factoryCode: 'GS5',
           pageSize: '10000'
         })
+        applyMachineAuditResponse(resAgg, auditRequestId)
         const beItems =
           resAgg?.data?.items ||
           resAgg?.data?.data?.items ||
@@ -85,10 +134,11 @@ export function useQuevoStatData({ pagePerms } = {}) {
       console.error(`Lỗi tải chi tiết đợt GS5 ${regCode}:`, err)
       setStatDataset([])
       setDataSourceType('empty')
+      applyMachineAuditResponse({}, auditRequestId)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [applyMachineAuditResponse, loadMachineAuditForMaster])
 
   const fetchMastersAndLatestData = useCallback(
     async (targetRegCode = null, clearCache = false) => {
@@ -176,6 +226,8 @@ export function useQuevoStatData({ pagePerms } = {}) {
           setCurrentMaster(null)
           setStatDataset([])
           setDataSourceType('empty')
+          const auditRequestId = ++machineAuditRequestRef.current
+          applyMachineAuditResponse({}, auditRequestId)
         }
       } catch (err) {
         console.error('Lỗi khi tải dữ liệu đăng ký TKSX GS5 Quế Võ:', err)
@@ -184,12 +236,14 @@ export function useQuevoStatData({ pagePerms } = {}) {
           setCurrentMaster(null)
           setStatDataset([])
           setDataSourceType('empty')
+          const auditRequestId = ++machineAuditRequestRef.current
+          applyMachineAuditResponse({}, auditRequestId)
         }
       } finally {
         setLoading(false)
       }
     },
-    [loadDetailForMaster]
+    [applyMachineAuditResponse, loadDetailForMaster]
   )
 
   useEffect(() => {
@@ -220,6 +274,7 @@ export function useQuevoStatData({ pagePerms } = {}) {
     selectedMasterKey,
     currentMaster,
     statDataset,
+    machineAudit,
     dataSourceType,
     handleSelectMaster,
     handleRefresh

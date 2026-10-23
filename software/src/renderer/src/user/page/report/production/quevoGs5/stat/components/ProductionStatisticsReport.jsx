@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types, no-unused-vars */
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import {
   RotateCcw,
   FileSpreadsheet,
@@ -40,8 +40,10 @@ import {
   ReferenceLine,
   LabelList
 } from 'recharts'
-import { DataEditor } from '@glideapps/glide-data-grid'
+import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid'
 import ExportExcelModal from '@renderer/user/components/modal/ExportExcelModal'
+import { generateExcelWorkbook, saveWorkbookToFile } from '@renderer/utils/exportExcelUtils'
+import { getGridColumnsForTab } from '../../../calcProduction/columns/calcGridColumns'
 import '@glideapps/glide-data-grid/dist/index.css'
 
 import {
@@ -72,6 +74,7 @@ export default function ProductionStatisticsReport(props) {
     onSelectMaster,
     onRefreshMaster,
     currentMaster,
+    machineAudit = {},
     loadingMaster = false
   } = props
 
@@ -83,6 +86,77 @@ export default function ProductionStatisticsReport(props) {
   const [autoExportTab, setAutoExportTab] = useState('breakdown') // 'breakdown' | 'missing_list'
   const [missingAutoExportSearchText, setMissingAutoExportSearchText] = useState('')
   const [copiedMissingAutoExport, setCopiedMissingAutoExport] = useState(false)
+  const [showMachineAuditSearch, setShowMachineAuditSearch] = useState(false)
+  const [isMachineAuditExportOpen, setIsMachineAuditExportOpen] = useState(false)
+  const [machineAuditColumnWidths, setMachineAuditColumnWidths] = useState({})
+  const machineAuditGridRef = useRef(null)
+  const outsideFactoryOperationCount = Number(machineAudit?.outsideFactoryOperationCount) || 0
+  const outsideFactoryOperationDetails = Array.isArray(machineAudit?.outsideFactoryOperationDetails)
+    ? machineAudit.outsideFactoryOperationDetails
+    : []
+  const machineAuditColumns = useMemo(
+    () =>
+      getGridColumnsForTab('machine_comparison')
+        .filter((column) => !['KhsxStatus', 'ProducedQty', 'QualifiedQty'].includes(column.id))
+        .map((column) => ({
+          ...column,
+          width: machineAuditColumnWidths[column.id] || column.width
+        })),
+    [machineAuditColumnWidths]
+  )
+  const machineAuditRows = outsideFactoryOperationDetails
+  const getMachineAuditCellContent = useCallback(
+    ([col, row]) => {
+      const item = machineAuditRows[row]
+      const column = machineAuditColumns[col]
+      const value = item && column ? (item[column.id] ?? item[column.title] ?? '') : ''
+      if (column?.kind === GridCellKind.Number) {
+        const number = value === '' || value === null ? null : Number(value)
+        if (number !== null && Number.isFinite(number)) {
+          return {
+            kind: GridCellKind.Number,
+            data: number,
+            displayData: number.toLocaleString('vi-VN'),
+            contentAlign: 'right',
+            allowOverlay: false
+          }
+        }
+      }
+      const text = String(value ?? '')
+      return {
+        kind: GridCellKind.Text,
+        data: text,
+        displayData: text,
+        allowOverlay: false
+      }
+    },
+    [machineAuditRows, machineAuditColumns]
+  )
+  const handleMachineAuditColumnResize = useCallback(
+    (column, newWidth) => {
+      if (!column?.id) return
+      setMachineAuditColumnWidths((previous) => ({ ...previous, [column.id]: newWidth }))
+    },
+    []
+  )
+
+  const executeMachineAuditExport = async ({
+    fileName,
+    saveDirectory,
+    overwriteExisting,
+    includeHeaders,
+    exportableCols
+  }) => {
+    const wb = generateExcelWorkbook({
+      data: machineAuditRows,
+      columns: exportableCols || machineAuditColumns,
+      sheetName: 'DoiChieuMayGS5',
+      reportTitle: 'NHẬT TRÌNH CHI TIẾT ĐỐI CHIẾU MÁY GS5 1B',
+      filterInfo: `Nhà máy: ${plantName || 'Nhà máy GS5 Quế Võ'} | Báo cáo: ${currentMaster?.RegCode || selectedMasterKey || ''}`,
+      includeHeaders: includeHeaders !== false
+    })
+    await saveWorkbookToFile(wb, fileName, saveDirectory, { overwriteExisting })
+  }
 
   const storageKey = 'report_filter_state_quevo_gs5_stat'
   const [showFilter, setShowFilter] = useState(() => {
@@ -801,6 +875,51 @@ export default function ProductionStatisticsReport(props) {
             </span>
           </div>
         </div>
+
+        {plantKey === 'quevo_gs5' && (
+          <div
+            style={{
+              padding: '16px 18px',
+              background: '#ffffff',
+              borderLeft: '1px solid #cbd5e1',
+              borderRight: '1px solid #cbd5e1',
+              borderBottom: '1px solid #cbd5e1',
+              borderTop: '3.5px solid #c2410c',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: 120,
+              opacity: machineAudit.loading ? 0.7 : 1
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#c2410c',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}
+            >
+              Máy ngoài GS5 1B
+            </div>
+            <div
+              style={{
+                fontSize: 'clamp(28px, 3.2vw, 38px)',
+                fontWeight: 900,
+                color: '#9a3412',
+                lineHeight: 1.05,
+                margin: '8px 0 6px 0',
+                letterSpacing: '-0.04em'
+              }}
+            >
+              {machineAudit.loading
+                ? '…'
+                : outsideFactoryOperationCount.toLocaleString('vi-VN')}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 4. EXECUTIVE SECTION I: BIỂU ĐỒ 1 - THỐNG KÊ GIỜ CHẠY MÁY & CẢNH BÁO BẤT THƯỜNG */}
@@ -3142,6 +3261,148 @@ export default function ProductionStatisticsReport(props) {
         </div>
       </div>
 
+      {plantKey === 'quevo_gs5' && (
+        <div style={{ marginBottom: 40, marginTop: 40 }}>
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 800,
+                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <span>6. NHẬT TRÌNH CHI TIẾT ĐỐI CHIẾU MÁY GS5 1B</span>
+            </div>
+            <div
+              style={{
+                fontSize: 12.5,
+                color: '#475569',
+                marginTop: 4,
+                lineHeight: 1.5,
+                maxWidth: 960
+              }}
+            >
+              Danh sách chi tiết các phiếu có máy thực tế ngoài nhà máy, đối chiếu theo mã báo cáo
+              {currentMaster?.RegCode || selectedMasterKey
+                ? ` ${currentMaster?.RegCode || selectedMasterKey}`
+                : ''}
+              .
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderBottom: 'none',
+              padding: '8px 12px',
+              fontSize: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 12
+            }}
+          >
+            <div style={{ display: 'flex', gap: 16, color: '#334155', fontWeight: 700 }}>
+              <span>
+                Tổng số ghi nhận:{' '}
+                <b style={{ color: '#c2410c' }}>
+                  {outsideFactoryOperationCount.toLocaleString('vi-VN')}
+                </b>
+              </span>
+              <span>
+                Dòng chi tiết:{' '}
+                <b>{machineAuditRows.length.toLocaleString('vi-VN')}</b>
+              </span>
+            </div>
+
+            <div
+              className="screenshot-hide"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowMachineAuditSearch((prev) => !prev)}
+                className={`uppercase text-[11px] font-semibold ${
+                  showMachineAuditSearch
+                    ? 'text-emerald-700 hover:text-emerald-800'
+                    : 'text-slate-700 hover:text-slate-900'
+                }`}
+                title="Mở tìm kiếm nhanh trong bảng (Ctrl + F)"
+              >
+                <Search size={13} className="text-blue-500" />
+                <span>TÌM KIẾM (CTRL+F)</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  handleCopyTable(
+                    machineAuditRows,
+                    machineAuditColumns.map((column) => column.title),
+                    machineAuditColumns.map((column) => column.id)
+                  )
+                }
+                className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+                title="Sao chép danh sách mục 6 vào Clipboard"
+              >
+                <Copy size={13} className="text-slate-500" />
+                <span>SAO CHÉP</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMachineAuditExportOpen(true)}
+                disabled={!machineAuditRows.length}
+                className="uppercase text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+                title="Xuất danh sách mục 6 ra file Excel"
+              >
+                <FileSpreadsheet size={13} className="text-emerald-600" />
+                <span>XUẤT EXCEL</span>
+              </Button>
+            </div>
+          </div>
+
+          <div
+            style={{
+              height: 480,
+              border: '1px solid #e2e8f0',
+              background: '#ffffff',
+              position: 'relative'
+            }}
+          >
+            <DataEditor
+              ref={machineAuditGridRef}
+              columns={machineAuditColumns}
+              rows={machineAuditRows.length}
+              getCellContent={getMachineAuditCellContent}
+              onColumnResize={handleMachineAuditColumnResize}
+              getCellsForSelection={true}
+              rangeSelect="rect"
+              rowSelect="multi"
+              columnSelect="single"
+              headerHeight={23}
+              overscrollY={20}
+              overscrollX={50}
+              smoothScrollY={true}
+              smoothScrollX={true}
+              rowHeight={23}
+              fillHandle={true}
+              showSearch={showMachineAuditSearch}
+              onSearchClose={() => setShowMachineAuditSearch(false)}
+              keybindings={{ search: true, downFill: true, rightFill: true }}
+              theme={executiveGridTheme}
+              width="100%"
+              height="100%"
+            />
+          </div>
+        </div>
+      )}
+
       {/* SỔ TAY CÔNG THỨC & QUY TẮC TÍNH TOÁN MODAL */}
       <FormulaHandbookModal
         isOpen={showFormulaModal}
@@ -3167,6 +3428,26 @@ export default function ProductionStatisticsReport(props) {
         defaultFileName={`NhatTrinh_ChiTiet_ThongKe_SanXuat_${plantKey}_${new Date().toISOString().slice(0, 10)}.xlsx`}
         onConfirmExport={executeExportStatExcel}
       />
+
+      {plantKey === 'quevo_gs5' && (
+        <ExportExcelModal
+          isOpen={isMachineAuditExportOpen}
+          onClose={() => setIsMachineAuditExportOpen(false)}
+          title="XÁC NHẬN XUẤT EXCEL - ĐỐI CHIẾU MÁY GS5 1B"
+          reportName="Nhật trình chi tiết đối chiếu máy GS5 1B"
+          totalRows={machineAuditRows.length}
+          loadedCount={machineAuditRows.length}
+          columns={machineAuditColumns}
+          activeFilters={{
+            FactoryName: plantName || 'Nhà máy GS5 Quế Võ',
+            ReportCode: currentMaster?.RegCode || selectedMasterKey || ''
+          }}
+          defaultFileName={`NhatTrinh_DoiChieuMay_GS5_1B_${new Date()
+            .toISOString()
+            .slice(0, 10)}.xlsx`}
+          onConfirmExport={executeMachineAuditExport}
+        />
+      )}
 
       {/* MODAL ĐỐI SOÁT KỶ LUẬT THỜI GIAN & CẢNH BÁO QLSX */}
       <RuntimeAuditDetailModal

@@ -51,7 +51,12 @@ export default function StatDetailQueryPage({
   const [columns, setColumns] = useState(() => {
     const saved = loadFromLocalStorageSheet('S_ERP_COLS_stat_detail_query_table', [])
     if (saved && saved.length > 0) {
-      const base = ensureStatusFirstColumn(saved, defaultCols)
+      const base = ensureStatusFirstColumn(saved, defaultCols).map((savedCol) => {
+        const currentCol = defaultCols.find((col) => col.id === savedCol.id)
+        return currentCol
+          ? { ...savedCol, ...currentCol, width: savedCol.width ?? currentCol.width }
+          : savedCol
+      })
       const existingIds = new Set(base.map((c) => c.id))
       const missingDefaultCols = defaultCols.filter(
         (dc) => dc.visible !== false && !existingIds.has(dc.id)

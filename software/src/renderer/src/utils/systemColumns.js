@@ -62,6 +62,10 @@ export const filterConfigurableColumns = (defaultCols) => {
  * @returns {Array}
  */
 export const ensureWorkingTagFirstColumn = (cols = [], defaultCols = []) => {
+  // Reports contain both a CRUD marker and a separate business Status field.
+  const hasBusinessStatus =
+    defaultCols.some((col) => col.id === 'WorkingTag') &&
+    defaultCols.some((col) => col.id === 'Status')
   const defaultColIds =
     Array.isArray(defaultCols) && defaultCols.length > 0
       ? new Set(defaultCols.map((c) => c.id))
@@ -71,7 +75,7 @@ export const ensureWorkingTagFirstColumn = (cols = [], defaultCols = []) => {
     (col) =>
       !SYSTEM_INTERNAL_HIDDEN_COLUMNS.has(col.id) &&
       col.id !== 'WorkingTag' &&
-      col.id !== 'Status' &&
+      (col.id !== 'Status' || hasBusinessStatus) &&
       (!defaultColIds || defaultColIds.has(col.id))
   )
   const workingTagCol = (cols || []).find((c) => c.id === 'WorkingTag') ||

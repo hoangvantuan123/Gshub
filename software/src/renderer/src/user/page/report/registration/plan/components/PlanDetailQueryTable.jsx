@@ -3,7 +3,7 @@ import { useCallback, useRef, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid'
 import '@glideapps/glide-data-grid/dist/index.css'
-import { RotateCw, SlidersHorizontal, X } from 'lucide-react'
+import { formatDetailQueryCell } from '../../services/detailQueryCell'
 
 import LayoutMenuSheet from '../../../../../components/sheet/jsx/layoutMenu'
 import LayoutStatusMenuSheet from '../../../../../components/sheet/jsx/layoutStatusMenu'
@@ -11,7 +11,6 @@ import LayoutContextMenuSheet from '../../../../../components/sheet/jsx/layoutCo
 import { Drawer, Checkbox } from '../../../../../../components/ui'
 import useTableManager from '../../../../../components/hooks/sheet/useTableManager'
 import useTableConfig from '../../../../../components/hooks/sheet/useTableConfig'
-import { useDateFormat } from '../../../../../hooks/useDateFormat'
 
 const EMPTY_ARRAY = []
 
@@ -41,7 +40,6 @@ export default function PlanDetailQueryTable({
   totalRows = 0
 }) {
   const { t } = useTranslation()
-  const { formatDate } = useDateFormat()
   const gridRef = useRef(null)
 
   const { freezeColumnsCount, handleFreezeColumn } = useTableConfig('plan_detail_query_table')
@@ -102,26 +100,11 @@ export default function PlanDetailQueryTable({
   const colMetadata = useMemo(() => {
     return (cols || []).map((column) => {
       const columnKey = column.id || ''
-      const isStatus =
-        columnKey === 'StatusDpSx' || columnKey === 'CapaStatus' || columnKey === 'WorkingTag'
-      const isNumber =
-        column.kind === 'Number' ||
-        columnKey.includes('Qty') ||
-        columnKey.includes('Hours') ||
-        columnKey.includes('Rate') ||
-        columnKey.includes('Minute') ||
-        columnKey.includes('Total') ||
-        columnKey.includes('Output') ||
-        columnKey.includes('Speed')
-      const isDate = columnKey.endsWith('Date') || columnKey.includes('Time')
       const cellTheme = getCellTheme(columnKey, column)
       const isReadOnly = isReadOnlyColumn(columnKey, column) || column.readonly || true
 
       return {
         columnKey,
-        isStatus,
-        isNumber,
-        isDate,
         kind: column.kind,
         title: column.title || columnKey,
         cellTheme,
@@ -163,11 +146,11 @@ export default function PlanDetailQueryTable({
           }
         }
         if (meta.columnKey === 'PlanQty' && rowItem._totalPlanQty !== undefined) {
-          const num = Number(rowItem._totalPlanQty) || 0
+          const text = String(rowItem._totalPlanQty ?? '')
           return {
-            kind: GridCellKind.Number,
-            data: num,
-            displayData: num.toLocaleString('vi-VN'),
+            kind: GridCellKind.Text,
+            data: text,
+            displayData: text,
             readonly: true,
             allowOverlay: false,
             themeOverride: {
@@ -189,8 +172,8 @@ export default function PlanDetailQueryTable({
 
       const val = rowItem[meta.columnKey]
 
-      // Cột WorkingTag / Status trong màn hình truy vấn luôn để trống ""
-      if (meta.columnKey === 'WorkingTag' || meta.columnKey === 'Status') {
+      // WorkingTag là trạng thái chỉnh sửa; Status là dữ liệu nghiệp vụ từ BE.
+      if (meta.columnKey === 'WorkingTag') {
         return {
           kind: GridCellKind.Text,
           data: '',
@@ -273,45 +256,16 @@ export default function PlanDetailQueryTable({
         }
       }
 
-      // Cột ngày tháng
-      if (meta.isDate && val) {
-        const dateStr = formatDate(val)
-        return {
-          kind: GridCellKind.Text,
-          data: String(val),
-          displayData: dateStr || String(val),
-          readonly: true,
-          allowOverlay: false,
-          themeOverride: meta.cellTheme
-        }
-      }
-
-      // Cột số liệu
-      if (meta.isNumber || typeof val === 'number') {
-        const numVal = Number(val) || 0
-        return {
-          kind: GridCellKind.Number,
-          data: numVal,
-          displayData: numVal.toLocaleString('vi-VN'),
-          readonly: true,
-          allowOverlay: false,
-          contentAlign: 'right',
-          themeOverride: meta.cellTheme
-        }
-      }
-
-      // Cột chuỗi mặc định
-      const strVal = val !== undefined && val !== null ? String(val) : ''
+      const cell = formatDetailQueryCell(val, meta)
       return {
+        ...cell,
         kind: GridCellKind.Text,
-        data: strVal,
-        displayData: strVal,
         readonly: true,
         allowOverlay: false,
         themeOverride: meta.cellTheme
       }
     },
-    [gridData, colMetadata, formatDate]
+    [gridData, colMetadata]
   )
 
   // ── 3. BẮT SỰ KIỆN CTRL+F KHI ĐANG FOCUS Ô VÀ ĐẨY VÀO FILTER ──

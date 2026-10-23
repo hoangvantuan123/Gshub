@@ -7,33 +7,92 @@ const slipNo = (row) => first(row, 'StatSlipNo', 'Số phiếu thống kê', 'S�
 
 export function mapMasterFactoryToCatalogKey(factoryName) {
   if (!factoryName) return ''
-  const upper = String(factoryName).trim().toUpperCase()
+  const normalized = String(factoryName)
+    .trim()
+    .replace(/[đĐ]/g, 'd')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+  const tokens = normalized.match(/[A-Z0-9]+/g) || []
+  const compact = tokens.join('')
+
   if (
-    upper.includes('1B') ||
-    upper.includes('GS51B') ||
-    (upper.includes('GS5') && upper.includes('QUẾ VÕ 1B'))
+    tokens.includes('GS51B') ||
+    (tokens.includes('GS5') && tokens.includes('1B')) ||
+    (tokens.includes('QUE') && tokens.includes('VO') && tokens.includes('1B')) ||
+    tokens.includes('QV1B')
   ) {
     return 'GS51B'
   }
   if (
-    upper.includes('QUẾ VÕ 2') ||
-    upper.includes('QV2') ||
-    (upper.includes('GS5') && upper.includes('2'))
+    tokens.includes('GS52') ||
+    (tokens.includes('GS5') && tokens.includes('2')) ||
+    (tokens.includes('QUE') && tokens.includes('VO') && tokens.includes('2')) ||
+    tokens.includes('QV2')
   ) {
     return 'GS52'
   }
-  if (upper.includes('GS1') || upper.includes('HÀ NỘI') || upper.includes('HN')) {
+  // GS1B is a distinct factory code. Checking it before GS1 avoids prefix collisions.
+  if (tokens.includes('GS1B')) {
+    return 'GS1B'
+  }
+  if (
+    tokens.includes('GS1') ||
+    tokens.includes('HN') ||
+    tokens.includes('HANOI') ||
+    (tokens.includes('HA') && tokens.includes('NOI'))
+  ) {
     return 'GS1'
   }
-  return upper
+  return compact || normalized
+}
+
+const rawFactoryOf = (row) =>
+  first(row, 'Factory', 'Nhà máy', 'factory', 'FactoryName', 'factory_name')
+
+export function filterMachineCatalogByFactory(machines, factoryName) {
+  const factoryKey = mapMasterFactoryToCatalogKey(factoryName)
+  if (!factoryKey || !Array.isArray(machines)) return []
+  return machines.filter((machine) => {
+    const rawFactory = rawFactoryOf(machine)
+    return rawFactory && mapMasterFactoryToCatalogKey(rawFactory) === factoryKey
+  })
+}
+
+export function isMachineComparisonCurrent(results, factoryName) {
+  const comparison = results?.machineComparison
+  if (!factoryName || !comparison || !Array.isArray(comparison.calculatedRows)) return false
+
+  const factoryKey = mapMasterFactoryToCatalogKey(factoryName)
+  const savedFactoryKey = mapMasterFactoryToCatalogKey(
+    comparison.factoryKey || comparison.factoryName
+  )
+  if (savedFactoryKey && factoryKey && savedFactoryKey !== factoryKey) return false
+
+  const savedCatalog = comparison.catalogMachines
+  if (Array.isArray(savedCatalog) && savedCatalog.length > 0) {
+    const explicitFactoryRows = savedCatalog.filter((machine) => rawFactoryOf(machine))
+    if (
+      (explicitFactoryRows.length > 0 && explicitFactoryRows.length !== savedCatalog.length) ||
+      explicitFactoryRows.some(
+        (machine) => mapMasterFactoryToCatalogKey(rawFactoryOf(machine)) !== factoryKey
+      )
+    ) {
+      return false
+    }
+  }
+  return true
 }
 
 export function getMachineComparisonRows(results, summaryRows, mesRows, options = {}) {
   const stored = results?.machineComparison?.calculatedRows
+  const storedMatchesFactory =
+    !options?.factoryName || isMachineComparisonCurrent(results, options.factoryName)
   // Version 2 is the authoritative calculation snapshot. Legacy snapshots must
   // be rebuilt from their TKSX rows so they cannot stay stale or use old joins.
   if (
     Array.isArray(stored) &&
+    storedMatchesFactory &&
     (results?.machineComparison?.matchVersion === 2 ||
       !Array.isArray(results?.stat?.calculatedRows))
   ) {
@@ -206,7 +265,7 @@ export function buildMachineComparison(
         : []
 
   const targetFactoryKey = normalize(mapMasterFactoryToCatalogKey(factoryName))
-  const normFactoryName = normalize(factoryName)
+  const catalogHasFactoryMetadata = catalogMachines.some((machine) => rawFactoryOf(machine))
 
   const factoryMachineCodes = new Set()
 
@@ -246,42 +305,15 @@ export function buildMachineComparison(
     )
     if (!rawCode) continue
 
-    const rawMFactory = m.Factory || m['Nhà máy'] || m.factory || m.FactoryName || m.factory_name || ''
-    const mFactory = normalize(rawMFactory)
-    const mFactoryKey = normalize(mapMasterFactoryToCatalogKey(rawMFactory))
-
+    const rawMFactory = rawFactoryOf(m)
     const isMatch =
       !targetFactoryKey ||
-      !mFactory ||
-      mFactory === targetFactoryKey ||
-      mFactoryKey === targetFactoryKey ||
-      mFactory === normFactoryName ||
-      (targetFactoryKey && mFactory.includes(targetFactoryKey)) ||
-      (targetFactoryKey && targetFactoryKey.includes(mFactory)) ||
-      (normFactoryName && mFactory.includes(normFactoryName)) ||
-      (normFactoryName && normFactoryName.includes(mFactory))
+      (rawMFactory
+        ? normalize(mapMasterFactoryToCatalogKey(rawMFactory)) === targetFactoryKey
+        : !catalogHasFactoryMetadata)
 
     if (isMatch) {
       addMachineCode(rawCode)
-    }
-  }
-
-  // Fallback: Nếu catalogMachines có dữ liệu nhưng do tên nhà máy bên trong khác định dạng
-  // dẫn đến factoryMachineCodes rỗng, thì nạp toàn bộ vì catalogMachines vốn dĩ đã được tải theo nhà máy.
-  if (factoryMachineCodes.size === 0 && catalogMachines.length > 0) {
-    for (const m of catalogMachines) {
-      const rawCode = first(
-        m,
-        'MachineCode',
-        'machine_code',
-        'machineCode',
-        'Code',
-        'code',
-        'Mã máy',
-        'Mã máy sản xuất',
-        'machine_id'
-      )
-      if (rawCode) addMachineCode(rawCode)
     }
   }
 

@@ -55,6 +55,11 @@ func (s *ProdMachineCatalogService) ProdMachineCatalogQ(ctx context.Context, fil
 	if id := f["idseq"]; id != "" {
 		q = q.Where(`"IdSeq" = ?`, id)
 	}
+	// Factory remains a partial search for the catalog screen. FactoryExact is
+	// used by calculations, where matching GS1 must never include a code like GS1B.
+	if factory := f["factoryexact"]; factory != "" {
+		q = q.Where(`LOWER(TRIM("Factory")) = LOWER(?)`, factory)
+	}
 
 	// Lọc theo các trường đơn lẻ, hỗ trợ tìm kiếm nhiều giá trị phân tách bởi dấu phẩy/chấm phẩy/xuống dòng
 	for _, field := range []string{"MachineCode", "MachineName", "TeamCode", "TeamName", "Factory"} {

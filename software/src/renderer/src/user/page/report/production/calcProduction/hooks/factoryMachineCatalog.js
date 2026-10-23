@@ -1,24 +1,18 @@
 import storageAdapter from '../storage'
 import { queryProdMachineCatalogs } from '@renderer/user/page/report/registration/machineCatalog/machineCatalogService'
-import { mapMasterFactoryToCatalogKey } from '../engine/machineComparison'
+import {
+  filterMachineCatalogByFactory,
+  mapMasterFactoryToCatalogKey
+} from '../engine/machineComparison'
 
 const extractMachineRows = (response) => {
-  const candidates = [response?.data, response?.data?.data, response]
+  const candidates = [response?.data?.data, response?.data, response]
   for (const value of candidates) {
     if (Array.isArray(value)) return value
     if (Array.isArray(value?.items)) return value.items
     if (Array.isArray(value?.rows)) return value.rows
   }
   return []
-}
-
-const rawFactoryOf = (row) =>
-  row?.Factory || row?.['Nhà máy'] || row?.factory || row?.FactoryName || row?.factory_name || ''
-
-const belongsToFactory = (row, factoryKey) => {
-  const rawFactory = rawFactoryOf(row)
-  if (!rawFactory) return false
-  return mapMasterFactoryToCatalogKey(rawFactory) === factoryKey
 }
 
 /**
@@ -37,27 +31,35 @@ export async function loadFactoryMachineCatalog(
   const factoryKey = mapMasterFactoryToCatalogKey(factoryName)
   const snapshotMatches = !preferredFactoryKey || preferredFactoryKey === factoryKey
 
-  const hasSnapshot =
-    snapshotMatches && Array.isArray(preferredCatalog) && preferredCatalog.length > 0
+  const snapshotRows = snapshotMatches
+    ? filterMachineCatalogByFactory(preferredCatalog, factoryName)
+    : []
+  const hasSnapshot = snapshotRows.length > 0
 
   if (preferSnapshot && hasSnapshot) {
     if (factoryKey) {
       try {
         const cached = await storageAdapter.getFactoryMachines(factoryKey)
         if (!Array.isArray(cached) || cached.length === 0) {
-          await storageAdapter.saveFactoryMachines(factoryKey, preferredCatalog)
+          await storageAdapter.saveFactoryMachines(factoryKey, snapshotRows)
         }
       } catch {
-        await storageAdapter.saveFactoryMachines(factoryKey, preferredCatalog)
+        await storageAdapter.saveFactoryMachines(factoryKey, snapshotRows)
       }
     }
-    return preferredCatalog
+    return snapshotRows
   }
 
   if (!refresh && factoryKey) {
     try {
       const cached = await storageAdapter.getFactoryMachines(factoryKey)
-      if (Array.isArray(cached) && cached.length > 0) return cached
+      const safeCached = filterMachineCatalogByFactory(cached, factoryName)
+      if (safeCached.length > 0) {
+        if (safeCached.length !== cached.length) {
+          await storageAdapter.saveFactoryMachines(factoryKey, safeCached)
+        }
+        return safeCached
+      }
     } catch (error) {
       console.warn('[MachineCatalog] Lỗi đọc danh mục máy đã lưu:', error)
     }
@@ -65,24 +67,24 @@ export async function loadFactoryMachineCatalog(
 
   try {
     const params = { page: 1, pageSize: 1000 }
-    if (factoryKey) params.Factory = factoryKey
-    let machines = extractMachineRows(await queryProdMachineCatalogs(params))
+    if (factoryKey) params.FactoryExact = factoryKey
+    let machines = filterMachineCatalogByFactory(
+      extractMachineRows(await queryProdMachineCatalogs(params)),
+      factoryName
+    )
 
     if (machines.length === 0) {
       const allMachines = extractMachineRows(
         await queryProdMachineCatalogs({ page: 1, pageSize: 1000 })
       )
-      machines = factoryKey
-        ? allMachines.filter((row) => belongsToFactory(row, factoryKey))
-        : allMachines
+      machines = filterMachineCatalogByFactory(allMachines, factoryName)
     }
-
     if (machines.length > 0 && factoryKey) {
       await storageAdapter.saveFactoryMachines(factoryKey, machines)
     }
-    return machines.length > 0 ? machines : hasSnapshot ? preferredCatalog : []
+    return machines.length > 0 ? machines : hasSnapshot ? snapshotRows : []
   } catch (error) {
     console.warn('[MachineCatalog] Lỗi tải danh mục máy từ máy chủ:', error)
-    return hasSnapshot ? preferredCatalog : []
+    return hasSnapshot ? snapshotRows : []
   }
 }

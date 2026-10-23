@@ -27,7 +27,8 @@ import {
 import { runProductionCalculations } from '../../calcProduction/engine'
 import {
   getMachineComparisonRows,
-  getMachineComparisonPage
+  getMachineComparisonPage,
+  isMachineComparisonCurrent
 } from '../../calcProduction/engine/machineComparison'
 import { loadFactoryMachineCatalog } from '../../calcProduction/hooks/factoryMachineCatalog'
 import { DEFAULT_CALC_RULES } from '../../calcProduction/engine/calcRuleConfig'
@@ -579,7 +580,7 @@ export default function CalcProductionDetailView() {
           mesRows = mesFile?.data
         }
         const currentFactory = masterRecordRef.current?.factoryName || masterInfo.factoryName || 'GS1 Hà Nội'
-        const catalogMachines = Array.isArray(results?.machineComparison?.calculatedRows)
+        const catalogMachines = isMachineComparisonCurrent(results, currentFactory)
           ? []
           : await loadFactoryMachineCatalog(currentFactory, {
               preferredCatalog: results?.machineComparison?.catalogMachines || [],

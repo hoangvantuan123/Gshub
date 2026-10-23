@@ -4,7 +4,7 @@
  * Quản lý Master Registration Info, 4 Tab Files (không tự động truy vấn trên mount), và Động cơ tính toán
  * Đẩy toàn bộ thông báo xuống StatusBar (PageDataContext)
  */
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import dayjs from 'dayjs'
 import {
   TAB_DEFINITIONS,
@@ -26,6 +26,8 @@ import { runProductionCalculations } from '../engine'
 import {
   attachDeclaredMachines,
   buildMachineComparison,
+  filterMachineCatalogByFactory,
+  isMachineComparisonCurrent,
   mapMasterFactoryToCatalogKey
 } from '../engine/machineComparison'
 import { loadFactoryMachineCatalog } from './factoryMachineCatalog'
@@ -38,7 +40,6 @@ import { publishProductionBundleOnline } from '@renderer/api/production/calcBund
 import { packProductionBundle, uint8ArrayToBase64 } from '../engine/bundlePacker'
 import { getEmployeeCode, getUserSeq, getUserDisplayName } from '@renderer/services/tokenService'
 import { savePlanRegistration } from '@renderer/user/page/report/registration/services/planRegistrationService'
-import { queryProdMachineCatalogs } from '@renderer/user/page/report/registration/machineCatalog/machineCatalogService'
 import { useArchitectureStorage } from './useArchitectureStorage'
 
 const generateDefaultRegCode = () => {
@@ -149,6 +150,12 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       isPublished: false
     }
   })
+  const selectedFactoryKeyRef = useRef(
+    mapMasterFactoryToCatalogKey(masterInfo.factoryName || masterInfo.FactoryName)
+  )
+  selectedFactoryKeyRef.current = mapMasterFactoryToCatalogKey(
+    masterInfo.factoryName || masterInfo.FactoryName
+  )
 
   const notify = useCallback(
     (type, text) => {
@@ -181,53 +188,13 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     const factoryKey = mapMasterFactoryToCatalogKey(currentFactory)
     setIsReloadingCatalog(true)
     try {
-      const params = { page: 1, pageSize: 1000 }
-      if (factoryKey) {
-        params.Factory = factoryKey
-      }
-      let list = []
-      const res = await queryProdMachineCatalogs(params)
-      const rawData = res?.data !== undefined ? res.data : res
-      list = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray(rawData?.items)
-          ? rawData.items
-          : Array.isArray(rawData?.rows)
-            ? rawData.rows
-            : Array.isArray(res?.items)
-              ? res.items
-              : []
+      const list = await loadFactoryMachineCatalog(currentFactory, {
+        preferSnapshot: false,
+        refresh: true
+      })
 
-      if (list.length === 0) {
-        try {
-          const resAll = await queryProdMachineCatalogs({ page: 1, pageSize: 1000 })
-          const rawAll = resAll?.data !== undefined ? resAll.data : resAll
-          const allList = Array.isArray(rawAll)
-            ? rawAll
-            : Array.isArray(rawAll?.items)
-              ? rawAll.items
-              : Array.isArray(rawAll?.rows)
-                ? rawAll.rows
-                : Array.isArray(resAll?.items)
-                  ? resAll.items
-                  : []
-          if (allList.length > 0) {
-            const filtered = allList.filter((m) => {
-              const rawMFactory = m.Factory || m['Nhà máy'] || m.factory || ''
-              const mKey = mapMasterFactoryToCatalogKey(rawMFactory)
-              return (
-                !factoryKey ||
-                mKey === factoryKey ||
-                String(rawMFactory).toUpperCase().includes(factoryKey)
-              )
-            })
-            list = filtered.length > 0 ? filtered : allList
-          }
-        } catch {}
-      }
-
+      if (selectedFactoryKeyRef.current !== factoryKey) return
       if (Array.isArray(list) && list.length > 0) {
-        await storageAdapter.saveFactoryMachines(factoryKey, list)
         setMachineCatalog(list)
         notify('success', `Đã đồng bộ ${list.length} máy cho nhà máy ${currentFactory} (${factoryKey})`)
       } else {
@@ -250,12 +217,17 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     const factoryKey = mapMasterFactoryToCatalogKey(currentFactory)
 
     const syncMachineCatalog = async () => {
-      // 1. Đọc ngay cache cục bộ từ IndexedDB / SQLite nếu có để hiển thị tức thì
+      setMachineCatalog([])
+      // 1. Đọc cache cục bộ nhưng loại các bản ghi của nhà máy khác trước khi hiển thị.
       try {
         const cached = await storageAdapter.getFactoryMachines(factoryKey)
         if (isMounted) {
-          if (Array.isArray(cached) && cached.length > 0) {
-            setMachineCatalog(cached)
+          const safeCached = filterMachineCatalogByFactory(cached, currentFactory)
+          if (safeCached.length > 0) {
+            if (safeCached.length !== cached.length) {
+              await storageAdapter.saveFactoryMachines(factoryKey, safeCached)
+            }
+            setMachineCatalog(safeCached)
           } else {
             setMachineCatalog([])
           }
@@ -264,64 +236,20 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
         console.warn('Lỗi đọc cache máy từ storage:', err)
       }
 
-      // 2. Gọi API lấy danh sách máy theo mã nhà máy (Factory: factoryKey)
+      // 2. Làm mới danh mục bằng bộ lọc nhà máy chính xác.
       try {
-        const params = { page: 1, pageSize: 1000 }
-        if (factoryKey) {
-          params.Factory = factoryKey
-        }
         console.log(
-          `[MachineCatalog] Đang gọi API lấy danh mục máy cho nhà máy: "${currentFactory}" (key: ${factoryKey})`,
-          params
+          `[MachineCatalog] Đang gọi API lấy danh mục máy cho nhà máy: "${currentFactory}" (key: ${factoryKey})`
         )
-        let list = []
-        const res = await queryProdMachineCatalogs(params)
-        console.log('[MachineCatalog] Kết quả phản hồi từ API:', res)
-        const rawData = res?.data !== undefined ? res.data : res
-        list = Array.isArray(rawData)
-          ? rawData
-          : Array.isArray(rawData?.items)
-            ? rawData.items
-            : Array.isArray(rawData?.rows)
-              ? rawData.rows
-              : Array.isArray(res?.items)
-                ? res.items
-                : []
-
-        // Nếu truy vấn có tham số Factory không trả về bản ghi nào, truy vấn toàn bộ catalog rồi lọc cục bộ
-        if (list.length === 0) {
-          try {
-            const resAll = await queryProdMachineCatalogs({ page: 1, pageSize: 1000 })
-            const rawAll = resAll?.data !== undefined ? resAll.data : resAll
-            const allList = Array.isArray(rawAll)
-              ? rawAll
-              : Array.isArray(rawAll?.items)
-                ? rawAll.items
-                : Array.isArray(rawAll?.rows)
-                  ? rawAll.rows
-                  : Array.isArray(resAll?.items)
-                    ? resAll.items
-                    : []
-            if (allList.length > 0) {
-              const filtered = allList.filter((m) => {
-                const rawMFactory = m.Factory || m['Nhà máy'] || m.factory || ''
-                const mKey = mapMasterFactoryToCatalogKey(rawMFactory)
-                return (
-                  !factoryKey ||
-                  mKey === factoryKey ||
-                  String(rawMFactory).toUpperCase().includes(factoryKey)
-                )
-              })
-              list = filtered.length > 0 ? filtered : allList
-            }
-          } catch {}
-        }
+        const list = await loadFactoryMachineCatalog(currentFactory, {
+          preferSnapshot: false,
+          refresh: true
+        })
 
         if (isMounted && Array.isArray(list) && list.length > 0) {
           console.log(
             `[MachineCatalog] Đã trích xuất ${list.length} máy cho nhà máy "${currentFactory}" (${factoryKey}). Đang lưu vào storage...`
           )
-          await storageAdapter.saveFactoryMachines(factoryKey, list)
           if (isMounted) {
             setMachineCatalog(list)
           }
@@ -445,24 +373,27 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
   }, [clearAllFiles, notify, masterInfo?.factoryName, masterInfo?.FactoryName])
 
   const machineComparisonRows = useMemo(() => {
-    // 1. Luôn sử dụng kết quả tính toán đã lưu trong DB (chứa đầy đủ cột IsBelongToFactory)
+    const currentFactory = masterInfo?.factoryName || masterInfo?.FactoryName || ''
     const storedRows = calcResults?.machineComparison?.calculatedRows
-    if (Array.isArray(storedRows)) {
+    if (
+      Array.isArray(storedRows) &&
+      isMachineComparisonCurrent(calcResults, currentFactory)
+    ) {
       return storedRows
     }
 
-    // 2. Fallback chỉ dùng khi chưa có kết quả tính toán trong DB
+    // Rebuild saved comparison rows when their factory/catalog snapshot is stale.
     const plans = calcResults?.plan?.calculatedRows || []
     const summaryRows = filesDataMap.summary_op?.data
     const comparisonPlans =
       summaryRows && plans.some((row) => !Array.isArray(row.DeclaredMachines))
         ? attachDeclaredMachines(plans, summaryRows)
         : plans
-    const currentFactory = masterInfo?.factoryName || masterInfo?.FactoryName || ''
-    const currentCatalog =
-      Array.isArray(machineCatalog) && machineCatalog.length > 0
-        ? machineCatalog
-        : calcResults?.machineComparison?.catalogMachines || []
+    const currentCatalog = filterMachineCatalogByFactory(machineCatalog, currentFactory)
+    const savedCatalog = filterMachineCatalogByFactory(
+      calcResults?.machineComparison?.catalogMachines,
+      currentFactory
+    )
 
     return buildMachineComparison(
       calcResults?.stat?.calculatedRows || [],
@@ -470,7 +401,7 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
       calcResults?.machineComparison?.mesMachines || filesDataMap.mes_approval?.data || [],
       {
         factoryName: currentFactory,
-        catalogMachines: currentCatalog
+        catalogMachines: currentCatalog.length > 0 ? currentCatalog : savedCatalog
       }
     )
   }, [
@@ -481,7 +412,10 @@ export function useCalcProductionLogic({ setStatusMessage, initialRegCode } = {}
     filesDataMap.mes_approval,
     masterInfo?.factoryName,
     masterInfo?.FactoryName,
-    machineCatalog
+    machineCatalog,
+    calcResults?.machineComparison?.factoryKey,
+    calcResults?.machineComparison?.factoryName,
+    calcResults?.machineComparison?.catalogMachines
   ])
 
   // Older saved results have no declared machine codes; read their source LTT

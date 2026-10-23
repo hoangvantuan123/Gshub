@@ -329,7 +329,7 @@ func isManualMachine(name, code string) bool {
 
 func isHNSonMachine(values ...string) bool {
 	for _, value := range values {
-		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(value)), "HN-SON") {
+		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(value)), "BOCHECKDIEUKIEN") {
 			return true
 		}
 	}
@@ -763,7 +763,7 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		}
 		isHNSon := isHNSonMachine(machineIdentifiers...)
 
-		// HN-SON vẫn được tính vào sản lượng, nhưng không đưa vào phân loại thời gian.
+		// HN-SON-NO-CHECK vẫn được tính vào sản lượng, nhưng không đưa vào phân loại thời gian.
 		auditCat := "5MIN_12H"
 		if isHNSon {
 			auditCat = "EXCLUDED_MACHINE"

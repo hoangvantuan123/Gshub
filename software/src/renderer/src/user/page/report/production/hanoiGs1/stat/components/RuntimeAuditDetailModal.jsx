@@ -205,7 +205,7 @@ export const RuntimeAuditDetailModal = ({
     if (!isOpen) return
     try {
       localStorage.removeItem(`prod-ticket-audit:${plantKey}`)
-    } catch {}
+    } catch { }
     setAnnotations({})
     setHasUnsavedEdits(false)
     setDirtyAnnotations({})
@@ -440,7 +440,7 @@ export const RuntimeAuditDetailModal = ({
           String(value || '')
             .trim()
             .toUpperCase()
-            .startsWith('HN-SON')
+            .startsWith('HN-SON-NO-CHECK')
         )
 
       let category = 'NORMAL'
@@ -451,7 +451,7 @@ export const RuntimeAuditDetailModal = ({
         auditText = `Sai mốc giờ (${startTime} > ${endTime})`
       } else if (runtimeAuditExcluded) {
         category = 'EXCLUDED_MACHINE'
-        auditText = 'Không kiểm tra thời gian với máy HN-SON'
+        auditText = 'Không kiểm tra thời gian với máy HN-SON-NO-CHECK'
       } else if (durMin < 5) {
         category = 'UNDER_5MIN'
         auditText = '< 5 phút'
@@ -970,8 +970,8 @@ export const RuntimeAuditDetailModal = ({
           if (targetColumnId === 'remarkType') {
             const sourceType = sourceItem
               ? remarkTypeLookup.get(normalize(sourceItem.remarkTypeSeq)) ||
-                remarkTypeLookup.get(normalize(sourceItem.remarkTypeCode)) ||
-                remarkTypeLookup.get(normalize(sourceItem.remarkType))
+              remarkTypeLookup.get(normalize(sourceItem.remarkTypeCode)) ||
+              remarkTypeLookup.get(normalize(sourceItem.remarkType))
               : null
             const typeName = sourceType?.TypeName || sourceItem?.remarkType || ''
             const typeCode = sourceType?.TypeCode || sourceItem?.remarkTypeCode || ''
@@ -1144,7 +1144,7 @@ export const RuntimeAuditDetailModal = ({
         const row = data.find(
           (d) =>
             String(d.StatTicketNo || d.ticketNo || d.statTicketNo || d.RegCode) ===
-              String(p.StatTicketNo) ||
+            String(p.StatTicketNo) ||
             String(d.IdSeq || d.idSeq || d.Id || d.id) === String(p.IdSeq)
         )
         if (row) {
@@ -1406,12 +1406,12 @@ export const RuntimeAuditDetailModal = ({
                 { id: 'ALL', label: 'Tất cả', count: categoryCounts.all },
                 ...(categoryCounts.invalidTime > 0
                   ? [
-                      {
-                        id: 'INVALID_TIME',
-                        label: 'Sai mốc giờ',
-                        count: categoryCounts.invalidTime
-                      }
-                    ]
+                    {
+                      id: 'INVALID_TIME',
+                      label: 'Sai mốc giờ',
+                      count: categoryCounts.invalidTime
+                    }
+                  ]
                   : []),
                 { id: 'NORMAL', label: 'Chuẩn (5p–12h)', count: categoryCounts.normal },
                 { id: 'OVER_12H', label: '> 12 giờ', count: categoryCounts.over12 },

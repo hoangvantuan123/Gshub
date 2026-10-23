@@ -110,7 +110,7 @@ export function mapQuevoStatRow(item, idx, masterInfo) {
       String(value || '')
         .trim()
         .toUpperCase()
-        .startsWith('HN-SON')
+        .startsWith('HN-SON-NO-CHECK')
     )
 
   const rawTeam =
@@ -130,9 +130,9 @@ export function mapQuevoStatRow(item, idx, masterInfo) {
   const team = rawTeam ? String(rawTeam).trim() : ''
   const teamCode = team
     ? team
-        .toUpperCase()
-        .replace(/\s+/g, '_')
-        .replace(/[^A-Z0-9_]/g, '')
+      .toUpperCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^A-Z0-9_]/g, '')
     : ''
 
   return {

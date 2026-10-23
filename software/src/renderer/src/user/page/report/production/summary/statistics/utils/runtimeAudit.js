@@ -1,6 +1,6 @@
-const HN_SON_PREFIX = 'HN-SON'
+const HN_SON_PREFIX = 'HN-SON-NO-CHECK'
 
-/** HN-SON machines keep their production data, but are excluded from runtime audits. */
+/** HN-SON-NO-CHECK machines keep their production data, but are excluded from runtime audits. */
 export const isRuntimeAuditExcludedMachine = (item = {}) => {
   if (item.runtimeAuditExcluded === true || item.RuntimeAuditExcluded === true) return true
 

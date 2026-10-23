@@ -67,11 +67,11 @@ export function isPassAutoIo(label) {
 export function getAutoExportType(item) {
   const direct = String(
     item.AutoIoStatus ??
-      item.autoIoStatus ??
-      item.AutoIOStatus ??
-      item.autoIo ??
-      item.autoExportNoteText ??
-      ''
+    item.autoIoStatus ??
+    item.AutoIOStatus ??
+    item.autoIo ??
+    item.autoExportNoteText ??
+    ''
   ).trim()
 
   if (
@@ -409,9 +409,9 @@ export const useProductionStatisticsLogic = ({
           parseFloat(
             String(
               item.WaitingMaterialMinutes ??
-                item.waitingMaterialMinutes ??
-                item.DowntimeWaitingMaterialMinutes ??
-                0
+              item.waitingMaterialMinutes ??
+              item.DowntimeWaitingMaterialMinutes ??
+              0
             ).replace(',', '.')
           ) || 0
         const st =
@@ -477,15 +477,15 @@ export const useProductionStatisticsLogic = ({
       const prodDate =
         getCleanDate(
           item.prodDate ||
-            item.StatDate ||
-            item.statDate ||
-            item.date ||
-            item.StartDate ||
-            item.startDate ||
-            item.OpDate ||
-            item.opDate ||
-            item.TicketCreatedDate ||
-            item.ticketCreatedDate
+          item.StatDate ||
+          item.statDate ||
+          item.date ||
+          item.StartDate ||
+          item.startDate ||
+          item.OpDate ||
+          item.opDate ||
+          item.TicketCreatedDate ||
+          item.ticketCreatedDate
         ) || new Date().toISOString().slice(0, 10)
 
       const finalStart = rawStart ? formatReportTimeOrDateTime(rawStart) : ''
@@ -541,7 +541,7 @@ export const useProductionStatisticsLogic = ({
           String(value || '')
             .trim()
             .toUpperCase()
-            .startsWith('HN-SON')
+            .startsWith('HN-SON-NO-CHECK')
         )
       let runtimeAuditCategory = 'NORMAL'
       let runtimeAuditText = 'Chuẩn tiến độ (5p - 12h)'
@@ -550,7 +550,7 @@ export const useProductionStatisticsLogic = ({
         runtimeAuditText = '⚠️ Ngược giờ (Bắt đầu > Kết thúc)'
       } else if (runtimeAuditExcluded) {
         runtimeAuditCategory = 'EXCLUDED_MACHINE'
-        runtimeAuditText = 'Không kiểm tra thời gian với máy HN-SON'
+        runtimeAuditText = 'Không kiểm tra thời gian với máy HN-SON-NO-CHECK'
       } else if (durMinutes < 5) {
         runtimeAuditCategory = 'UNDER_5MIN'
         runtimeAuditText = '< 5p Nhập nhanh (Cảnh báo)'
@@ -918,12 +918,12 @@ export const useProductionStatisticsLogic = ({
         item.syncDelay !== undefined && item.syncDelay !== null && item.syncDelay !== ''
           ? item.syncDelay
           : item.SyncDelayMinutes !== undefined &&
-              item.SyncDelayMinutes !== null &&
-              item.SyncDelayMinutes !== ''
+            item.SyncDelayMinutes !== null &&
+            item.SyncDelayMinutes !== ''
             ? item.SyncDelayMinutes
             : item.syncDelayMinutes !== undefined &&
-                item.syncDelayMinutes !== null &&
-                item.syncDelayMinutes !== ''
+              item.syncDelayMinutes !== null &&
+              item.syncDelayMinutes !== ''
               ? item.syncDelayMinutes
               : item.SyncDelay
       const parsedSec = parseSyncDelayToSeconds(rawDelay, item)

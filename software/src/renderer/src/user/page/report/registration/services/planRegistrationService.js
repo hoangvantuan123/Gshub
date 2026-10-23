@@ -1,3 +1,4 @@
+import { completeReportRequest } from './completeReportRequest.js'
 import { request } from '../../../../../services/apiClient'
 import { normalizeProdStatsDetailRows, normalizePlanDetailRows } from './reportColumnNormalizer'
 import { saveRegistrationBatches } from './registrationSaveWorkflow.js'
@@ -214,42 +215,58 @@ export const deletePlanMaster = async (masterSeqs = [], signal = null) => {
 
 // 6. Truy vấn Báo Cáo KHSX riêng cho GS1 Hà Nội
 export const queryHanoiGs1PlanReport = async (filters = {}, signal = null) => {
-  return request({
-    url: '/report/production/hanoi-gs1/plan',
-    method: 'POST',
-    data: { includeItems: 'true', pageSize: '10000', ...filters },
-    signal
-  })
+  const fetchPage = (pageFilters) =>
+    request({
+      url: '/report/production/hanoi-gs1/plan',
+      method: 'POST',
+      data: { includeItems: 'true', pageSize: '10000', ...pageFilters },
+      signal
+    })
+  return filters.detailsOnly === 'true'
+    ? completeReportRequest(fetchPage, filters)
+    : fetchPage(filters)
 }
 
 // 7. Truy vấn Báo Cáo TKSX riêng cho GS1 Hà Nội
 export const queryHanoiGs1StatReport = async (filters = {}, signal = null) => {
-  return request({
-    url: '/report/production/hanoi-gs1/statistics',
-    method: 'POST',
-    data: { includeItems: 'true', pageSize: '10000', ...filters },
-    signal
-  })
+  const fetchPage = (pageFilters) =>
+    request({
+      url: '/report/production/hanoi-gs1/statistics',
+      method: 'POST',
+      data: { includeItems: 'true', pageSize: '10000', ...pageFilters },
+      signal
+    })
+  return filters.detailsOnly === 'true'
+    ? completeReportRequest(fetchPage, filters)
+    : fetchPage(filters)
 }
 
 // 8. Truy vấn Báo Cáo KHSX riêng cho GS5 Quế Võ
 export const queryQuevoGs5PlanReport = async (filters = {}, signal = null) => {
-  return request({
-    url: '/report/production/quevo-gs5/plan',
-    method: 'POST',
-    data: { includeItems: 'true', pageSize: '10000', ...filters },
-    signal
-  })
+  const fetchPage = (pageFilters) =>
+    request({
+      url: '/report/production/quevo-gs5/plan',
+      method: 'POST',
+      data: { includeItems: 'true', pageSize: '10000', ...pageFilters },
+      signal
+    })
+  return filters.detailsOnly === 'true'
+    ? completeReportRequest(fetchPage, filters)
+    : fetchPage(filters)
 }
 
 // 9. Truy vấn Báo Cáo TKSX riêng cho GS5 Quế Võ
 export const queryQuevoGs5StatReport = async (filters = {}, signal = null) => {
-  return request({
-    url: '/report/production/quevo-gs5/statistics',
-    method: 'POST',
-    data: { includeItems: 'true', pageSize: '10000', ...filters },
-    signal
-  })
+  const fetchPage = (pageFilters) =>
+    request({
+      url: '/report/production/quevo-gs5/statistics',
+      method: 'POST',
+      data: { includeItems: 'true', pageSize: '10000', ...pageFilters },
+      signal
+    })
+  return filters.detailsOnly === 'true'
+    ? completeReportRequest(fetchPage, filters)
+    : fetchPage(filters)
 }
 
 // 10. Truy vấn Báo Cáo KHSX Tổng Hợp Toàn Công Ty (Summary)

@@ -17,7 +17,7 @@ import { mapQuevoPlanRow } from '../utils/quevoPlanMapper'
 
 const CACHE_KEY = 'quevo_plan'
 
-export function useQuevoPlanData({ pagePerms } = {}) {
+export function useQuevoPlanData() {
   const cachedInitialMasters = getCachedMasters(CACHE_KEY) || []
   const cachedInitialActiveMaster =
     getCachedActiveMaster(CACHE_KEY) ||
@@ -63,7 +63,9 @@ export function useQuevoPlanData({ pagePerms } = {}) {
           regCode: regCode,
           masterSeq: masterSeq,
           factoryCode: 'GS5',
-          pageSize: '10000'
+          pageSize: '10000',
+          detailsOnly: 'true',
+          exactBatch: 'true'
         })
         const beItems =
           resAgg?.data?.items ||

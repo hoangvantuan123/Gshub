@@ -17,7 +17,7 @@ import { mapHanoiStatRow } from '../utils/hanoiStatMapper'
 
 const CACHE_KEY = 'hanoi_stat'
 
-export function useHanoiStatData({ pagePerms } = {}) {
+export function useHanoiStatData() {
   const cachedInitialMasters = getCachedMasters(CACHE_KEY) || []
   const cachedInitialActiveMaster =
     getCachedActiveMaster(CACHE_KEY) ||
@@ -63,7 +63,9 @@ export function useHanoiStatData({ pagePerms } = {}) {
         const resAgg = await queryHanoiGs1StatReport({
           regCode: apiRegCode,
           factoryCode: 'GS1',
-          pageSize: '10000'
+          pageSize: '10000',
+          detailsOnly: 'true',
+          exactBatch: 'true'
         })
         const beItems =
           resAgg?.data?.items ||

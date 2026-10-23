@@ -33,31 +33,31 @@ type capaDateStat struct {
 }
 
 type aggregateAccumulator struct {
-	totalOrders       int
-	totalPlanQty      float64
-	totalActualQty    float64
-	totalPassQty      float64
-	sxSaiNgayCount    int
-	truotKhCount      int
-	khopSlCount       int
-	khopJobCount      int
-	timeChamCount     int
-	timeNhanhCount    int
-	timeDungCount     int
-	timeNoDataCount   int
-	capaChamCount     int
-	capaNhanhCount    int
-	capaDungCount     int
-	distinctItems     map[string]bool
-	distinctDates     map[string]bool
-	picMap            map[string]*models.PicPlanAggregate
-	teamMap           map[string]*models.TeamPlanAggregate
-	machineMap        map[string]*models.MachinePlanAggregate
-	dailyMap          map[string]*models.DailyPlanAggregate
-	dailyItemsMap     map[string]map[string]bool
-	picDailyMap       map[string]map[string]*picDateStat
-	timeDailyMap      map[string]*timeDateStat
-	capaDailyMap      map[string]*capaDateStat
+	totalOrders     int
+	totalPlanQty    float64
+	totalActualQty  float64
+	totalPassQty    float64
+	sxSaiNgayCount  int
+	truotKhCount    int
+	khopSlCount     int
+	khopJobCount    int
+	timeChamCount   int
+	timeNhanhCount  int
+	timeDungCount   int
+	timeNoDataCount int
+	capaChamCount   int
+	capaNhanhCount  int
+	capaDungCount   int
+	distinctItems   map[string]bool
+	distinctDates   map[string]bool
+	picMap          map[string]*models.PicPlanAggregate
+	teamMap         map[string]*models.TeamPlanAggregate
+	machineMap      map[string]*models.MachinePlanAggregate
+	dailyMap        map[string]*models.DailyPlanAggregate
+	dailyItemsMap   map[string]map[string]bool
+	picDailyMap     map[string]map[string]*picDateStat
+	timeDailyMap    map[string]*timeDateStat
+	capaDailyMap    map[string]*capaDateStat
 }
 
 func newAggregateAccumulator() *aggregateAccumulator {
@@ -468,7 +468,12 @@ func (acc *aggregateAccumulator) BuildPicBreakdown() []models.PicPlanAggregate {
 
 		list = append(list, *p)
 	}
-	sort.Slice(list, func(i, j int) bool { return list[i].TotalOrders > list[j].TotalOrders })
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].TotalOrders == list[j].TotalOrders {
+			return list[i].Pic < list[j].Pic
+		}
+		return list[i].TotalOrders > list[j].TotalOrders
+	})
 	return list
 }
 
@@ -485,7 +490,12 @@ func (acc *aggregateAccumulator) BuildTeamBreakdown() []models.TeamPlanAggregate
 		t.ActualQty = math.Round(t.ActualQty*100) / 100
 		list = append(list, *t)
 	}
-	sort.Slice(list, func(i, j int) bool { return list[i].TotalOrders > list[j].TotalOrders })
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].TotalOrders == list[j].TotalOrders {
+			return list[i].TeamName < list[j].TeamName
+		}
+		return list[i].TotalOrders > list[j].TotalOrders
+	})
 	return list
 }
 
@@ -502,7 +512,12 @@ func (acc *aggregateAccumulator) BuildMachineBreakdown() []models.MachinePlanAgg
 		m.ActualQty = math.Round(m.ActualQty*100) / 100
 		list = append(list, *m)
 	}
-	sort.Slice(list, func(i, j int) bool { return list[i].TotalOrders > list[j].TotalOrders })
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].TotalOrders == list[j].TotalOrders {
+			return list[i].MachineCode < list[j].MachineCode
+		}
+		return list[i].TotalOrders > list[j].TotalOrders
+	})
 	return list
 }
 

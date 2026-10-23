@@ -1494,12 +1494,28 @@ func (s *Server) GetProductionPlanReport(ctx context.Context, req *pb.PlanReport
 		}, nil
 	}
 
-	dataBytes, _ := json.Marshal(rep)
+	encodeStarted := time.Now()
+	dataBytes, encodeErr := json.Marshal(rep)
+	if encodeErr != nil {
+		return nil, status.Error(codes.Internal, "cannot encode production report")
+	}
+	if s.logger != nil {
+		s.logger.Info("Production report JSON", zap.String("method", "GetProductionPlanReport"), zap.Int("response_bytes", len(dataBytes)), zap.Duration("encode_duration", time.Since(encodeStarted)))
+	}
 
 	resp := &pb.PlanReportProtoResponse{
 		Success:  true,
 		Message:  "Generate plan report success",
 		DataJson: string(dataBytes),
+	}
+
+	// The gateway consumes DataJson directly; native gRPC callers retain the full response.
+	if filters["compactTransport"] == "true" {
+		resp.TotalRecords = rep.Pagination.Total
+		resp.TotalPages = int32(rep.Pagination.TotalPages)
+		resp.Page = int32(rep.Pagination.Page)
+		resp.PageSize = int32(rep.Pagination.PageSize)
+		return resp, nil
 	}
 
 	if rep != nil {
@@ -1669,12 +1685,28 @@ func (s *Server) GetProductionStatisticsReport(ctx context.Context, req *pb.Prod
 		}, nil
 	}
 
-	dataBytes, _ := json.Marshal(rep)
+	encodeStarted := time.Now()
+	dataBytes, encodeErr := json.Marshal(rep)
+	if encodeErr != nil {
+		return nil, status.Error(codes.Internal, "cannot encode production report")
+	}
+	if s.logger != nil {
+		s.logger.Info("Production report JSON", zap.String("method", "GetProductionStatisticsReport"), zap.Int("response_bytes", len(dataBytes)), zap.Duration("encode_duration", time.Since(encodeStarted)))
+	}
 
 	resp := &pb.ProdStatsReportProtoResponse{
 		Success:  true,
 		Message:  "Generate prod stats report success",
 		DataJson: string(dataBytes),
+	}
+
+	// The gateway consumes DataJson directly; native gRPC callers retain the full response.
+	if filters["compactTransport"] == "true" {
+		resp.TotalRecords = rep.Pagination.Total
+		resp.TotalPages = int32(rep.Pagination.TotalPages)
+		resp.Page = int32(rep.Pagination.Page)
+		resp.PageSize = int32(rep.Pagination.PageSize)
+		return resp, nil
 	}
 
 	if rep != nil {

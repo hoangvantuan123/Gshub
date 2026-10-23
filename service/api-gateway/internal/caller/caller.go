@@ -359,6 +359,9 @@ func Invoke(
 	}
 
 	// ── 2. Nạp dữ liệu thông minh (Khắc phục sự khắt khe của Go gRPC) ──
+	if isProductionReport(methodPath) {
+		body["compactTransport"] = "true"
+	}
 	fillMessage(reqMsg, body)
 
 	// ── 3. Gọi gRPC kèm Distributed Tracing Metadata ───────────────────
@@ -448,6 +451,12 @@ func Invoke(
 			Log.Error("gRPC non-status error", zap.String("method", methodPath), zap.Error(err))
 		}
 		return CallResult{Success: false, Message: numCode}
+	}
+
+	if isProductionReport(methodPath) {
+		if result, ok := productionReportResult(respMsg); ok {
+			return result
+		}
 	}
 
 	var buf bytes.Buffer

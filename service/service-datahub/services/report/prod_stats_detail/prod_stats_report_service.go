@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	models "service-datahub/models/report"
+	"service-datahub/services/report/report_query"
 )
 
 type machineDateStat struct {
@@ -410,6 +412,7 @@ func (s *ProdStatsDetailService) getOutsideFactoryOperations(
 
 // GenerateProductionStatisticsReport: API chính tính toán và tổng hợp báo cáo TKSX
 func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.Context, filters map[string]string) (*models.ProdStatsReportResponse, error) {
+	started := time.Now()
 	regCode := getFilterValue(filters, "regCode", "RegCode", "reg_code", "Reg_Code")
 	masterSeq := getFilterValue(filters, "masterSeq", "MasterSeq", "master_seq")
 	factoryCode := getFilterValue(filters, "factoryCode", "FactoryCode", "factory_code", "plantCode", "PlantCode")
@@ -426,13 +429,24 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 
 	query := s.db.WithContext(ctx).Model(&models.ERPProdStatsDetail{})
 
-	// 1. Áp dụng điều kiện RegCode / MasterSeq (sử dụng OR để bao phủ cả trường hợp MasterSeq hoặc RegCode khớp)
-	if regCode != "" && regCode != "ALL" && masterSeq != "" && masterSeq != "ALL" {
-		query = query.Where(`"RegCode" = ? OR "MasterSeq" = ? OR "RegCode" ILIKE ?`, regCode, masterSeq, "%"+regCode+"%")
-	} else if regCode != "" && regCode != "ALL" {
-		query = query.Where(`"RegCode" = ? OR "RegCode" ILIKE ?`, regCode, "%"+regCode+"%")
-	} else if masterSeq != "" && masterSeq != "ALL" {
-		query = query.Where(`"MasterSeq" = ?`, masterSeq)
+	// Exact identifiers are used by the factory dashboards; legacy search remains available.
+	if getFilterValue(filters, "exactBatch", "exact_batch") == "true" {
+		if regCode != "" && regCode != "ALL" && masterSeq != "" && masterSeq != "ALL" {
+			query = query.Where(`"RegCode" = ? OR "MasterSeq" = ?`, regCode, masterSeq)
+		} else if regCode != "" && regCode != "ALL" {
+			query = query.Where(`"RegCode" = ?`, regCode)
+		} else if masterSeq != "" && masterSeq != "ALL" {
+			query = query.Where(`"MasterSeq" = ?`, masterSeq)
+		}
+	} else {
+		if regCode != "" && regCode != "ALL" && masterSeq != "" && masterSeq != "ALL" {
+			query = query.Where(`"RegCode" = ? OR "MasterSeq" = ? OR "RegCode" ILIKE ?`, regCode, masterSeq, "%"+regCode+"%")
+		} else if regCode != "" && regCode != "ALL" {
+			query = query.Where(`"RegCode" = ? OR "RegCode" ILIKE ?`, regCode, "%"+regCode+"%")
+		} else if masterSeq != "" && masterSeq != "ALL" {
+			query = query.Where(`"MasterSeq" = ?`, masterSeq)
+		}
+
 	}
 
 	// 2. Lọc theo Nhà máy (liên kết qua _ERPPlanMaster, MasterSeq, RegCode, MachineCode hoặc MachineName)
@@ -576,6 +590,9 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		query = query.Where(`"Status" ILIKE ? OR "StatusDpSx" ILIKE ?`, "%"+status+"%", "%"+status+"%")
 	}
 
+	if statsWithoutItems(filters) {
+		query = query.Select(statsSummaryColumns)
+	}
 	var rawList []models.ERPProdStatsDetail
 	err := query.Order(`"RowSeq" ASC, "IdSeq" ASC`).Find(&rawList).Error
 	if err != nil {
@@ -650,8 +667,57 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			mQuery = mQuery.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 		}
 	}
-	_ = mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(500).Find(&masterList).Error
+	// Detail-only factory requests need dates for their own batches, not a dropdown of recent masters.
+	if getFilterValue(filters, "detailsOnly", "details_only") != "true" || statsWithoutItems(filters) {
+		if err := mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(500).Find(&masterList).Error; err != nil {
+			return nil, err
+		}
+	}
+	refs := make([]report_query.MasterReference, len(rawList))
+	for i, row := range rawList {
+		refs[i] = report_query.MasterReference{ID: row.MasterSeq, RegCode: row.RegCode}
+	}
+	masterList, err = report_query.CompleteMasterDates(ctx, s.db, masterList, refs)
+	if err != nil {
+		return nil, err
+	}
 
+	var remarkTypeList []models.ERPProdStatsRemarkType
+	if !statsWithoutItems(filters) {
+		if err := s.db.WithContext(ctx).Model(&models.ERPProdStatsRemarkType{}).Find(&remarkTypeList).Error; err != nil {
+			return nil, err
+		}
+	}
+	queryDuration := time.Since(started)
+	report, err := buildProductionStatisticsReport(rawList, masterList, remarkTypeList, filters)
+	if err != nil {
+		return nil, err
+	}
+	buildDuration := time.Since(started) - queryDuration
+	auditStarted := time.Now()
+	report.OutsideFactoryOperationCount, report.OutsideFactoryOperationDetails, err = s.getOutsideFactoryOperations(ctx, factoryCode, regCode)
+	queryDuration += time.Since(auditStarted)
+	if err != nil {
+		return nil, fmt.Errorf("không thể truy vấn đối chiếu máy GS5: %w", err)
+	}
+	if s.logger != nil {
+		s.logger.Info("Production statistics report", zap.Int("rows_read", len(rawList)), zap.Duration("query_duration", queryDuration), zap.Duration("build_duration", buildDuration), zap.Bool("summary_only", statsWithoutItems(filters)), zap.String("details_only", filters["detailsOnly"]))
+	}
+	return report, nil
+}
+
+func buildProductionStatisticsReport(rawList []models.ERPProdStatsDetail, masterList []models.ERPPlanMaster, remarkTypeList []models.ERPProdStatsRemarkType, filters map[string]string) (*models.ProdStatsReportResponse, error) {
+	statDateFrom := getFilterValue(filters, "statDateFrom", "StatDateFrom", "stat_date_from", "fromDate", "FromDate", "dateFrom", "DateFrom", "from_date", "date_from")
+	statDateTo := getFilterValue(filters, "statDateTo", "StatDateTo", "stat_date_to", "toDate", "ToDate", "dateTo", "DateTo", "to_date", "date_to")
+	from10, to10 := statDateFrom, statDateTo
+	if len(from10) > 10 {
+		from10 = from10[:10]
+	}
+	if len(to10) > 10 {
+		to10 = to10[:10]
+	}
+	withoutItems := statsWithoutItems(filters)
+	detailsOnly := getFilterValue(filters, "detailsOnly", "details_only") == "true" && !withoutItems
 	masterMap := make(map[string]models.ERPPlanMaster)
 	for _, m := range masterList {
 		if m.RegCode != "" {
@@ -662,9 +728,6 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		}
 	}
 
-	// 4.3. Nạp danh mục Phân loại diễn giải TKSX để ánh xạ sang tên và mã hiển thị
-	var remarkTypeList []models.ERPProdStatsRemarkType
-	_ = s.db.WithContext(ctx).Model(&models.ERPProdStatsRemarkType{}).Find(&remarkTypeList).Error
 	remarkTypeMap := make(map[string]models.ERPProdStatsRemarkType, len(remarkTypeList))
 	for _, rt := range remarkTypeList {
 		if rt.IdSeq != "" {
@@ -674,6 +737,9 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 
 	// 5. Khởi tạo mảng kết quả
 	items := make([]models.ProdStatsDetailReportItem, 0)
+	if !withoutItems {
+		items = make([]models.ProdStatsDetailReportItem, 0, len(rawList))
+	}
 	chartByTeam := make([]models.TeamStatAggregate, 0)
 	chartByMachine := make([]models.MachineStatAggregate, 0)
 	chartByDay := make([]models.DailyStatAggregate, 0)
@@ -827,14 +893,20 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		} else {
 			autoIoStatus = "Không áp dụng XNTĐ"
 		}
-		autoExportTypeMap[autoIoStatus]++
+		if !detailsOnly {
+			autoExportTypeMap[autoIoStatus]++
+		}
 
 		isPassAuto := isPassAutoIo(autoIoStatus)
 		isMissingAuto := isMissingAutoIo(autoIoStatus)
 		isNoMatAuto := isNoMaterialAutoIo(autoIoStatus)
 
 		// Độ trễ đồng bộ
-		syncSec, hasSync := parseSyncDelaySeconds(row.SyncDelayMinutes, row.TicketCreatedDate, row.MesApprovalTime)
+		var syncSec float64
+		var hasSync bool
+		if !detailsOnly {
+			syncSec, hasSync = parseSyncDelaySeconds(row.SyncDelayMinutes, row.TicketCreatedDate, row.MesApprovalTime)
+		}
 		if hasSync {
 			totalSyncSec += syncSec
 			syncCount++
@@ -855,87 +927,93 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		isOver12hCheck := !isHNSon && durMin > 720 && actualQty < 50000
 		isRuntimeNormal := !isHNSon && durMin >= 5 && durMin <= 720
 
-		ticketNo := row.IdSeq
-		if row.StatTicketNo != nil && strings.TrimSpace(*row.StatTicketNo) != "" {
-			ticketNo = strings.TrimSpace(*row.StatTicketNo)
-		}
-		docNo := ""
-		if row.OperationNo != nil && strings.TrimSpace(*row.OperationNo) != "" {
-			docNo = strings.TrimSpace(*row.OperationNo)
-		} else if row.RoutingDocNo != nil && strings.TrimSpace(*row.RoutingDocNo) != "" {
-			docNo = strings.TrimSpace(*row.RoutingDocNo)
-		}
-		orderNoVal := ""
-		if row.OrderNo != nil {
-			orderNoVal = strings.TrimSpace(*row.OrderNo)
-		}
-		supervisorVal := ""
-		if row.MainWorker != nil && strings.TrimSpace(*row.MainWorker) != "" {
-			supervisorVal = strings.TrimSpace(*row.MainWorker)
-		} else if row.StatStaff != nil && strings.TrimSpace(*row.StatStaff) != "" {
-			supervisorVal = strings.TrimSpace(*row.StatStaff)
-		} else {
-			supervisorVal = "Quản lý sản xuất"
-		}
-
-		sTimeVal := ""
-		if row.StartTime != nil {
-			sTimeVal = strings.TrimSpace(*row.StartTime)
-		}
-		eTimeVal := ""
-		if row.EndTime != nil {
-			eTimeVal = strings.TrimSpace(*row.EndTime)
-		}
-
-		var remarkTypeCodeVal, remarkTypeNameVal, remarkTypeVal, remarkContentVal, remarkDescriptionVal string
-		if row.RemarkTypeSeq != nil && *row.RemarkTypeSeq != "" {
-			if rt, ok := remarkTypeMap[*row.RemarkTypeSeq]; ok {
-				remarkTypeCodeVal = rt.TypeCode
-				remarkTypeNameVal = rt.TypeName
-				remarkTypeVal = rt.TypeName
+		if !withoutItems {
+			ticketNo := row.IdSeq
+			if row.StatTicketNo != nil && strings.TrimSpace(*row.StatTicketNo) != "" {
+				ticketNo = strings.TrimSpace(*row.StatTicketNo)
 			}
-		}
-		if row.RemarkContent != nil && *row.RemarkContent != "" {
-			remarkContentVal = *row.RemarkContent
-			remarkDescriptionVal = *row.RemarkContent
-		}
+			docNo := ""
+			if row.OperationNo != nil && strings.TrimSpace(*row.OperationNo) != "" {
+				docNo = strings.TrimSpace(*row.OperationNo)
+			} else if row.RoutingDocNo != nil && strings.TrimSpace(*row.RoutingDocNo) != "" {
+				docNo = strings.TrimSpace(*row.RoutingDocNo)
+			}
+			orderNoVal := ""
+			if row.OrderNo != nil {
+				orderNoVal = strings.TrimSpace(*row.OrderNo)
+			}
+			supervisorVal := ""
+			if row.MainWorker != nil && strings.TrimSpace(*row.MainWorker) != "" {
+				supervisorVal = strings.TrimSpace(*row.MainWorker)
+			} else if row.StatStaff != nil && strings.TrimSpace(*row.StatStaff) != "" {
+				supervisorVal = strings.TrimSpace(*row.StatStaff)
+			} else {
+				supervisorVal = "Quản lý sản xuất"
+			}
 
-		itemReport := models.ProdStatsDetailReportItem{
-			ERPProdStatsDetail:   row,
-			Id:                   &row.IdSeq,
-			TicketNo:             &ticketNo,
-			DocNo:                &docNo,
-			OrderNoVal:           &orderNoVal,
-			Team:                 &team,
-			TeamNameVal:          &team,
-			MachineNameVal:       &machineNameVal,
-			MachineCodeVal:       &machineCodeVal,
-			PlanQtyVal:           &planQty,
-			ActualQtyVal:         &actualQty,
-			PassQtyVal:           &passQty,
-			DefectQtyVal:         &defectQty,
-			DurationMinutes:      &durMin,
-			DurationMinVal:       &durMin,
-			RuntimeHours:         &rtHours,
-			RuntimeHoursVal:      &rtHours,
-			AuditCategory:        &auditCat,
-			RuntimeAuditExcluded: isHNSon,
-			PassRate:             &passRate,
-			PassRateVal:          &passRate,
-			ProdDateVal:          &prodDate,
-			StartTimeVal:         &sTimeVal,
-			EndTimeVal:           &eTimeVal,
-			CreatedSource:        &origin,
-			Supervisor:           &supervisorVal,
-			StatusVal:            &status,
-			RemarkTypeSeqVal:     row.RemarkTypeSeq,
-			RemarkTypeCodeVal:    &remarkTypeCodeVal,
-			RemarkTypeNameVal:    &remarkTypeNameVal,
-			RemarkTypeVal:        &remarkTypeVal,
-			RemarkContentVal:     &remarkContentVal,
-			RemarkDescriptionVal: &remarkDescriptionVal,
+			sTimeVal := ""
+			if row.StartTime != nil {
+				sTimeVal = strings.TrimSpace(*row.StartTime)
+			}
+			eTimeVal := ""
+			if row.EndTime != nil {
+				eTimeVal = strings.TrimSpace(*row.EndTime)
+			}
+
+			var remarkTypeCodeVal, remarkTypeNameVal, remarkTypeVal, remarkContentVal, remarkDescriptionVal string
+			if row.RemarkTypeSeq != nil && *row.RemarkTypeSeq != "" {
+				if rt, ok := remarkTypeMap[*row.RemarkTypeSeq]; ok {
+					remarkTypeCodeVal = rt.TypeCode
+					remarkTypeNameVal = rt.TypeName
+					remarkTypeVal = rt.TypeName
+				}
+			}
+			if row.RemarkContent != nil && *row.RemarkContent != "" {
+				remarkContentVal = *row.RemarkContent
+				remarkDescriptionVal = *row.RemarkContent
+			}
+
+			itemReport := models.ProdStatsDetailReportItem{
+				ERPProdStatsDetail:   row,
+				Id:                   &row.IdSeq,
+				TicketNo:             &ticketNo,
+				DocNo:                &docNo,
+				OrderNoVal:           &orderNoVal,
+				Team:                 &team,
+				TeamNameVal:          &team,
+				MachineNameVal:       &machineNameVal,
+				MachineCodeVal:       &machineCodeVal,
+				PlanQtyVal:           &planQty,
+				ActualQtyVal:         &actualQty,
+				PassQtyVal:           &passQty,
+				DefectQtyVal:         &defectQty,
+				DurationMinutes:      &durMin,
+				DurationMinVal:       &durMin,
+				RuntimeHours:         &rtHours,
+				RuntimeHoursVal:      &rtHours,
+				AuditCategory:        &auditCat,
+				RuntimeAuditExcluded: isHNSon,
+				PassRate:             &passRate,
+				PassRateVal:          &passRate,
+				ProdDateVal:          &prodDate,
+				StartTimeVal:         &sTimeVal,
+				EndTimeVal:           &eTimeVal,
+				CreatedSource:        &origin,
+				Supervisor:           &supervisorVal,
+				StatusVal:            &status,
+				RemarkTypeSeqVal:     row.RemarkTypeSeq,
+				RemarkTypeCodeVal:    &remarkTypeCodeVal,
+				RemarkTypeNameVal:    &remarkTypeNameVal,
+				RemarkTypeVal:        &remarkTypeVal,
+				RemarkContentVal:     &remarkContentVal,
+				RemarkDescriptionVal: &remarkDescriptionVal,
+			}
+			items = append(items, itemReport)
+
 		}
-		items = append(items, itemReport)
+		if detailsOnly {
+			continue
+		}
 
 		// 6. Tính toán KPI Summary chuẩn Sổ tay công thức
 		summary.TotalTickets++
@@ -1141,6 +1219,10 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		}
 	}
 
+	if detailsOnly {
+		return &models.ProdStatsReportResponse{Items: items, Pagination: statsPageInfo(int64(len(items)), len(items))}, nil
+	}
+
 	// 7. Hoàn tất tính % và Format cho Summary
 	if summary.TotalActualQty > 0 {
 		summary.OverallPassRate = math.Round((summary.TotalPassQty/summary.TotalActualQty)*10000) / 100
@@ -1219,7 +1301,12 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		agg.TotalRuntimeHours = agg.RuntimeHours
 		chartByTeam = append(chartByTeam, *agg)
 	}
-	sort.Slice(chartByTeam, func(i, j int) bool { return chartByTeam[i].PassRate > chartByTeam[j].PassRate })
+	sort.Slice(chartByTeam, func(i, j int) bool {
+		if chartByTeam[i].PassRate == chartByTeam[j].PassRate {
+			return chartByTeam[i].TeamName < chartByTeam[j].TeamName
+		}
+		return chartByTeam[i].PassRate > chartByTeam[j].PassRate
+	})
 
 	// Machine Aggregates
 	for _, agg := range machineMap {
@@ -1243,7 +1330,12 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		agg.IsOver24h = agg.RuntimeHours > standardCapacityHours
 		chartByMachine = append(chartByMachine, *agg)
 	}
-	sort.Slice(chartByMachine, func(i, j int) bool { return chartByMachine[i].RuntimeHours > chartByMachine[j].RuntimeHours })
+	sort.Slice(chartByMachine, func(i, j int) bool {
+		if chartByMachine[i].RuntimeHours == chartByMachine[j].RuntimeHours {
+			return chartByMachine[i].MachineCode < chartByMachine[j].MachineCode
+		}
+		return chartByMachine[i].RuntimeHours > chartByMachine[j].RuntimeHours
+	})
 
 	// Daily Aggregates
 	for _, agg := range dayMap {
@@ -1307,7 +1399,12 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 			Color: color,
 		})
 	}
-	sort.Slice(autoExportBreakdown, func(i, j int) bool { return autoExportBreakdown[i].Count > autoExportBreakdown[j].Count })
+	sort.Slice(autoExportBreakdown, func(i, j int) bool {
+		if autoExportBreakdown[i].Count == autoExportBreakdown[j].Count {
+			return autoExportBreakdown[i].Label < autoExportBreakdown[j].Label
+		}
+		return autoExportBreakdown[i].Count > autoExportBreakdown[j].Count
+	})
 
 	// Danh sách bộ lọc
 	filterOpts := models.FilterOptionList{
@@ -1318,7 +1415,6 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 	}
 
 	includeItems := getFilterValue(filters, "includeItems", "IncludeItems", "withItems", "WithItems", "include_items")
-	withoutItems := getFilterValue(filters, "withoutItems", "WithoutItems", "without_items")
 
 	// Phân trang
 	page := 1
@@ -1331,15 +1427,18 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 		pageSize = len(items)
 	}
 
+	if includeItems == "all" {
+		pageSize = len(items)
+	}
 	if p := getFilterValue(filters, "page", "Page"); p != "" {
 		if val, err := strconv.Atoi(p); err == nil && val > 0 {
 			page = val
 		}
 	}
 
-	totalRecords := int64(len(items))
+	totalRecords := int64(summary.TotalTickets)
 	pagedItems := make([]models.ProdStatsDetailReportItem, 0)
-	if withoutItems != "true" && withoutItems != "1" {
+	if !withoutItems {
 		if pageSize <= 0 {
 			pageSize = 10000
 		}
@@ -1365,28 +1464,22 @@ func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.
 	// 8. Build Machine & Team Timeline Breakdown
 	machineTimelineBreakdown := buildMachineTimelineBreakdown(dayMap, machineMap, machineDailyMap, dateSet)
 	teamTimelineBreakdown := buildTeamTimelineBreakdown(dayMap, teamMap, teamDailyMap, dateSet)
-	outsideFactoryOperationCount, outsideFactoryOperationDetails, err := s.getOutsideFactoryOperations(ctx, factoryCode, regCode)
-	if err != nil {
-		return nil, fmt.Errorf("không thể truy vấn đối chiếu máy GS5: %w", err)
-	}
 
 	return &models.ProdStatsReportResponse{
-		Summary:                        summary,
-		OutsideFactoryOperationCount:   outsideFactoryOperationCount,
-		OutsideFactoryOperationDetails: outsideFactoryOperationDetails,
-		ChartByTeam:                    chartByTeam,
-		TeamBreakdown:                  chartByTeam,
-		ChartByMachine:                 chartByMachine,
-		MachineBreakdown:               chartByMachine,
-		ChartByDay:                     chartByDay,
-		DailyTrendData:                 chartByDay,
-		DailyAggregates:                chartByDay,
-		MachineTimelineBreakdown:       machineTimelineBreakdown,
-		TeamTimelineBreakdown:          teamTimelineBreakdown,
-		SyncDelayBreakdown:             syncBreakdown,
-		AutoExportBreakdown:            autoExportBreakdown,
-		FilterOptions:                  filterOpts,
-		Items:                          pagedItems,
+		Summary:                  summary,
+		ChartByTeam:              chartByTeam,
+		TeamBreakdown:            chartByTeam,
+		ChartByMachine:           chartByMachine,
+		MachineBreakdown:         chartByMachine,
+		ChartByDay:               chartByDay,
+		DailyTrendData:           chartByDay,
+		DailyAggregates:          chartByDay,
+		MachineTimelineBreakdown: machineTimelineBreakdown,
+		TeamTimelineBreakdown:    teamTimelineBreakdown,
+		SyncDelayBreakdown:       syncBreakdown,
+		AutoExportBreakdown:      autoExportBreakdown,
+		FilterOptions:            filterOpts,
+		Items:                    pagedItems,
 		Pagination: models.PlanPageInfo{
 			Page:        page,
 			PageSize:    pageSize,
@@ -2048,4 +2141,52 @@ func buildTeamTimelineBreakdown(
 		TeamList:      teamList,
 		TeamClusters:  teamClusters,
 	}
+}
+
+func statsWithoutItems(filters map[string]string) bool {
+	v := getFilterValue(filters, "withoutItems", "WithoutItems", "without_items")
+	return v == "true" || v == "1"
+}
+
+func statsPageInfo(total int64, loaded int) models.PlanPageInfo {
+	return models.PlanPageInfo{Page: 1, PageSize: loaded, TotalRows: int(total), Total: total, TotalPages: 1, TotalAll: total, LoadedCount: loaded}
+}
+
+var statsSummaryColumns = []string{
+	`"ActualMeters"`,
+	`"ActualRunTime"`,
+	`"AutoExport"`,
+	`"AutoIoStatus"`,
+	`"BreakdownMinutes"`,
+	`"CreatedBy"`,
+	`"DefectQty"`,
+	`"EndDate"`,
+	`"EndTime"`,
+	`"MachineCode"`,
+	`"MachineName"`,
+	`"MasterSeq"`,
+	`"MesApprovalTime"`,
+	`"OpTypeName"`,
+	`"PassQty"`,
+	`"ProcessName"`,
+	`"ProdQty"`,
+	`"RawLineCode"`,
+	`"RawLineName"`,
+	`"RegCode"`,
+	`"RepairMinutes"`,
+	`"SetupMinutes"`,
+	`"Shift"`,
+	`"StandardMeters"`,
+	`"StartDate"`,
+	`"StartTime"`,
+	`"StatDate"`,
+	`"Status"`,
+	`"SyncDelayMinutes"`,
+	`"TargetPassQty"`,
+	`"TargetProdQty"`,
+	`"TeamName"`,
+	`"TicketCreatedDate"`,
+	`"TicketCreationLocation"`,
+	`"TotalWasteMinutes"`,
+	`"WaitingMaterialMinutes"`,
 }

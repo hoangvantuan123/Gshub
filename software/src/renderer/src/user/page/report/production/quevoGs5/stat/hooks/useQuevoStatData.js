@@ -17,7 +17,7 @@ import { mapQuevoStatRow } from '../utils/quevoStatMapper'
 
 const CACHE_KEY = 'quevo_stat'
 
-export function useQuevoStatData({ pagePerms } = {}) {
+export function useQuevoStatData() {
   const cachedInitialMasters = getCachedMasters(CACHE_KEY) || []
   const cachedInitialActiveMaster =
     getCachedActiveMaster(CACHE_KEY) ||
@@ -111,7 +111,9 @@ export function useQuevoStatData({ pagePerms } = {}) {
         const resAgg = await queryQuevoGs5StatReport({
           regCode: apiRegCode,
           factoryCode: 'GS5',
-          pageSize: '10000'
+          pageSize: '10000',
+          detailsOnly: 'true',
+          exactBatch: 'true'
         })
         applyMachineAuditResponse(resAgg, auditRequestId)
         const beItems =

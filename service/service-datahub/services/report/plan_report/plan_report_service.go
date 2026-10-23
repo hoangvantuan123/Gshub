@@ -5,8 +5,10 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	models "service-datahub/models/report"
+	"service-datahub/services/report/report_query"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -26,6 +28,7 @@ func NewPlanReportService(db *gorm.DB, logger *zap.Logger) *PlanReportService {
 
 // GenerateProductionPlanReport: Xử lý và tổng hợp toàn diện Báo Cáo Kế Hoạch Sản Xuất
 func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, filters map[string]string) (*models.PlanReportResponse, error) {
+	started := time.Now()
 	regCode := getFilterValue(filters, "regCode", "RegCode", "reg_code")
 	masterSeq := getFilterValue(filters, "masterSeq", "MasterSeq", "master_seq")
 	factoryCode := getFilterValue(filters, "factoryCode", "FactoryCode", "factory_code", "plantCode", "PlantCode")
@@ -40,13 +43,24 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 
 	query := s.db.WithContext(ctx).Model(&models.ERPPlanDetail{})
 
-	// 1. Áp dụng điều kiện RegCode / MasterSeq (sử dụng OR để bao phủ cả trường hợp MasterSeq hoặc RegCode khớp)
-	if regCode != "" && regCode != "ALL" && masterSeq != "" && masterSeq != "ALL" {
-		query = query.Where(`"RegCode" = ? OR "MasterSeq" = ? OR "RegCode" ILIKE ?`, regCode, masterSeq, "%"+regCode+"%")
-	} else if regCode != "" && regCode != "ALL" {
-		query = query.Where(`"RegCode" = ? OR "RegCode" ILIKE ?`, regCode, "%"+regCode+"%")
-	} else if masterSeq != "" && masterSeq != "ALL" {
-		query = query.Where(`"MasterSeq" = ?`, masterSeq)
+	// Exact identifiers are used by the factory dashboards; legacy search remains available.
+	if getFilterValue(filters, "exactBatch", "exact_batch") == "true" {
+		if regCode != "" && regCode != "ALL" && masterSeq != "" && masterSeq != "ALL" {
+			query = query.Where(`"RegCode" = ? OR "MasterSeq" = ?`, regCode, masterSeq)
+		} else if regCode != "" && regCode != "ALL" {
+			query = query.Where(`"RegCode" = ?`, regCode)
+		} else if masterSeq != "" && masterSeq != "ALL" {
+			query = query.Where(`"MasterSeq" = ?`, masterSeq)
+		}
+	} else {
+		if regCode != "" && regCode != "ALL" && masterSeq != "" && masterSeq != "ALL" {
+			query = query.Where(`"RegCode" = ? OR "MasterSeq" = ? OR "RegCode" ILIKE ?`, regCode, masterSeq, "%"+regCode+"%")
+		} else if regCode != "" && regCode != "ALL" {
+			query = query.Where(`"RegCode" = ? OR "RegCode" ILIKE ?`, regCode, "%"+regCode+"%")
+		} else if masterSeq != "" && masterSeq != "ALL" {
+			query = query.Where(`"MasterSeq" = ?`, masterSeq)
+		}
+
 	}
 
 	// 2. Lọc theo Nhà máy (liên kết qua _ERPPlanMaster hoặc mã RegCode)
@@ -148,6 +162,9 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		query = query.Where(`"StatusDpSx" ILIKE ?`, "%"+status+"%")
 	}
 
+	if reportWithoutItems(filters) {
+		query = query.Select(planSummaryColumns)
+	}
 	var rawList []models.ERPPlanDetail
 	err := query.Order(`"RowSeq" ASC, "IdSeq" ASC`).Find(&rawList).Error
 	if err != nil {
@@ -174,8 +191,54 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 	if factoryCode != "" && factoryCode != "ALL" {
 		mQuery = mQuery.Where(`"FactoryCode" ILIKE ? OR "FactoryName" ILIKE ?`, "%"+factoryCode+"%", "%"+factoryCode+"%")
 	}
-	_ = mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(200).Find(&masterList).Error
+	// Detail-only factory requests need dates for their own batches, not a dropdown of recent masters.
+	if getFilterValue(filters, "detailsOnly", "details_only") != "true" || reportWithoutItems(filters) {
+		if err := mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(200).Find(&masterList).Error; err != nil {
+			return nil, err
+		}
+	}
+	masterOptions := append([]models.ERPPlanMaster(nil), masterList...)
+	refs := make([]report_query.MasterReference, len(rawList))
+	for i, row := range rawList {
+		refs[i] = report_query.MasterReference{ID: row.MasterSeq, RegCode: row.RegCode}
+	}
+	masterList, err = report_query.CompleteMasterDates(ctx, s.db, masterList, refs)
+	if err != nil {
+		return nil, err
+	}
 
+	var remarkTypeList []models.ERPProdStatsRemarkType
+	if !reportWithoutItems(filters) {
+		if err := s.db.WithContext(ctx).Model(&models.ERPProdStatsRemarkType{}).Find(&remarkTypeList).Error; err != nil {
+			return nil, err
+		}
+	}
+	queryDuration := time.Since(started)
+	report, err := buildProductionPlanReportWithOptions(rawList, masterList, remarkTypeList, filters, masterOptions)
+	if s.logger != nil {
+		s.logger.Info("Production plan report", zap.Int("rows_read", len(rawList)), zap.Duration("query_duration", queryDuration), zap.Duration("build_duration", time.Since(started)-queryDuration), zap.Bool("summary_only", reportWithoutItems(filters)), zap.String("details_only", filters["detailsOnly"]))
+	}
+	return report, err
+}
+
+// buildProductionPlanReport keeps the existing report formulas shared by all modes.
+func buildProductionPlanReport(rawList []models.ERPPlanDetail, masterList []models.ERPPlanMaster, remarkTypeList []models.ERPProdStatsRemarkType, filters map[string]string) (*models.PlanReportResponse, error) {
+	return buildProductionPlanReportWithOptions(rawList, masterList, remarkTypeList, filters, masterList)
+}
+
+func buildProductionPlanReportWithOptions(rawList []models.ERPPlanDetail, masterList []models.ERPPlanMaster, remarkTypeList []models.ERPProdStatsRemarkType, filters map[string]string, masterOptions []models.ERPPlanMaster) (*models.PlanReportResponse, error) {
+	planDateFrom := getFilterValue(filters, "planDateFrom", "PlanDateFrom", "fromDate", "FromDate", "dateFrom", "DateFrom", "from_date", "date_from")
+	planDateTo := getFilterValue(filters, "planDateTo", "PlanDateTo", "toDate", "ToDate", "dateTo", "DateTo", "to_date", "date_to")
+	from10, to10 := planDateFrom, planDateTo
+	if len(from10) > 10 {
+		from10 = from10[:10]
+	}
+	if len(to10) > 10 {
+		to10 = to10[:10]
+	}
+	withoutItems := reportWithoutItems(filters)
+	detailsOnly := getFilterValue(filters, "detailsOnly", "details_only") == "true" && !withoutItems
+	var totalRecords int64
 	masterMap := make(map[string]models.ERPPlanMaster)
 	for _, m := range masterList {
 		if m.RegCode != "" {
@@ -186,9 +249,6 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		}
 	}
 
-	// Tải danh mục phân loại RemarkType để ánh xạ RemarkTypeName, RemarkTypeCode
-	var remarkTypeList []models.ERPProdStatsRemarkType
-	_ = s.db.WithContext(ctx).Model(&models.ERPProdStatsRemarkType{}).Find(&remarkTypeList).Error
 	remarkTypeMap := make(map[string]models.ERPProdStatsRemarkType)
 	for _, rt := range remarkTypeList {
 		if rt.IdSeq != "" {
@@ -201,7 +261,10 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 
 	// Khởi tạo accumulator tổng hợp
 	accumulator := newAggregateAccumulator()
-	items := make([]models.PlanDetailReportItem, 0, len(rawList))
+	items := make([]models.PlanDetailReportItem, 0)
+	if !withoutItems {
+		items = make([]models.PlanDetailReportItem, 0, len(rawList))
+	}
 	picSet := make(map[string]bool)
 	teamSet := make(map[string]bool)
 	machineSet := make(map[string]bool)
@@ -222,7 +285,9 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		if row.PicDp != nil && strings.TrimSpace(*row.PicDp) != "" {
 			picVal = strings.TrimSpace(*row.PicDp)
 		}
-		picSet[picVal] = true
+		if !detailsOnly {
+			picSet[picVal] = true
+		}
 
 		teamVal := "Tổ sản xuất"
 		if row.OpTypeName != nil && strings.TrimSpace(*row.OpTypeName) != "" {
@@ -230,13 +295,17 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		} else if row.OperationName != nil && strings.TrimSpace(*row.OperationName) != "" {
 			teamVal = strings.TrimSpace(*row.OperationName)
 		}
-		teamSet[teamVal] = true
+		if !detailsOnly {
+			teamSet[teamVal] = true
+		}
 
 		machineVal := "Thiết bị"
 		if row.MachineName != nil && strings.TrimSpace(*row.MachineName) != "" {
 			machineVal = strings.TrimSpace(*row.MachineName)
 		}
-		machineSet[machineVal] = true
+		if !detailsOnly {
+			machineSet[machineVal] = true
+		}
 
 		itemCodeVal := ""
 		if row.ItemCode != nil {
@@ -273,7 +342,7 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 			continue
 		}
 
-		if effectiveDate != "" {
+		if !detailsOnly && effectiveDate != "" {
 			dateSet[effectiveDate] = true
 		}
 
@@ -282,20 +351,26 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		capaStat := categorizeCapaStatus(row.CapaStatus)
 
 		// Thêm vào accumulator
-		accumulator.addRow(
-			picVal,
-			teamVal,
-			machineVal,
-			machineVal,
-			itemCodeVal,
-			effectiveDate,
-			planQty,
-			actualQty,
-			passQty,
-			dpCode,
-			timeStat,
-			capaStat,
-		)
+		if !detailsOnly {
+			accumulator.addRow(
+				picVal,
+				teamVal,
+				machineVal,
+				machineVal,
+				itemCodeVal,
+				effectiveDate,
+				planQty,
+				actualQty,
+				passQty,
+				dpCode,
+				timeStat,
+				capaStat,
+			)
+		}
+		totalRecords++
+		if withoutItems {
+			continue
+		}
 
 		// Dựng item hoàn chỉnh cho FE
 		idStr := row.IdSeq
@@ -358,6 +433,10 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		items = append(items, item)
 	}
 
+	if detailsOnly {
+		return &models.PlanReportResponse{Items: items, Pagination: reportPageInfo(totalRecords, len(items))}, nil
+	}
+
 	// Xây dựng các khối dữ liệu
 	summary := accumulator.BuildSummary(planDateFrom, planDateTo)
 	dpStatusBreakdown := accumulator.BuildDpStatusBreakdown()
@@ -370,7 +449,10 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 	picTimelineBreakdown := accumulator.BuildPicTimelineBreakdown()
 	timeTimelineBreakdown := accumulator.BuildTimeTimelineBreakdown()
 	capaTimelineBreakdown := accumulator.BuildCapaTimelineBreakdown()
-	_ = mQuery.Order(`"ApplyDate" DESC, "CreatedAt" DESC`).Limit(100).Find(&masterList).Error
+	masterList = masterOptions
+	if len(masterList) > 100 {
+		masterList = masterList[:100]
+	}
 
 	planMasterOpts := make([]models.PlanMasterOption, 0, len(masterList))
 	for _, m := range masterList {
@@ -420,14 +502,7 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 		Dates:       datesList,
 	}
 
-	withoutItems := getFilterValue(filters, "withoutItems", "WithoutItems", "without_items")
-
-	pagedItems := make([]models.PlanDetailReportItem, 0)
-	if withoutItems != "true" && withoutItems != "1" {
-		pagedItems = items
-	}
-
-	totalRecords := int64(len(items))
+	pagedItems := items
 
 	return &models.PlanReportResponse{
 		Summary:               summary,
@@ -453,4 +528,31 @@ func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, fi
 			LoadedCount: len(pagedItems),
 		},
 	}, nil
+}
+
+func reportWithoutItems(filters map[string]string) bool {
+	v := getFilterValue(filters, "withoutItems", "WithoutItems", "without_items")
+	return v == "true" || v == "1"
+}
+
+func reportPageInfo(total int64, loaded int) models.PlanPageInfo {
+	return models.PlanPageInfo{Page: 1, PageSize: loaded, TotalRows: int(total), Total: total, TotalPages: 1, TotalAll: total, LoadedCount: loaded}
+}
+
+var planSummaryColumns = []string{
+	`"CapaStatus"`,
+	`"ItemCode"`,
+	`"MachineName"`,
+	`"MasterSeq"`,
+	`"OpDate"`,
+	`"OpTypeName"`,
+	`"OperationName"`,
+	`"PicDp"`,
+	`"RegCode"`,
+	`"RoutingDocDate"`,
+	`"StatPassQty"`,
+	`"StatusDpSx"`,
+	`"TargetPassQty"`,
+	`"TargetProdQty"`,
+	`"TimeStatus"`,
 }

@@ -17,7 +17,7 @@ import { mapHanoiPlanRow } from '../utils/hanoiPlanMapper'
 
 const CACHE_KEY = 'hanoi_plan'
 
-export function useHanoiPlanData({ pagePerms } = {}) {
+export function useHanoiPlanData() {
   const cachedInitialMasters = getCachedMasters(CACHE_KEY) || []
   const cachedInitialActiveMaster =
     getCachedActiveMaster(CACHE_KEY) ||
@@ -63,7 +63,9 @@ export function useHanoiPlanData({ pagePerms } = {}) {
           regCode: regCode,
           masterSeq: masterSeq,
           factoryCode: 'GS1',
-          pageSize: '10000'
+          pageSize: '10000',
+          detailsOnly: 'true',
+          exactBatch: 'true'
         })
         const beItems =
           resAgg?.data?.items ||

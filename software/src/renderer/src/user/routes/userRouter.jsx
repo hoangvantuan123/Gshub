@@ -27,7 +27,7 @@ if (!i18n.isInitialized) {
 
 import { Layout, message, notification } from 'antd'
 import Sidebar from '../components/sildebar/sidebar'
-import Cookies from 'js-cookie'
+import Cookies from '../../utils/authCookies.js'
 import { checkActionPermission } from '../../permissions'
 import { PageDataProvider } from '../../context/PageDataContext'
 import StatusBar from '../components/status/StatusBar'

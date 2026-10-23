@@ -4,7 +4,7 @@
  * Compliant with LOGIN_VA_QUAN_LY_TOKEN.md
  */
 
-import Cookies from 'js-cookie'
+import Cookies from '../utils/authCookies.js'
 import {
   stripPermissionData,
   stripAuthTokenData,

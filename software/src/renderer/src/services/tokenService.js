@@ -1,4 +1,4 @@
-import Cookies from 'js-cookie'
+import Cookies from '../utils/authCookies.js'
 
 export const accessToken = () => {
   return Cookies.get('a_a') || null

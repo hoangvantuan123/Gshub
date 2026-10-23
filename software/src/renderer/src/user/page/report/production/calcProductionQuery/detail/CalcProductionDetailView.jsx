@@ -26,6 +26,7 @@ import {
 } from '../../calcProduction/columns/calcGridColumns'
 import { runProductionCalculations } from '../../calcProduction/engine'
 import {
+  attachFactoryMembership,
   getMachineComparisonRows,
   getMachineComparisonPage,
   isMachineComparisonCurrent
@@ -618,7 +619,17 @@ export default function CalcProductionDetailView() {
       }
 
       if (tabId === 'result_khsx') {
-        const rawRows = results?.plan?.calculatedRows || []
+        const currentFactory = masterRecordRef.current?.factoryName || masterInfo.factoryName
+        const catalogMachines = await loadFactoryMachineCatalog(currentFactory, {
+          preferredCatalog: results?.machineComparison?.catalogMachines || [],
+          preferredFactoryKey: results?.machineComparison?.factoryKey || ''
+        })
+        const previousRows = results?.plan?.calculatedRows || []
+        const rawRows = attachFactoryMembership(previousRows, catalogMachines, currentFactory)
+        if (results?.plan && rawRows.some((row, index) => row !== previousRows[index])) {
+          results.plan.calculatedRows = rawRows
+          await storageAdapter.saveCalcResults(targetRegCode, results)
+        }
         if (!rawRows || rawRows.length === 0) {
           return { rows: [], total: 0, page: 1, totalPages: 1, hasMore: false }
         }

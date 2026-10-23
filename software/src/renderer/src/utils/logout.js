@@ -1,4 +1,4 @@
-import Cookies from 'js-cookie'
+import Cookies from './authCookies.js'
 import { LogoutAuth } from '../api/auth/login'
 import { clearMenuData } from '../IndexedDB/loadMenuData'
 

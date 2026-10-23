@@ -59,6 +59,41 @@ export function filterMachineCatalogByFactory(machines, factoryName) {
   })
 }
 
+// Shared by tabs 6 and 7. Every listed production machine must belong to the factory.
+export function createFactoryMachineChecker(catalogMachines = [], factoryName = '') {
+  const target = mapMasterFactoryToCatalogKey(factoryName)
+  const hasFactory = catalogMachines.some((machine) => rawFactoryOf(machine))
+  const splitCodes = (value) => String(value ?? '').split(/[|,;\n\r/]+/)
+    .map((code) => code.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean)
+  const validCode = (code) => !['NULL', 'UNDEFINED', '(THIẾUMÃ)', '-'].includes(code)
+  const codes = new Set()
+  for (const machine of catalogMachines) {
+    const factory = rawFactoryOf(machine)
+    if (target && (factory ? mapMasterFactoryToCatalogKey(factory) !== target : hasFactory)) continue
+    for (const code of splitCodes(first(machine, 'MachineCode', 'machine_code', 'machineCode',
+      'Code', 'code', 'Mã máy', 'Mã máy sản xuất', 'machine_id'))) {
+      if (validCode(code)) codes.add(code)
+    }
+  }
+  return (value) => {
+    const machines = splitCodes(value)
+    return machines.length > 0 && machines.every((code) => validCode(code) && codes.has(code))
+      ? 'TRUE' : 'FALSE'
+  }
+}
+
+export function attachFactoryMembership(rows = [], catalogMachines = [], factoryName = '', actual = false) {
+  const check = createFactoryMachineChecker(catalogMachines, factoryName)
+  return rows.map((row) => {
+    const value = check(actual
+      ? first(row, 'ActualMachineCode', 'MachineCode', 'Mã máy sản xuất', 'Mã máy thực tế')
+      : first(row, 'MachineCode', 'Mã máy sản xuất', 'PlannedMachineCode'))
+    if (row.IsBelongToFactory === value && (!actual || row['Thuộc nhà máy'] === value)) return row
+    return { ...row, IsBelongToFactory: value,
+      ...(actual ? { 'Thuộc nhà máy': value, 'Máy thuộc nhà máy': value } : {}) }
+  })
+}
+
 export function isMachineComparisonCurrent(results, factoryName) {
   const comparison = results?.machineComparison
   if (!factoryName || !comparison || !Array.isArray(comparison.calculatedRows)) return false
@@ -96,7 +131,9 @@ export function getMachineComparisonRows(results, summaryRows, mesRows, options 
     (results?.machineComparison?.matchVersion === 2 ||
       !Array.isArray(results?.stat?.calculatedRows))
   ) {
-    return stored
+    return attachFactoryMembership(stored,
+      options.catalogMachines?.length ? options.catalogMachines : results.machineComparison.catalogMachines || [],
+      options.factoryName || results.machineComparison.factoryName, true)
   }
 
   const plans = results?.plan?.calculatedRows || []
@@ -264,58 +301,7 @@ export function buildMachineComparison(
         ? options.factoryMachines
         : []
 
-  const targetFactoryKey = normalize(mapMasterFactoryToCatalogKey(factoryName))
-  const catalogHasFactoryMetadata = catalogMachines.some((machine) => rawFactoryOf(machine))
-
-  const factoryMachineCodes = new Set()
-
-  const addMachineCode = (val) => {
-    if (!val) return
-    const str = String(val).trim().toUpperCase()
-    if (!str || str === 'NULL' || str === 'UNDEFINED') return
-    const parts = str.split(/[|,;\n\r/]+/).map((s) => s.trim().toUpperCase()).filter(Boolean)
-    for (const p of parts) {
-      factoryMachineCodes.add(p)
-      const noSpace = p.replace(/\s+/g, '')
-      if (noSpace) factoryMachineCodes.add(noSpace)
-    }
-  }
-
-  const isCodeInFactory = (val) => {
-    if (!val) return false
-    const str = String(val).trim().toUpperCase()
-    if (!str || str === 'NULL' || str === 'UNDEFINED' || str === '(THIẾU MÃ)' || str === '-') return false
-    if (factoryMachineCodes.has(str)) return true
-    const noSpace = str.replace(/\s+/g, '')
-    if (factoryMachineCodes.has(noSpace)) return true
-    return false
-  }
-
-  for (const m of catalogMachines) {
-    const rawCode = first(
-      m,
-      'MachineCode',
-      'machine_code',
-      'machineCode',
-      'Code',
-      'code',
-      'Mã máy',
-      'Mã máy sản xuất',
-      'machine_id'
-    )
-    if (!rawCode) continue
-
-    const rawMFactory = rawFactoryOf(m)
-    const isMatch =
-      !targetFactoryKey ||
-      (rawMFactory
-        ? normalize(mapMasterFactoryToCatalogKey(rawMFactory)) === targetFactoryKey
-        : !catalogHasFactoryMetadata)
-
-    if (isMatch) {
-      addMachineCode(rawCode)
-    }
-  }
+  const checkFactoryMachine = createFactoryMachineChecker(catalogMachines, factoryName)
 
   // A row in TKSX always produces exactly one comparison row, even when the
   // operation, slip or machine repeats. This preserves the source's granularity.
@@ -401,36 +387,7 @@ export function buildMachineComparison(
     else if (codes.length > 1) status = 'Nhiều máy khai báo'
     else status = codes[0] === normalize(actualCode) ? 'Khớp máy' : 'Khác máy'
 
-    // Thu thập và bóc tách tất cả mã máy khai báo (hỗ trợ dấu |, phẩy, chấm phẩy...)
-    const rawDeclaredStrings = []
-    for (const m of machines) {
-      if (m?.code) rawDeclaredStrings.push(String(m.code))
-    }
-    if (rawDeclaredStrings.length === 0) {
-      for (const p of plans) {
-        const pCode = first(p, 'PlannedMachineCode', 'MachineCode', 'Mã máy sản xuất', 'Mã máy')
-        if (pCode) rawDeclaredStrings.push(pCode)
-      }
-    }
-
-    const extractedCodes = []
-    for (const raw of rawDeclaredStrings) {
-      const parts = raw.split(/[|,;\n\r/]+/).map((s) => s.trim().toUpperCase()).filter(Boolean)
-      for (const p of parts) {
-        if (p && p !== '(THIẾU MÃ)' && p !== '-' && p !== 'NULL' && p !== 'UNDEFINED') {
-          extractedCodes.push(p)
-        }
-      }
-    }
-
-    const uniqueDeclaredCodes = [...new Set(extractedCodes)]
-    let isBelongToFactory = 'FALSE'
-    if (uniqueDeclaredCodes.length > 0 && factoryMachineCodes.size > 0) {
-      const allDeclaredBelong = uniqueDeclaredCodes.every((code) => isCodeInFactory(code))
-      isBelongToFactory = allDeclaredBelong ? 'TRUE' : 'FALSE'
-    } else {
-      isBelongToFactory = 'FALSE'
-    }
+    const isBelongToFactory = checkFactoryMachine(actualCode)
 
     let plannedCodeStr = machines
       .map((machine) => text(machine.code))

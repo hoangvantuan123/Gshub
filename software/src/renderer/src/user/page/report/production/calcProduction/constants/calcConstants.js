@@ -1435,6 +1435,7 @@ export const RESULT_KHSX_COLUMN_SCHEMA = [
   { title: 'Thao tác', key: 'OperationName', kind: 'Text', width: 160 },
   { title: 'Phân loại thao tác', key: 'OperationTypeName', kind: 'Text', width: 150 },
   { title: 'Mã máy sản xuất', key: 'MachineCode', kind: 'Text', width: 140 },
+  { title: 'Thuộc nhà máy', key: 'IsBelongToFactory', kind: 'Text', width: 130, readonly: true },
   { title: 'Máy sản xuất', key: 'MachineName', kind: 'Text', width: 170 },
   { title: 'Đvt', key: 'Unit', kind: 'Text', width: 80 },
   { title: 'Số lượng cần đạt LTT', key: 'OpTargetQty', kind: 'Number', width: 130 },

@@ -1,4 +1,4 @@
-import Cookies from 'js-cookie'
+import Cookies from './authCookies.js'
 import decodeJWT from './decode-JWT.js'
 
 const permissionKeys = new Set([

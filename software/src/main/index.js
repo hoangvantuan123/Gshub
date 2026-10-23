@@ -19,6 +19,7 @@ import { promisify } from 'util'
 import icon from '../../resources/icon.png?asset'
 import { setupRealtimeIpc } from './realtime/index.js'
 import { setupSecurityIpc } from './security/cryptoService.js'
+import { setupAuthCookieIpc } from './security/authCookies.js'
 import { setupDataHubIpc } from './datahub/datahubClient.js'
 import { setupSqliteIpc } from './sqlite/sqliteManager.js'
 import {
@@ -1050,6 +1051,7 @@ app.whenReady().then(() => {
 
   // Khởi động Hệ thống Bảo mật & Mã hóa đối xứng AES-256-GCM
   setupSecurityIpc()
+  setupAuthCookieIpc(getRendererUrl)
 
   // Khởi động Hệ thống Cập nhật tự động 2 tầng (OTA Hot Update & Full Native Update)
   setupUpdaterIpc()

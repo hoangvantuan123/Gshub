@@ -1,7 +1,7 @@
 // --- React & Routing Core ---
 import { memo, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import Cookies from 'js-cookie'
+import Cookies from '../../utils/authCookies.js'
 
 // --- Ant Design UI & Icons ---
 import { Form, Input, Modal, Select } from 'antd'

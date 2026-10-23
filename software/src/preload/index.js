@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 const api = {
+  // Synchronous to preserve the token API used by route guards and interceptors.
+  authCookie: (request) => {
+    const result = ipcRenderer.sendSync('auth:cookie', request)
+    if (!result?.ok) throw new Error(result?.error || 'Desktop auth cookie request failed')
+    return result.value ?? undefined
+  },
   openRoute: (path) => ipcRenderer.send('open-route-in-new-window', path),
   openChildWindow: (options) => ipcRenderer.send('window:open-child', options),
   saveDataToFile: (filePath, data) => ipcRenderer.invoke('save-to-file', filePath, data),

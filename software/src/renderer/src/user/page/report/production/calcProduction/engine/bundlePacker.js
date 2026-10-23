@@ -9,7 +9,7 @@ import {
   UNFINISHED_OP_COLUMN_SCHEMA,
   SUMMARY_OP_COLUMN_SCHEMA,
   MES_APPROVAL_COLUMN_SCHEMA
-} from '../constants/calcConstants'
+} from '../constants/calcConstants.js'
 
 /**
  * Chuyển đổi danh sách đối tượng (Array of Objects) thành dạng Columnar Matrix
@@ -151,7 +151,14 @@ export function packProductionBundle(
   const sumData = getArrayFromArch('SUMMARY_OP', 'summary_op', 'SummaryOp')
   const mesData = getArrayFromArch('MES_APPROVAL', 'mes_approval', 'MesApproval')
 
-  const planResults = getResultRows(results?.plan)
+  // Tab 6 factory membership is local cache data, excluded from published bundles.
+  const planResults = getResultRows(results?.plan).map((row) => {
+    const data = { ...row }
+    delete data.IsBelongToFactory
+    delete data['Thuộc nhà máy']
+    delete data['Máy thuộc nhà máy']
+    return data
+  })
   const statResults = getResultRows(results?.stat)
 
   const bundleObj = {

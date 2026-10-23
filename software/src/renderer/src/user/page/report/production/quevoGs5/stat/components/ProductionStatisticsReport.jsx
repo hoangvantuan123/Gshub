@@ -876,7 +876,7 @@ export default function ProductionStatisticsReport(props) {
           </div>
         </div>
 
-        {plantKey === 'quevo_gs5' && (
+        {/* {plantKey === 'quevo_gs5' && (
           <div
             style={{
               padding: '16px 18px',
@@ -919,7 +919,7 @@ export default function ProductionStatisticsReport(props) {
                 : outsideFactoryOperationCount.toLocaleString('vi-VN')}
             </div>
           </div>
-        )}
+        )} */}
       </div>
 
       {/* 4. EXECUTIVE SECTION I: BIỂU ĐỒ 1 - THỐNG KÊ GIỜ CHẠY MÁY & CẢNH BÁO BẤT THƯỜNG */}

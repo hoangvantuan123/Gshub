@@ -7,6 +7,7 @@ import (
 	"time"
 
 	models "service-datahub/models/report"
+	"service-datahub/services/report/report_cache"
 
 	"gorm.io/gorm"
 )
@@ -33,12 +34,29 @@ func (s *PlanMasterService) PlanMasterU(
 		"UpdatedAt":   time.Now(),
 	}
 
-	if err := s.db.WithContext(ctx).Model(&models.ERPPlanMaster{}).Where(`"IdSeq" = ?`, master.IdSeq).Updates(updates).Error; err != nil {
-		return nil, fmt.Errorf("lỗi cập nhật Master: %w", err)
-	}
-
 	var updated models.ERPPlanMaster
-	if err := s.db.WithContext(ctx).Where(`"IdSeq" = ?`, master.IdSeq).First(&updated).Error; err != nil {
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current models.ERPPlanMaster
+		if err := tx.Where(`"IdSeq" = ?`, master.IdSeq).First(&current).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.ERPPlanMaster{}).Where(`"IdSeq" = ?`, master.IdSeq).Updates(updates).Error; err != nil {
+			return fmt.Errorf("lỗi cập nhật Master: %w", err)
+		}
+		if err := tx.Where(`"IdSeq" = ?`, master.IdSeq).First(&updated).Error; err != nil {
+			return err
+		}
+		identity := []report_cache.BatchIdentity{{MasterSeq: updated.IdSeq, RegCode: updated.RegCode}}
+		if err := report_cache.InvalidateBatchResults(tx, report_cache.NormalizeReportType(current.ReportType), identity); err != nil {
+			return err
+		}
+		if report_cache.NormalizeReportType(updated.ReportType) != report_cache.NormalizeReportType(current.ReportType) {
+			if err := report_cache.InvalidateBatchResults(tx, report_cache.NormalizeReportType(updated.ReportType), identity); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 

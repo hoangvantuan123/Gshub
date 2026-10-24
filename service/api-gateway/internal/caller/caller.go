@@ -258,11 +258,24 @@ func fillMessage(m *dynamic.Message, data map[string]interface{}) {
 		}
 	}
 
-	// Tự động nạp toàn bộ body vào filters_json nếu proto có hỗ trợ
+	// Tự động nạp body vào filters_json nếu client không gửi filters_json riêng.
+	// Không ghi đè filters_json đã được frontend cung cấp vì các cờ lọc nằm trong
+	// trường này (ví dụ reconciliationOnly) sẽ bị lồng thêm một cấp và backend không đọc được.
 	for _, fd := range descriptor.GetFields() {
 		if strings.EqualFold(fd.GetName(), "filters_json") || strings.EqualFold(fd.GetName(), "filtersJson") {
-			if jsonBytes, err := json.Marshal(data); err == nil {
-				_ = m.TrySetField(fd, string(jsonBytes))
+			hasExplicitFilters := false
+			targetName := strings.ToLower(strings.ReplaceAll(fd.GetName(), "_", ""))
+			for key, value := range data {
+				cleanKey := strings.ToLower(strings.ReplaceAll(key, "_", ""))
+				if cleanKey == targetName && value != nil && strings.TrimSpace(fmt.Sprintf("%v", value)) != "" {
+					hasExplicitFilters = true
+					break
+				}
+			}
+			if !hasExplicitFilters {
+				if jsonBytes, err := json.Marshal(data); err == nil {
+					_ = m.TrySetField(fd, string(jsonBytes))
+				}
 			}
 			break
 		}

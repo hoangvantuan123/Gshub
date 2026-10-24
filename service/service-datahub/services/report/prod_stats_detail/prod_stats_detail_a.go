@@ -9,6 +9,9 @@ import (
 
 	models "service-datahub/models/report"
 	"service-datahub/services"
+	"service-datahub/services/report/report_cache"
+
+	"gorm.io/gorm"
 )
 
 // cleanNumberStr chuẩn hóa chuỗi số (xử lý dấu chấm/phẩy phân cách hàng nghìn như 57.211 -> 57211)
@@ -84,7 +87,16 @@ func (s *ProdStatsDetailService) ProdStatsDetailA(
 		NormalizeStatsItem(&items[i])
 	}
 
-	if err := s.db.WithContext(ctx).CreateInBatches(items, 500).Error; err != nil {
+	identities := make([]report_cache.BatchIdentity, 0, len(items))
+	for _, item := range items {
+		identities = append(identities, report_cache.BatchIdentity{MasterSeq: item.MasterSeq, RegCode: item.RegCode})
+	}
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.CreateInBatches(items, 500).Error; err != nil {
+			return err
+		}
+		return report_cache.InvalidateBatchResults(tx, "statistics", identities)
+	}); err != nil {
 		return nil, err
 	}
 
@@ -124,4 +136,3 @@ func NormalizeStatsItem(item *models.ERPProdStatsDetail) {
 		}
 	}
 }
-

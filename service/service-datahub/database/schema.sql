@@ -640,6 +640,30 @@ CREATE INDEX IF NOT EXISTS "idx_statsdetail_statticketno" ON "_ERPProdStatsDetai
 CREATE INDEX IF NOT EXISTS "idx_statsdetail_statdate" ON "_ERPProdStatsDetail" ("StatDate");
 
 -- =============================================================================
+-- KẾT QUẢ BÁO CÁO ĐÃ TÍNH SẴN (_ERPReportResultCache)
+-- Một hàng theo định danh báo cáo; các response variant được lưu chung trong Payload JSONB.
+-- Xóa/làm mới khi đợt dữ liệu thay đổi hoặc phiên bản công thức tăng.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS "_ERPReportResultCache" (
+    "CacheKey"       VARCHAR(64) PRIMARY KEY,
+    "ReportType"     VARCHAR(30) NOT NULL,
+    "FactoryCode"    VARCHAR(50) NOT NULL DEFAULT 'ALL',
+    "MasterSeq"      VARCHAR(36) NOT NULL DEFAULT '',
+    "RegCode"        TEXT NOT NULL DEFAULT '',
+    "CacheVersion"   INTEGER NOT NULL DEFAULT 1,
+    "Payload"        JSONB NOT NULL,
+    "CreatedAt"      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "UpdatedAt"      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS "idx_report_cache_type_factory"
+    ON "_ERPReportResultCache" ("ReportType", "FactoryCode");
+CREATE INDEX IF NOT EXISTS "idx_report_cache_master"
+    ON "_ERPReportResultCache" ("MasterSeq");
+CREATE INDEX IF NOT EXISTS "idx_report_cache_regcode"
+    ON "_ERPReportResultCache" ("RegCode");
+
+-- =============================================================================
 -- 16. BẢNG: CHI TIẾT DUYỆT SẢN LƯỢNG MES (_ERPMesApprovalDetail)
 --     (Lưu trữ dữ liệu duyệt sản lượng từ MES, IdSeq chuẩn UUIDv7, có RowVersion và Người tạo Seq)
 -- =============================================================================
@@ -744,6 +768,26 @@ CREATE INDEX IF NOT EXISTS "idx_machine_comp_operationno" ON "_ERPMachineCompari
 CREATE INDEX IF NOT EXISTS "idx_machine_comp_statslipno" ON "_ERPMachineComparisonDetail" ("StatSlipNo");
 CREATE INDEX IF NOT EXISTS "idx_machine_comp_actualcode" ON "_ERPMachineComparisonDetail" ("ActualMachineCode");
 CREATE INDEX IF NOT EXISTS "idx_machine_comp_plannedcode" ON "_ERPMachineComparisonDetail" ("PlannedMachineCode");
+
+-- Nhật trình đối soát được lưu tách khỏi dữ liệu kết quả báo cáo đã tính.
+CREATE TABLE IF NOT EXISTS "_ERPReportReconciliation" (
+    "ReportType" VARCHAR(30) NOT NULL,
+    "DetailIdSeq" VARCHAR(36) NOT NULL,
+    "MasterSeq" VARCHAR(36) NOT NULL,
+    "RegCode" TEXT NOT NULL,
+    "StatTicketNo" TEXT NOT NULL DEFAULT '',
+    "RemarkTypeSeq" VARCHAR(36) NOT NULL DEFAULT '',
+    "RemarkContent" TEXT NOT NULL DEFAULT '',
+    "RowVersion" BIGINT NOT NULL DEFAULT 1,
+    "UpdatedBy" TEXT NOT NULL DEFAULT '',
+    "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "UpdatedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY ("ReportType", "DetailIdSeq")
+);
+CREATE INDEX IF NOT EXISTS "idx_report_reconciliation_scope"
+    ON "_ERPReportReconciliation" ("ReportType", "MasterSeq", "RegCode");
+CREATE INDEX IF NOT EXISTS "idx_report_reconciliation_reg"
+    ON "_ERPReportReconciliation" ("ReportType", "RegCode");
 
 
 

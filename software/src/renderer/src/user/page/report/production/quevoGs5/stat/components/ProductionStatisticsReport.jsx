@@ -3457,6 +3457,8 @@ export default function ProductionStatisticsReport(props) {
         viewMode={auditModalMode}
         data={rawData || filteredData}
         plantKey={plantKey}
+        masterSeq={currentMaster?.MasterSeq || currentMaster?.IdSeq || ''}
+        regCode={currentMaster?.RegCode || currentMaster?.regCode || selectedMasterKey || ''}
         canEdit={Boolean(permissions?.canEdit)}
         plantName={
           plantName || (plantKey === 'GS5' || plantKey === 'quevo_gs5' ? 'GS Quế Võ' : 'GS Hà Nội')

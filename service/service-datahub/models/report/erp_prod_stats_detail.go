@@ -7,6 +7,7 @@ import (
 // ERPProdStatsDetail tương ứng với bảng _ERPProdStatsDetail (Chi tiết thống kê sản xuất thực tế)
 // Liên kết thông qua MasterSeq và RegCode, IdSeq và MasterSeq dùng UUIDv7
 type ERPProdStatsDetail struct {
+	ReconciliationOnly     string     `gorm:"-" json:"ReconciliationOnly,omitempty"`
 	IdSeq                  string     `gorm:"primaryKey;column:IdSeq;size:36;not null" db:"IdSeq" json:"IdSeq"`
 	MasterSeq              string     `gorm:"column:MasterSeq;index;size:36;not null" db:"MasterSeq" json:"MasterSeq"`
 	RegCode                string     `gorm:"column:RegCode;index;type:text;not null" db:"RegCode" json:"RegCode"`

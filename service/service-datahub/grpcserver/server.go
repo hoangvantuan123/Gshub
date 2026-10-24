@@ -28,6 +28,8 @@ import (
 	"service-datahub/services/report/prod_machine_registration"
 	"service-datahub/services/report/prod_stats_detail"
 	"service-datahub/services/report/prod_stats_remark_type"
+	"service-datahub/services/report/report_cache"
+	"service-datahub/services/report/report_reconciliation"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -50,6 +52,7 @@ type Server struct {
 	planDetailService      *plan_detail.PlanDetailService
 	prodStatsDetailService *prod_stats_detail.ProdStatsDetailService
 	planReportService      *plan_report.PlanReportService
+	reconciliationService  *report_reconciliation.Service
 	helpService            *help.CodeHelpService
 	logger                 *zap.Logger
 	startTime              time.Time
@@ -78,6 +81,7 @@ func NewServer(
 		planDetailService:      planDetailService,
 		prodStatsDetailService: prodStatsDetailService,
 		planReportService:      planReportService,
+		reconciliationService:  report_reconciliation.New(db),
 		helpService:            helpService,
 		logger:                 logger,
 		startTime:              time.Now(),
@@ -755,6 +759,22 @@ func (s *Server) QueryPlanDetail(ctx context.Context, req *pb.PlanDetailProtoReq
 	if req.SortOrder != "" {
 		filters["sortOrder"] = req.SortOrder
 	}
+	if strings.EqualFold(filters["reconciliationOnly"], "true") {
+		annotations, err := s.reconciliationService.Query(ctx, report_reconciliation.ReportPlan, filters["MasterSeq"], filters["RegCode"])
+		if err != nil {
+			return &pb.PlanDetailProtoResponse{Success: false, ErrorMessage: err.Error()}, nil
+		}
+		dataBytes, _ := json.Marshal(annotations)
+		protoList := make([]*pb.PlanDetailProtoItem, 0, len(annotations))
+		for _, annotation := range annotations {
+			protoList = append(protoList, &pb.PlanDetailProtoItem{IdSeq: annotation.IdSeq, MasterSeq: annotation.MasterSeq, RegCode: annotation.RegCode})
+		}
+		return &pb.PlanDetailProtoResponse{
+			Success: true, Message: "Query reconciliation notes success", Data: protoList,
+			DataJson: string(dataBytes), TotalRecords: int64(len(annotations)), TotalAll: int64(len(annotations)),
+			PageSize: int32(len(annotations)),
+		}, nil
+	}
 
 	details, pageInfo, err := s.planDetailService.PlanDetailQ(ctx, filters)
 	if err != nil {
@@ -844,6 +864,25 @@ func (s *Server) QueryProdStatsDetail(ctx context.Context, req *pb.ProdStatsDeta
 	}
 	if req.SortOrder != "" {
 		filters["sortOrder"] = req.SortOrder
+	}
+	if strings.EqualFold(filters["reconciliationOnly"], "true") {
+		annotations, err := s.reconciliationService.Query(ctx, report_reconciliation.ReportStatistics, filters["MasterSeq"], filters["RegCode"])
+		if err != nil {
+			return &pb.ProdStatsDetailProtoResponse{Success: false, ErrorMessage: err.Error()}, nil
+		}
+		dataBytes, _ := json.Marshal(annotations)
+		protoList := make([]*pb.ProdStatsDetailProtoItem, 0, len(annotations))
+		for _, annotation := range annotations {
+			protoList = append(protoList, &pb.ProdStatsDetailProtoItem{
+				IdSeq: annotation.IdSeq, MasterSeq: annotation.MasterSeq, RegCode: annotation.RegCode,
+				StatTicketNo: annotation.StatTicketNo,
+			})
+		}
+		return &pb.ProdStatsDetailProtoResponse{
+			Success: true, Message: "Query reconciliation notes success", Data: protoList,
+			DataJson: string(dataBytes), TotalRecords: int64(len(annotations)), TotalAll: int64(len(annotations)),
+			PageSize: int32(len(annotations)),
+		}, nil
 	}
 
 	details, pageInfo, err := s.prodStatsDetailService.ProdStatsDetailQ(ctx, filters)
@@ -969,6 +1008,12 @@ func (s *Server) SavePlanRegistration(ctx context.Context, req *pb.PlanRegistrat
 			tx.Where(`"RegCode" = ? OR ("FactoryCode" = ? AND ("ReportType" = 'plan' OR "ReportType" = 'khsx') AND "ApplyDate" = ?)`, regCode, factoryCode, applyDate).Find(&existingMasters)
 		}
 		for _, em := range existingMasters {
+			if err := report_cache.InvalidateBatchResults(tx, report_cache.NormalizeReportType(em.ReportType), []report_cache.BatchIdentity{{MasterSeq: em.IdSeq, RegCode: em.RegCode}}); err != nil {
+				return fmt.Errorf("lỗi làm mới cache báo cáo cũ: %w", err)
+			}
+			if err := tx.Where(`"MasterSeq" = ? OR "RegCode" = ?`, em.IdSeq, em.RegCode).Delete(&reportmodels.ERPReportReconciliation{}).Error; err != nil {
+				return fmt.Errorf("lỗi xóa nhật trình đối soát cũ: %w", err)
+			}
 			tx.Where(`"MasterSeq" = ? OR "RegCode" = ?`, em.IdSeq, em.RegCode).Delete(&reportmodels.ERPProdStatsDetail{})
 			tx.Where(`"MasterSeq" = ? OR "RegCode" = ?`, em.IdSeq, em.RegCode).Delete(&reportmodels.ERPPlanDetail{})
 			tx.Where(`"IdSeq" = ?`, em.IdSeq).Delete(&reportmodels.ERPPlanMaster{})
@@ -1064,6 +1109,9 @@ func (s *Server) SavePlanRegistration(ctx context.Context, req *pb.PlanRegistrat
 
 		if err := tx.Create(&createdMaster).Error; err != nil {
 			return fmt.Errorf("lá»—i khi táº¡o báº£n ghi Master: %w", err)
+		}
+		if err := report_cache.InvalidateBatchResults(tx, report_cache.NormalizeReportType(reportType), []report_cache.BatchIdentity{{MasterSeq: createdMaster.IdSeq, RegCode: createdMaster.RegCode}}); err != nil {
+			return fmt.Errorf("lỗi làm mới cache báo cáo tổng hợp: %w", err)
 		}
 
 		return nil
@@ -1238,6 +1286,30 @@ func (s *Server) UpdatePlanDetail(ctx context.Context, req *pb.UpdatePlanDetailP
 	if userId == "" {
 		userId = "SystemAdmin"
 	}
+	if len(items) > 0 && strings.EqualFold(items[0].ReconciliationOnly, "true") {
+		inputs := make([]report_reconciliation.UpdateInput, 0, len(items))
+		for _, item := range items {
+			if !strings.EqualFold(item.ReconciliationOnly, "true") {
+				return &pb.UpdatePlanDetailProtoResponse{Success: false, ErrorMessage: "Yêu cầu lưu nhật trình không đồng nhất"}, nil
+			}
+			inputs = append(inputs, report_reconciliation.UpdateInput{
+				DetailIdSeq: item.IdSeq, RemarkTypeSeq: strVal(item.RemarkTypeSeq),
+				RemarkContent: strVal(item.RemarkContent), RowVersion: item.RowVersion,
+			})
+		}
+		saved, err := s.reconciliationService.Save(ctx, report_reconciliation.ReportPlan, inputs, userId)
+		if err != nil {
+			return &pb.UpdatePlanDetailProtoResponse{Success: false, ErrorMessage: err.Error()}, nil
+		}
+		dataBytes, _ := json.Marshal(saved)
+		protoList := make([]*pb.PlanDetailProtoItem, 0, len(saved))
+		for _, annotation := range saved {
+			protoList = append(protoList, &pb.PlanDetailProtoItem{IdSeq: annotation.IdSeq, MasterSeq: annotation.MasterSeq, RegCode: annotation.RegCode})
+		}
+		return &pb.UpdatePlanDetailProtoResponse{
+			Success: true, Message: "Đã lưu nhật trình đối soát KHSX", Data: protoList, DataJson: string(dataBytes),
+		}, nil
+	}
 
 	updated, err := s.planDetailService.PlanDetailU(ctx, items, userId)
 	if err != nil {
@@ -1370,6 +1442,33 @@ func (s *Server) UpdateProdStatsDetail(ctx context.Context, req *pb.UpdateProdSt
 	if userId == "" {
 		userId = "SystemAdmin"
 	}
+	if len(items) > 0 && strings.EqualFold(items[0].ReconciliationOnly, "true") {
+		inputs := make([]report_reconciliation.UpdateInput, 0, len(items))
+		for _, item := range items {
+			if !strings.EqualFold(item.ReconciliationOnly, "true") {
+				return &pb.UpdateProdStatsDetailProtoResponse{Success: false, ErrorMessage: "Yêu cầu lưu nhật trình không đồng nhất"}, nil
+			}
+			inputs = append(inputs, report_reconciliation.UpdateInput{
+				DetailIdSeq: item.IdSeq, RemarkTypeSeq: strVal(item.RemarkTypeSeq),
+				RemarkContent: strVal(item.RemarkContent), RowVersion: item.RowVersion,
+			})
+		}
+		saved, err := s.reconciliationService.Save(ctx, report_reconciliation.ReportStatistics, inputs, userId)
+		if err != nil {
+			return &pb.UpdateProdStatsDetailProtoResponse{Success: false, ErrorMessage: err.Error()}, nil
+		}
+		dataBytes, _ := json.Marshal(saved)
+		protoList := make([]*pb.ProdStatsDetailProtoItem, 0, len(saved))
+		for _, annotation := range saved {
+			protoList = append(protoList, &pb.ProdStatsDetailProtoItem{
+				IdSeq: annotation.IdSeq, MasterSeq: annotation.MasterSeq, RegCode: annotation.RegCode,
+				StatTicketNo: annotation.StatTicketNo,
+			})
+		}
+		return &pb.UpdateProdStatsDetailProtoResponse{
+			Success: true, Message: "Đã lưu nhật trình đối soát TKSX", Data: protoList, DataJson: string(dataBytes),
+		}, nil
+	}
 
 	updated, err := s.prodStatsDetailService.ProdStatsDetailU(ctx, items, userId)
 	if err != nil {
@@ -1485,6 +1584,21 @@ func (s *Server) GetProductionPlanReport(ctx context.Context, req *pb.PlanReport
 	if req.PageSize > 0 {
 		filters["pageSize"] = strconv.Itoa(int(req.PageSize))
 	}
+	if filters["compactTransport"] == "true" {
+		dataBytes, pagination, err := s.planReportService.GenerateProductionPlanReportJSON(ctx, filters)
+		if err != nil {
+			return &pb.PlanReportProtoResponse{Success: false, Message: err.Error()}, nil
+		}
+		return &pb.PlanReportProtoResponse{
+			Success:      true,
+			Message:      "Generate plan report success",
+			DataJson:     string(dataBytes),
+			TotalRecords: pagination.Total,
+			TotalPages:   int32(pagination.TotalPages),
+			Page:         int32(pagination.Page),
+			PageSize:     int32(pagination.PageSize),
+		}, nil
+	}
 
 	rep, err := s.planReportService.GenerateProductionPlanReport(ctx, filters)
 	if err != nil {
@@ -1507,15 +1621,6 @@ func (s *Server) GetProductionPlanReport(ctx context.Context, req *pb.PlanReport
 		Success:  true,
 		Message:  "Generate plan report success",
 		DataJson: string(dataBytes),
-	}
-
-	// The gateway consumes DataJson directly; native gRPC callers retain the full response.
-	if filters["compactTransport"] == "true" {
-		resp.TotalRecords = rep.Pagination.Total
-		resp.TotalPages = int32(rep.Pagination.TotalPages)
-		resp.Page = int32(rep.Pagination.Page)
-		resp.PageSize = int32(rep.Pagination.PageSize)
-		return resp, nil
 	}
 
 	if rep != nil {
@@ -1676,6 +1781,21 @@ func (s *Server) GetProductionStatisticsReport(ctx context.Context, req *pb.Prod
 	if req.PageSize > 0 {
 		filters["pageSize"] = strconv.Itoa(int(req.PageSize))
 	}
+	if filters["compactTransport"] == "true" {
+		dataBytes, pagination, err := s.prodStatsDetailService.GenerateProductionStatisticsReportJSON(ctx, filters)
+		if err != nil {
+			return &pb.ProdStatsReportProtoResponse{Success: false, Message: err.Error()}, nil
+		}
+		return &pb.ProdStatsReportProtoResponse{
+			Success:      true,
+			Message:      "Generate prod stats report success",
+			DataJson:     string(dataBytes),
+			TotalRecords: pagination.Total,
+			TotalPages:   int32(pagination.TotalPages),
+			Page:         int32(pagination.Page),
+			PageSize:     int32(pagination.PageSize),
+		}, nil
+	}
 
 	rep, err := s.prodStatsDetailService.GenerateProductionStatisticsReport(ctx, filters)
 	if err != nil {
@@ -1698,15 +1818,6 @@ func (s *Server) GetProductionStatisticsReport(ctx context.Context, req *pb.Prod
 		Success:  true,
 		Message:  "Generate prod stats report success",
 		DataJson: string(dataBytes),
-	}
-
-	// The gateway consumes DataJson directly; native gRPC callers retain the full response.
-	if filters["compactTransport"] == "true" {
-		resp.TotalRecords = rep.Pagination.Total
-		resp.TotalPages = int32(rep.Pagination.TotalPages)
-		resp.Page = int32(rep.Pagination.Page)
-		resp.PageSize = int32(rep.Pagination.PageSize)
-		return resp, nil
 	}
 
 	if rep != nil {

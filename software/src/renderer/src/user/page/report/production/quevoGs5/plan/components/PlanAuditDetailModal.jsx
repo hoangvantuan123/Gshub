@@ -10,7 +10,10 @@ import {
 import * as XLSX from 'xlsx'
 import { Button } from '@renderer/components/ui/button'
 import { DEFAULT_GRID_THEME } from '@renderer/user/components/hooks/sheet/useTableCellTheme'
-import { updatePlanDetail } from '@renderer/user/page/report/registration/services/planRegistrationService'
+import {
+  queryPlanReconciliation,
+  updatePlanReconciliation
+} from '@renderer/user/page/report/registration/services/planRegistrationService'
 import { queryProdStatsRemarkTypes } from '@renderer/user/page/report/registration/remarkType/remarkTypeService'
 import useTableManager from '@renderer/user/components/hooks/sheet/useTableManager'
 import LayoutMenuSheet from '@renderer/user/components/sheet/jsx/layoutMenu'
@@ -162,9 +165,10 @@ export const PlanAuditDetailModal = ({
   data = [],
   plantName = 'Kế hoạch sản xuất',
   plantKey = 'hanoi_gs1',
+  masterSeq = '',
+  regCode = '',
   localOnly = true,
   showWorkingTag = true,
-  onSaved,
   maskText = (t) => t
 }) => {
   const [activeCategory, setActiveCategory] = useState(initialCategory)
@@ -182,6 +186,7 @@ export const PlanAuditDetailModal = ({
   ])
   const [hiddenColumns, setHiddenColumns] = useState([])
   const [annotations, setAnnotations] = useState({})
+  const [isLoadingAnnotations, setIsLoadingAnnotations] = useState(false)
   const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false)
   const [dirtyAnnotations, setDirtyAnnotations] = useState({})
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
@@ -202,7 +207,9 @@ export const PlanAuditDetailModal = ({
     if (!isOpen) return
     try {
       localStorage.removeItem(`prod-plan-audit:${plantKey}`)
-    } catch {}
+    } catch {
+      // Ignore unavailable local storage.
+    }
     setAnnotations({})
     setActiveCategory(initialCategory || 'ALL')
     setSearchQuery('')
@@ -222,7 +229,54 @@ export const PlanAuditDetailModal = ({
     } else {
       fetchPlanRemarkTypesCached().then((records) => setRemarkTypesList(records))
     }
-  }, [isOpen, initialCategory, plantKey])
+
+    const controller = new AbortController()
+    if (!masterSeq && !regCode) {
+      setIsLoadingAnnotations(false)
+      setSaveStatus('Không xác định được đợt đăng ký để tải nhật trình đã lưu.')
+      return () => controller.abort()
+    }
+
+    setIsLoadingAnnotations(true)
+    queryPlanReconciliation({ masterSeq, regCode }, controller.signal)
+      .then((response) => {
+        if (response?.isCanceled) return
+        if (response?.success === false) throw new Error(response.message || 'Không tải được nhật trình')
+        const rows = Array.isArray(response?.data) ? response.data : []
+        const loaded = {}
+        rows.forEach((row) => {
+          const key = String(row.IdSeq || row.DetailIdSeq || '')
+          if (!key) return
+          loaded[key] = {
+            idSeq: key,
+            remarkType: '',
+            remarkTypeCode: '',
+            remarkTypeSeq: row.RemarkTypeSeq || '',
+            remarkDescription: row.RemarkContent || '',
+            rowVersion: Number(row.RowVersion) || 0
+          }
+        })
+        setAnnotations((previous) => {
+          const merged = { ...loaded }
+          Object.keys(previous).forEach((key) => {
+            merged[key] = { ...(loaded[key] || {}), ...previous[key] }
+          })
+          return merged
+        })
+      })
+      .catch((error) => {
+        if (error?.isCanceled || error?.name === 'CanceledError') return
+        setErrorModalConfig({
+          isOpen: true,
+          title: 'Không tải được nhật trình',
+          message: String(error?.message || error),
+          type: 'danger'
+        })
+      })
+      .finally(() => setIsLoadingAnnotations(false))
+
+    return () => controller.abort()
+  }, [isOpen, initialCategory, plantKey, masterSeq, regCode])
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -369,19 +423,19 @@ export const PlanAuditDetailModal = ({
     return data.map((item, idx) => {
       const rowKey = getRowKey(item) || `ROW-${idx + 1}`
       const isDirty = Boolean(dirtyAnnotations[rowKey])
+      const annotation = annotations[rowKey] || {}
       const workingTag = isDirty ? 'U' : ''
-      const annotation = isDirty ? annotations[rowKey] || {} : {}
 
       let remarkType =
-        isDirty && annotation.remarkType !== undefined
+        annotation.remarkType !== undefined
           ? annotation.remarkType
           : item.remarkType || item.RemarkTypeName || item.RemarkType || ''
       let remarkTypeCode =
-        isDirty && annotation.remarkTypeCode !== undefined
+        annotation.remarkTypeCode !== undefined
           ? annotation.remarkTypeCode
           : item.remarkTypeCode || item.RemarkTypeCode || ''
       let remarkTypeSeq =
-        isDirty && annotation.remarkTypeSeq !== undefined
+        annotation.remarkTypeSeq !== undefined
           ? annotation.remarkTypeSeq
           : item.remarkTypeSeq || item.RemarkTypeSeq || ''
 
@@ -412,7 +466,7 @@ export const PlanAuditDetailModal = ({
       }
 
       const remarkDescription =
-        isDirty && annotation.remarkDescription !== undefined
+        annotation.remarkDescription !== undefined
           ? annotation.remarkDescription
           : item.RemarkContent || item.remarkContent || ''
 
@@ -420,6 +474,7 @@ export const PlanAuditDetailModal = ({
         ...item,
         rowKey,
         WorkingTag: workingTag,
+        workingTag,
         remarkType,
         remarkTypeCode,
         remarkTypeSeq,
@@ -427,24 +482,6 @@ export const PlanAuditDetailModal = ({
       }
     })
   }, [data, annotations, dirtyAnnotations, getRowKey, remarkTypesList])
-
-  // Lấy danh sách PIC & Máy duy nhất để lọc dropdown
-  const picOptions = useMemo(() => {
-    const set = new Set()
-    data.forEach((item) => {
-      if (item.pic || item.PicDp) set.add(item.pic || item.PicDp)
-    })
-    return Array.from(set).sort()
-  }, [data])
-
-  const machineOptions = useMemo(() => {
-    const set = new Set()
-    data.forEach((item) => {
-      const m = item.machineCode || item.machineName || item.MachineName
-      if (m) set.add(m)
-    })
-    return Array.from(set).sort()
-  }, [data])
 
   // Đếm số lượng từng loại trạng thái ĐP - SX
   const categoryCounts = useMemo(() => {
@@ -643,7 +680,7 @@ export const PlanAuditDetailModal = ({
       const colId = columns[col]?.id
 
       if (colId === 'WorkingTag') {
-        const tag = item.workingTag || ''
+        const tag = item.WorkingTag || item.workingTag || ''
         return {
           kind: GridCellKind.Text,
           data: tag,
@@ -1199,13 +1236,22 @@ export const PlanAuditDetailModal = ({
         const idSeq = anno.idSeq || matchedRow?.IdSeq || matchedRow?.idSeq || ''
         const docNo = matchedRow?.docNo || matchedRow?.orderNo || rowKey
 
-        const remarkType =
-          anno.remarkType !== undefined ? anno.remarkType : (matchedRow?.remarkType ?? '')
         let finalSeq = String(
           anno.remarkTypeSeq !== undefined
             ? anno.remarkTypeSeq
             : (matchedRow?.remarkTypeSeq ?? matchedRow?.RemarkTypeSeq ?? '')
         ).trim()
+
+        const typeFromSeq = remarkTypesList.find(
+          (t) => String(t.IdSeq || '').trim().toLowerCase() === finalSeq.toLowerCase()
+        )
+        const annotationType = String(anno.remarkType ?? '').trim()
+        const rowType = String(matchedRow?.remarkType ?? '').trim()
+        const remarkType =
+          annotationType ||
+          String(typeFromSeq?.TypeName || '').trim() ||
+          (finalSeq ? rowType : '') ||
+          (anno.remarkType === undefined ? rowType : '')
 
         if (!finalSeq && remarkType) {
           const norm = String(remarkType).trim().toLowerCase()
@@ -1243,7 +1289,8 @@ export const PlanAuditDetailModal = ({
             IdSeq: idSeq,
             RemarkTypeSeq: finalSeq,
             RemarkContent: String(remarkDescription),
-            RowVersion: Number(matchedRow.RowVersion || matchedRow.rowVersion || 1)
+            RowVersion: Number(anno.rowVersion ?? 0),
+            ReconciliationOnly: 'true'
           })
         }
       }
@@ -1263,6 +1310,7 @@ export const PlanAuditDetailModal = ({
         return
       }
 
+      let savedRows = []
       if (payload.length > 0) {
         const rowsWithoutId = payload.filter((item) => !item.IdSeq)
         if (rowsWithoutId.length) {
@@ -1274,9 +1322,15 @@ export const PlanAuditDetailModal = ({
           })
           return
         }
-        const res = await updatePlanDetail(payload, { plantKey })
+        const res = await updatePlanReconciliation(payload)
         if (res?.success === false) {
           throw new Error(res.message || 'Lưu vào cơ sở dữ liệu thất bại')
+        }
+        savedRows = Array.isArray(res?.data) ? res.data : []
+        if (savedRows.length !== payload.length) {
+          throw new Error(
+            `Máy chủ chỉ xác nhận ${savedRows.length}/${payload.length} dòng nhật trình đã lưu. Vui lòng tải lại trước khi tiếp tục.`
+          )
         }
       }
 
@@ -1286,50 +1340,82 @@ export const PlanAuditDetailModal = ({
         // ignore
       }
 
-      // Cập nhật mảng data cha để đồng bộ giao diện tức thì
-      for (const p of payload) {
-        const row = data.find(
-          (d) =>
-            String(d.IdSeq || d.idSeq || d.id) === String(p.IdSeq) ||
-            String(d.docNo || d.orderNo || d.planNo) === String(p.RoutingDocNo || p.OperationNo)
-        )
-        if (row) {
-          const anno = annotations[row.rowKey || getRowKey(row)] || {}
-          if (p.RemarkTypeSeq !== undefined) {
-            row.RemarkTypeSeq = p.RemarkTypeSeq
-            row.remarkTypeSeq = p.RemarkTypeSeq
-          }
-          if (p.RemarkContent !== undefined) {
-            row.RemarkContent = p.RemarkContent
-            row.remarkDescription = p.RemarkContent
-          }
-          if (anno.remarkType !== undefined) {
-            row.RemarkType = anno.remarkType
-            row.remarkType = anno.remarkType
-            row.RemarkTypeName = anno.remarkType
-          }
-          if (anno.remarkTypeCode !== undefined) {
-            row.RemarkTypeCode = anno.remarkTypeCode
-            row.remarkTypeCode = anno.remarkTypeCode
+      const savedById = new Map(savedRows.map((row) => [String(row.IdSeq), row]))
+      setAnnotations((previous) => {
+        const next = { ...previous }
+        for (const item of payload) {
+          const saved = savedById.get(String(item.IdSeq))
+          const rowKey = String(item.IdSeq)
+          next[rowKey] = {
+            ...(previous[rowKey] || {}),
+            idSeq: rowKey,
+            remarkTypeSeq: item.RemarkTypeSeq,
+            remarkDescription: item.RemarkContent,
+            rowVersion: Number(saved?.RowVersion) || Number(item.RowVersion) + 1
           }
         }
-      }
-
-      await onSaved?.()
+        return next
+      })
       setHasUnsavedEdits(false)
       setDirtyAnnotations({})
-      setAnnotations({})
       setShowCloseConfirm(false)
       setSaveStatus('Đã lưu thành công vào cơ sở dữ liệu!')
       setTimeout(() => setSaveStatus(''), 4000)
     } catch (error) {
       console.error('Không thể lưu phân loại và diễn giải nhật trình KHSX:', error)
-      setErrorModalConfig({
-        isOpen: true,
-        title: 'Không thể lưu thay đổi',
-        message: String(error?.message || error),
-        type: 'danger'
-      })
+      const errorMessage = String(error?.message || error)
+      if (/đã được người khác cập nhật|concurrent update|version conflict/i.test(errorMessage)) {
+        setIsLoadingAnnotations(true)
+        try {
+          const response = await queryPlanReconciliation({ masterSeq, regCode })
+          if (response?.success === false) {
+            throw new Error(response.message || 'Không tải được nhật trình mới nhất')
+          }
+          const rows = Array.isArray(response?.data) ? response.data : []
+          const latest = {}
+          rows.forEach((row) => {
+            const key = String(row.IdSeq || row.DetailIdSeq || '')
+            if (!key) return
+            latest[key] = {
+              idSeq: key,
+              remarkType: '',
+              remarkTypeCode: '',
+              remarkTypeSeq: row.RemarkTypeSeq || '',
+              remarkDescription: row.RemarkContent || '',
+              rowVersion: Number(row.RowVersion) || 0
+            }
+          })
+          // Discard the stale draft and show the current database snapshot.
+          setAnnotations(latest)
+          setDirtyAnnotations({})
+          setHasUnsavedEdits(false)
+          setShowCloseConfirm(false)
+          setSaveStatus('Đã tải nhật trình mới nhất từ máy chủ.')
+          setErrorModalConfig({
+            isOpen: true,
+            title: 'Dữ liệu đã được cập nhật',
+            message:
+              'Một người khác đã lưu trước bạn. Nhật trình mới nhất đã được tải lại; các chỉnh sửa chưa lưu của bạn đã được bỏ. Vui lòng kiểm tra và nhập lại nếu cần.',
+            type: 'warning'
+          })
+        } catch (refreshError) {
+          setErrorModalConfig({
+            isOpen: true,
+            title: 'Không tải được dữ liệu mới nhất',
+            message: `${errorMessage} Không thể tải lại nhật trình: ${String(refreshError?.message || refreshError)}`,
+            type: 'danger'
+          })
+        } finally {
+          setIsLoadingAnnotations(false)
+        }
+      } else {
+        setErrorModalConfig({
+          isOpen: true,
+          title: 'Không thể lưu thay đổi',
+          message: errorMessage,
+          type: 'danger'
+        })
+      }
     } finally {
       setIsSaving(false)
     }
@@ -1456,7 +1542,7 @@ export const PlanAuditDetailModal = ({
                 variant="ghost"
                 size="sm"
                 onClick={handleCloseRequest}
-                disabled={isSaving}
+                disabled={isSaving || isLoadingAnnotations}
                 className="uppercase text-[11px] font-bold text-slate-700 hover:text-slate-900 h-7 px-2 shrink-0 border border-slate-200"
                 title="Quay lại / Đóng nhật trình"
               >
@@ -1474,7 +1560,9 @@ export const PlanAuditDetailModal = ({
                   className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0 border border-indigo-200 bg-indigo-50/50"
                 >
                   <Save size={13} />
-                  <span>{isSaving ? 'Đang lưu...' : 'Lưu'}</span>
+                  <span>
+                    {isSaving ? 'Đang lưu...' : isLoadingAnnotations ? 'Đang tải nhật trình...' : 'Lưu đồng bộ'}
+                  </span>
                 </Button>
               )}
               {saveStatus && (
@@ -1719,7 +1807,15 @@ export const PlanAuditDetailModal = ({
           </div>
 
           {/* Hàng 3: Glide Data Grid Sheet (Bảng dữ liệu bên dưới) */}
-          <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              position: 'relative',
+              overflow: 'hidden',
+              pointerEvents: isLoadingAnnotations ? 'none' : 'auto'
+            }}
+          >
             <DataEditor
               ref={gridRef}
               columns={columns}

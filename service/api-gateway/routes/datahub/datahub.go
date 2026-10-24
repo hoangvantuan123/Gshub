@@ -3,6 +3,7 @@ package datahub
 import (
 	"api-gateway/handlers/datahub"
 	"api-gateway/internal/grpcclient"
+	"api-gateway/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +19,17 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 			remarkTypes.POST("/ProdStatsRemarkType"+operation, datahub.ProdStatsRemarkType(pool, operation))
 		}
 		remarkTypes.GET("/ProdStatsRemarkTypeQ", datahub.ProdStatsRemarkType(pool, "Q"))
+
+		reconciliation := v2.Group("/report/reconciliation")
+		{
+			planReconciliation := reconciliation.Group("/plan")
+			planReconciliation.POST("/query", datahub.PlanReconciliationQ(pool))
+			planReconciliation.POST("/update", datahub.PlanReconciliationU(pool))
+
+			statsReconciliation := reconciliation.Group("/statistics")
+			statsReconciliation.POST("/query", datahub.StatsReconciliationQ(pool))
+			statsReconciliation.POST("/update", datahub.StatsReconciliationU(pool))
+		}
 
 		machineCatalogs := v2.Group("/report/prod-machine-catalog")
 		for _, operation := range []string{"A", "U", "D", "Q"} {
@@ -59,7 +71,7 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 		}
 
 		// 3. Production Reports (V2)
-		prodReportsV2 := v2.Group("/report/production")
+		prodReportsV2 := v2.Group("/report/production", middleware.GzipReports())
 		{
 			hanoiV2 := prodReportsV2.Group("/hanoi-gs1")
 			{
@@ -178,7 +190,7 @@ func Register(r *gin.Engine, pool *grpcclient.Pool) {
 			planV1.POST("/delete-master", datahub.PlanMasterD(pool))
 		}
 
-		prodReportsV1 := v1.Group("/report/production")
+		prodReportsV1 := v1.Group("/report/production", middleware.GzipReports())
 		{
 			prodReportsV1.GET("/statistics", datahub.GetProductionStatisticsReport(pool))
 			prodReportsV1.POST("/statistics", datahub.GetProductionStatisticsReport(pool))

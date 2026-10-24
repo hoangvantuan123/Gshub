@@ -54,6 +54,28 @@ func ProdStatsDetailD(pool *grpcclient.Pool) gin.HandlerFunc {
 	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/DeleteProdStatsDetail")
 }
 
+// Dedicated reconciliation APIs share the existing request/response protobufs,
+// while keeping their HTTP workflow separate from report detail queries.
+func PlanReconciliationQ(pool *grpcclient.Pool) gin.HandlerFunc {
+	return h.HandleWithDefaults(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryPlanDetail", map[string]interface{}{
+		"reconciliationOnly": true,
+	})
+}
+
+func PlanReconciliationU(pool *grpcclient.Pool) gin.HandlerFunc {
+	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/UpdatePlanDetail")
+}
+
+func StatsReconciliationQ(pool *grpcclient.Pool) gin.HandlerFunc {
+	return h.HandleWithDefaults(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/QueryProdStatsDetail", map[string]interface{}{
+		"reconciliationOnly": true,
+	})
+}
+
+func StatsReconciliationU(pool *grpcclient.Pool) gin.HandlerFunc {
+	return h.Handle(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/UpdateProdStatsDetail")
+}
+
 // 3. Factory Specific Reports & Summary
 func GetHanoiGs1PlanReport(pool *grpcclient.Pool) gin.HandlerFunc {
 	return h.HandleWithDefaults(pool, config.Cfg.HostGRPCDatahub, "/datahub.DataHubService/GetProductionPlanReport", map[string]interface{}{

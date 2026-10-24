@@ -2,12 +2,15 @@ package plan_report
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
 	"time"
 
 	models "service-datahub/models/report"
+	"service-datahub/services/report/report_cache"
 	"service-datahub/services/report/report_query"
 
 	"go.uber.org/zap"
@@ -17,17 +20,73 @@ import (
 type PlanReportService struct {
 	db     *gorm.DB
 	logger *zap.Logger
+	cache  *report_cache.Cache
 }
 
 func NewPlanReportService(db *gorm.DB, logger *zap.Logger) *PlanReportService {
 	return &PlanReportService{
 		db:     db,
 		logger: logger,
+		cache:  report_cache.New(db, logger),
 	}
 }
 
 // GenerateProductionPlanReport: Xử lý và tổng hợp toàn diện Báo Cáo Kế Hoạch Sản Xuất
 func (s *PlanReportService) GenerateProductionPlanReport(ctx context.Context, filters map[string]string) (*models.PlanReportResponse, error) {
+	if s.cache == nil {
+		return s.generateProductionPlanReport(ctx, filters)
+	}
+	report, cacheHit, err := report_cache.GetOrCompute(s.cache, ctx, "plan", filters, func() (*models.PlanReportResponse, error) {
+		return s.generateProductionPlanReport(ctx, filters)
+	})
+	if cacheHit && s.logger != nil {
+		s.logger.Info("Production plan report result cache hit", zap.String("cache_key", report_cache.StableCacheKey("plan", filters)))
+	}
+	return report, err
+}
+
+// GenerateProductionPlanReportJSON serves the compact gateway transport from
+// the shared result cache without materializing and re-encoding every detail row.
+func (s *PlanReportService) GenerateProductionPlanReportJSON(ctx context.Context, filters map[string]string) ([]byte, models.PlanPageInfo, error) {
+	started := time.Now()
+	if s.cache == nil {
+		report, err := s.generateProductionPlanReport(ctx, filters)
+		if err != nil {
+			return nil, models.PlanPageInfo{}, err
+		}
+		raw, err := json.Marshal(report)
+		if err != nil {
+			return nil, models.PlanPageInfo{}, err
+		}
+		return raw, report.Pagination, nil
+	}
+
+	raw, cacheHit, err := report_cache.GetOrComputeJSON(s.cache, ctx, "plan", filters, func() (*models.PlanReportResponse, error) {
+		return s.generateProductionPlanReport(ctx, filters)
+	})
+	if err != nil {
+		return nil, models.PlanPageInfo{}, err
+	}
+	var metadata struct {
+		Pagination *models.PlanPageInfo `json:"pagination"`
+	}
+	if err := json.Unmarshal(raw, &metadata); err != nil {
+		return nil, models.PlanPageInfo{}, fmt.Errorf("decode compact plan report metadata: %w", err)
+	}
+	if metadata.Pagination == nil {
+		return nil, models.PlanPageInfo{}, fmt.Errorf("compact plan report is missing pagination metadata")
+	}
+	if s.logger != nil {
+		s.logger.Info("Production plan report compact response",
+			zap.Bool("cache_hit", cacheHit),
+			zap.Int("response_bytes", len(raw)),
+			zap.Duration("duration", time.Since(started)),
+		)
+	}
+	return raw, *metadata.Pagination, nil
+}
+
+func (s *PlanReportService) generateProductionPlanReport(ctx context.Context, filters map[string]string) (*models.PlanReportResponse, error) {
 	started := time.Now()
 	regCode := getFilterValue(filters, "regCode", "RegCode", "reg_code")
 	masterSeq := getFilterValue(filters, "masterSeq", "MasterSeq", "master_seq")

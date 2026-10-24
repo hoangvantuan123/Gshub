@@ -2,6 +2,7 @@ package prod_stats_detail
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -11,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 	models "service-datahub/models/report"
+	"service-datahub/services/report/report_cache"
 	"service-datahub/services/report/report_query"
 )
 
@@ -412,6 +414,60 @@ func (s *ProdStatsDetailService) getOutsideFactoryOperations(
 
 // GenerateProductionStatisticsReport: API chính tính toán và tổng hợp báo cáo TKSX
 func (s *ProdStatsDetailService) GenerateProductionStatisticsReport(ctx context.Context, filters map[string]string) (*models.ProdStatsReportResponse, error) {
+	if s.cache == nil {
+		return s.generateProductionStatisticsReport(ctx, filters)
+	}
+	report, cacheHit, err := report_cache.GetOrCompute(s.cache, ctx, "statistics", filters, func() (*models.ProdStatsReportResponse, error) {
+		return s.generateProductionStatisticsReport(ctx, filters)
+	})
+	if cacheHit && s.logger != nil {
+		s.logger.Info("Production statistics report result cache hit", zap.String("cache_key", report_cache.StableCacheKey("statistics", filters)))
+	}
+	return report, err
+}
+
+// GenerateProductionStatisticsReportJSON serves the compact gateway transport
+// from the shared result cache without decoding and re-encoding every detail row.
+func (s *ProdStatsDetailService) GenerateProductionStatisticsReportJSON(ctx context.Context, filters map[string]string) ([]byte, models.PlanPageInfo, error) {
+	started := time.Now()
+	if s.cache == nil {
+		report, err := s.generateProductionStatisticsReport(ctx, filters)
+		if err != nil {
+			return nil, models.PlanPageInfo{}, err
+		}
+		raw, err := json.Marshal(report)
+		if err != nil {
+			return nil, models.PlanPageInfo{}, err
+		}
+		return raw, report.Pagination, nil
+	}
+
+	raw, cacheHit, err := report_cache.GetOrComputeJSON(s.cache, ctx, "statistics", filters, func() (*models.ProdStatsReportResponse, error) {
+		return s.generateProductionStatisticsReport(ctx, filters)
+	})
+	if err != nil {
+		return nil, models.PlanPageInfo{}, err
+	}
+	var metadata struct {
+		Pagination *models.PlanPageInfo `json:"pagination"`
+	}
+	if err := json.Unmarshal(raw, &metadata); err != nil {
+		return nil, models.PlanPageInfo{}, fmt.Errorf("decode compact statistics report metadata: %w", err)
+	}
+	if metadata.Pagination == nil {
+		return nil, models.PlanPageInfo{}, fmt.Errorf("compact statistics report is missing pagination metadata")
+	}
+	if s.logger != nil {
+		s.logger.Info("Production statistics report compact response",
+			zap.Bool("cache_hit", cacheHit),
+			zap.Int("response_bytes", len(raw)),
+			zap.Duration("duration", time.Since(started)),
+		)
+	}
+	return raw, *metadata.Pagination, nil
+}
+
+func (s *ProdStatsDetailService) generateProductionStatisticsReport(ctx context.Context, filters map[string]string) (*models.ProdStatsReportResponse, error) {
 	started := time.Now()
 	regCode := getFilterValue(filters, "regCode", "RegCode", "reg_code", "Reg_Code")
 	masterSeq := getFilterValue(filters, "masterSeq", "MasterSeq", "master_seq")

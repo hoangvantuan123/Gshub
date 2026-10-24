@@ -2,6 +2,8 @@ package database
 
 import (
 	"fmt"
+	stdlog "log"
+	"os"
 	"time"
 
 	"service-datahub/config"
@@ -23,7 +25,15 @@ func InitDB(cfg *config.Config, log *zap.Logger) (*gorm.DB, error) {
 		Logger: logger.Default.LogMode(logger.Silent),
 	}
 	if cfg.Server.Env == "development" {
-		gormConfig.Logger = logger.Default.LogMode(logger.Warn)
+		// Keep slow-query timing visible, but never interpolate report JSONB payloads
+		// into logs. Result-cache writes can contain a complete large report document.
+		gormConfig.Logger = logger.New(stdlog.New(os.Stdout, "\r\n", stdlog.LstdFlags), logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: false,
+			ParameterizedQueries:      true,
+			Colorful:                  false,
+		})
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
@@ -125,6 +135,8 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		&reportModels.ERPPlanMaster{},
 		&reportModels.ERPPlanDetail{},
 		&reportModels.ERPProdStatsDetail{},
+		&reportModels.ERPReportResultCache{},
+		&reportModels.ERPReportReconciliation{},
 		&reportModels.ERPMachineComparisonDetail{},
 		&reportModels.ERPProdStatsRemarkType{},
 		&reportModels.ERPProdMachineCatalog{},

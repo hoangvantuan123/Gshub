@@ -5,6 +5,7 @@ import (
 	"time"
 
 	models "service-datahub/models/report"
+	"service-datahub/services/report/report_cache"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -13,6 +14,7 @@ import (
 type ProdStatsDetailService struct {
 	db     *gorm.DB
 	logger *zap.Logger
+	cache  *report_cache.Cache
 
 	totalAllCount atomic.Int64
 }
@@ -21,6 +23,7 @@ func NewProdStatsDetailService(db *gorm.DB, logger *zap.Logger) *ProdStatsDetail
 	svc := &ProdStatsDetailService{
 		db:     db,
 		logger: logger,
+		cache:  report_cache.New(db, logger),
 	}
 
 	go svc.initTotalAllCounter()

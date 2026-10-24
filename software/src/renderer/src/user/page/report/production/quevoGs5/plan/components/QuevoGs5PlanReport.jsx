@@ -62,6 +62,7 @@ export default function QuevoGs5PlanReport(props) {
     plantName = 'Nhà máy GS5 Quế Võ',
     masterList = [],
     selectedMasterKey,
+    currentMaster,
     onSelectMaster,
     onRefreshMaster,
     permissions = {},
@@ -1559,10 +1560,11 @@ export default function QuevoGs5PlanReport(props) {
         initialCategory={auditModalCategory}
         data={sortedData || []}
         plantKey={plantKey}
+        masterSeq={currentMaster?.MasterSeq || currentMaster?.IdSeq || ''}
+        regCode={currentMaster?.RegCode || currentMaster?.regCode || selectedMasterKey || ''}
         plantName={plantName}
         localOnly={true}
         showWorkingTag={true}
-        onSaved={onRefreshMaster}
       />
 
       {/* PLAN FORMULA HANDBOOK MODAL */}

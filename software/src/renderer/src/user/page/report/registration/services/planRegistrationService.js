@@ -203,6 +203,54 @@ export const updateProdStatsDetail = async (items = [], options = {}, signal = n
   })
 }
 
+// Nhật trình đối soát dùng API và bảng riêng; chỉ được gọi khi người dùng mở
+// cửa sổ đối soát hoặc bấm lưu trong cửa sổ đó.
+export const queryPlanReconciliation = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/reconciliation/plan/query',
+    method: 'POST',
+    data: {
+      masterSeq: filters.masterSeq || filters.MasterSeq || '',
+      regCode: filters.regCode || filters.RegCode || '',
+      reconciliationOnly: true
+    },
+    signal
+  })
+}
+
+export const updatePlanReconciliation = async (items = [], signal = null) => {
+  const markedItems = items.map((item) => ({ ...item, ReconciliationOnly: 'true' }))
+  return request({
+    url: '/report/reconciliation/plan/update',
+    method: 'POST',
+    data: { dataJson: JSON.stringify(markedItems) },
+    signal
+  })
+}
+
+export const queryStatsReconciliation = async (filters = {}, signal = null) => {
+  return request({
+    url: '/report/reconciliation/statistics/query',
+    method: 'POST',
+    data: {
+      masterSeq: filters.masterSeq || filters.MasterSeq || '',
+      regCode: filters.regCode || filters.RegCode || '',
+      reconciliationOnly: true
+    },
+    signal
+  })
+}
+
+export const updateStatsReconciliation = async (items = [], signal = null) => {
+  const markedItems = items.map((item) => ({ ...item, ReconciliationOnly: 'true' }))
+  return request({
+    url: '/report/reconciliation/statistics/update',
+    method: 'POST',
+    data: { dataJson: JSON.stringify(markedItems) },
+    signal
+  })
+}
+
 // 5. Xóa đợt đăng ký Master (kèm cascade xóa sạch detail 2 bảng)
 export const deletePlanMaster = async (masterSeqs = [], signal = null) => {
   return request({
@@ -315,6 +363,10 @@ export default {
   updatePlanDetail,
   queryProdStatsDetail,
   updateProdStatsDetail,
+  queryPlanReconciliation,
+  updatePlanReconciliation,
+  queryStatsReconciliation,
+  updateStatsReconciliation,
   queryHanoiGs1PlanReport,
   queryHanoiGs1StatReport,
   queryQuevoGs5PlanReport,

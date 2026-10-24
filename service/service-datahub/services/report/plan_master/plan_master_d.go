@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	models "service-datahub/models/report"
+	"service-datahub/services/report/report_cache"
 
 	"gorm.io/gorm"
 )
@@ -25,9 +26,26 @@ func (s *PlanMasterService) PlanMasterD(
 		if err := tx.Where(`"IdSeq" IN ? OR "RegCode" IN ?`, masterSeqs, masterSeqs).Find(&masters).Error; err == nil && len(masters) > 0 {
 			var allRegCodes []string
 			var allIdSeqs []string
+			planBatches := make([]report_cache.BatchIdentity, 0, len(masters))
+			statBatches := make([]report_cache.BatchIdentity, 0, len(masters))
 			for _, m := range masters {
 				allRegCodes = append(allRegCodes, m.RegCode)
 				allIdSeqs = append(allIdSeqs, m.IdSeq)
+				identity := report_cache.BatchIdentity{MasterSeq: m.IdSeq, RegCode: m.RegCode}
+				if report_cache.NormalizeReportType(m.ReportType) == "statistics" {
+					statBatches = append(statBatches, identity)
+				} else {
+					planBatches = append(planBatches, identity)
+				}
+			}
+			if err := tx.Where(`"MasterSeq" IN ? OR "RegCode" IN ?`, allIdSeqs, allRegCodes).Delete(&models.ERPReportReconciliation{}).Error; err != nil {
+				return fmt.Errorf("lỗi xóa nhật trình đối soát: %w", err)
+			}
+			if err := report_cache.InvalidateBatchResults(tx, "plan", planBatches); err != nil {
+				return fmt.Errorf("lỗi xóa cache báo cáo KHSX: %w", err)
+			}
+			if err := report_cache.InvalidateBatchResults(tx, "statistics", statBatches); err != nil {
+				return fmt.Errorf("lỗi xóa cache báo cáo TKSX: %w", err)
 			}
 			// 1. Xóa các dòng KHSX trong _ERPPlanDetail
 			if err := tx.Where(`"MasterSeq" IN ? OR "RegCode" IN ?`, allIdSeqs, allRegCodes).Delete(&models.ERPPlanDetail{}).Error; err != nil {
@@ -42,6 +60,19 @@ func (s *PlanMasterService) PlanMasterD(
 				return fmt.Errorf("lỗi khi xóa bản ghi Master: %w", err)
 			}
 		} else {
+			if err := tx.Where(`"MasterSeq" IN ? OR "RegCode" IN ?`, masterSeqs, masterSeqs).Delete(&models.ERPReportReconciliation{}).Error; err != nil {
+				return fmt.Errorf("lỗi xóa nhật trình đối soát: %w", err)
+			}
+			identities := make([]report_cache.BatchIdentity, 0, len(masterSeqs))
+			for _, seq := range masterSeqs {
+				identities = append(identities, report_cache.BatchIdentity{MasterSeq: seq, RegCode: seq})
+			}
+			if err := report_cache.InvalidateBatchResults(tx, "plan", identities); err != nil {
+				return fmt.Errorf("lỗi xóa cache báo cáo KHSX: %w", err)
+			}
+			if err := report_cache.InvalidateBatchResults(tx, "statistics", identities); err != nil {
+				return fmt.Errorf("lỗi xóa cache báo cáo TKSX: %w", err)
+			}
 			if err := tx.Where(`"MasterSeq" IN ? OR "RegCode" IN ?`, masterSeqs, masterSeqs).Delete(&models.ERPPlanDetail{}).Error; err != nil {
 				return fmt.Errorf("lỗi khi xóa các dòng chi tiết KHSX liên kết: %w", err)
 			}

@@ -9,6 +9,9 @@ import (
 
 	models "service-datahub/models/report"
 	"service-datahub/services"
+	"service-datahub/services/report/report_cache"
+
+	"gorm.io/gorm"
 )
 
 // PlanMasterA - Thêm mới bản ghi Master đăng ký báo cáo
@@ -101,7 +104,12 @@ func (s *PlanMasterService) PlanMasterA(
 		UpdatedAt:     &now,
 	}
 
-	if err := s.db.WithContext(ctx).Create(&record).Error; err != nil {
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&record).Error; err != nil {
+			return err
+		}
+		return report_cache.InvalidateBatchResults(tx, report_cache.NormalizeReportType(record.ReportType), []report_cache.BatchIdentity{{MasterSeq: record.IdSeq, RegCode: record.RegCode}})
+	}); err != nil {
 		return nil, fmt.Errorf("lỗi khi tạo master: %w", err)
 	}
 

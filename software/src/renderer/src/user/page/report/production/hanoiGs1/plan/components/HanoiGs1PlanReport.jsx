@@ -57,6 +57,7 @@ export default function HanoiGs1PlanReport(props) {
     factoryOptions,
     masterList = [],
     selectedMasterKey,
+    currentMaster,
     onSelectMaster,
     onRefreshMaster,
     permissions = {},
@@ -1674,10 +1675,11 @@ export default function HanoiGs1PlanReport(props) {
         initialCategory={auditModalCategory}
         data={sortedData || []}
         plantKey={plantKey}
+        masterSeq={currentMaster?.MasterSeq || currentMaster?.IdSeq || ''}
+        regCode={currentMaster?.RegCode || currentMaster?.regCode || selectedMasterKey || ''}
         plantName={plantName}
         localOnly={true}
         showWorkingTag={true}
-        onSaved={onRefreshMaster}
       />
 
       {/* PLAN FORMULA HANDBOOK MODAL */}

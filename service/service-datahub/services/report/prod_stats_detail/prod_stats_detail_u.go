@@ -7,6 +7,7 @@ import (
 	"time"
 
 	models "service-datahub/models/report"
+	"service-datahub/services/report/report_cache"
 
 	"gorm.io/gorm"
 )
@@ -23,22 +24,29 @@ func (s *ProdStatsDetailService) ProdStatsDetailU(
 	}
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		changedBatches := make([]report_cache.BatchIdentity, 0, len(items))
 		for _, item := range items {
 			if item.IdSeq == "" && (item.StatTicketNo == nil || *item.StatTicketNo == "") {
 				continue
 			}
 
 			// 1. Kiểm tra RowVersion nếu client gửi lên
-			if item.RowVersion > 0 && item.IdSeq != "" {
+			var currentRows []models.ERPProdStatsDetail
+			if item.IdSeq != "" {
 				var current models.ERPProdStatsDetail
-				if err := tx.Select(`"IdSeq", "RowVersion"`).Where(`"IdSeq" = ?`, item.IdSeq).First(&current).Error; err != nil {
+				if err := tx.Select(`"IdSeq", "MasterSeq", "RegCode", "RowVersion"`).Where(`"IdSeq" = ?`, item.IdSeq).First(&current).Error; err != nil {
 					if errors.Is(err, gorm.ErrRecordNotFound) {
 						return fmt.Errorf("không tìm thấy bản ghi TKSX với IdSeq=%s", item.IdSeq)
 					}
 					return err
 				}
-				if current.RowVersion != item.RowVersion {
+				if item.RowVersion > 0 && current.RowVersion != item.RowVersion {
 					return fmt.Errorf("xung đột phiên bản: Phiếu thống kê %s đã bị thay đổi bởi người khác (version hiện tại: %d, version của bạn: %d). Vui lòng tải lại trang!", item.IdSeq, current.RowVersion, item.RowVersion)
+				}
+				currentRows = append(currentRows, current)
+			} else if item.StatTicketNo != nil && *item.StatTicketNo != "" {
+				if err := tx.Select(`"MasterSeq", "RegCode"`).Where(`"StatTicketNo" = ?`, *item.StatTicketNo).Find(&currentRows).Error; err != nil {
+					return err
 				}
 			}
 
@@ -73,8 +81,13 @@ func (s *ProdStatsDetailService) ProdStatsDetailU(
 			if item.RowVersion > 0 && item.IdSeq != "" && res.RowsAffected == 0 {
 				return fmt.Errorf("xung đột phiên bản: Phiếu thống kê %s đã bị cập nhật đồng thời bởi người dùng khác. Vui lòng tải lại!", item.IdSeq)
 			}
+			if res.RowsAffected > 0 {
+				for _, row := range currentRows {
+					changedBatches = append(changedBatches, report_cache.BatchIdentity{MasterSeq: row.MasterSeq, RegCode: row.RegCode})
+				}
+			}
 		}
-		return nil
+		return report_cache.InvalidateBatchResults(tx, "statistics", changedBatches)
 	})
 
 	if err != nil {

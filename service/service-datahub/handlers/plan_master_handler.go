@@ -13,6 +13,7 @@ import (
 	"service-datahub/services/report/plan_detail"
 	"service-datahub/services/report/plan_master"
 	"service-datahub/services/report/prod_stats_detail"
+	"service-datahub/services/report/report_cache"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -196,6 +197,9 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 			tx.Where(`"RegCode" = ? OR ("FactoryCode" = ? AND ("ReportType" = 'plan' OR "ReportType" = 'khsx') AND "ApplyDate" = ?)`, regCode, req.FactoryCode, req.ApplyDate).Find(&existingMasters)
 		}
 		for _, em := range existingMasters {
+			if err := report_cache.InvalidateBatchResults(tx, report_cache.NormalizeReportType(em.ReportType), []report_cache.BatchIdentity{{MasterSeq: em.IdSeq, RegCode: em.RegCode}}); err != nil {
+				return fmt.Errorf("lỗi làm mới cache báo cáo cũ: %w", err)
+			}
 			// Xóa các detail cũ tương ứng
 			tx.Where(`"MasterSeq" = ? OR "RegCode" = ?`, em.IdSeq, em.RegCode).Delete(&models.ERPProdStatsDetail{})
 			tx.Where(`"MasterSeq" = ? OR "RegCode" = ?`, em.IdSeq, em.RegCode).Delete(&models.ERPPlanDetail{})
@@ -239,6 +243,9 @@ func (h *PlanMasterHandler) PlanRegistrationSave(c *gin.Context) {
 
 		if err := tx.Create(&createdMaster).Error; err != nil {
 			return fmt.Errorf("lỗi khi tạo bản ghi Master: %w", err)
+		}
+		if err := report_cache.InvalidateBatchResults(tx, report_cache.NormalizeReportType(reportType), []report_cache.BatchIdentity{{MasterSeq: createdMaster.IdSeq, RegCode: createdMaster.RegCode}}); err != nil {
+			return fmt.Errorf("lỗi làm mới cache báo cáo tổng hợp: %w", err)
 		}
 
 		if reportType == "statistics" || reportType == "tksx" {

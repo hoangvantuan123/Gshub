@@ -12,7 +12,10 @@ import { Button } from '@renderer/components/ui/button'
 import { PureButton, PureSelect } from './reportUIComponents'
 import { DEFAULT_GRID_THEME } from '@renderer/user/components/hooks/sheet/useTableCellTheme'
 import { queryProdStatsRemarkTypes } from '@renderer/user/page/report/registration/remarkType/remarkTypeService'
-import { updateProdStatsDetail } from '@renderer/user/page/report/registration/services/planRegistrationService'
+import {
+  queryStatsReconciliation,
+  updateStatsReconciliation
+} from '@renderer/user/page/report/registration/services/planRegistrationService'
 import useTableManager from '@renderer/user/components/hooks/sheet/useTableManager'
 import LayoutMenuSheet from '@renderer/user/components/sheet/jsx/layoutMenu'
 import LayoutStatusMenuSheet from '@renderer/user/components/sheet/jsx/layoutStatusMenu'
@@ -161,6 +164,8 @@ export const RuntimeAuditDetailModal = ({
   data = [],
   plantName = '',
   plantKey = 'production',
+  masterSeq = '',
+  regCode = '',
   canEdit = true,
   localOnly = true,
   showWorkingTag = true,
@@ -181,6 +186,7 @@ export const RuntimeAuditDetailModal = ({
   ])
   const [hiddenColumns, setHiddenColumns] = useState([])
   const [annotations, setAnnotations] = useState({})
+  const [isLoadingAnnotations, setIsLoadingAnnotations] = useState(false)
   const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false)
   const [dirtyAnnotations, setDirtyAnnotations] = useState({})
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
@@ -194,6 +200,8 @@ export const RuntimeAuditDetailModal = ({
   const [saveStatus, setSaveStatus] = useState('')
   const [remarkTypesList, setRemarkTypesList] = useState(() => cachedRemarkTypes || [])
   const gridRef = useRef(null)
+  const reportRowsRef = useRef(data)
+  reportRowsRef.current = data
   const [keybindings] = useState({ downFill: true, rightFill: true, selectColumn: true })
   const [gridSelection, setGridSelection] = useState({
     columns: CompactSelection.empty(),
@@ -205,7 +213,9 @@ export const RuntimeAuditDetailModal = ({
     if (!isOpen) return
     try {
       localStorage.removeItem(`prod-ticket-audit:${plantKey}`)
-    } catch { }
+    } catch {
+      // Ignore unavailable local storage.
+    }
     setAnnotations({})
     setHasUnsavedEdits(false)
     setDirtyAnnotations({})
@@ -217,7 +227,69 @@ export const RuntimeAuditDetailModal = ({
     } else {
       fetchRemarkTypesCached().then((records) => setRemarkTypesList(records))
     }
-  }, [isOpen, plantKey])
+
+    const controller = new AbortController()
+    if (!masterSeq && !regCode) {
+      setIsLoadingAnnotations(false)
+      setSaveStatus('Không xác định được đợt đăng ký để tải nhật trình đã lưu.')
+      return () => controller.abort()
+    }
+
+    setIsLoadingAnnotations(true)
+    queryStatsReconciliation({ masterSeq, regCode }, controller.signal)
+      .then((response) => {
+        if (response?.isCanceled) return
+        if (response?.success === false) throw new Error(response.message || 'Không tải được nhật trình')
+        const rows = Array.isArray(response?.data) ? response.data : []
+        const loaded = {}
+        let ticketByDetailId = null
+        rows.forEach((note) => {
+          const detailId = String(note.IdSeq || note.DetailIdSeq || '')
+          if (!detailId) return
+          if (!note.StatTicketNo && !ticketByDetailId) {
+            ticketByDetailId = new Map()
+            reportRowsRef.current.forEach((row) => {
+              const id = String(row.IdSeq || row.idSeq || row.Id || row.id || '')
+              const ticket = row.StatTicketNo || row.ticketNo || row.statTicketNo
+              if (id && ticket) ticketByDetailId.set(id, String(ticket))
+            })
+          }
+          const reportTicket = ticketByDetailId?.get(detailId) || ''
+          const ticketKey = String(
+            note.StatTicketNo || reportTicket || ''
+          )
+          if (!ticketKey) return
+          loaded[ticketKey] = {
+            idSeq: detailId,
+            ticketNo: ticketKey,
+            remarkType: '',
+            remarkTypeCode: '',
+            remarkTypeSeq: note.RemarkTypeSeq || '',
+            remarkDescription: note.RemarkContent || '',
+            rowVersion: Number(note.RowVersion) || 0
+          }
+        })
+        setAnnotations((previous) => {
+          const merged = { ...loaded }
+          Object.keys(previous).forEach((key) => {
+            merged[key] = { ...(loaded[key] || {}), ...previous[key] }
+          })
+          return merged
+        })
+      })
+      .catch((error) => {
+        if (error?.isCanceled || error?.name === 'CanceledError') return
+        setErrorModalConfig({
+          isOpen: true,
+          title: 'Không tải được nhật trình',
+          message: String(error?.message || error),
+          type: 'danger'
+        })
+      })
+      .finally(() => setIsLoadingAnnotations(false))
+
+    return () => controller.abort()
+  }, [isOpen, plantKey, masterSeq, regCode])
 
   const remarkTypesForModal = useMemo(() => {
     return [
@@ -462,19 +534,19 @@ export const RuntimeAuditDetailModal = ({
 
       const workingKey = String(ticketNo)
       const isDirty = Boolean(dirtyAnnotations[workingKey])
+      const annotation = annotations[workingKey] || {}
       const workingTag = isDirty ? 'U' : ''
-      const annotation = isDirty ? annotations[workingKey] || {} : {}
 
       let remarkType =
-        isDirty && annotation.remarkType !== undefined
+        annotation.remarkType !== undefined
           ? annotation.remarkType
           : item.remarkType || item.RemarkTypeName || item.RemarkType || ''
       let remarkTypeCode =
-        isDirty && annotation.remarkTypeCode !== undefined
+        annotation.remarkTypeCode !== undefined
           ? annotation.remarkTypeCode
           : item.remarkTypeCode || item.RemarkTypeCode || ''
       let remarkTypeSeq =
-        isDirty && annotation.remarkTypeSeq !== undefined
+        annotation.remarkTypeSeq !== undefined
           ? annotation.remarkTypeSeq
           : item.remarkTypeSeq || item.RemarkTypeSeq || ''
 
@@ -505,7 +577,7 @@ export const RuntimeAuditDetailModal = ({
       }
 
       const remarkDescription =
-        isDirty && annotation.remarkDescription !== undefined
+        annotation.remarkDescription !== undefined
           ? annotation.remarkDescription
           : item.RemarkContent || item.remarkContent || ''
 
@@ -1053,14 +1125,22 @@ export const RuntimeAuditDetailModal = ({
         )
         const idSeq = anno.idSeq || matchedRow?.idSeq || matchedRow?.IdSeq || ''
         const statTicketNo = matchedRow?.ticketNo || ticketKey
-        const remarkType =
-          anno.remarkType !== undefined ? anno.remarkType : (matchedRow?.remarkType ?? '')
-
         let finalSeq = String(
           anno.remarkTypeSeq !== undefined
             ? anno.remarkTypeSeq
             : (matchedRow?.remarkTypeSeq ?? matchedRow?.RemarkTypeSeq ?? '')
         ).trim()
+
+        const typeFromSeq = remarkTypesList.find(
+          (t) => String(t.IdSeq || '').trim().toLowerCase() === finalSeq.toLowerCase()
+        )
+        const annotationType = String(anno.remarkType ?? '').trim()
+        const rowType = String(matchedRow?.remarkType ?? '').trim()
+        const remarkType =
+          annotationType ||
+          String(typeFromSeq?.TypeName || '').trim() ||
+          (finalSeq ? rowType : '') ||
+          (anno.remarkType === undefined ? rowType : '')
 
         if (!finalSeq && remarkType) {
           const norm = String(remarkType).trim().toLowerCase()
@@ -1095,9 +1175,11 @@ export const RuntimeAuditDetailModal = ({
 
         payload.push({
           IdSeq: idSeq,
+          StatTicketNo: statTicketNo,
           RemarkTypeSeq: finalSeq,
           RemarkContent: String(remarkDescription),
-          RowVersion: Number(matchedRow?.RowVersion || matchedRow?.rowVersion || 1)
+          RowVersion: Number(anno.rowVersion ?? 0),
+          ReconciliationOnly: 'true'
         })
       }
 
@@ -1116,6 +1198,7 @@ export const RuntimeAuditDetailModal = ({
         return
       }
 
+      let savedRows = []
       if (payload.length > 0) {
         const rowsWithoutId = payload.filter((item) => !item.IdSeq)
         if (rowsWithoutId.length) {
@@ -1127,9 +1210,15 @@ export const RuntimeAuditDetailModal = ({
           })
           return
         }
-        const res = await updateProdStatsDetail(payload, { plantKey })
+        const res = await updateStatsReconciliation(payload)
         if (res && res.success === false) {
           throw new Error(res.message || 'Lưu vào cơ sở dữ liệu thất bại')
+        }
+        savedRows = Array.isArray(res?.data) ? res.data : []
+        if (savedRows.length !== payload.length) {
+          throw new Error(
+            `Máy chủ chỉ xác nhận ${savedRows.length}/${payload.length} dòng nhật trình đã lưu. Vui lòng tải lại trước khi tiếp tục.`
+          )
         }
       }
 
@@ -1139,50 +1228,98 @@ export const RuntimeAuditDetailModal = ({
         // ignore
       }
 
-      // Cập nhật dữ liệu báo cáo cha để đồng bộ giao diện
-      for (const p of payload) {
-        const row = data.find(
-          (d) =>
-            String(d.StatTicketNo || d.ticketNo || d.statTicketNo || d.RegCode) ===
-            String(p.StatTicketNo) ||
-            String(d.IdSeq || d.idSeq || d.Id || d.id) === String(p.IdSeq)
-        )
-        if (row) {
-          const anno = annotations[p.StatTicketNo] || {}
-          if (p.RemarkTypeSeq !== undefined) {
-            row.RemarkTypeSeq = p.RemarkTypeSeq
-            row.remarkTypeSeq = p.RemarkTypeSeq
-          }
-          if (p.RemarkContent !== undefined) {
-            row.RemarkContent = p.RemarkContent
-            row.remarkDescription = p.RemarkContent
-          }
-          if (anno.remarkType !== undefined) {
-            row.RemarkType = anno.remarkType
-            row.remarkType = anno.remarkType
-            row.RemarkTypeName = anno.remarkType
-          }
-          if (anno.remarkTypeCode !== undefined) {
-            row.RemarkTypeCode = anno.remarkTypeCode
-            row.remarkTypeCode = anno.remarkTypeCode
+      const savedById = new Map(savedRows.map((row) => [String(row.IdSeq), row]))
+      setAnnotations((previous) => {
+        const next = { ...previous }
+        for (const item of payload) {
+          const key = String(item.StatTicketNo || item.IdSeq)
+          const saved = savedById.get(String(item.IdSeq))
+          next[key] = {
+            ...(previous[key] || {}),
+            idSeq: item.IdSeq,
+            ticketNo: item.StatTicketNo,
+            remarkTypeSeq: item.RemarkTypeSeq,
+            remarkDescription: item.RemarkContent,
+            rowVersion: Number(saved?.RowVersion) || Number(item.RowVersion) + 1
           }
         }
-      }
-
+        return next
+      })
       setHasUnsavedEdits(false)
       setDirtyAnnotations({})
-      setAnnotations({})
       setShowCloseConfirm(false)
       setSaveStatus('Đã lưu thành công vào cơ sở dữ liệu!')
       setTimeout(() => setSaveStatus(''), 4000)
     } catch (error) {
       console.error('Không thể lưu phân loại và diễn giải nhật trình:', error)
-      setErrorModalConfig({
-        isOpen: true,
-        title: 'Không thể lưu thay đổi',
-        message: String(error?.message || error),
-        type: 'danger'
-      })
+      const errorMessage = String(error?.message || error)
+      if (/đã được người khác cập nhật|concurrent update|version conflict/i.test(errorMessage)) {
+        setIsLoadingAnnotations(true)
+        try {
+          const response = await queryStatsReconciliation({ masterSeq, regCode })
+          if (response?.success === false) {
+            throw new Error(response.message || 'Không tải được nhật trình mới nhất')
+          }
+          const rows = Array.isArray(response?.data) ? response.data : []
+          const latest = {}
+          let ticketByDetailId = null
+          rows.forEach((note) => {
+            const detailId = String(note.IdSeq || note.DetailIdSeq || '')
+            if (!detailId) return
+            if (!note.StatTicketNo && !ticketByDetailId) {
+              ticketByDetailId = new Map()
+              reportRowsRef.current.forEach((row) => {
+                const id = String(row.IdSeq || row.idSeq || row.Id || row.id || '')
+                const ticket = row.StatTicketNo || row.ticketNo || row.statTicketNo
+                if (id && ticket) ticketByDetailId.set(id, String(ticket))
+              })
+            }
+            const ticketKey = String(
+              note.StatTicketNo || ticketByDetailId?.get(detailId) || ''
+            )
+            if (!ticketKey) return
+            latest[ticketKey] = {
+              idSeq: detailId,
+              ticketNo: ticketKey,
+              remarkType: '',
+              remarkTypeCode: '',
+              remarkTypeSeq: note.RemarkTypeSeq || '',
+              remarkDescription: note.RemarkContent || '',
+              rowVersion: Number(note.RowVersion) || 0
+            }
+          })
+          // A conflict means this draft is based on an old RowVersion. Replace it
+          // with the server snapshot so a reopen or another save cannot replay it.
+          setAnnotations(latest)
+          setDirtyAnnotations({})
+          setHasUnsavedEdits(false)
+          setShowCloseConfirm(false)
+          setSaveStatus('Đã tải nhật trình mới nhất từ máy chủ.')
+          setErrorModalConfig({
+            isOpen: true,
+            title: 'Dữ liệu đã được cập nhật',
+            message:
+              'Một người khác đã lưu trước bạn. Nhật trình mới nhất đã được tải lại; các chỉnh sửa chưa lưu của bạn đã được bỏ. Vui lòng kiểm tra và nhập lại nếu cần.',
+            type: 'warning'
+          })
+        } catch (refreshError) {
+          setErrorModalConfig({
+            isOpen: true,
+            title: 'Không tải được dữ liệu mới nhất',
+            message: `${errorMessage} Không thể tải lại nhật trình: ${String(refreshError?.message || refreshError)}`,
+            type: 'danger'
+          })
+        } finally {
+          setIsLoadingAnnotations(false)
+        }
+      } else {
+        setErrorModalConfig({
+          isOpen: true,
+          title: 'Không thể lưu thay đổi',
+          message: errorMessage,
+          type: 'danger'
+        })
+      }
     } finally {
       setIsSaving(false)
     }
@@ -1346,13 +1483,13 @@ export const RuntimeAuditDetailModal = ({
                   variant="ghost"
                   size="sm"
                   onClick={handleSave}
-                  disabled={!hasUnsavedEdits || isSaving}
+                  disabled={!hasUnsavedEdits || isSaving || isLoadingAnnotations}
                   aria-label="Lưu nhật trình đối soát"
                   title="Lưu thay đổi phân loại và diễn giải"
                   className="uppercase text-[11px] font-bold text-indigo-700 hover:text-indigo-800 h-7 px-2 shrink-0 border border-indigo-200 bg-indigo-50/50"
                 >
                   <Save size={13} />
-                  <span>{isSaving ? 'Đang lưu...' : localOnly ? 'Lưu' : 'Lưu vào DB'}</span>
+                  <span>{isSaving ? 'Đang lưu...' : 'Lưu đồng bộ'}</span>
                 </Button>
               )}
               {saveStatus && (
@@ -1675,7 +1812,7 @@ export const RuntimeAuditDetailModal = ({
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={!hasUnsavedEdits || isSaving}
+                  disabled={!hasUnsavedEdits || isSaving || isLoadingAnnotations}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1690,7 +1827,7 @@ export const RuntimeAuditDetailModal = ({
                     borderRadius: 3
                   }}
                 >
-                  <span>{isSaving ? 'Đang lưu...' : localOnly ? 'Lưu' : 'Lưu vào DB'}</span>
+                    <span>{isSaving ? 'Đang lưu...' : 'Lưu đồng bộ'}</span>
                 </button>
                 {saveStatus && (
                   <span
@@ -1719,7 +1856,8 @@ export const RuntimeAuditDetailModal = ({
               minHeight: 0,
               position: 'relative',
               background: '#ffffff',
-              order: 4
+              order: 4,
+              pointerEvents: isLoadingAnnotations ? 'none' : 'auto'
             }}
           >
             <style>{`

@@ -3160,6 +3160,8 @@ export default function ProductionStatisticsReport(props) {
         viewMode={auditModalMode}
         data={rawData || filteredData}
         plantKey={plantKey}
+        masterSeq={currentMaster?.MasterSeq || currentMaster?.IdSeq || ''}
+        regCode={currentMaster?.RegCode || currentMaster?.regCode || selectedMasterKey || ''}
         localOnly
         canEdit
         showWorkingTag
